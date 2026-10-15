@@ -1,0 +1,7 @@
+node_modules/
+docs/architecture/*.finalize*.json
+docs/architecture/*.browser-check.json
+docs/architecture/*.delivery.json
+docs/architecture/review-*/
+.chroma/
+data/

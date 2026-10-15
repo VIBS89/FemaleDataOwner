@@ -1,0 +1,267 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ConverData — Permisos de BD heredados del usuario",
+    "output": "docs/architecture/permisos-heredados.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "Usuario",
+      "sublabel": "su propio login SQL",
+      "description": "Persona que usa ConverData. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. ConverData no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)"
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "ConverData",
+      "sublabel": "app + agentes CrewAI",
+      "description": "Aplicación y agentes (AskFlow y converdata-mcp). Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)"
+    },
+    {
+      "id": "vault",
+      "type": "security",
+      "label": "Credencial de sesión",
+      "sublabel": "cifrada, fuera del LLM",
+      "description": "Dónde vive el login SQL del usuario mientras usa la aplicación. On-premise: SessionVault cifrado (Fernet) solo en memoria, que se borra al cerrar la sesión. Cloud native: Secrets Manager con una clave KMS dedicada, legible solo por converdata-mcp y para el usuario del token. En ambos casos el LLM nunca la ve. (OP-03, CN-03)"
+    },
+    {
+      "id": "catalog",
+      "type": "database",
+      "label": "Catálogo",
+      "sublabel": "filtrado por usuario",
+      "description": "Descripción de tablas, columnas y relaciones que usan los agentes para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas. (F2, F4)"
+    },
+    {
+      "id": "llm",
+      "type": "cloud",
+      "label": "Amazon Bedrock",
+      "sublabel": "genera el SQL",
+      "description": "Modelo que redacta el SQL. Solo recibe la pregunta y el esquema ya filtrado del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), la ejecución sigue atada a los permisos reales del usuario. (F16)"
+    },
+    {
+      "id": "sqlserver",
+      "type": "database",
+      "label": "SQL Server",
+      "sublabel": "aplica los permisos reales",
+      "description": "Barrera de seguridad final y fuente de verdad de los permisos: GRANT, DENY, roles, esquemas y seguridad a nivel de fila que ya existen. Como cada consulta llega con el login del usuario, SQL Server aplica exactamente las mismas reglas que si el usuario consultara con SSMS. Un acceso no permitido devuelve el error 229. (F8, F14)"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 380,
+      "label": "1 · Inicio de sesión: SQL Server dice qué puede ver"
+    },
+    {
+      "from": 390,
+      "to": 690,
+      "label": "2 · Pregunta dentro de sus permisos"
+    },
+    {
+      "from": 700,
+      "to": 850,
+      "label": "3 · Pregunta fuera de sus permisos"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m-login",
+      "from": "user",
+      "to": "app",
+      "y": 160,
+      "label": "inicia sesión con su login SQL",
+      "variant": "security"
+    },
+    {
+      "id": "m-probe",
+      "from": "app",
+      "to": "sqlserver",
+      "y": 188,
+      "label": "conecta con ese login",
+      "variant": "security"
+    },
+    {
+      "id": "m-probe-ok",
+      "from": "sqlserver",
+      "to": "app",
+      "y": 216,
+      "label": "login válido",
+      "variant": "return"
+    },
+    {
+      "id": "m-store",
+      "from": "app",
+      "to": "vault",
+      "y": 244,
+      "label": "guarda credencial cifrada",
+      "variant": "security",
+      "note": "nunca llega al LLM"
+    },
+    {
+      "id": "m-perms",
+      "from": "app",
+      "to": "sqlserver",
+      "y": 292,
+      "label": "¿qué objetos puede ver?",
+      "note": "HAS_PERMS_BY_NAME con su login"
+    },
+    {
+      "id": "m-visible",
+      "from": "sqlserver",
+      "to": "app",
+      "y": 340,
+      "label": "solo objetos permitidos",
+      "variant": "return"
+    },
+    {
+      "id": "m-filter",
+      "from": "app",
+      "to": "catalog",
+      "y": 370,
+      "label": "filtra el catálogo"
+    },
+    {
+      "id": "m-ask",
+      "from": "user",
+      "to": "app",
+      "y": 404,
+      "label": "¿ventas por región?",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-search",
+      "from": "app",
+      "to": "catalog",
+      "y": 432,
+      "label": "busca tablas"
+    },
+    {
+      "id": "m-tables",
+      "from": "catalog",
+      "to": "app",
+      "y": 460,
+      "label": "solo tablas permitidas",
+      "variant": "return"
+    },
+    {
+      "id": "m-gen",
+      "from": "app",
+      "to": "llm",
+      "y": 488,
+      "label": "genera SQL",
+      "note": "solo esquema permitido, sin credenciales"
+    },
+    {
+      "id": "m-sql",
+      "from": "llm",
+      "to": "app",
+      "y": 548,
+      "label": "SQL propuesto",
+      "variant": "return"
+    },
+    {
+      "id": "m-cred",
+      "from": "app",
+      "to": "vault",
+      "y": 576,
+      "label": "credencial del usuario",
+      "variant": "security"
+    },
+    {
+      "id": "m-cred-ok",
+      "from": "vault",
+      "to": "app",
+      "y": 604,
+      "label": "su login",
+      "variant": "return"
+    },
+    {
+      "id": "m-exec",
+      "from": "app",
+      "to": "sqlserver",
+      "y": 632,
+      "label": "valida y ejecuta con SU login",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-rows",
+      "from": "sqlserver",
+      "to": "app",
+      "y": 660,
+      "label": "solo filas permitidas",
+      "variant": "return"
+    },
+    {
+      "id": "m-answer",
+      "from": "app",
+      "to": "user",
+      "y": 684,
+      "label": "respuesta",
+      "variant": "return"
+    },
+    {
+      "id": "m-ask2",
+      "from": "user",
+      "to": "app",
+      "y": 714,
+      "label": "¿salarios de RRHH?",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-search2",
+      "from": "app",
+      "to": "catalog",
+      "y": 742,
+      "label": "busca tablas"
+    },
+    {
+      "id": "m-none",
+      "from": "catalog",
+      "to": "app",
+      "y": 770,
+      "label": "ninguna visible",
+      "variant": "return"
+    },
+    {
+      "id": "m-deny",
+      "from": "app",
+      "to": "user",
+      "y": 798,
+      "label": "no hay datos disponibles para ti",
+      "variant": "security",
+      "note": "no revela que RRHH existe; si se forzara: error 229"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Principio",
+      "items": [
+        "ConverData nunca amplía permisos: cada consulta usa el login SQL del propio usuario",
+        "Lo que el usuario no ve en SSMS, tampoco lo ve en ConverData"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Tres capas de defensa",
+      "items": [
+        "1 · Catálogo filtrado: el agente no conoce tablas ajenas",
+        "2 · Validador: rechaza objetos no visibles antes de ejecutar",
+        "3 · SQL Server: aplica GRANT / DENY / RLS reales (error 229)"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Igual on-premise y en cloud",
+      "items": [
+        "On-premise: credencial en SessionVault en memoria",
+        "Cloud native: Secrets Manager + KMS, leída solo para el usuario del token"
+      ]
+    }
+  ]
+}

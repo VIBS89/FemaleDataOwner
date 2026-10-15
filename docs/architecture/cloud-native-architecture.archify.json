@@ -1,0 +1,466 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConverData — Arquitectura cloud native en AWS",
+    "output": "docs/architecture/cloud-native-architecture.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "cognito",
+      "type": "security",
+      "label": "Amazon Cognito",
+      "sublabel": "SSO con IdP corporativo",
+      "pos": [
+        280,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Identidad de aplicación. Federa el SSO corporativo y emite el JWT que validan el ALB, AgentCore Runtime y AgentCore Gateway. Su 'sub' identifica al usuario en todo el sistema y es la clave para recuperar su login SQL, de modo que nunca se usa una identidad que el LLM pueda inventar. (F14, CN-01, CN-03)"
+    },
+    {
+      "id": "bedrock",
+      "type": "cloud",
+      "label": "Amazon Bedrock",
+      "sublabel": "Claude · Nova · Cohere",
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "sin invocation logging",
+      "description": "Cerebro de los agentes. Sirve un modelo por rol: Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez independiente y Cohere multilingüe para embeddings. Guardrails filtra la inyección de prompt en la entrada y la salida. Invocation logging desactivado: procesa sin guardar. NIM queda como fallback controlado. (F16, CN-06)"
+    },
+    {
+      "id": "mcpclient",
+      "type": "external",
+      "label": "Cliente MCP",
+      "sublabel": "Claude / IDE",
+      "pos": [
+        1000,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente la tool 'ask'). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)"
+    },
+    {
+      "id": "opensearch",
+      "type": "database",
+      "label": "OpenSearch Serverless",
+      "sublabel": "solo metadatos",
+      "pos": [
+        1240,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Memoria semántica del catálogo: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario y plantillas de golden SQL. Permite elegir 5 a 15 tablas relevantes entre más de 300, filtrando por las que el usuario puede ver. Solo guarda metadatos estructurales y plantillas anonimizadas, nunca valores de clientes. (F2, F4, CN-06, CN-02)"
+    },
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Usuario",
+      "sublabel": "navegador",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Usuario de negocio que pregunta en lenguaje natural desde el navegador. Recibe tabla, gráfico, explicación, SQL usado, supuestos y nivel de confianza, y puede valorar la respuesta con 👍/👎 para mejorar el golden SQL. (F10, F12)"
+    },
+    {
+      "id": "edge",
+      "type": "security",
+      "label": "WAF + ALB",
+      "sublabel": "auth Cognito",
+      "pos": [
+        280,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Puerta de entrada. AWS WAF bloquea abuso y aplica rate limiting; el ALB termina TLS y obliga a autenticarse con Cognito antes de llegar a la aplicación. No registra cuerpos de petición, así que las preguntas no quedan en logs. (CN-01, CN-06, CN-04)"
+    },
+    {
+      "id": "ecs",
+      "type": "frontend",
+      "label": "Chainlit + BFF",
+      "sublabel": "ECS Fargate",
+      "pos": [
+        520,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Interfaz web Chainlit y API REST (FastAPI BFF) en ECS Fargate. Muestra los pasos del flow en vivo, las tablas y los gráficos; reenvía el JWT del usuario a AgentCore Runtime y transmite la respuesta en streaming. Data layer de Chainlit desactivado: no persiste chats; las descargas CSV/XLSX van directas al navegador. (F12, CN-06, CN-04)"
+    },
+    {
+      "id": "runtime",
+      "type": "backend",
+      "label": "AgentCore Runtime",
+      "sublabel": "AskFlow CrewAI",
+      "pos": [
+        760,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "historial solo en sesión",
+      "description": "Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)"
+    },
+    {
+      "id": "gateway",
+      "type": "backend",
+      "label": "AgentCore Gateway",
+      "sublabel": "endpoint MCP",
+      "pos": [
+        1000,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Punto único MCP. Publica las herramientas de converdata-mcp (search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, CN-01, CN-04)"
+    },
+    {
+      "id": "mcp",
+      "type": "backend",
+      "label": "converdata-mcp",
+      "sublabel": "Runtime modo VPC",
+      "pos": [
+        1240,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Servidor MCP propio, en AgentCore Runtime en modo VPC. Busca en el catálogo, valida el SQL (AST, objetos visibles, NOEXEC, SHOWPLAN), ejecuta SELECT y SPs de la lista blanca con el login SQL del propio usuario y escribe la auditoría on-prem. Es el único componente que toca SQL Server en tiempo de consulta. (F7, F8, F14, CN-03)"
+    },
+    {
+      "id": "secrets",
+      "type": "security",
+      "label": "Secrets Manager",
+      "sublabel": "login SQL por usuario",
+      "pos": [
+        1480,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "CMK KMS",
+      "description": "Guarda el login SQL de cada usuario, cifrado con una CMK de KMS dedicada. Solo el rol de converdata-mcp puede leerlo, y solo para el usuario del JWT. Permite que cada consulta corra con los permisos reales de SQL Server. CloudTrail audita cada lectura. Son credenciales, no datos de clientes. (F14, CN-03)"
+    },
+    {
+      "id": "tgw",
+      "type": "cloud",
+      "label": "Transit Gateway",
+      "sublabel": "Site-to-Site VPN / DX",
+      "pos": [
+        1240,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Conectividad privada entre la VPC y la red on-prem por Site-to-Site VPN o Direct Connect. Todo el tráfico TDS (puerto 1433) hacia SQL Server pasa por aquí, sin internet. El firewall on-prem solo abre el 1433 a las subredes de AgentCore y del Catalog Builder. (CN-01)"
+    },
+    {
+      "id": "sqlserver",
+      "type": "database",
+      "label": "SQL Server",
+      "sublabel": "varias BDs on-prem",
+      "pos": [
+        1480,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Fuente de verdad de los datos, que permanece on-premise. Aplica los permisos reales de cada login: es la barrera de seguridad final aunque fallen los controles de la aplicación. Los resultados viajan a AWS solo para procesarse en memoria y mostrarse. (F8, F14, CN-06)"
+    },
+    {
+      "id": "scheduler",
+      "type": "messagebus",
+      "label": "EventBridge Scheduler",
+      "sublabel": "nocturno / bajo demanda",
+      "pos": [
+        760,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Dispara el Catalog Builder cada noche y bajo demanda (Step Functions), para que el catálogo refleje los cambios de esquema sin intervención manual. (F1, CN-01, CN-02)"
+    },
+    {
+      "id": "catalog",
+      "type": "backend",
+      "label": "Catalog Builder",
+      "sublabel": "ECS task",
+      "pos": [
+        1000,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Tarea ECS que mapea las BDs: lee la estructura con sql-to-mcp y sys.*, usa Bedrock para generar descripciones y sinónimos de negocio, y escribe YAML revisable por humanos en S3. Las muestras de datos solo se usan en memoria y se descartan. Es incremental: un hash del esquema evita reprocesar lo que no cambió. (F1, CN-06, CN-02)"
+    },
+    {
+      "id": "anythingmcp",
+      "type": "backend",
+      "label": "sql-to-mcp",
+      "sublabel": "AnythingMCP Fargate",
+      "pos": [
+        1240,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "sql-to-mcp (AnythingMCP) en Fargate privado, con un login técnico de solo metadatos. Expone mssql_list_tables, describe_table y find_columns para el descubrimiento inicial. Solo participa en la ingesta, nunca en consultas de usuarios. Servicio aislado por su licencia AGPL. (F1, CN-02)"
+    },
+    {
+      "id": "s3",
+      "type": "database",
+      "label": "S3 catálogo",
+      "sublabel": "YAML sin muestras",
+      "pos": [
+        1000,
+        680
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Catálogo fuente versionado en YAML, solo con metadatos estructurales. Permite la revisión humana de descripciones, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con sample_values. (F1, F2, CN-06, CN-02)"
+    },
+    {
+      "id": "auditdb",
+      "type": "database",
+      "label": "ConverData_Audit",
+      "sublabel": "auditoría + golden SQL",
+      "pos": [
+        1480,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "on-prem",
+      "description": "Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, tablas, validaciones, confianza, feedback) y el golden SQL original con sus literales. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, CN-06, CN-05)"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Ingesta de catálogo",
+      "wraps": [
+        "scheduler",
+        "catalog",
+        "anythingmcp",
+        "s3"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "On-premise",
+      "wraps": [
+        "sqlserver",
+        "auditdb"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-edge",
+      "from": "users",
+      "to": "edge",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "edge-cognito",
+      "from": "edge",
+      "to": "cognito",
+      "label": "OIDC",
+      "variant": "security"
+    },
+    {
+      "id": "edge-ecs",
+      "from": "edge",
+      "to": "ecs",
+      "label": "JWT",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ecs-runtime",
+      "from": "ecs",
+      "to": "runtime",
+      "label": "invoke",
+      "variant": "emphasis"
+    },
+    {
+      "id": "runtime-llm",
+      "from": "runtime",
+      "to": "bedrock",
+      "label": "LLM"
+    },
+    {
+      "id": "runtime-gateway",
+      "from": "runtime",
+      "to": "gateway",
+      "label": "MCP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "client-gateway",
+      "from": "mcpclient",
+      "to": "gateway",
+      "label": "OAuth MCP"
+    },
+    {
+      "id": "gateway-mcp",
+      "from": "gateway",
+      "to": "mcp",
+      "label": "tools",
+      "variant": "emphasis"
+    },
+    {
+      "id": "mcp-rag",
+      "from": "mcp",
+      "to": "opensearch",
+      "label": "RAG"
+    },
+    {
+      "id": "mcp-secret",
+      "from": "mcp",
+      "to": "secrets",
+      "label": "cred SQL",
+      "variant": "security"
+    },
+    {
+      "id": "mcp-tgw",
+      "from": "mcp",
+      "to": "tgw",
+      "label": "TDS 1433",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tgw-sql",
+      "from": "tgw",
+      "to": "sqlserver",
+      "label": "VPN / DX",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sched-catalog",
+      "from": "scheduler",
+      "to": "catalog",
+      "label": "cron",
+      "variant": "dashed"
+    },
+    {
+      "id": "catalog-discover",
+      "from": "catalog",
+      "to": "anythingmcp",
+      "label": "describe"
+    },
+    {
+      "id": "discover-tgw",
+      "from": "anythingmcp",
+      "to": "tgw",
+      "label": "metadatos",
+      "variant": "dashed"
+    },
+    {
+      "id": "catalog-s3",
+      "from": "catalog",
+      "to": "s3",
+      "label": "YAML"
+    },
+    {
+      "id": "tgw-audit",
+      "from": "tgw",
+      "to": "auditdb",
+      "label": "auditoría",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Residencia de datos",
+      "items": [
+        "AWS procesa y muestra: no persiste datos, preguntas ni SQL",
+        "Auditoría y golden SQL en SQL Server on-prem",
+        "Historial solo en la microVM de la sesión; Chainlit sin data layer"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Bedrock AgentCore",
+      "items": [
+        "Runtime: AskFlow (CrewAI) y converdata-mcp, aislados por sesión",
+        "Gateway: un endpoint MCP para agentes y clientes externos",
+        "Observability: solo telemetría sin contenido → CloudWatch"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Identidad",
+      "items": [
+        "Cognito = identidad de app; login SQL por usuario = identidad de datos",
+        "La credencial se toma del JWT propagado, nunca del LLM"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Modelos",
+      "items": [
+        "Bedrock por rol: Claude Sonnet / Haiku, juez Nova o Llama, Cohere embeddings",
+        "Fallback NIM desactivado en prod salvo DPA o NIM en la VPC"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Ingesta",
+      "items": [
+        "Catalog Builder: muestras solo en memoria para describir columnas",
+        "S3 (solo metadatos) → indexador → OpenSearch"
+      ]
+    }
+  ]
+}

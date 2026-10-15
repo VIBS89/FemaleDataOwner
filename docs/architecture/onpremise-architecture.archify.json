@@ -1,0 +1,323 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConverData — Arquitectura on-premise",
+    "output": "docs/architecture/onpremise-architecture.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "bedrock",
+      "type": "cloud",
+      "label": "Amazon Bedrock",
+      "sublabel": "LLM por rol + embeddings",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "único servicio externo",
+      "description": "Único servicio AWS del MVP, usado con la cuenta actual y un perfil IAM limitado a bedrock:InvokeModel. Sirve un modelo por rol: Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez independiente y Cohere multilingüe para embeddings. Invocation logging desactivado: procesa sin guardar. Es la misma config/models.yaml que usará producción. (F16, OP-06)"
+    },
+    {
+      "id": "chroma",
+      "type": "database",
+      "label": "ChromaDB",
+      "sublabel": "embebida ./.chroma",
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Memoria semántica local que sustituye a OpenSearch en el MVP. Indexa tablas, columnas, glosario y plantillas de golden SQL para que el Schema Linker elija 5–15 tablas entre todas, filtrando por lo que el usuario puede ver. Sin valores de clientes. Detrás de la interfaz VectorStore, así que cambiar a OpenSearch no toca la lógica. (F2, OP-02)"
+    },
+    {
+      "id": "catalog",
+      "type": "backend",
+      "label": "Catalog Builder",
+      "sublabel": "CLI manual",
+      "pos": [
+        1000,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Comando 'converdata catalog build/refresh' que se ejecuta a mano. Lee la estructura de las BDs piloto con sql-to-mcp y sys.*, genera descripciones y sinónimos con Bedrock, escribe YAML revisable en catalog/ (versionado en git) e indexa en Chroma. Las muestras de datos se usan solo en memoria. Sustituye a EventBridge + ECS + S3. (F1, OP-02)"
+    },
+    {
+      "id": "anythingmcp",
+      "type": "cloud",
+      "label": "sql-to-mcp",
+      "sublabel": "AnythingMCP :4000",
+      "pos": [
+        1240,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "login metadatos",
+      "description": "Contenedor AnythingMCP del mismo docker compose, con un login técnico de solo metadatos. Expone mssql_list_tables, describe_table y find_columns para el mapeo inicial de las BDs. Solo se usa en la ingesta, nunca para responder a usuarios. (F1, OP-02)"
+    },
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Usuario piloto",
+      "sublabel": "navegador",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Grupo piloto de 3–5 personas de negocio que validan el MVP durante 2 semanas. Entran con su propio login SQL, preguntan en lenguaje natural y valoran cada respuesta con 👍/👎. Su feedback mide la hipótesis (≥ 70 % 👍) y alimenta el golden SQL. (OP-01)"
+    },
+    {
+      "id": "chainlit",
+      "type": "frontend",
+      "label": "Chainlit",
+      "sublabel": "chat + login SQL",
+      "pos": [
+        280,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Interfaz de chat del MVP. Su pantalla de login valida directamente el login SQL del usuario, sin Cognito ni SSO. Muestra los pasos del AskFlow en vivo, la tabla, el gráfico y el panel 'cómo lo obtuve' con SQL, supuestos y confianza. Data layer desactivado: no guarda chats. (F12, OP-04)"
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "FastAPI + AskFlow",
+      "sublabel": "CrewAI Flow en proceso",
+      "pos": [
+        520,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "SessionVault en memoria",
+      "description": "Corazón del MVP en un solo proceso: FastAPI (/login, /ask, /feedback) y el AskFlow de CrewAI con sus 8 pasos deterministas: intención, schema linking, valores, planner, validator con autocorrección, executor, verifier y analyst. Guarda el login SQL de cada sesión cifrado solo en memoria (SessionVault). Es el mismo código que irá a AgentCore Runtime. (F3–F10, F14, OP-03)"
+    },
+    {
+      "id": "mcp",
+      "type": "backend",
+      "label": "converdata-mcp",
+      "sublabel": "FastMCP en /mcp",
+      "pos": [
+        760,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Herramientas del agente (search_catalog, describe_table, lookup_values, validate_sql, run_select, exec_procedure, ask). Los agentes las llaman en proceso y los clientes externos por /mcp. Valida todo el SQL (AST, objetos visibles, NOEXEC, SHOWPLAN) y lo ejecuta con el login del propio usuario. Es el mismo servidor que irá a AgentCore Gateway. (F7, F8, F12, OP-04)"
+    },
+    {
+      "id": "sqlserver",
+      "type": "database",
+      "label": "SQL Server",
+      "sublabel": "BD piloto (réplica)",
+      "pos": [
+        1240,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Primero AdventureWorks en un contenedor (sqlserver-dev), después 1–2 BDs reales en una réplica o copia de solo lectura. Conexión TDS directa desde la red corporativa, sin VPN. Aplica los permisos reales de cada login: es la barrera de seguridad final. (F8, F14, OP-01)"
+    },
+    {
+      "id": "mcpclient",
+      "type": "external",
+      "label": "Cliente MCP",
+      "sublabel": "Claude Code / Desktop",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Prueba opcional de la interfaz MCP: Claude Code o Claude Desktop apuntan a http://localhost/mcp con el session_id de /login y usan la herramienta 'ask'. Valida que ConverData sirve como herramienta para otros agentes antes de publicarlo en AgentCore Gateway. (F12, OP-04)"
+    },
+    {
+      "id": "audit",
+      "type": "database",
+      "label": "Auditoría SQLite",
+      "sublabel": "./data/audit.db",
+      "pos": [
+        1000,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "on-prem",
+      "description": "Trazabilidad del MVP en un archivo SQLite local con el modelo de tablas de F11: pregunta, SQL, tablas, validaciones, latencias, tokens, confianza y feedback, además del golden SQL aprobado. Queda en el equipo on-prem (cumple F17) y sirve para calcular las métricas de salida del MVP. En producción se sustituye por ConverData_Audit. (F11, OP-05)"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Red corporativa (on-premise)",
+      "wraps": [
+        "chainlit",
+        "app",
+        "mcp",
+        "chroma",
+        "catalog",
+        "anythingmcp",
+        "sqlserver",
+        "mcpclient",
+        "audit"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Contenedor converdata-app",
+      "wraps": [
+        "app",
+        "mcp"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Ingesta manual",
+      "wraps": [
+        "catalog",
+        "anythingmcp"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-chat",
+      "from": "users",
+      "to": "chainlit",
+      "label": "pregunta",
+      "variant": "emphasis"
+    },
+    {
+      "id": "chat-app",
+      "from": "chainlit",
+      "to": "app",
+      "label": "SSE",
+      "variant": "emphasis"
+    },
+    {
+      "id": "app-llm",
+      "from": "app",
+      "to": "bedrock",
+      "label": "LLM"
+    },
+    {
+      "id": "app-tools",
+      "from": "app",
+      "to": "mcp",
+      "label": "tools",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tools-rag",
+      "from": "mcp",
+      "to": "chroma",
+      "label": "RAG"
+    },
+    {
+      "id": "tools-sql",
+      "from": "mcp",
+      "to": "sqlserver",
+      "label": "login usuario",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tools-audit",
+      "from": "mcp",
+      "to": "audit",
+      "label": "traza"
+    },
+    {
+      "id": "client-mcp",
+      "from": "mcpclient",
+      "to": "mcp",
+      "label": "MCP"
+    },
+    {
+      "id": "catalog-index",
+      "from": "catalog",
+      "to": "chroma",
+      "label": "indexa"
+    },
+    {
+      "id": "catalog-discover",
+      "from": "catalog",
+      "to": "anythingmcp",
+      "label": "describe"
+    },
+    {
+      "id": "discover-db",
+      "from": "anythingmcp",
+      "to": "sqlserver",
+      "label": "metadatos",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Qué valida el MVP",
+      "items": [
+        "Precisión ≥ 80 % en 30–50 preguntas reales",
+        "0 ejecuciones indebidas · permisos por usuario respetados",
+        "Latencia, coste Bedrock por pregunta y 👍 del piloto"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Despliegue",
+      "items": [
+        "Un docker compose en un servidor de la red corporativa",
+        "converdata-app + anythingmcp (+ sqlserver-dev para pruebas)",
+        "Sin VPN ni infraestructura cloud: solo llamadas HTTPS a Bedrock"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Residencia de datos",
+      "items": [
+        "Catálogo, Chroma, auditoría y sesión quedan on-prem",
+        "Bedrock solo procesa (invocation logging desactivado)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Camino a AWS",
+      "items": [
+        "Chroma → OpenSearch · SessionVault → Secrets Manager",
+        "SQLite → ConverData_Audit · proceso → AgentCore Runtime + Gateway"
+      ]
+    }
+  ]
+}
