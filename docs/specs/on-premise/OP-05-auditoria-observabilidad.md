@@ -7,7 +7,7 @@
 - La escribe el servicio `ConverData-API` con su cuenta gMSA (solo `INSERT` en `audit`; `SELECT` para el rol `auditor`).
 - **Fail-closed** como en F11.
 - Respaldo, retención y alta disponibilidad: los del plan del DBA para la BD `ConverData`. La purga por retención (180 días) es un job de SQL Server Agent.
-- **Scorecard** (precisión, calibración, latencia, coste, 👍 y las métricas de F25): vistas SQL en el esquema `audit` y el comando `converdata report scorecard`. Si la organización tiene **Power BI Report Server**, puede leer esas vistas para un tablero.
+- **Scorecard** (precisión, calibración, latencia, coste, 👍 y las métricas de F25): vistas SQL en el esquema `audit` y el comando `converdata metrics report` de F25. Si la organización tiene **Power BI Report Server**, puede leer esas vistas para un tablero.
 
 ## Rastro en las BDs de datos
 - Todas las conexiones de usuarios llevan `ApplicationName=ConverData`, así que el DBA puede filtrar su actividad con **SQL Server Audit** o Extended Events (`client_app_name`) sin cambios en ConverData.

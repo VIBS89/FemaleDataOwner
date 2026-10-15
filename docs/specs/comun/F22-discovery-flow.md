@@ -18,7 +18,7 @@ para no depender de expertos ni de documentación dispersa.
 | Latencia objetivo | p95 < 10 s | p95 < 40 s |
 | Salida | `discovery` (candidatos) | `data` + `sql` |
 
-## Pasos (CrewAI Flow determinista)
+## Pasos (grafo de LangGraph determinista)
 1. **Intent** (F3): `intent = discovery`. Extrae `entities`, `business_context` (p. ej. "onboarding digital"), `asset_kind_hint`
    (columna, tabla, indicador, regla) y `environment_hint` ("producción" por defecto).
 2. **Recuperación híbrida** (F2), filtrada por visibilidad (F14):
@@ -30,7 +30,7 @@ para no depender de expertos ni de documentación dispersa.
    se añaden su tabla canónica y sus copias en otras BDs (aristas `same_entity`).
 3. **Agrupación por activo lógico**: los objetos físicos con el mismo `asset_key` en varios ambientes (F1) se agrupan en un candidato con
    `locations[]`. Si los `schema_hash` difieren entre ambientes, se añade el aviso "QA difiere de producción".
-4. **Reranking con LLM**: el agente `Discovery Analyst` (rol `planner` de F16, temperatura 0) recibe hasta 25 candidatos en formato compacto
+4. **Reranking con LLM**: el nodo `rerank` (rol `planner` de F16, temperatura 0, salida estructurada) recibe hasta 25 candidatos en formato compacto
    (id, descripción, fuente de la descripción, reglas, evidencias) y devuelve un orden con `relevance` (0..1) y una justificación de una línea
    por candidato. **No puede añadir candidatos que no estén en la lista** (se valida el id).
 5. **Expansión de contexto** para los 5 primeros:

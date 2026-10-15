@@ -5,7 +5,7 @@ Como **usuario**, quiero que el sistema genere la consulta correcta en T-SQL o u
 para obtener datos consistentes con los reportes de la empresa.
 
 ## Comportamiento
-- Agente `SQL Planner` (rol `coder` de F16, por ejemplo Claude Sonnet en Bedrock, temperatura 0).
+- Nodo `planner` del grafo (rol `coder` de F16, por ejemplo Claude Sonnet en Bedrock, temperatura 0).
 - **Prioridad de estrategias** (ampliada con F21):
   0. **Métrica certificada o consulta verificada** de la capa semántica ([F21](F21-semantic-layer.md)): el SQL se compila desde la definición.
   1. **Stored procedure de la lista blanca** cuyo `description`/`intents` en `config/procedures.yaml` coincide con la pregunta (similitud ≥ 0.8) y cuyos parámetros pueden deducirse de la pregunta. Así se respeta la lógica oficial de negocio.

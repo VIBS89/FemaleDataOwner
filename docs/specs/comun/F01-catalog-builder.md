@@ -42,7 +42,7 @@ servers:
 2. **Muestras en memoria** (vía `converdata-discovery`, contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
 
 ## Enriquecimiento con LLM
-Lo hace el CatalogBuilder Crew con el rol `planner` de F16. Para cada tabla y columna sin `MS_Description` genera:
+Lo hace el Catalog Builder (proceso batch en Python, con llamadas directas por lotes al rol `planner` de F16). Para cada tabla y columna sin `MS_Description` genera:
 - `description` (español, una o dos frases)
 - `synonyms[]` (términos de negocio)
 - `domain` (por ejemplo ventas, inventario, RRHH)
@@ -54,6 +54,9 @@ Las fuentes de conocimiento no estructurales (diccionarios de datos, documentaci
 se ingieren con F23 y se vinculan a este catálogo por `asset_key`.
 
 ## Salida: `<catálogo>/<environment>/<server>/<db>/<schema>.<table>.yaml`
+Este es el **formato lógico** de un objeto del catálogo. Dónde se persiste depende del despliegue: on-premise en las tablas del esquema
+`catalog` de la BD `ConverData`, con exportación a YAML para revisión en git ([OP-02](../on-premise/OP-02-catalogo-memoria.md));
+cloud native como YAML versionado en S3 ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)). Las reglas sobre "el YAML" aplican a ambos formatos.
 ```yaml
 id: produccion:SRV01.Ventas.dbo.Pedido
 asset_key: Ventas.dbo.Pedido

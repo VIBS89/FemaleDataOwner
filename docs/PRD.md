@@ -19,7 +19,7 @@ las reglas de negocio que aplican, sus relaciones, sus responsables y un **nivel
 bases de datos y sobre el conocimiento hoy disperso (diccionarios, documentación, procesos ETL y la experiencia de los expertos), y convierte
 cada respuesta de un experto en conocimiento reutilizable por toda la organización.
 
-El producto tiene dos flujos sobre la misma plataforma (agentes CrewAI con Amazon Bedrock):
+El producto tiene dos flujos sobre la misma plataforma (grafos de LangGraph servidos por FastAPI, con Amazon Bedrock como LLM):
 1. **DiscoverFlow (F22), el caso de uso principal**: el usuario describe el dato que necesita y recibe una lista priorizada de campos y
    tablas candidatas, con base de datos, ambiente, servidor, descripción funcional, reglas de negocio, relaciones, responsables y nivel
    de confianza. Razona sobre metadatos, diccionarios, documentación, ETL y conocimiento capturado de expertos (F23, F24). No ejecuta SQL.
@@ -167,7 +167,7 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 | **Idioma** | Español | — |
 
 ## 8. Arquitectura (resumen)
-- **Orquestación**: agentes CrewAI en flujos deterministas: DiscoverFlow (descubrimiento) y AskFlow (consulta).
+- **Orquestación**: DiscoverFlow (descubrimiento) y AskFlow (consulta) son grafos de **LangGraph** con pasos fijos, servidos por **FastAPI**.
 - **LLM y embeddings**: Amazon Bedrock (Claude para razonar, un modelo distinto como juez, Cohere multilingüe para embeddings).
 - **Memoria**: on-premise en SQL Server 2025 (tipo `VECTOR` + Full-Text, búsqueda híbrida; tablas de grafo para relaciones;
   tablas temporales para el historial); en la nube, OpenSearch Serverless.
@@ -177,14 +177,37 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 
 Detalle en los diagramas de `docs/architecture/` y en las specs OP-01 a OP-06 / CN-01 a CN-06.
 
+### Stack tecnológico (decidido el 2026-10-15)
+| Capa | Tecnología | Uso |
+|---|---|---|
+| API web | **FastAPI** + **Pydantic v2** | `/discover`, `/ask`, `/assets`, `/curation`, `/metrics`, `/login`; streaming SSE |
+| Chat | **Chainlit** | Tarjetas de candidatos, botones ✔/✖, pasos en vivo |
+| Orquestación | **LangGraph** | DiscoverFlow y AskFlow como grafos con pasos fijos, ciclos (validador → planner) y aristas condicionales |
+| LLM y embeddings | **Amazon Bedrock** vía **`langchain-aws`** (`ChatBedrockConverse`, `BedrockEmbeddings`) | Claude para razonar, Nova o Llama como juez, Cohere para embeddings; salida estructurada con modelos Pydantic |
+| Herramientas | **FastMCP** (`converdata-mcp`, `converdata-discovery`) | Las mismas herramientas para los grafos y para clientes MCP externos |
+| Acceso a SQL Server | **pyodbc** + ODBC Driver 18 | Consultas con el login de cada usuario |
+| Validación de SQL | **sqlglot** (dialecto `tsql`) | AST, lista negra, inyección de `TOP` |
+| Datos personales | **Microsoft Presidio** | Redacción de documentos antes de indexar |
+| Almacén de trabajo | **SQL Server 2025** on-premise · **OpenSearch Serverless** en la nube | Catálogo, conocimiento, curación, auditoría |
+| Alojamiento | IIS + servicios de Windows on-premise · **AgentCore Runtime** en AWS | El mismo código en ambos |
+
+Reglas de uso de LangGraph:
+- **El framework vive en una sola capa** (`converdata/flows/`). Herramientas, `VectorStore`, validador, prompts y modelos Pydantic son
+  Python puro y no importan LangGraph, de modo que cambiar de orquestador no obliga a reescribir la lógica.
+- **Nodos con llamadas directas y salida estructurada**, no agentes autónomos: el orden de los pasos lo define el grafo, nunca el modelo.
+- **Checkpointer solo en memoria** durante la petición (el estado contiene filas y preguntas, clases D1/D2 de F17). La trazabilidad
+  persistente es la auditoría de F11; no se usa un checkpointer persistente fuera de la red del banco.
+- El progreso de cada nodo (`stream_mode="updates"`) alimenta los eventos SSE y los pasos en vivo de Chainlit.
+- En AWS, los grafos se empaquetan para AgentCore Runtime; LangGraph también es compatible con AgentCore Evaluations.
+
 ### 8.1 Principios de diseño
-1. **Determinismo en la orquestación**: un CrewAI Flow con pasos fijos. Los agentes razonan dentro de cada paso, pero no deciden saltarse pasos.
+1. **Determinismo en la orquestación**: un grafo de LangGraph con pasos fijos. El LLM razona dentro de cada nodo, pero no decide el orden ni puede saltarse pasos.
 2. **SQL Server es la barrera de seguridad**: cada consulta corre con el login del usuario. Los guardrails de la aplicación son defensa en profundidad.
 3. **Nada se ejecuta sin validar**: validación estática, compilación (NOEXEC) y plan estimado (SHOWPLAN) antes de ejecutar.
 4. **Toda respuesta es auditable**: SQL, tablas, supuestos, validaciones y confidence acompañan a cada dato.
 5. **Memoria revisable por humanos**: el catálogo vive en YAML versionable; el índice vectorial es derivado.
 6. **Cero persistencia de datos fuera de la red del cliente**: la nube procesa y muestra; datos, preguntas, SQL y auditoría persisten solo on-premise (F17).
-7. **Misma lógica, dos despliegues**: los agentes, las herramientas MCP y el validador son idénticos en cloud native y on-premise; solo cambia la infraestructura.
+7. **Misma lógica, dos despliegues**: los grafos de LangGraph, las herramientas MCP y el validador son idénticos en cloud native y on-premise; solo cambia la infraestructura.
 8. **Descubrir antes que consultar**: ante la duda, el router elige el DiscoverFlow, que no toca datos (F3, F22).
 9. **El conocimiento se captura con el uso**: cada confirmación de un usuario o respuesta de un responsable se convierte en conocimiento revisado y reutilizable (F24).
 10. **Cada recomendación muestra su evidencia**: fuente de la descripción (humana, diccionario, documento o IA sin revisar) y por qué se recomienda.
@@ -272,12 +295,16 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 
 ## 13. Decisiones y preguntas abiertas
 ### Decisiones tomadas
-1. **Visibilidad (decidido, 2026-10-14)**: el usuario solo ve información a la que tiene acceso, también en el descubrimiento (metadatos,
+1. **Stack (decidido, 2026-10-15)**: FastAPI + LangGraph + Bedrock (`langchain-aws`) en lugar de CrewAI. Motivos: el PRD pide pasos fijos,
+   ciclos (validador → planner) y trazabilidad, que son el modelo nativo de LangGraph; las abstracciones de agente de CrewAI añaden tokens
+   y latencia sin aportar valor en un flujo de pasos fijos (objetivo p95 < 10 s); y LangGraph es compatible con AgentCore Runtime y
+   AgentCore Evaluations. Detalle en la §8.
+2. **Visibilidad (decidido, 2026-10-14)**: el usuario solo ve información a la que tiene acceso, también en el descubrimiento (metadatos,
    relaciones, reglas, documentos). Consecuencia: quien no tiene acceso a una BD no descubrirá que existe; el agente le ofrece escalar al
    responsable sin revelar nombres. Esto limita en parte la "democratización" de la propuesta a favor de la seguridad.
-2. **Autenticación (decidido, 2026-10-14)**: logins SQL por usuario, que también calculan la visibilidad del descubrimiento (OP-03).
+3. **Autenticación (decidido, 2026-10-14)**: logins SQL por usuario, que también calculan la visibilidad del descubrimiento (OP-03).
    Windows/AD con SSO y delegación restringida de Kerberos queda como evolución, sujeta a una prueba de concepto (OP-03).
-3. **Nombre**: la propuesta usa "Enterprise Data Discovery Agent"; ConverData es el nombre técnico del proyecto.
+4. **Nombre**: la propuesta usa "Enterprise Data Discovery Agent"; ConverData es el nombre técnico del proyecto.
 
 ### Preguntas abiertas
 1. ¿Dónde viven exactamente los diccionarios y la documentación del dominio piloto, y quién da acceso?
@@ -390,7 +417,7 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 | Permisos heredados también en el descubrimiento | F14 | OP-03 | CN-03 |
 
 Antes de esta revisión, cloud native no cubría F22–F25 y on-premise no tenía dónde guardar el conocimiento ni la curación.
-Pendiente: actualizar los diagramas de arquitectura (el on-premise ya muestra "Fuentes de conocimiento"; el cloud native, no).
+Los tres diagramas de `docs/architecture/` reflejan el descubrimiento: DiscoverFlow, fuentes de conocimiento, esquemas `knowledge` y `curation`, y permisos heredados también al descubrir.
 
 ## Anexo A. Catálogo de specs
 ```

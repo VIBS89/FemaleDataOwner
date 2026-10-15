@@ -19,8 +19,8 @@
       "id": "app",
       "type": "backend",
       "label": "ConverData",
-      "sublabel": "app + agentes CrewAI",
-      "description": "Aplicación y agentes (AskFlow y converdata-mcp). Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)"
+      "sublabel": "FastAPI + LangGraph",
+      "description": "Aplicación FastAPI con los grafos de LangGraph (DiscoverFlow y AskFlow) y converdata-mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)"
     },
     {
       "id": "vault",
@@ -34,7 +34,7 @@
       "type": "database",
       "label": "Catálogo",
       "sublabel": "filtrado por usuario",
-      "description": "Descripción de tablas, columnas y relaciones que usan los agentes para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas. (F2, F4)"
+      "description": "Descripción de tablas, columnas, relaciones, reglas y documentos vinculados que usan los agentes para descubrir y para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco al descubrir. (F2, F4, F14, F22)"
     },
     {
       "id": "llm",
@@ -243,7 +243,8 @@
       "title": "Principio",
       "items": [
         "ConverData nunca amplía permisos: cada consulta usa el login SQL del propio usuario",
-        "Lo que el usuario no ve en SSMS, tampoco lo ve en ConverData"
+        "Lo que el usuario no ve en SSMS, tampoco lo ve en ConverData",
+        "El descubrimiento hereda los mismos permisos: solo aparecen metadatos, reglas y documentos de objetos visibles"
       ]
     },
     {

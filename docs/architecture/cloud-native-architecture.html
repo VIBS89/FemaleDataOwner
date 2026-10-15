@@ -5219,7 +5219,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Boundaries (behind everything) -->
         <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Ingesta de catálogo" x="730" y="490" width="700" height="274" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="On-premise" x="1450" y="330" width="220" height="274" rx="8" class="c-security-group" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="On-premise" x="1450" y="330" width="220" height="434" rx="8" class="c-security-group" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
@@ -5294,6 +5294,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <path data-graph-role="automatic-crossover-underlay" d="M 840 264 L 840 360" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
           <path data-edge-from="runtime" data-edge-to="codeint" data-edge-label="código" data-edge-key="17" data-edge-id="runtime-sandbox" data-composition-points="840,264;840,360" data-composition-crossover="halo" data-composition-independent="true" d="M 840 264 L 840 360" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         </g>
+        <g data-graph-role="automatic-crossover" style="--step:18">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1384 584 L 1384 688 Q 1384 696 1392 696 L 1480 696" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="discovery" data-edge-to="sources" data-edge-label="docs · SSIS" data-edge-key="18" data-edge-id="discovery-sources" data-composition-points="1384,584;1384,696;1480,696" data-composition-crossover="halo" data-composition-independent="true" d="M 1384 584 L 1384 688 Q 1384 696 1392 696 L 1480 696" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        </g>
 
         <!-- Components -->
         <g id="node-cognito" data-node-id="cognito" data-node-label="Amazon Cognito" tabindex="0" role="button" aria-label="Enfocar Amazon Cognito, SSO con IdP corporativo, Componente de arquitectura" aria-pressed="false" data-node-kind="security" data-node-sublabel="SSO con IdP corporativo" data-node-description="Identidad de aplicación. Federa el SSO corporativo y emite el JWT que validan el ALB, AgentCore Runtime y AgentCore Gateway. Su &#39;sub&#39; identifica al usuario en todo el sistema y es la clave para recuperar su login SQL, de modo que nunca se usa una identidad que el LLM pueda inventar. (F14, CN-01, CN-03)" data-node-context="Componente de arquitectura">
@@ -5320,8 +5324,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="840" y="96" class="t-cloud" font-size="7" text-anchor="middle">sin invocation logging</text>
         </g>
 
-        <g id="node-mcpclient" data-node-id="mcpclient" data-node-label="Cliente MCP" tabindex="0" role="button" aria-label="Enfocar Cliente MCP, Claude / IDE, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="Claude / IDE" data-node-description="Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente la tool &#39;ask&#39;). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)" data-node-context="Componente de arquitectura">
-          <title>Cliente MCP · Claude / IDE · Componente de arquitectura · Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente la tool &#39;ask&#39;). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)</title>
+        <g id="node-mcpclient" data-node-id="mcpclient" data-node-label="Cliente MCP" tabindex="0" role="button" aria-label="Enfocar Cliente MCP, Claude / IDE, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="Claude / IDE" data-node-description="Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente &#39;discover&#39; o &#39;ask&#39;). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)" data-node-context="Componente de arquitectura">
+          <title>Cliente MCP · Claude / IDE · Componente de arquitectura · Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente &#39;discover&#39; o &#39;ask&#39;). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)</title>
           <rect x="1000" y="40" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1000" y="40" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:6" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1006 46) scale(0.6875)">
@@ -5332,8 +5336,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1080" y="86" class="t-muted" font-size="9" text-anchor="middle">Claude / IDE</text>
         </g>
 
-        <g id="node-opensearch" data-node-id="opensearch" data-node-label="OpenSearch Serverless" tabindex="0" role="button" aria-label="Enfocar OpenSearch Serverless, solo metadatos, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="solo metadatos" data-node-description="Memoria semántica del catálogo: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario y plantillas de golden SQL. Permite elegir 5 a 15 tablas relevantes entre más de 300, filtrando por las que el usuario puede ver. Solo guarda metadatos estructurales y plantillas anonimizadas, nunca valores de clientes. (F2, F4, CN-06, CN-02)" data-node-context="Componente de arquitectura">
-          <title>OpenSearch Serverless · solo metadatos · Componente de arquitectura · Memoria semántica del catálogo: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario y plantillas de golden SQL. Permite elegir 5 a 15 tablas relevantes entre más de 300, filtrando por las que el usuario puede ver. Solo guarda metadatos estructurales y plantillas anonimizadas, nunca valores de clientes. (F2, F4, CN-06, CN-02)</title>
+        <g id="node-opensearch" data-node-id="opensearch" data-node-label="OpenSearch Serverless" tabindex="0" role="button" aria-label="Enfocar OpenSearch Serverless, solo metadatos, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="solo metadatos" data-node-description="Memoria semántica: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario, plantillas de golden SQL y de golden discovery, fragmentos redactados de documentos, reglas de negocio, linaje ETL y anotaciones de responsables. Filtra siempre por los objetos que el usuario puede ver. Solo guarda metadatos, conocimiento redactado y plantillas anonimizadas, nunca valores de clientes. (F2, F4, F22, F23, CN-02, CN-06)" data-node-context="Componente de arquitectura">
+          <title>OpenSearch Serverless · solo metadatos · Componente de arquitectura · Memoria semántica: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario, plantillas de golden SQL y de golden discovery, fragmentos redactados de documentos, reglas de negocio, linaje ETL y anotaciones de responsables. Filtra siempre por los objetos que el usuario puede ver. Solo guarda metadatos, conocimiento redactado y plantillas anonimizadas, nunca valores de clientes. (F2, F4, F22, F23, CN-02, CN-06)</title>
           <rect x="1240" y="40" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1240" y="40" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:9" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1246 46) scale(0.6875)">
@@ -5344,8 +5348,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1320" y="86" class="t-muted" font-size="9" text-anchor="middle">solo metadatos</text>
         </g>
 
-        <g id="node-users" data-node-id="users" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, navegador, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="navegador" data-node-description="Usuario de negocio que pregunta en lenguaje natural desde el navegador. Recibe tabla, gráfico, explicación, SQL usado, supuestos y nivel de confianza, y puede valorar la respuesta con 👍/👎 para mejorar el golden SQL. (F10, F12)" data-node-context="Componente de arquitectura">
-          <title>Usuario · navegador · Componente de arquitectura · Usuario de negocio que pregunta en lenguaje natural desde el navegador. Recibe tabla, gráfico, explicación, SQL usado, supuestos y nivel de confianza, y puede valorar la respuesta con 👍/👎 para mejorar el golden SQL. (F10, F12)</title>
+        <g id="node-users" data-node-id="users" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, navegador, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="navegador" data-node-description="Ingenieros de datos, analistas, científicos de datos y Product Owners que preguntan en lenguaje natural dónde está un dato (descubrimiento) o piden los datos (consulta). En descubrimiento reciben campos y tablas candidatas con ambiente, servidor, descripción, reglas, relaciones y confianza, y confirman con ✔/✖; en consulta, tabla, gráfico, SQL usado y supuestos. Solo ven lo que su login SQL puede leer. (F12, F14, F22)" data-node-context="Componente de arquitectura">
+          <title>Usuario · navegador · Componente de arquitectura · Ingenieros de datos, analistas, científicos de datos y Product Owners que preguntan en lenguaje natural dónde está un dato (descubrimiento) o piden los datos (consulta). En descubrimiento reciben campos y tablas candidatas con ambiente, servidor, descripción, reglas, relaciones y confianza, y confirman con ✔/✖; en consulta, tabla, gráfico, SQL usado y supuestos. Solo ven lo que su login SQL puede leer. (F12, F14, F22)</title>
           <rect x="40" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="40" y="200" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 206) scale(0.6875)">
@@ -5382,20 +5386,20 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="600" y="246" class="t-muted" font-size="9" text-anchor="middle">ECS Fargate</text>
         </g>
 
-        <g id="node-runtime" data-node-id="runtime" data-node-label="AgentCore Runtime" tabindex="0" role="button" aria-label="Enfocar AgentCore Runtime, AskFlow + análisis, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AskFlow + análisis" data-node-tag="historial solo en sesión" data-node-description="Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)" data-node-context="Componente de arquitectura">
-          <title>AgentCore Runtime · AskFlow + análisis · Componente de arquitectura · historial solo en sesión · Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)</title>
+        <g id="node-runtime" data-node-id="runtime" data-node-label="AgentCore Runtime" tabindex="0" role="button" aria-label="Enfocar AgentCore Runtime, DiscoverFlow + AskFlow, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="DiscoverFlow + AskFlow" data-node-tag="historial solo en sesión" data-node-description="Ejecuta los grafos de LangGraph con pasos fijos y salida estructurada. DiscoverFlow (caso principal): recupera candidatos del catálogo y del conocimiento, los reordena, calcula la confianza y añade relaciones, reglas y responsables, sin consultar datos. AskFlow: intención, schema linking, valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial vive solo ahí. Envía telemetría sin contenido a CloudWatch. (F3–F10, F22, CN-01)" data-node-context="Componente de arquitectura">
+          <title>AgentCore Runtime · DiscoverFlow + AskFlow · Componente de arquitectura · historial solo en sesión · Ejecuta los grafos de LangGraph con pasos fijos y salida estructurada. DiscoverFlow (caso principal): recupera candidatos del catálogo y del conocimiento, los reordena, calcula la confianza y añade relaciones, reglas y responsables, sin consultar datos. AskFlow: intención, schema linking, valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial vive solo ahí. Envía telemetría sin contenido a CloudWatch. (F3–F10, F22, CN-01)</title>
           <rect x="760" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="760" y="200" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 206) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="840" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">AgentCore Runtime</text>
-        <text data-detail="context" x="840" y="246" class="t-muted" font-size="9" text-anchor="middle">AskFlow + análisis</text>
+        <text data-detail="context" x="840" y="246" class="t-muted" font-size="9" text-anchor="middle">DiscoverFlow + AskFlow</text>
         <text data-detail="fine" x="840" y="256" class="t-backend" font-size="7" text-anchor="middle">historial solo en sesión</text>
         </g>
 
-        <g id="node-gateway" data-node-id="gateway" data-node-label="AgentCore Gateway" tabindex="0" role="button" aria-label="Enfocar AgentCore Gateway, endpoint MCP, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="endpoint MCP" data-node-description="Punto único MCP. Publica las herramientas de converdata-mcp (search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, CN-01, CN-04)" data-node-context="Componente de arquitectura">
-          <title>AgentCore Gateway · endpoint MCP · Componente de arquitectura · Punto único MCP. Publica las herramientas de converdata-mcp (search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, CN-01, CN-04)</title>
+        <g id="node-gateway" data-node-id="gateway" data-node-label="AgentCore Gateway" tabindex="0" role="button" aria-label="Enfocar AgentCore Gateway, endpoint MCP, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="endpoint MCP" data-node-description="Punto único MCP. Publica las herramientas de converdata-mcp (discover, get_asset, get_lineage, where_is, search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask, entre otras) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, F22, CN-01, CN-04)" data-node-context="Componente de arquitectura">
+          <title>AgentCore Gateway · endpoint MCP · Componente de arquitectura · Punto único MCP. Publica las herramientas de converdata-mcp (discover, get_asset, get_lineage, where_is, search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask, entre otras) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, F22, CN-01, CN-04)</title>
           <rect x="1000" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1000" y="200" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1006 206) scale(0.6875)">
@@ -5466,19 +5470,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="840" y="566" class="t-muted" font-size="9" text-anchor="middle">nocturno / bajo demanda</text>
         </g>
 
-        <g id="node-catalog" data-node-id="catalog" data-node-label="Catalog Builder" tabindex="0" role="button" aria-label="Enfocar Catalog Builder, ECS task · F1 + F19, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ECS task · F1 + F19" data-node-description="Tarea ECS que mapea todas las BDs: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs (entidades, tablas canónicas, relaciones declaradas, observadas en Query Store e inferidas), propone métricas para la capa semántica y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, CN-02)" data-node-context="Ingesta de catálogo">
-          <title>Catalog Builder · ECS task · F1 + F19 · Ingesta de catálogo · Tarea ECS que mapea todas las BDs: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs (entidades, tablas canónicas, relaciones declaradas, observadas en Query Store e inferidas), propone métricas para la capa semántica y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, CN-02)</title>
+        <g id="node-catalog" data-node-id="catalog" data-node-label="Catalog Builder" tabindex="0" role="button" aria-label="Enfocar Catalog Builder, ECS task · F1 + F19 + F23, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ECS task · F1 + F19 + F23" data-node-description="Tarea ECS que mapea todas las BDs y ambientes: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs, ingiere diccionarios, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio (redactando datos personales con Presidio antes de escribir), propone métricas y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, F23, CN-02)" data-node-context="Ingesta de catálogo">
+          <title>Catalog Builder · ECS task · F1 + F19 + F23 · Ingesta de catálogo · Tarea ECS que mapea todas las BDs y ambientes: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs, ingiere diccionarios, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio (redactando datos personales con Presidio antes de escribir), propone métricas y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, F23, CN-02)</title>
           <rect x="1000" y="520" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1000" y="520" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1006 526) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1080" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Catalog Builder</text>
-        <text data-detail="context" x="1080" y="566" class="t-muted" font-size="9" text-anchor="middle">ECS task · F1 + F19</text>
+        <text data-detail="context" x="1080" y="566" class="t-muted" font-size="9" text-anchor="middle">ECS task · F1 + F19 + F23</text>
         </g>
 
-        <g id="node-discovery" data-node-id="discovery" data-node-label="converdata-discovery" tabindex="0" role="button" aria-label="Enfocar converdata-discovery, MCP propio Apache-2.0, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="MCP propio Apache-2.0" data-node-description="MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store y clasificación de sensibilidad, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, CN-02)" data-node-context="Ingesta de catálogo">
-          <title>converdata-discovery · MCP propio Apache-2.0 · Ingesta de catálogo · MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store y clasificación de sensibilidad, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, CN-02)</title>
+        <g id="node-discovery" data-node-id="discovery" data-node-label="converdata-discovery" tabindex="0" role="button" aria-label="Enfocar converdata-discovery, MCP propio Apache-2.0, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="MCP propio Apache-2.0" data-node-description="MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, F23, CN-02)" data-node-context="Ingesta de catálogo">
+          <title>converdata-discovery · MCP propio Apache-2.0 · Ingesta de catálogo · MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, F23, CN-02)</title>
           <rect x="1240" y="520" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1240" y="520" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1246 526) scale(0.6875)">
@@ -5488,8 +5492,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1320" y="566" class="t-muted" font-size="9" text-anchor="middle">MCP propio Apache-2.0</text>
         </g>
 
-        <g id="node-s3" data-node-id="s3" data-node-label="S3 catálogo" tabindex="0" role="button" aria-label="Enfocar S3 catálogo, YAML sin muestras, Ingesta de catálogo" aria-pressed="false" data-node-kind="database" data-node-sublabel="YAML sin muestras" data-node-description="Catálogo fuente versionado en YAML, solo con metadatos estructurales. Permite la revisión humana de descripciones, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con sample_values. (F1, F2, CN-06, CN-02)" data-node-context="Ingesta de catálogo">
-          <title>S3 catálogo · YAML sin muestras · Ingesta de catálogo · Catálogo fuente versionado en YAML, solo con metadatos estructurales. Permite la revisión humana de descripciones, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con sample_values. (F1, F2, CN-06, CN-02)</title>
+        <g id="node-s3" data-node-id="s3" data-node-label="S3 catálogo" tabindex="0" role="button" aria-label="Enfocar S3 catálogo, catálogo + conocimiento, Ingesta de catálogo" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo + conocimiento" data-node-description="Catálogo y conocimiento versionados (YAML), solo con metadatos estructurales, conocimiento ya redactado, reglas, linaje, responsables (owners.yaml) y ediciones humanas (*.human.yaml). Permite la revisión humana, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con valores. (F1, F2, F23, F24, CN-02, CN-06)" data-node-context="Ingesta de catálogo">
+          <title>S3 catálogo · catálogo + conocimiento · Ingesta de catálogo · Catálogo y conocimiento versionados (YAML), solo con metadatos estructurales, conocimiento ya redactado, reglas, linaje, responsables (owners.yaml) y ediciones humanas (*.human.yaml). Permite la revisión humana, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con valores. (F1, F2, F23, F24, CN-02, CN-06)</title>
           <rect x="1000" y="680" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1000" y="680" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1006 686) scale(0.6875)">
@@ -5497,11 +5501,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1080" y="710" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">S3 catálogo</text>
-        <text data-detail="context" x="1080" y="726" class="t-muted" font-size="9" text-anchor="middle">YAML sin muestras</text>
+        <text data-detail="context" x="1080" y="726" class="t-muted" font-size="9" text-anchor="middle">catálogo + conocimiento</text>
         </g>
 
-        <g id="node-auditdb" data-node-id="auditdb" data-node-label="ConverData_Audit" tabindex="0" role="button" aria-label="Enfocar ConverData_Audit, auditoría + golden SQL, On-premise" aria-pressed="false" data-node-kind="database" data-node-sublabel="auditoría + golden SQL" data-node-tag="on-prem" data-node-description="Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, tablas, validaciones, confianza, feedback) y el golden SQL original con sus literales. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, CN-06, CN-05)" data-node-context="On-premise">
-          <title>ConverData_Audit · auditoría + golden SQL · On-premise · on-prem · Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, tablas, validaciones, confianza, feedback) y el golden SQL original con sus literales. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, CN-06, CN-05)</title>
+        <g id="node-auditdb" data-node-id="auditdb" data-node-label="ConverData_Audit" tabindex="0" role="button" aria-label="Enfocar ConverData_Audit, auditoría · golden · curación, On-premise" aria-pressed="false" data-node-kind="database" data-node-sublabel="auditoría · golden · curación" data-node-tag="on-prem" data-node-description="Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, candidatos de descubrimiento, confirmaciones, validaciones, confianza, feedback), el golden SQL y golden discovery originales, y las dudas escaladas a responsables. Sus vistas calculan las métricas de la propuesta. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, F24, F25, CN-05, CN-06)" data-node-context="On-premise">
+          <title>ConverData_Audit · auditoría · golden · curación · On-premise · on-prem · Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, candidatos de descubrimiento, confirmaciones, validaciones, confianza, feedback), el golden SQL y golden discovery originales, y las dudas escaladas a responsables. Sus vistas calculan las métricas de la propuesta. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, F24, F25, CN-05, CN-06)</title>
           <rect x="1480" y="520" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1480" y="520" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1486 526) scale(0.6875)">
@@ -5509,7 +5513,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1560" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData_Audit</text>
-        <text data-detail="context" x="1560" y="566" class="t-muted" font-size="9" text-anchor="middle">auditoría + golden SQL</text>
+        <text data-detail="context" x="1560" y="566" class="t-muted" font-size="8.7" text-anchor="middle">auditoría · golden · curación</text>
         <text data-detail="fine" x="1560" y="576" class="t-database" font-size="7" text-anchor="middle">on-prem</text>
         </g>
 
@@ -5524,6 +5528,18 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-node-label="" data-detail-anchor="" x="840" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Code Interpreter</text>
         <text data-detail="context" x="840" y="406" class="t-muted" font-size="9" text-anchor="middle">AgentCore · sin red</text>
         <text data-detail="fine" x="840" y="416" class="t-security" font-size="7" text-anchor="middle">último recurso</text>
+        </g>
+
+        <g id="node-sources" data-node-id="sources" data-node-label="Fuentes de conocimiento" tabindex="0" role="button" aria-label="Enfocar Fuentes de conocimiento, diccionarios · docs · SSIS, On-premise" aria-pressed="false" data-node-kind="external" data-node-sublabel="diccionarios · docs · SSIS" data-node-description="Conocimiento que hoy está disperso en la red del banco: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. El Catalog Builder los lee por la VPN y redacta los datos personales antes de que nada se escriba en AWS. (F23, CN-02, CN-06)" data-node-context="On-premise">
+          <title>Fuentes de conocimiento · diccionarios · docs · SSIS · On-premise · Conocimiento que hoy está disperso en la red del banco: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. El Catalog Builder los lee por la VPN y redacta los datos personales antes de que nada se escriba en AWS. (F23, CN-02, CN-06)</title>
+          <rect x="1480" y="680" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="1480" y="680" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1486 686) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1560" y="710" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Fuentes de conocimiento</text>
+        <text data-detail="context" x="1560" y="726" class="t-muted" font-size="9" text-anchor="middle">diccionarios · docs · SSIS</text>
         </g>
 
         <!-- Connection labels -->
@@ -5598,6 +5614,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <g data-detail="context" data-edge-from="runtime" data-edge-to="codeint" data-edge-label="código" data-edge-key="17" data-edge-id="runtime-sandbox">
           <rect x="795.2" y="305" width="38.8" height="14" rx="3" class="c-mask"/>
           <text x="814.6" y="315" class="t-edge-security" font-size="8" text-anchor="middle">código</text>
+        </g>
+        <g data-detail="context" data-edge-from="discovery" data-edge-to="sources" data-edge-label="docs · SSIS" data-edge-key="18" data-edge-id="discovery-sources">
+          <rect x="1400.6" y="676" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="1432" y="686" class="t-edge-dashed" font-size="8" text-anchor="middle">docs · SSIS</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
@@ -5821,6 +5841,18 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </div>
     <!-- Info Cards -->
     <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>Descubrimiento (caso principal)</h3>
+        </div>
+        <ul>
+          <li>Candidatos con BD, ambiente, servidor, descripción, reglas, relaciones y confianza (F22)</li>
+          <li>Diccionarios, documentos redactados, ETL y reglas (F23)</li>
+          <li>Confirmaciones y respuestas de responsables como conocimiento (F24)</li>
+        </ul>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <div class="card-dot rose"></div>

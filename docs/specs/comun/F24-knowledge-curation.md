@@ -45,8 +45,9 @@ Los grupos se resuelven contra el IdP corporativo (F14). Las personas no se guar
   - descripciones `generated` o con `conflict: true`, ordenadas por **número de búsquedas** (lo más consultado primero);
   - reglas sugeridas y vínculos documento→activo sin revisar;
   - solicitudes escaladas pendientes, con antigüedad.
-- Las ediciones se escriben como `*.human.yaml` junto al YAML generado (nunca se sobrescriben en un `refresh`) y se versionan en git con el
-  autor (grupo) y la fecha. El indexador reindexa solo el activo editado.
+- Las ediciones humanas se guardan separadas de lo generado (`description_source: human`) y **nunca se sobrescriben en un `refresh`**;
+  quedan versionadas con el autor (grupo) y la fecha: on-premise en las *temporal tables* de la BD `ConverData` (OP-02), cloud native
+  como `*.human.yaml` en S3 versionado (CN-02). El indexador reindexa solo el activo editado.
 - `converdata catalog review --unreviewed --domain <d>` sigue disponible por CLI.
 
 ## Reporte de brechas de conocimiento
@@ -62,6 +63,6 @@ Es la base de la visión futura "Identificación de brechas de conocimiento" y a
 1. Una duda escalada y respondida por el steward aparece como candidato principal (confianza ≥ 0.85) cuando otro usuario hace una pregunta
    equivalente.
 2. Un "✖" del steward retira el golden discovery y el activo deja de recibir el bonus en la siguiente búsqueda.
-3. Un `catalog refresh` no sobrescribe ningún `*.human.yaml` (test).
+3. Un `catalog refresh` no sobrescribe ninguna edición humana (test en ambos despliegues).
 4. Un `consumer` no puede editar descripciones ni ver la vista Curación (403).
 5. El reporte de brechas lista las 3 preguntas de prueba sin respuesta sembradas en el set de evaluación.

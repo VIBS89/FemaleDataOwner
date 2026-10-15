@@ -7,7 +7,7 @@ para generar SQL correcto en una BD de más de 300 tablas.
 ## Algoritmo
 1. **Recuperación amplia**: `search_tables(rewritten_question + entities, k=30, databases, visible_ids)` y `search_columns(k=50)`. Las columnas suman puntos a su tabla.
 2. **Golden boost**: las tablas usadas por los 5 golden SQL más similares reciben un bonus.
-3. **Poda con LLM**: el agente `Schema Linker` recibe las 30 candidatas en formato compacto (`nombre: descripción | columnas clave`) y devuelve 3 a 10 tablas, cada una con una justificación de una línea.
+3. **Poda con LLM**: el nodo `schema_linker` recibe las 30 candidatas en formato compacto (`nombre: descripción | columnas clave`) y devuelve 3 a 10 tablas, cada una con una justificación de una línea.
 4. **Expansión por FKs**: `find_join_path(selected)` sobre el grafo `networkx` (nodos = tablas, aristas = FKs ponderadas por cardinalidad). Añade las tablas puente necesarias, sin superar 15 tablas en total.
 5. **Proyección de columnas**: para cada tabla elegida, PK, FKs, columnas mencionadas o similares (top 12) y columnas de fecha y estado.
 6. **Filtro de permisos**: se descarta cualquier objeto fuera de `visible_ids`, como defensa en profundidad.

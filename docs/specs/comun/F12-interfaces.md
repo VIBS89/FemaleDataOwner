@@ -26,7 +26,7 @@ Las preguntas viajan siempre en el cuerpo, nunca en la URL, para que no queden e
   - gráfico Plotly;
   - "🔎 Cómo lo obtuve" plegable con SQL o SP, tablas, supuestos, validaciones y confidence;
   - botones 👍/👎.
-- Los pasos del flow se muestran en vivo como `cl.Step`.
+- Los pasos del flow se muestran en vivo como `cl.Step`, a partir de los eventos por nodo del grafo de LangGraph (`stream_mode="updates"`).
 - Las aclaraciones se muestran como botones (`cl.Action`) con las opciones de F3.
 - Los SPs con `side_effects` piden confirmación explícita.
 - **Data layer de Chainlit desactivado**: no se persisten chats (F17).

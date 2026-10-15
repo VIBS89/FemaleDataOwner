@@ -5413,15 +5413,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="127.5" y="122" class="t-muted" font-size="7" text-anchor="middle">su propio login SQL</text>
         </g>
 
-        <g id="node-app" data-node-id="app" data-node-label="ConverData" tabindex="0" role="button" aria-label="Enfocar ConverData, app + agentes CrewAI, Participante de secuencia" aria-pressed="false" data-node-kind="backend" data-node-sublabel="app + agentes CrewAI" data-node-description="Aplicación y agentes (AskFlow y converdata-mcp). Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)" data-node-context="Participante de secuencia">
-          <title>ConverData · app + agentes CrewAI · Participante de secuencia · Aplicación y agentes (AskFlow y converdata-mcp). Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)</title>
+        <g id="node-app" data-node-id="app" data-node-label="ConverData" tabindex="0" role="button" aria-label="Enfocar ConverData, FastAPI + LangGraph, Participante de secuencia" aria-pressed="false" data-node-kind="backend" data-node-sublabel="FastAPI + LangGraph" data-node-description="Aplicación FastAPI con los grafos de LangGraph (DiscoverFlow y AskFlow) y converdata-mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)" data-node-context="Participante de secuencia">
+          <title>ConverData · FastAPI + LangGraph · Participante de secuencia · Aplicación FastAPI con los grafos de LangGraph (DiscoverFlow y AskFlow) y converdata-mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)</title>
           <rect x="226.2" y="72" width="131" height="60" rx="6" class="c-mask"/>
           <rect x="226.2" y="72" width="131" height="60" rx="6" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(232.2 78) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="291.7" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData</text>
-          <text data-detail="context" x="291.7" y="122" class="t-muted" font-size="7" text-anchor="middle">app + agentes CrewAI</text>
+          <text data-detail="context" x="291.7" y="122" class="t-muted" font-size="7" text-anchor="middle">FastAPI + LangGraph</text>
         </g>
 
         <g id="node-vault" data-node-id="vault" data-node-label="Credencial de sesión" tabindex="0" role="button" aria-label="Enfocar Credencial de sesión, cifrada, fuera del LLM, Participante de secuencia" aria-pressed="false" data-node-kind="security" data-node-sublabel="cifrada, fuera del LLM" data-node-description="Dónde vive el login SQL del usuario mientras usa la aplicación. On-premise: SessionVault cifrado (Fernet) solo en memoria, que se borra al cerrar la sesión. Cloud native: Secrets Manager con una clave KMS dedicada, legible solo por converdata-mcp y para el usuario del token. En ambos casos el LLM nunca la ve. (OP-03, CN-03)" data-node-context="Participante de secuencia">
@@ -5436,8 +5436,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="455.9" y="122" class="t-muted" font-size="7" text-anchor="middle">cifrada, fuera del LLM</text>
         </g>
 
-        <g id="node-catalog" data-node-id="catalog" data-node-label="Catálogo" tabindex="0" role="button" aria-label="Enfocar Catálogo, filtrado por usuario, Participante de secuencia" aria-pressed="false" data-node-kind="database" data-node-sublabel="filtrado por usuario" data-node-description="Descripción de tablas, columnas y relaciones que usan los agentes para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas. (F2, F4)" data-node-context="Participante de secuencia">
-          <title>Catálogo · filtrado por usuario · Participante de secuencia · Descripción de tablas, columnas y relaciones que usan los agentes para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas. (F2, F4)</title>
+        <g id="node-catalog" data-node-id="catalog" data-node-label="Catálogo" tabindex="0" role="button" aria-label="Enfocar Catálogo, filtrado por usuario, Participante de secuencia" aria-pressed="false" data-node-kind="database" data-node-sublabel="filtrado por usuario" data-node-description="Descripción de tablas, columnas, relaciones, reglas y documentos vinculados que usan los agentes para descubrir y para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco al descubrir. (F2, F4, F14, F22)" data-node-context="Participante de secuencia">
+          <title>Catálogo · filtrado por usuario · Participante de secuencia · Descripción de tablas, columnas, relaciones, reglas y documentos vinculados que usan los agentes para descubrir y para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco al descubrir. (F2, F4, F14, F22)</title>
           <rect x="554.5999999999999" y="72" width="131" height="60" rx="6" class="c-mask"/>
           <rect x="554.5999999999999" y="72" width="131" height="60" rx="6" class="c-database" data-animate="node" style="--step:3" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(560.5999999999999 78) scale(0.6875)">
@@ -5677,6 +5677,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <ul>
           <li>ConverData nunca amplía permisos: cada consulta usa el login SQL del propio usuario</li>
           <li>Lo que el usuario no ve en SSMS, tampoco lo ve en ConverData</li>
+          <li>El descubrimiento hereda los mismos permisos: solo aparecen metadatos, reglas y documentos de objetos visibles</li>
         </ul>
       </div>
 

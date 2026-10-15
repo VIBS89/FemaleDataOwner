@@ -5,7 +5,7 @@
 > Este despliegue sirve como **MVP** para validar la solución antes de invertir en la nube, y como opción on-premise.
 
 ## Objetivo
-Probar **la hipótesis central**: que un conjunto de agentes CrewAI, sobre un catálogo extraído de SQL Server, encuentra los datos y
+Probar **la hipótesis central**: que unos grafos de LangGraph con Bedrock, sobre un catálogo extraído de SQL Server, encuentra los datos y
 responde preguntas en lenguaje natural de forma **correcta, validada y con los permisos del usuario**. Todo corre en la red
 corporativa sobre **piezas Microsoft que el equipo ya opera** (Windows Server, IIS, SQL Server, SQL Server Agent), y de AWS solo se
 usa **Amazon Bedrock** (LLM y embeddings). Si el MVP valida la hipótesis, se migra a la arquitectura cloud native (CN-01) sin rehacer
@@ -24,7 +24,7 @@ la lógica.
 |---|---|---|
 | Entrada web | ALB + WAF + Cognito | **IIS** en el Windows Server (443, certificado de la PKI corporativa), como proxy inverso con HttpPlatformHandler |
 | Chat y API | ECS Fargate | **Chainlit + FastAPI** como servicios de Windows (`ConverData-UI`, `ConverData-API`) |
-| Orquestación | AskFlow en AgentCore Runtime | **El mismo AskFlow** (CrewAI Flow) dentro del servicio `ConverData-API` |
+| Orquestación | DiscoverFlow y AskFlow (LangGraph) en AgentCore Runtime | **Los mismos grafos de LangGraph** dentro del servicio `ConverData-API` (FastAPI) |
 | Herramientas MCP | converdata-mcp en Runtime + AgentCore Gateway | **El mismo `converdata-mcp`** en `/mcp` del servicio `ConverData-API`, publicado por IIS |
 | Descubrimiento (F18) | `converdata-discovery` en la tarea ECS | **`converdata-discovery`** como servicio de Windows escuchando solo en `localhost` |
 | Ingesta y refresco | EventBridge + ECS task | **Job de SQL Server Agent** con un paso PowerShell que llama a `POST /api/admin/catalog/refresh` en el servidor de aplicación (o Programador de tareas de Windows en ese servidor) |

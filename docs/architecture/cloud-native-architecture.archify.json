@@ -52,7 +52,7 @@
         160,
         64
       ],
-      "description": "Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente la tool 'ask'). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)"
+      "description": "Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente 'discover' o 'ask'). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)"
     },
     {
       "id": "opensearch",
@@ -67,7 +67,7 @@
         160,
         64
       ],
-      "description": "Memoria semántica del catálogo: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario y plantillas de golden SQL. Permite elegir 5 a 15 tablas relevantes entre más de 300, filtrando por las que el usuario puede ver. Solo guarda metadatos estructurales y plantillas anonimizadas, nunca valores de clientes. (F2, F4, CN-06, CN-02)"
+      "description": "Memoria semántica: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario, plantillas de golden SQL y de golden discovery, fragmentos redactados de documentos, reglas de negocio, linaje ETL y anotaciones de responsables. Filtra siempre por los objetos que el usuario puede ver. Solo guarda metadatos, conocimiento redactado y plantillas anonimizadas, nunca valores de clientes. (F2, F4, F22, F23, CN-02, CN-06)"
     },
     {
       "id": "users",
@@ -82,7 +82,7 @@
         160,
         64
       ],
-      "description": "Usuario de negocio que pregunta en lenguaje natural desde el navegador. Recibe tabla, gráfico, explicación, SQL usado, supuestos y nivel de confianza, y puede valorar la respuesta con 👍/👎 para mejorar el golden SQL. (F10, F12)"
+      "description": "Ingenieros de datos, analistas, científicos de datos y Product Owners que preguntan en lenguaje natural dónde está un dato (descubrimiento) o piden los datos (consulta). En descubrimiento reciben campos y tablas candidatas con ambiente, servidor, descripción, reglas, relaciones y confianza, y confirman con ✔/✖; en consulta, tabla, gráfico, SQL usado y supuestos. Solo ven lo que su login SQL puede leer. (F12, F14, F22)"
     },
     {
       "id": "edge",
@@ -118,7 +118,7 @@
       "id": "runtime",
       "type": "backend",
       "label": "AgentCore Runtime",
-      "sublabel": "AskFlow + análisis",
+      "sublabel": "DiscoverFlow + AskFlow",
       "pos": [
         760,
         200
@@ -128,7 +128,7 @@
         64
       ],
       "tag": "historial solo en sesión",
-      "description": "Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)"
+      "description": "Ejecuta los grafos de LangGraph con pasos fijos y salida estructurada. DiscoverFlow (caso principal): recupera candidatos del catálogo y del conocimiento, los reordena, calcula la confianza y añade relaciones, reglas y responsables, sin consultar datos. AskFlow: intención, schema linking, valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial vive solo ahí. Envía telemetría sin contenido a CloudWatch. (F3–F10, F22, CN-01)"
     },
     {
       "id": "gateway",
@@ -143,7 +143,7 @@
         160,
         64
       ],
-      "description": "Punto único MCP. Publica las herramientas de converdata-mcp (search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, CN-01, CN-04)"
+      "description": "Punto único MCP. Publica las herramientas de converdata-mcp (discover, get_asset, get_lineage, where_is, search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask, entre otras) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, F22, CN-01, CN-04)"
     },
     {
       "id": "mcp",
@@ -225,7 +225,7 @@
       "id": "catalog",
       "type": "backend",
       "label": "Catalog Builder",
-      "sublabel": "ECS task · F1 + F19",
+      "sublabel": "ECS task · F1 + F19 + F23",
       "pos": [
         1000,
         520
@@ -234,7 +234,7 @@
         160,
         64
       ],
-      "description": "Tarea ECS que mapea todas las BDs: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs (entidades, tablas canónicas, relaciones declaradas, observadas en Query Store e inferidas), propone métricas para la capa semántica y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, CN-02)"
+      "description": "Tarea ECS que mapea todas las BDs y ambientes: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs, ingiere diccionarios, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio (redactando datos personales con Presidio antes de escribir), propone métricas y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, F23, CN-02)"
     },
     {
       "id": "discovery",
@@ -249,13 +249,13 @@
         160,
         64
       ],
-      "description": "MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store y clasificación de sensibilidad, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, CN-02)"
+      "description": "MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, F23, CN-02)"
     },
     {
       "id": "s3",
       "type": "database",
       "label": "S3 catálogo",
-      "sublabel": "YAML sin muestras",
+      "sublabel": "catálogo + conocimiento",
       "pos": [
         1000,
         680
@@ -264,13 +264,13 @@
         160,
         64
       ],
-      "description": "Catálogo fuente versionado en YAML, solo con metadatos estructurales. Permite la revisión humana de descripciones, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con sample_values. (F1, F2, CN-06, CN-02)"
+      "description": "Catálogo y conocimiento versionados (YAML), solo con metadatos estructurales, conocimiento ya redactado, reglas, linaje, responsables (owners.yaml) y ediciones humanas (*.human.yaml). Permite la revisión humana, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con valores. (F1, F2, F23, F24, CN-02, CN-06)"
     },
     {
       "id": "auditdb",
       "type": "database",
       "label": "ConverData_Audit",
-      "sublabel": "auditoría + golden SQL",
+      "sublabel": "auditoría · golden · curación",
       "pos": [
         1480,
         520
@@ -280,7 +280,7 @@
         64
       ],
       "tag": "on-prem",
-      "description": "Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, tablas, validaciones, confianza, feedback) y el golden SQL original con sus literales. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, CN-06, CN-05)"
+      "description": "Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, candidatos de descubrimiento, confirmaciones, validaciones, confianza, feedback), el golden SQL y golden discovery originales, y las dudas escaladas a responsables. Sus vistas calculan las métricas de la propuesta. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, F24, F25, CN-05, CN-06)"
     },
     {
       "id": "codeint",
@@ -297,6 +297,21 @@
       ],
       "tag": "último recurso",
       "description": "Sandbox gestionado de AgentCore donde el motor de análisis ejecuta código Python de último recurso, cuando ninguna función de la biblioteca determinista (comparar, descomponer variaciones, detectar anomalías, tendencias, pronóstico) sirve. Recibe DataFrames ya obtenidos con el login del usuario, no tiene acceso a SQL Server y no persiste nada al cerrar la sesión. (F20, CN-06)"
+    },
+    {
+      "id": "sources",
+      "type": "external",
+      "label": "Fuentes de conocimiento",
+      "sublabel": "diccionarios · docs · SSIS",
+      "pos": [
+        1480,
+        680
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Conocimiento que hoy está disperso en la red del banco: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. El Catalog Builder los lee por la VPN y redacta los datos personales antes de que nada se escriba en AWS. (F23, CN-02, CN-06)"
     }
   ],
   "boundaries": [
@@ -315,7 +330,8 @@
       "label": "On-premise",
       "wraps": [
         "sqlserver",
-        "auditdb"
+        "auditdb",
+        "sources"
       ]
     }
   ],
@@ -440,9 +456,25 @@
       "to": "codeint",
       "label": "código",
       "variant": "security"
+    },
+    {
+      "id": "discovery-sources",
+      "from": "discovery",
+      "to": "sources",
+      "label": "docs · SSIS",
+      "variant": "dashed"
     }
   ],
   "cards": [
+    {
+      "dot": "cyan",
+      "title": "Descubrimiento (caso principal)",
+      "items": [
+        "Candidatos con BD, ambiente, servidor, descripción, reglas, relaciones y confianza (F22)",
+        "Diccionarios, documentos redactados, ETL y reglas (F23)",
+        "Confirmaciones y respuestas de responsables como conocimiento (F24)"
+      ]
+    },
     {
       "dot": "rose",
       "title": "Residencia de datos",

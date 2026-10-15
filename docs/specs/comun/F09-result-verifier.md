@@ -16,7 +16,7 @@ antes de usarlo para tomar decisiones.
 | `time_coverage` | el min/max de la columna de fecha cubre el `time_range` pedido | warn |
 
 ## LLM-judge
-- Agente `Result Judge`, con un modelo **distinto** al planner (rol `judge` de F16: Amazon Nova o Llama en Bedrock si el coder es Claude).
+- Nodo `judge` del grafo, con un modelo **distinto** al planner (rol `judge` de F16: Amazon Nova o Llama en Bedrock si el coder es Claude).
 - Recibe: pregunta reescrita, SQL o SP, supuestos, esquema del resultado, las primeras 20 filas y las estadísticas (`describe()`), y los chequeos.
 - Devuelve:
   ```python

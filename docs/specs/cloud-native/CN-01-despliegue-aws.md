@@ -4,7 +4,7 @@
 
 ## Objetivo
 Llevar ConverData a AWS como servicio gestionado y seguro:
-- los agentes CrewAI corren en **Amazon Bedrock AgentCore Runtime**;
+- los grafos de **LangGraph** (DiscoverFlow y AskFlow) corren en **Amazon Bedrock AgentCore Runtime**;
 - las herramientas se publican como MCP mediante **AgentCore Gateway**;
 - el LLM principal es **Amazon Bedrock** (ver [F16](../comun/F16-llm-providers.md));
 - la memoria semántica vive en **OpenSearch Serverless**;
@@ -13,7 +13,7 @@ Llevar ConverData a AWS como servicio gestionado y seguro:
 ## Decisiones
 | Tema | Decisión | Motivo |
 |---|---|---|
-| Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con el **DiscoverFlow (F22)** y el AskFlow de CrewAI) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
+| Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con los grafos de LangGraph: **DiscoverFlow (F22)** y AskFlow) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
 | Servidor MCP propio | `converdata-mcp` desplegado como **MCP server en AgentCore Runtime** y registrado como target de **AgentCore Gateway** | Un único endpoint MCP, con autenticación OAuth, para los agentes internos y los clientes externos |
 | `converdata-discovery` (F18, propio, Apache-2.0) | Dentro de la tarea ECS del Catalog Builder (como biblioteca) o como servicio ECS privado | Solo ingesta y descubrimiento (F1, F19); usa el login de metadatos |
 | Sandbox de análisis (F20) | **AgentCore Code Interpreter** | Ejecución aislada por sesión de código Python de último recurso |
@@ -35,7 +35,7 @@ Llevar ConverData a AWS como servicio gestionado y seguro:
 ```
 Usuarios ──HTTPS──► CloudFront? (opcional) ─► WAF ─► ALB (Cognito auth)
                                                      └─► ECS Fargate: Chainlit + FastAPI BFF
-                                                            └─► AgentCore Runtime: AskFlow (CrewAI)
+                                                            └─► AgentCore Runtime: DiscoverFlow + AskFlow (LangGraph)
                                                                    ├─► Bedrock (VPC endpoint)
                                                                    └─► AgentCore Gateway (MCP)
 Clientes MCP (Claude, IDE) ──OAuth──────────────────────────────────────┘    └─► converdata-mcp (AgentCore Runtime, modo VPC)

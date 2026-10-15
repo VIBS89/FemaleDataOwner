@@ -12,8 +12,8 @@ persistir y puede contener datos vive **on-premise**.
 |---|---|---|
 | **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición |
 | **D2: texto derivado del usuario** | Pregunta, pregunta reescrita, SQL con literales, narrativa, historial | Solo en la auditoría on-premise (F11) |
-| **D3: metadatos estructurales** | Nombres y descripciones de BDs, tablas y columnas, tipos, FKs, conteos, parámetros de SPs | Catálogo e índice (cloud u on-prem) |
-| **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders | Índice (cloud u on-prem), con el original en la auditoría on-prem |
+| **D3: metadatos estructurales** | Nombres y descripciones de BDs, tablas y columnas, tipos, FKs, conteos, parámetros de SPs; reglas de negocio, linaje ETL y fragmentos de documentos **ya redactados** (F23) | Catálogo e índice (cloud u on-prem) |
+| **D4: plantillas anonimizadas** | Golden SQL y golden discovery con literales sustituidos por placeholders | Índice (cloud u on-prem), con el original en la auditoría on-prem |
 | **D5: telemetría sin contenido** | Latencias, tokens, códigos de error, ids de traza, nombres de tablas usadas | Logs y métricas (cloud u on-prem) |
 | **C: credenciales** | Login SQL por usuario | Custodia cifrada según F14 (CN-03 / OP-03) |
 
@@ -22,6 +22,7 @@ persistir y puede contener datos vive **on-premise**.
 - Los sketches MinHash del descubrimiento (F18, F19) se calculan en memoria con hashes salados y se descartan; solo persisten las relaciones inferidas.
 - El sandbox de análisis (F20) no tiene red ni almacenamiento persistente.
 - El historial de conversación vive solo en la memoria de la sesión.
+- El estado de los grafos de LangGraph (checkpointer) vive **solo en memoria** durante la petición; no se usa un checkpointer persistente.
 - Chainlit sin data layer; las descargas se generan en streaming al navegador.
 - Logs y spans con lista blanca de atributos D5; un filtro descarta `question`, `sql`, `rows`, `prompt` y `completion`.
 - **Bedrock**: procesa sin almacenar; *model invocation logging* desactivado en la cuenta usada.

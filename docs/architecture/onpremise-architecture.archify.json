@@ -74,7 +74,7 @@
       "id": "app",
       "type": "backend",
       "label": "Servicios ConverData",
-      "sublabel": "Chainlit · FastAPI · AskFlow",
+      "sublabel": "Chainlit · Discover + Ask",
       "pos": [
         520,
         200
@@ -84,7 +84,7 @@
         64
       ],
       "tag": "SessionVault en memoria",
-      "description": "Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + AskFlow de CrewAI + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con sus pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan el login SQL de cada sesión cifrado solo en memoria. (F3–F10, F12, F20, F22, OP-01, OP-03)"
+      "description": "Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + grafos de LangGraph DiscoverFlow y AskFlow + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con sus pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan el login SQL de cada sesión cifrado solo en memoria. Incluye la vista de curación para responsables y el envío de notificaciones sin el texto de la pregunta. (F3–F10, F12, F20, F22, F24, OP-01, OP-03, OP-04)"
     },
     {
       "id": "builder",
@@ -131,7 +131,7 @@
         64
       ],
       "tag": "VECTOR · Full-Text · grafo",
-      "description": "Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (con tablas temporales para el historial de cambios y columnas VECTOR para la búsqueda semántica), Full-Text Search para la búsqueda por palabras, estate (tablas de grafo NODE/EDGE para las relaciones entre BDs), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y los archivos YAML como almacén de trabajo. (F2, F11, F19, F21, OP-02, OP-05)"
+      "description": "Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (con tablas temporales para el historial de cambios y columnas VECTOR para la búsqueda semántica), Full-Text Search para la búsqueda por palabras, estate (tablas de grafo NODE/EDGE para las relaciones entre BDs y el linaje ETL), knowledge (documentos redactados, reglas de negocio, anotaciones y golden discovery), curation (responsables y dudas escaladas), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y los archivos YAML como almacén de trabajo. (F2, F11, F19, F21, F23, F24, OP-02, OP-05)"
     },
     {
       "id": "agent",
@@ -146,7 +146,7 @@
         160,
         64
       ],
-      "description": "Job nocturno (y bajo demanda) con un paso PowerShell que llama a /api/admin/catalog/refresh en el servidor de aplicación, para que el catálogo, el grafo y los vectores reflejen los cambios de esquema. También ejecuta la purga de auditoría por retención y avisa por Database Mail si algo falla. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)"
+      "description": "Job nocturno (y bajo demanda) con pasos PowerShell que llaman a /api/admin/catalog/refresh y /api/admin/knowledge/ingest en el servidor de aplicación, para que el catálogo, el grafo, el conocimiento y los vectores reflejen los cambios. También ejecuta la purga de auditoría por retención y la evaluación semanal del descubrimiento, y avisa por Database Mail si algo falla o si baja la calidad. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)"
     },
     {
       "id": "sqldata",
@@ -176,7 +176,7 @@
         160,
         64
       ],
-      "description": "Conocimiento que hoy está disperso: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. converdata-discovery los lee y el Catalog Builder los vincula con tablas y columnas, con redacción de PII en los documentos. (F23)"
+      "description": "Conocimiento que hoy está disperso: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. converdata-discovery los lee y el Catalog Builder los vincula con tablas y columnas, con redacción de PII (Presidio) antes de escribir en la BD ConverData. (F23, OP-02)"
     }
   ],
   "boundaries": [
@@ -285,9 +285,9 @@
       "dot": "violet",
       "title": "Descubrimiento y análisis",
       "items": [
-        "Dónde está cada dato, entre BDs y ambientes (F19, F22)",
-        "Comparar, causa raíz, insights y pronóstico con biblioteca determinista (F20)",
-        "Métricas certificadas (F21)"
+        "Dónde está cada dato: candidatos con ambiente, servidor, reglas, relaciones y confianza (F22)",
+        "Diccionarios, documentos, ETL y conocimiento de responsables (F23, F24)",
+        "Análisis con biblioteca determinista y métricas certificadas (F20, F21)"
       ]
     },
     {

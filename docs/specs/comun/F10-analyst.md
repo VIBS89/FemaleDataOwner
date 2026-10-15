@@ -20,7 +20,7 @@ aporte valor y una explicación de cómo se obtuvo.
    - Dos métricas numéricas: *scatter*.
    - En otro caso, sin gráfico.
    Salida: `chart_spec` compatible con Plotly (`{type, x, y, color?, title}`).
-3. **Narrativa**: el agente `Data Analyst` (modelo planner) escribe 2 a 5 frases que:
+3. **Narrativa**: el nodo `analyst` (rol `planner`) escribe 2 a 5 frases que:
    - responden directamente con las cifras clave;
    - mencionan supuestos y avisos de F9;
    - **no inventan cifras**: cada número de la narrativa debe existir en el resultado o derivarse de él (validación con regex de números contra el DataFrame).

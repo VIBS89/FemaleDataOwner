@@ -19,7 +19,7 @@ consultas, cálculos y un razonamiento verificable.
 
 ## Planificador de análisis
 Inspirado en el grafo jerárquico de Data Interpreter y el enfoque *code-first* de TaskWeaver:
-- El agente `Analysis Planner` descompone la pregunta en un **DAG de pasos tipados**: `query` (SQL validado por F7 y ejecutado con el login del usuario), `compute` (función de la biblioteca de análisis), `insight` (detector) y `narrate`.
+- El nodo `analysis_planner` descompone la pregunta en un **DAG de pasos tipados**: `query` (SQL validado por F7 y ejecutado con el login del usuario), `compute` (función de la biblioteca de análisis), `insight` (detector) y `narrate`.
 - Cada nodo tiene entradas y salidas declaradas; un fallo reintenta solo ese nodo (máximo 2 intentos).
 - Límites: 8 consultas y 60 s de BD por análisis. Si se superan, entrega lo obtenido y lo indica.
 - El DAG se muestra en el chat como pasos en vivo y queda en auditoría (F11) para reproducirlo.

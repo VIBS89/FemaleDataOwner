@@ -26,7 +26,7 @@ class IntentResult(BaseModel):
 ```
 
 ## Comportamiento
-- Agente `Intent Analyst` (rol `planner` de F16, temperatura 0.1, `output_pydantic=IntentResult`).
+- Nodo `intent` del grafo de LangGraph (rol `planner` de F16, temperatura 0.1, `with_structured_output(IntentResult)`).
 - El enrutamiento por BD combina:
   0. las **entidades del grafo** de F19 (dónde vive cada concepto y su tabla canónica); si una entidad vive en varias BDs sin canónica, se pide aclaración,
   1. `search_tables(question)` agrupado por base de datos (votación ponderada por score),

@@ -48,7 +48,8 @@ Los 11 principios completos están en la §8.1 del PRD.
 | Reprocesos por selección incorrecta de fuentes | −20 % |
 
 ## Tecnología y despliegues
-**CrewAI** + **Amazon Bedrock** (LLM y embeddings), MCPs propios bajo Apache-2.0 (`converdata-mcp`, `converdata-discovery`) y **SQL Server**.
+**FastAPI** + **LangGraph** + **Amazon Bedrock** (LLM y embeddings vía `langchain-aws`), MCPs propios bajo Apache-2.0 con FastMCP
+(`converdata-mcp`, `converdata-discovery`), **Chainlit** para el chat y **SQL Server**. Stack completo en la §8 del PRD.
 La lógica es la misma en los dos despliegues:
 
 | Despliegue | Cuándo | Base | Spec · diagrama |
