@@ -34,6 +34,7 @@ metrics:
     default_time_dimension: fecha_factura
     owner: Finanzas
     certified: true
+    procedure: null                   # opcional: SP oficial que resuelve la métrica (F6)
 verified_queries:
   - name: ventas_netas_por_region_trimestre
     question: "¿Cuáles fueron las ventas netas por región el último trimestre?"
@@ -46,7 +47,9 @@ verified_queries:
 ```
 
 ## Uso
-- **Planner (F6)**, nueva prioridad: SP oficial → **métrica certificada / consulta verificada** → golden SQL → SQL nuevo.
+- **Planner (F6)**, prioridad: **métrica certificada / consulta verificada** → SP de la lista blanca → golden SQL → SQL nuevo. La métrica va
+  primero porque su definición es revisable y su SQL se compila de forma determinista y pasa por el validador (F7); un SP es lógica oficial
+  pero opaca. Si el propietario de una métrica quiere que se resuelva con un SP, la métrica lo declara (`procedure:`) y el planner lo usa.
 - Si la pregunta menciona una métrica certificada, el SQL se **compila** desde su definición (no lo inventa el LLM) y la respuesta muestra la insignia "métrica certificada · Finanzas".
 - El motor de análisis (F20) usa las mismas métricas en todos sus pasos, así que las comparaciones son coherentes.
 - El modelo semántico solo contiene definiciones (D3) y SQL con parámetros, sin literales de datos (F17).

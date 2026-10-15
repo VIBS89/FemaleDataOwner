@@ -21,7 +21,8 @@ quede disponible para todos, en lugar de contestar la misma pregunta a cada equi
   business_owner: {name: "Producto Banca Digital", group: "GG-Datos-BancaDigital"}
   technical_owner: {name: "Ingeniería de Datos — Canales", group: "GG-IngDatos-Canales"}
 ```
-Los grupos se resuelven contra el IdP corporativo (F14). Las personas no se guardan en el catálogo, solo grupos o roles.
+Los grupos se resuelven como indica F14 (§Grupos y roles): claims de Cognito en cloud native, AD por LDAP on-premise. Las personas no se
+guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga en la tabla `curation.owners` (OP-02).
 
 ## Captura desde el uso
 1. **Confirmación de candidatos**: cada candidato de F22 tiene "✔ Es este", "✖ No es" y "El correcto es…" (búsqueda en el catálogo).
@@ -31,7 +32,8 @@ Los grupos se resuelven contra el IdP corporativo (F14). Las personas no se guar
    - Un "✖" de un `steward` retira el par del índice.
 3. **Escalamiento al responsable**: con `knowledge_gap = true` o a petición del usuario, "Preguntar al responsable" crea una
    `curation_request` (pregunta reescrita, candidatos mostrados y dominio probable) asignada al grupo `steward` del dominio.
-   - Se notifica por correo o Teams (webhook configurable). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
+   - La crea la herramienta interna `curation_request_create` de `converdata-mcp` (F12) y se guarda solo on-premise (F17).
+  - Se notifica por correo o Teams (webhook configurable). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
    - La respuesta del steward puede: elegir un activo, escribir o corregir una descripción, crear una regla de negocio o marcar el dato como
      "no existe en las fuentes catalogadas" (registrado como brecha).
    - La respuesta se convierte en conocimiento revisado (`description_source: human`, `reviewed: true`) y en golden discovery, y se notifica al

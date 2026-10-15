@@ -5170,7 +5170,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 1054 948" data-sequence-column-fit="spread" data-reader-fit="width-first" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-motion-choreography="sequence">
+      <svg viewBox="0 0 1054 1168" data-sequence-column-fit="spread" data-reader-fit="width-first" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-motion-choreography="sequence">
         <title id="archify-diagram-title">ConverData — Permisos de BD heredados del usuario</title>
         <desc id="archify-diagram-description">Un diagrama de secuencia generado por Archify.</desc>
         <!-- Definitions -->
@@ -5198,35 +5198,37 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Time Segments -->
         <rect data-graph-role="structural-frame" data-composition-frame-kind="segment" data-composition-frame-id="0" x="48" y="150" width="958" height="230" rx="10" class="c-lane" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="segment" data-composition-frame-id="1" x="48" y="390" width="958" height="300" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="segment" data-composition-frame-id="1" x="48" y="390" width="958" height="210" rx="10" class="c-lane" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="segment" data-composition-frame-id="2" x="48" y="700" width="958" height="150" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="segment" data-composition-frame-id="2" x="48" y="610" width="958" height="300" rx="10" class="c-lane" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="segment" data-composition-frame-id="3" x="48" y="920" width="958" height="150" rx="10" class="c-lane" stroke-width="1"/>
 
         <!-- Lifelines -->
-        <path d="M 127.5 142 L 127.5 852" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 291.7 142 L 291.7 852" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 455.9 142 L 455.9 852" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 620.0999999999999 142 L 620.0999999999999 852" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 784.3 142 L 784.3 852" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 948.5 142 L 948.5 852" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 127.5 142 L 127.5 1072" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 291.7 142 L 291.7 1072" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 455.9 142 L 455.9 1072" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 620.0999999999999 142 L 620.0999999999999 1072" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 784.3 142 L 784.3 1072" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 948.5 142 L 948.5 1072" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
 
         <!-- Activations -->
 
 
         <!-- Messages -->
-        <g data-edge-from="user" data-edge-to="app" data-edge-label="inicia sesión con su login SQL" data-edge-key="0" data-edge-id="m-login">
+        <g data-edge-from="user" data-edge-to="app" data-edge-label="inicia sesión con su login SQL (por servidor)" data-edge-key="0" data-edge-id="m-login">
           <path data-composition-edge-from="user" data-composition-edge-to="app" data-composition-edge-id="m-login" data-composition-points="134.5,160;284.7,160" d="M 134.5 160 L 284.7 160" class="a-security" data-animate="edge" style="--step:0" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
         <g data-detail="context">
-          <rect x="104.6" y="140" width="210" height="18" rx="3" class="c-mask"/>
-          <text x="209.6" y="150" class="t-edge-security" font-size="11" text-anchor="middle">inicia sesión con su login SQL</text>
+          <rect x="55.099999999999994" y="140" width="309" height="18" rx="3" class="c-mask"/>
+          <text x="209.6" y="150" class="t-edge-security" font-size="11" text-anchor="middle">inicia sesión con su login SQL (por servidor)</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="sqlserver" data-edge-label="conecta con ese login" data-edge-key="1" data-edge-id="m-probe">
+        <g data-edge-from="app" data-edge-to="sqlserver" data-edge-label="conecta con ese login en cada servidor" data-edge-key="1" data-edge-id="m-probe">
           <path data-composition-edge-from="app" data-composition-edge-to="sqlserver" data-composition-edge-id="m-probe" data-composition-points="298.7,188;941.5,188" d="M 298.7 188 L 941.5 188" class="a-security" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
         <g data-detail="context">
-          <rect x="544.8000000000001" y="168" width="150.6" height="18" rx="3" class="c-mask"/>
-          <text x="620.1" y="178" class="t-edge-security" font-size="11" text-anchor="middle">conecta con ese login</text>
+          <rect x="488.70000000000005" y="168" width="262.79999999999995" height="18" rx="3" class="c-mask"/>
+          <text x="620.1" y="178" class="t-edge-security" font-size="11" text-anchor="middle">conecta con ese login en cada servidor</text>
         </g>
         </g>
 
@@ -5272,132 +5274,187 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
         </g>
 
-        <g data-edge-from="user" data-edge-to="app" data-edge-label="¿ventas por región?" data-edge-key="7" data-edge-id="m-ask">
-          <path data-composition-edge-from="user" data-composition-edge-to="app" data-composition-edge-id="m-ask" data-composition-points="134.5,404;284.7,404" d="M 134.5 404 L 284.7 404" class="a-emphasis" data-animate="edge" style="--step:7" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="user" data-edge-to="app" data-edge-label="¿dónde está el ID del cliente de onboarding?" data-edge-key="7" data-edge-id="m-disc">
+          <path data-composition-edge-from="user" data-composition-edge-to="app" data-composition-edge-id="m-disc" data-composition-points="134.5,404;284.7,404" d="M 134.5 404 L 284.7 404" class="a-emphasis" data-animate="edge" style="--step:7" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="140.9" y="384" width="137.39999999999998" height="18" rx="3" class="c-mask"/>
-          <text x="209.6" y="394" class="t-edge-emphasis" font-size="11" text-anchor="middle">¿ventas por región?</text>
+          <rect x="58.400000000000006" y="384" width="302.4" height="18" rx="3" class="c-mask"/>
+          <text x="209.6" y="394" class="t-edge-emphasis" font-size="11" text-anchor="middle">¿dónde está el ID del cliente de onboarding?</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="catalog" data-edge-label="busca tablas" data-edge-key="8" data-edge-id="m-search">
-          <path data-composition-edge-from="app" data-composition-edge-to="catalog" data-composition-edge-id="m-search" data-composition-points="298.7,432;613.0999999999999,432" d="M 298.7 432 L 613.0999999999999 432" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="app" data-edge-to="catalog" data-edge-label="busca columnas y conocimiento" data-edge-key="8" data-edge-id="m-disc-search">
+          <path data-composition-edge-from="app" data-composition-edge-to="catalog" data-composition-edge-id="m-disc-search" data-composition-points="298.7,432;613.0999999999999,432" d="M 298.7 432 L 613.0999999999999 432" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="410.29999999999995" y="412" width="91.19999999999999" height="18" rx="3" class="c-mask"/>
-          <text x="455.9" y="422" class="t-muted" font-size="11" text-anchor="middle">busca tablas</text>
+          <rect x="354.2" y="412" width="203.39999999999998" height="18" rx="3" class="c-mask"/>
+          <text x="455.9" y="422" class="t-muted" font-size="11" text-anchor="middle">busca columnas y conocimiento</text>
         </g>
         </g>
 
-        <g data-edge-from="catalog" data-edge-to="app" data-edge-label="solo tablas permitidas" data-edge-key="9" data-edge-id="m-tables">
-          <path data-composition-edge-from="catalog" data-composition-edge-to="app" data-composition-edge-id="m-tables" data-composition-points="613.0999999999999,460;298.7,460" d="M 613.0999999999999 460 L 298.7 460" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="catalog" data-edge-to="app" data-edge-label="solo activos, reglas y documentos visibles" data-edge-key="9" data-edge-id="m-disc-hits">
+          <path data-composition-edge-from="catalog" data-composition-edge-to="app" data-composition-edge-id="m-disc-hits" data-composition-points="613.0999999999999,460;298.7,460" d="M 613.0999999999999 460 L 298.7 460" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="377.29999999999995" y="440" width="157.2" height="18" rx="3" class="c-mask"/>
-          <text x="455.9" y="450" class="t-muted" font-size="11" text-anchor="middle">solo tablas permitidas</text>
+          <rect x="311.29999999999995" y="440" width="289.2" height="18" rx="3" class="c-mask"/>
+          <text x="455.9" y="450" class="t-muted" font-size="11" text-anchor="middle">solo activos, reglas y documentos visibles</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="llm" data-edge-label="genera SQL" data-edge-key="10" data-edge-id="m-gen">
-          <path data-composition-edge-from="app" data-composition-edge-to="llm" data-composition-edge-id="m-gen" data-composition-points="298.7,488;777.3,488" d="M 298.7 488 L 777.3 488" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="app" data-edge-to="llm" data-edge-label="ordena candidatos" data-edge-key="10" data-edge-id="m-rerank">
+          <path data-composition-edge-from="app" data-composition-edge-to="llm" data-composition-edge-id="m-rerank" data-composition-points="298.7,488;777.3,488" d="M 298.7 488 L 777.3 488" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="499" y="468" width="78" height="18" rx="3" class="c-mask"/>
-          <text x="538" y="478" class="t-muted" font-size="11" text-anchor="middle">genera SQL</text>
+          <rect x="475.9" y="468" width="124.19999999999999" height="18" rx="3" class="c-mask"/>
+          <text x="538" y="478" class="t-muted" font-size="11" text-anchor="middle">ordena candidatos</text>
         </g>
-        <text data-detail="context" x="310.7" y="506" class="t-muted" font-size="7"><tspan x="310.7" dy="0">solo esquema permitido, sin</tspan><tspan x="310.7" dy="11">credenciales</tspan></text>
+        <text data-detail="context" x="310.7" y="506" class="t-muted" font-size="7"><tspan x="310.7" dy="0">solo metadatos permitidos, sin</tspan><tspan x="310.7" dy="11">datos</tspan></text>
         </g>
 
-        <g data-edge-from="llm" data-edge-to="app" data-edge-label="SQL propuesto" data-edge-key="11" data-edge-id="m-sql">
-          <path data-composition-edge-from="llm" data-composition-edge-to="app" data-composition-edge-id="m-sql" data-composition-points="777.3,548;298.7,548" d="M 777.3 548 L 298.7 548" class="a-default" data-animate="edge" style="--step:11" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="llm" data-edge-to="app" data-edge-label="orden y justificación" data-edge-key="11" data-edge-id="m-rank">
+          <path data-composition-edge-from="llm" data-composition-edge-to="app" data-composition-edge-id="m-rank" data-composition-points="777.3,548;298.7,548" d="M 777.3 548 L 298.7 548" class="a-default" data-animate="edge" style="--step:11" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="489.1" y="528" width="97.8" height="18" rx="3" class="c-mask"/>
-          <text x="538" y="538" class="t-muted" font-size="11" text-anchor="middle">SQL propuesto</text>
-        </g>
-        </g>
-
-        <g data-edge-from="app" data-edge-to="vault" data-edge-label="credencial del usuario" data-edge-key="12" data-edge-id="m-cred">
-          <path data-composition-edge-from="app" data-composition-edge-to="vault" data-composition-edge-id="m-cred" data-composition-points="298.7,576;448.9,576" d="M 298.7 576 L 448.9 576" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <g data-detail="context">
-          <rect x="295.19999999999993" y="556" width="157.2" height="18" rx="3" class="c-mask"/>
-          <text x="373.79999999999995" y="566" class="t-edge-security" font-size="11" text-anchor="middle">credencial del usuario</text>
+          <rect x="462.7" y="528" width="150.6" height="18" rx="3" class="c-mask"/>
+          <text x="538" y="538" class="t-muted" font-size="11" text-anchor="middle">orden y justificación</text>
         </g>
         </g>
 
-        <g data-edge-from="vault" data-edge-to="app" data-edge-label="su login" data-edge-key="13" data-edge-id="m-cred-ok">
-          <path data-composition-edge-from="vault" data-composition-edge-to="app" data-composition-edge-id="m-cred-ok" data-composition-points="448.9,604;298.7,604" d="M 448.9 604 L 298.7 604" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="app" data-edge-to="user" data-edge-label="candidatos con ambiente, servidor y confianza" data-edge-key="12" data-edge-id="m-cands">
+          <path data-composition-edge-from="app" data-composition-edge-to="user" data-composition-edge-id="m-cands" data-composition-points="284.7,576;134.5,576" d="M 284.7 576 L 134.5 576" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="341.4" y="584" width="64.8" height="18" rx="3" class="c-mask"/>
-          <text x="373.79999999999995" y="594" class="t-muted" font-size="11" text-anchor="middle">su login</text>
+          <rect x="55.099999999999994" y="556" width="309" height="18" rx="3" class="c-mask"/>
+          <text x="209.6" y="566" class="t-muted" font-size="11" text-anchor="middle">candidatos con ambiente, servidor y confianza</text>
+        </g>
+        <rect data-detail="context" data-graph-role="message-note-background" x="144.5" y="583.6" width="75.39999999999999" height="16.399999999999977" rx="2" class="c-mask" pointer-events="none"/>
+        <text data-detail="context" x="146.5" y="594" class="t-muted" font-size="7">no consulta datos</text>
+        </g>
+
+        <g data-edge-from="user" data-edge-to="app" data-edge-label="¿ventas por región?" data-edge-key="13" data-edge-id="m-ask">
+          <path data-composition-edge-from="user" data-composition-edge-to="app" data-composition-edge-id="m-ask" data-composition-points="134.5,624;284.7,624" d="M 134.5 624 L 284.7 624" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-detail="context">
+          <rect x="140.9" y="604" width="137.39999999999998" height="18" rx="3" class="c-mask"/>
+          <text x="209.6" y="614" class="t-edge-emphasis" font-size="11" text-anchor="middle">¿ventas por región?</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="sqlserver" data-edge-label="valida y ejecuta con SU login" data-edge-key="14" data-edge-id="m-exec">
-          <path data-composition-edge-from="app" data-composition-edge-to="sqlserver" data-composition-edge-id="m-exec" data-composition-points="298.7,632;941.5,632" d="M 298.7 632 L 941.5 632" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="app" data-edge-to="catalog" data-edge-label="busca tablas" data-edge-key="14" data-edge-id="m-search">
+          <path data-composition-edge-from="app" data-composition-edge-to="catalog" data-composition-edge-id="m-search" data-composition-points="298.7,652;613.0999999999999,652" d="M 298.7 652 L 613.0999999999999 652" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="518.4000000000001" y="612" width="203.39999999999998" height="18" rx="3" class="c-mask"/>
-          <text x="620.1000000000001" y="622" class="t-edge-emphasis" font-size="11" text-anchor="middle">valida y ejecuta con SU login</text>
+          <rect x="410.29999999999995" y="632" width="91.19999999999999" height="18" rx="3" class="c-mask"/>
+          <text x="455.9" y="642" class="t-muted" font-size="11" text-anchor="middle">busca tablas</text>
         </g>
         </g>
 
-        <g data-edge-from="sqlserver" data-edge-to="app" data-edge-label="solo filas permitidas" data-edge-key="15" data-edge-id="m-rows">
-          <path data-composition-edge-from="sqlserver" data-composition-edge-to="app" data-composition-edge-id="m-rows" data-composition-points="941.5,660;298.7,660" d="M 941.5 660 L 298.7 660" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="catalog" data-edge-to="app" data-edge-label="solo tablas permitidas" data-edge-key="15" data-edge-id="m-tables">
+          <path data-composition-edge-from="catalog" data-composition-edge-to="app" data-composition-edge-id="m-tables" data-composition-points="613.0999999999999,680;298.7,680" d="M 613.0999999999999 680 L 298.7 680" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="544.8000000000001" y="640" width="150.6" height="18" rx="3" class="c-mask"/>
-          <text x="620.1" y="650" class="t-muted" font-size="11" text-anchor="middle">solo filas permitidas</text>
+          <rect x="377.29999999999995" y="660" width="157.2" height="18" rx="3" class="c-mask"/>
+          <text x="455.9" y="670" class="t-muted" font-size="11" text-anchor="middle">solo tablas permitidas</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="user" data-edge-label="respuesta" data-edge-key="16" data-edge-id="m-answer">
-          <path data-composition-edge-from="app" data-composition-edge-to="user" data-composition-edge-id="m-answer" data-composition-points="284.7,684;134.5,684" d="M 284.7 684 L 134.5 684" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="app" data-edge-to="llm" data-edge-label="genera SQL" data-edge-key="16" data-edge-id="m-gen">
+          <path data-composition-edge-from="app" data-composition-edge-to="llm" data-composition-edge-id="m-gen" data-composition-points="298.7,708;777.3,708" d="M 298.7 708 L 777.3 708" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="173.89999999999998" y="664" width="71.4" height="18" rx="3" class="c-mask"/>
-          <text x="209.59999999999997" y="674" class="t-muted" font-size="11" text-anchor="middle">respuesta</text>
+          <rect x="499" y="688" width="78" height="18" rx="3" class="c-mask"/>
+          <text x="538" y="698" class="t-muted" font-size="11" text-anchor="middle">genera SQL</text>
+        </g>
+        <text data-detail="context" x="310.7" y="726" class="t-muted" font-size="7"><tspan x="310.7" dy="0">solo esquema permitido, sin</tspan><tspan x="310.7" dy="11">credenciales</tspan></text>
+        </g>
+
+        <g data-edge-from="llm" data-edge-to="app" data-edge-label="SQL propuesto" data-edge-key="17" data-edge-id="m-sql">
+          <path data-composition-edge-from="llm" data-composition-edge-to="app" data-composition-edge-id="m-sql" data-composition-points="777.3,768;298.7,768" d="M 777.3 768 L 298.7 768" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-detail="context">
+          <rect x="489.1" y="748" width="97.8" height="18" rx="3" class="c-mask"/>
+          <text x="538" y="758" class="t-muted" font-size="11" text-anchor="middle">SQL propuesto</text>
         </g>
         </g>
 
-        <g data-edge-from="user" data-edge-to="app" data-edge-label="¿salarios de RRHH?" data-edge-key="17" data-edge-id="m-ask2">
-          <path data-composition-edge-from="user" data-composition-edge-to="app" data-composition-edge-id="m-ask2" data-composition-points="134.5,714;284.7,714" d="M 134.5 714 L 284.7 714" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-edge-from="app" data-edge-to="vault" data-edge-label="credencial del usuario" data-edge-key="18" data-edge-id="m-cred">
+          <path data-composition-edge-from="app" data-composition-edge-to="vault" data-composition-edge-id="m-cred" data-composition-points="298.7,796;448.9,796" d="M 298.7 796 L 448.9 796" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
         <g data-detail="context">
-          <rect x="144.2" y="694" width="130.8" height="18" rx="3" class="c-mask"/>
-          <text x="209.6" y="704" class="t-edge-emphasis" font-size="11" text-anchor="middle">¿salarios de RRHH?</text>
+          <rect x="295.19999999999993" y="776" width="157.2" height="18" rx="3" class="c-mask"/>
+          <text x="373.79999999999995" y="786" class="t-edge-security" font-size="11" text-anchor="middle">credencial del usuario</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="catalog" data-edge-label="busca tablas" data-edge-key="18" data-edge-id="m-search2">
-          <path data-composition-edge-from="app" data-composition-edge-to="catalog" data-composition-edge-id="m-search2" data-composition-points="298.7,742;613.0999999999999,742" d="M 298.7 742 L 613.0999999999999 742" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="vault" data-edge-to="app" data-edge-label="su login" data-edge-key="19" data-edge-id="m-cred-ok">
+          <path data-composition-edge-from="vault" data-composition-edge-to="app" data-composition-edge-id="m-cred-ok" data-composition-points="448.9,824;298.7,824" d="M 448.9 824 L 298.7 824" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="410.29999999999995" y="722" width="91.19999999999999" height="18" rx="3" class="c-mask"/>
-          <text x="455.9" y="732" class="t-muted" font-size="11" text-anchor="middle">busca tablas</text>
+          <rect x="341.4" y="804" width="64.8" height="18" rx="3" class="c-mask"/>
+          <text x="373.79999999999995" y="814" class="t-muted" font-size="11" text-anchor="middle">su login</text>
         </g>
         </g>
 
-        <g data-edge-from="catalog" data-edge-to="app" data-edge-label="ninguna visible" data-edge-key="19" data-edge-id="m-none">
-          <path data-composition-edge-from="catalog" data-composition-edge-to="app" data-composition-edge-id="m-none" data-composition-points="613.0999999999999,770;298.7,770" d="M 613.0999999999999 770 L 298.7 770" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-edge-from="app" data-edge-to="sqlserver" data-edge-label="valida y ejecuta con SU login" data-edge-key="20" data-edge-id="m-exec">
+          <path data-composition-edge-from="app" data-composition-edge-to="sqlserver" data-composition-edge-id="m-exec" data-composition-points="298.7,852;941.5,852" d="M 298.7 852 L 941.5 852" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="400.4" y="750" width="111" height="18" rx="3" class="c-mask"/>
-          <text x="455.9" y="760" class="t-muted" font-size="11" text-anchor="middle">ninguna visible</text>
+          <rect x="518.4000000000001" y="832" width="203.39999999999998" height="18" rx="3" class="c-mask"/>
+          <text x="620.1000000000001" y="842" class="t-edge-emphasis" font-size="11" text-anchor="middle">valida y ejecuta con SU login</text>
         </g>
         </g>
 
-        <g data-edge-from="app" data-edge-to="user" data-edge-label="no hay datos disponibles para ti" data-edge-key="20" data-edge-id="m-deny">
-          <path data-composition-edge-from="app" data-composition-edge-to="user" data-composition-edge-id="m-deny" data-composition-points="284.7,798;134.5,798" d="M 284.7 798 L 134.5 798" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <g data-edge-from="sqlserver" data-edge-to="app" data-edge-label="solo filas permitidas" data-edge-key="21" data-edge-id="m-rows">
+          <path data-composition-edge-from="sqlserver" data-composition-edge-to="app" data-composition-edge-id="m-rows" data-composition-points="941.5,880;298.7,880" d="M 941.5 880 L 298.7 880" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="98" y="778" width="223.2" height="18" rx="3" class="c-mask"/>
-          <text x="209.6" y="788" class="t-edge-security" font-size="11" text-anchor="middle">no hay datos disponibles para ti</text>
+          <rect x="544.8000000000001" y="860" width="150.6" height="18" rx="3" class="c-mask"/>
+          <text x="620.1" y="870" class="t-muted" font-size="11" text-anchor="middle">solo filas permitidas</text>
         </g>
-        <text data-detail="context" x="146.5" y="816" class="t-muted" font-size="7"><tspan x="146.5" dy="0">no revela que RRHH existe; si</tspan><tspan x="146.5" dy="11">se forzara: error 229</tspan></text>
+        </g>
+
+        <g data-edge-from="app" data-edge-to="user" data-edge-label="respuesta" data-edge-key="22" data-edge-id="m-answer">
+          <path data-composition-edge-from="app" data-composition-edge-to="user" data-composition-edge-id="m-answer" data-composition-points="284.7,904;134.5,904" d="M 284.7 904 L 134.5 904" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-detail="context">
+          <rect x="173.89999999999998" y="884" width="71.4" height="18" rx="3" class="c-mask"/>
+          <text x="209.59999999999997" y="894" class="t-muted" font-size="11" text-anchor="middle">respuesta</text>
+        </g>
+        </g>
+
+        <g data-edge-from="user" data-edge-to="app" data-edge-label="¿salarios de RRHH?" data-edge-key="23" data-edge-id="m-ask2">
+          <path data-composition-edge-from="user" data-composition-edge-to="app" data-composition-edge-id="m-ask2" data-composition-points="134.5,934;284.7,934" d="M 134.5 934 L 284.7 934" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <g data-detail="context">
+          <rect x="144.2" y="914" width="130.8" height="18" rx="3" class="c-mask"/>
+          <text x="209.6" y="924" class="t-edge-emphasis" font-size="11" text-anchor="middle">¿salarios de RRHH?</text>
+        </g>
+        </g>
+
+        <g data-edge-from="app" data-edge-to="catalog" data-edge-label="busca tablas" data-edge-key="24" data-edge-id="m-search2">
+          <path data-composition-edge-from="app" data-composition-edge-to="catalog" data-composition-edge-id="m-search2" data-composition-points="298.7,962;613.0999999999999,962" d="M 298.7 962 L 613.0999999999999 962" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <g data-detail="context">
+          <rect x="410.29999999999995" y="942" width="91.19999999999999" height="18" rx="3" class="c-mask"/>
+          <text x="455.9" y="952" class="t-muted" font-size="11" text-anchor="middle">busca tablas</text>
+        </g>
+        </g>
+
+        <g data-edge-from="catalog" data-edge-to="app" data-edge-label="ninguna visible" data-edge-key="25" data-edge-id="m-none">
+          <path data-composition-edge-from="catalog" data-composition-edge-to="app" data-composition-edge-id="m-none" data-composition-points="613.0999999999999,990;298.7,990" d="M 613.0999999999999 990 L 298.7 990" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+        <g data-detail="context">
+          <rect x="400.4" y="970" width="111" height="18" rx="3" class="c-mask"/>
+          <text x="455.9" y="980" class="t-muted" font-size="11" text-anchor="middle">ninguna visible</text>
+        </g>
+        </g>
+
+        <g data-edge-from="app" data-edge-to="user" data-edge-label="no hay datos disponibles para ti" data-edge-key="26" data-edge-id="m-deny">
+          <path data-composition-edge-from="app" data-composition-edge-to="user" data-composition-edge-id="m-deny" data-composition-points="284.7,1018;134.5,1018" d="M 284.7 1018 L 134.5 1018" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <g data-detail="context">
+          <rect x="98" y="998" width="223.2" height="18" rx="3" class="c-mask"/>
+          <text x="209.6" y="1008" class="t-edge-security" font-size="11" text-anchor="middle">no hay datos disponibles para ti</text>
+        </g>
+        <text data-detail="context" x="146.5" y="1036" class="t-muted" font-size="7"><tspan x="146.5" dy="0">no revela que RRHH existe; si</tspan><tspan x="146.5" dy="11">se forzara: error 229</tspan></text>
         </g>
 
         <!-- Segment Labels -->
         <g data-graph-role="segment-label" data-segment-id="0">
-          <rect x="316.6" y="134" width="279.2" height="18" rx="3" class="c-mask"/>
-          <text x="322.6" y="147" class="t-muted" font-size="9" font-weight="600">1 · Inicio de sesión: SQL Server dice qué puede ver</text>
+          <rect x="366.1" y="134" width="279.2" height="18" rx="3" class="c-mask"/>
+          <text x="372.1" y="147" class="t-muted" font-size="9" font-weight="600">1 · Inicio de sesión: SQL Server dice qué puede ver</text>
         </g>
         <g data-graph-role="segment-label" data-segment-id="1">
-          <rect x="56" y="416" width="196" height="18" rx="3" class="c-mask"/>
-          <text x="62" y="429" class="t-muted" font-size="9" font-weight="600">2 · Pregunta dentro de sus permisos</text>
+          <rect x="56" y="416" width="227.20000000000002" height="18" rx="3" class="c-mask"/>
+          <text x="62" y="429" class="t-muted" font-size="9" font-weight="600">2 · Descubrimiento dentro de sus permisos</text>
         </g>
         <g data-graph-role="segment-label" data-segment-id="2">
-          <rect x="56" y="726" width="190.8" height="18" rx="3" class="c-mask"/>
-          <text x="62" y="739" class="t-muted" font-size="9" font-weight="600">3 · Pregunta fuera de sus permisos</text>
+          <rect x="56" y="658" width="242.8" height="18" rx="3" class="c-mask"/>
+          <text x="62" y="671" class="t-muted" font-size="9" font-weight="600">3 · Pregunta de datos dentro de sus permisos</text>
+        </g>
+        <g data-graph-role="segment-label" data-segment-id="3">
+          <rect x="56" y="946" width="190.8" height="18" rx="3" class="c-mask"/>
+          <text x="62" y="959" class="t-muted" font-size="9" font-weight="600">4 · Pregunta fuera de sus permisos</text>
         </g>
 
         <!-- Participants -->
@@ -5448,15 +5505,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="620.0999999999999" y="122" class="t-muted" font-size="7" text-anchor="middle">filtrado por usuario</text>
         </g>
 
-        <g id="node-llm" data-node-id="llm" data-node-label="Amazon Bedrock" tabindex="0" role="button" aria-label="Enfocar Amazon Bedrock, genera el SQL, Participante de secuencia" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="genera el SQL" data-node-description="Modelo que redacta el SQL. Solo recibe la pregunta y el esquema ya filtrado del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), la ejecución sigue atada a los permisos reales del usuario. (F16)" data-node-context="Participante de secuencia">
-          <title>Amazon Bedrock · genera el SQL · Participante de secuencia · Modelo que redacta el SQL. Solo recibe la pregunta y el esquema ya filtrado del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), la ejecución sigue atada a los permisos reales del usuario. (F16)</title>
+        <g id="node-llm" data-node-id="llm" data-node-label="Amazon Bedrock" tabindex="0" role="button" aria-label="Enfocar Amazon Bedrock, candidatos y SQL, Participante de secuencia" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="candidatos y SQL" data-node-description="Modelo que ordena los candidatos del descubrimiento y redacta el SQL de la consulta. Solo recibe la pregunta y los metadatos ya filtrados del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), lo que ve y ejecuta sigue atado a los permisos reales del usuario. (F16, F22)" data-node-context="Participante de secuencia">
+          <title>Amazon Bedrock · candidatos y SQL · Participante de secuencia · Modelo que ordena los candidatos del descubrimiento y redacta el SQL de la consulta. Solo recibe la pregunta y los metadatos ya filtrados del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), lo que ve y ejecuta sigue atado a los permisos reales del usuario. (F16, F22)</title>
           <rect x="718.8" y="72" width="131" height="60" rx="6" class="c-mask"/>
           <rect x="718.8" y="72" width="131" height="60" rx="6" class="c-cloud" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(724.8 78) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="784.3" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Amazon Bedrock</text>
-          <text data-detail="context" x="784.3" y="122" class="t-muted" font-size="7" text-anchor="middle">genera el SQL</text>
+          <text data-detail="context" x="784.3" y="122" class="t-muted" font-size="7" text-anchor="middle">candidatos y SQL</text>
         </g>
 
         <g id="node-sqlserver" data-node-id="sqlserver" data-node-label="SQL Server" tabindex="0" role="button" aria-label="Enfocar SQL Server, aplica los permisos reales, Participante de secuencia" aria-pressed="false" data-node-kind="database" data-node-sublabel="aplica los permisos reales" data-node-description="Barrera de seguridad final y fuente de verdad de los permisos: GRANT, DENY, roles, esquemas y seguridad a nivel de fila que ya existen. Como cada consulta llega con el login del usuario, SQL Server aplica exactamente las mismas reglas que si el usuario consultara con SSMS. Un acceso no permitido devuelve el error 229. (F8, F14)" data-node-context="Participante de secuencia">
@@ -5473,22 +5530,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <!-- Legend -->
         <g data-legend="">
-          <text x="40" y="874" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
-          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="894" data-legend-width="161">
-            <path d="M 40 891 L 74 891" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-            <text x="83" y="894" class="t-muted" font-size="10" font-weight="500">solicitud principal</text>
+          <text x="40" y="1094" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
+          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="1114" data-legend-width="161">
+            <path d="M 40 1111 L 74 1111" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+            <text x="83" y="1114" class="t-muted" font-size="10" font-weight="500">solicitud principal</text>
           </g>
-          <g data-legend-semantic-kind="return" data-legend-x="223" data-legend-baseline="894" data-legend-width="99">
-            <path d="M 223 891 L 257 891" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
-            <text x="266" y="894" class="t-muted" font-size="10" font-weight="500">respuesta</text>
+          <g data-legend-semantic-kind="return" data-legend-x="223" data-legend-baseline="1114" data-legend-width="99">
+            <path d="M 223 1111 L 257 1111" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+            <text x="266" y="1114" class="t-muted" font-size="10" font-weight="500">respuesta</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-x="344" data-legend-baseline="894" data-legend-width="99">
-            <path d="M 344 891 L 378 891" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-            <text x="387" y="894" class="t-muted" font-size="10" font-weight="500">seguridad</text>
+          <g data-legend-semantic-kind="security" data-legend-x="344" data-legend-baseline="1114" data-legend-width="99">
+            <path d="M 344 1111 L 378 1111" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+            <text x="387" y="1114" class="t-muted" font-size="10" font-weight="500">seguridad</text>
           </g>
-          <g data-legend-semantic-kind="default" data-legend-x="465" data-legend-baseline="894" data-legend-width="87">
-            <path d="M 465 891 L 499 891" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-            <text x="508" y="894" class="t-muted" font-size="10" font-weight="500">mensaje</text>
+          <g data-legend-semantic-kind="default" data-legend-x="465" data-legend-baseline="1114" data-legend-width="87">
+            <path d="M 465 1111 L 499 1111" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+            <text x="508" y="1114" class="t-muted" font-size="10" font-weight="500">mensaje</text>
           </g>
         </g>
       </svg>

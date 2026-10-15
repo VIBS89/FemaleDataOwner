@@ -13,9 +13,13 @@ aplica sus permisos reales (GRANT, DENY, roles, esquemas, seguridad a nivel de f
 lo ve en ConverData.
 
 ## Flujo (igual en ambos entornos)
-1. **Validación del login**: se abre una conexión de prueba con el login SQL del usuario (`SELECT SUSER_SNAME(), ORIGINAL_LOGIN()`). Si falla, no hay sesión.
-2. **Custodia de la credencial**: se guarda cifrada fuera del alcance del LLM; el mecanismo depende del entorno (CN-03 / OP-03).
-3. **Visibilidad**: se calcula con la conexión del usuario y se cachea 15 min por sesión:
+1. **Validación del login**: los logins SQL son por instancia, y el descubrimiento recorre varios servidores y ambientes (F1). El usuario
+   entrega una credencial **por servidor**; la UI le ofrece usar la misma en todos los servidores que marque (alias de `config/databases.yaml`).
+   En cada uno se abre una conexión de prueba (`SELECT SUSER_SNAME(), ORIGINAL_LOGIN()`). Si falla en todos, no hay sesión; los servidores
+   donde falla quedan fuera de su visibilidad y no se reintentan solos (para no provocar bloqueos por intentos fallidos). Puede añadir
+   credenciales de otros servidores más tarde.
+2. **Custodia de la credencial**: se guarda cifrada fuera del alcance del LLM, una por servidor; el mecanismo depende del entorno (CN-03 / OP-03).
+3. **Visibilidad**: se calcula con la conexión del usuario en cada servidor (en paralelo) y se cachea 15 min por sesión:
    ```sql
    -- por cada BD configurada a la que el login tiene acceso (HAS_DBACCESS(name)=1)
    SELECT o.object_id, s.name AS [schema], o.name, o.type
@@ -26,6 +30,17 @@ lo ve en ConverData.
    ```
    El resultado se mapea a los `id` del catálogo y forma `visible_ids`. Los `DENY` a nivel de columna se detectan con `HAS_PERMS_BY_NAME(..., 'COLUMN')` solo en las tablas que pasan el schema linking.
 4. **Ejecución**: toda consulta (F5, F7 compilación, F8) usa una conexión abierta con la credencial del usuario.
+
+## Grupos y roles del usuario
+Los fragmentos de documentos con ACL de origen (`allowed_groups`, F23), los roles `steward`/`data_admin` (F24) y el perfil de las
+métricas (`user_group`, F25) necesitan saber a qué grupos corporativos pertenece el usuario:
+| Entorno | Fuente de los grupos |
+|---|---|
+| Cloud native | Claim `cognito:groups` del JWT, sincronizado desde el IdP corporativo federado (CN-03) |
+| On-premise | Tabla `curation.user_directory` (login SQL → cuenta de AD), mantenida por `data_admin`; al iniciar sesión, el servicio consulta AD por LDAP (solo lectura, con su gMSA) los grupos de esa cuenta (OP-03) |
+
+Si no hay grupos resueltos (login sin cuenta de AD asociada o directorio no disponible), `groups = []`: el usuario no ve fragmentos con ACL
+ni tiene roles de curación (fail-closed). Los grupos se cachean con la visibilidad.
 
 ## Visibilidad en el descubrimiento (F22–F24) — decisión tomada
 **El descubrimiento hereda exactamente los mismos permisos que la consulta de datos.** No existe un modo de "catálogo abierto":

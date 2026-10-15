@@ -15,18 +15,18 @@ Llevar ConverData a AWS como servicio gestionado y seguro:
 |---|---|---|
 | Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con los grafos de LangGraph: **DiscoverFlow (F22)** y AskFlow) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
 | Servidor MCP propio | `converdata-mcp` desplegado como **MCP server en AgentCore Runtime** y registrado como target de **AgentCore Gateway** | Un único endpoint MCP, con autenticación OAuth, para los agentes internos y los clientes externos |
-| `converdata-discovery` (F18, propio, Apache-2.0) | Dentro de la tarea ECS del Catalog Builder (como biblioteca) o como servicio ECS privado | Solo ingesta y descubrimiento (F1, F19); usa el login de metadatos |
+| `converdata-discovery` (F18, propio, Apache-2.0) | **Biblioteca dentro de la tarea ECS del Catalog Builder** (igual que on-premise) | Solo ingesta (F1, F19, F23); el login de metadatos solo existe en esa tarea |
 | Sandbox de análisis (F20) | **AgentCore Code Interpreter** | Ejecución aislada por sesión de código Python de último recurso |
 | Catalog Builder | Tarea ECS Fargate lanzada por **EventBridge Scheduler** (nocturna) y bajo demanda mediante Step Functions | Proceso batch largo, fuera del camino interactivo |
 | Catálogo fuente (YAML) | **S3** versionado (`s3://converdata-catalog/`), **solo metadatos estructurales, sin `sample_values`** | Revisión humana, historial y fuente para reindexar |
 | Memoria semántica | **OpenSearch Serverless** (colección *vector search*, endpoint VPC) | k-NN + BM25 híbrido con filtros por metadatos (`visible_ids`) |
 | Memoria conversacional | **Solo en la memoria de la sesión** de AgentCore Runtime (microVM); **no se usa AgentCore Memory** | Residencia de datos (F17): el historial contiene datos |
 | Auditoría y golden SQL (F11) | **BD `ConverData_Audit` en SQL Server on-prem** (vía VPN/DX) | Residencia de datos (F17): preguntas y SQL con literales no se guardan en AWS |
-| Conocimiento y curación (F23, F24) | Ingesta de documentos, diccionarios y ETL en la tarea ECS del Catalog Builder, con redacción de PII **antes** de salir de la red del banco; reglas, anotaciones y `golden_discovery` (plantillas) en S3 + OpenSearch; solicitudes de curación (contienen la pregunta) en `ConverData_Audit` on-prem | Residencia de datos (F17) y conocimiento revisable |
+| Conocimiento y curación (F23, F24) | Ingesta de documentos, diccionarios y ETL en la tarea ECS del Catalog Builder, con redacción de PII en memoria **antes** de escribir nada en AWS; reglas, anotaciones, ediciones humanas (`*.human.yaml`) y `golden_discovery` (plantillas) en S3 + OpenSearch, escritas por las herramientas internas de `converdata-mcp` (F12); solicitudes de curación y golden originales (contienen la pregunta) en `ConverData_Audit` on-prem | Residencia de datos (F17), conocimiento revisable y un único camino de escritura |
 | UI y API REST | **Chainlit + FastAPI BFF** en ECS Fargate detrás de **ALB** con autenticación Cognito (OIDC) y **AWS WAF** | Sesiones WebSocket/SSE de Chainlit; el BFF invoca `InvokeAgentRuntime` |
 | Usuarios | **Amazon Cognito** (federable con el IdP corporativo, por ejemplo Entra ID o Google) | JWT de entrada para el ALB, AgentCore Runtime y Gateway |
 | Credenciales SQL por usuario | Secrets Manager + KMS (CN-03) | Herencia de permisos (F14) |
-| Red | VPC con subredes privadas, **Transit Gateway** hacia VPN o Direct Connect on-prem, VPC endpoints (Bedrock, S3, Secrets Manager, OpenSearch, ECR, CloudWatch, KMS), NAT solo para el fallback a NIM | Sin tráfico de datos por internet |
+| Red | VPC con subredes privadas, **Transit Gateway** hacia VPN o Direct Connect on-prem, VPC endpoints (Bedrock, S3, Secrets Manager, OpenSearch, ECR, CloudWatch, KMS). Salida a internet solo por NAT + **AWS Network Firewall** con lista blanca de dominios: Microsoft Graph / SharePoint Online desde la subred del Catalog Builder (si los documentos están en SharePoint Online) y el fallback a NIM (desactivado en prod) | Sin tráfico de datos de clientes por internet; egress auditado |
 | Observabilidad | **AgentCore Observability** (OTel) → CloudWatch / X-Ray, más dashboards de CloudWatch | Trazas por paso del flow, tokens y latencias |
 | Seguridad del LLM | **Bedrock Guardrails** (prompt-attack, PII, temas denegados) en las entradas y salidas del usuario | Defensa contra inyección de prompt sobre datos |
 | IaC | AWS CDK (Python) o Terraform; un stack por entorno (dev/stg/prod) | Reproducible |
@@ -41,9 +41,12 @@ Usuarios ──HTTPS──► CloudFront? (opcional) ─► WAF ─► ALB (Cogn
 Clientes MCP (Claude, IDE) ──OAuth──────────────────────────────────────┘    └─► converdata-mcp (AgentCore Runtime, modo VPC)
                                                                                     ├─► OpenSearch Serverless (VPC endpoint)
                                                                                     ├─► Secrets Manager (credenciales por usuario)
+                                                                                    ├─► S3 (ediciones de curación, plantillas golden discovery)
                                                                                     └─► Transit GW ─► VPN/DX ─► SQL Server on-prem (datos + ConverData_Audit)
-EventBridge Scheduler ─► ECS task Catalog Builder + converdata-discovery ─► SQL Server on-prem (metadatos, Query Store)
-                                         └─► S3 catálogo ─► OpenSearch (indexación)
+EventBridge Scheduler ─► ECS task Catalog Builder (+ converdata-discovery, Presidio) ─► SQL Server on-prem (metadatos, Query Store, SSISDB, msdb)
+                                         ├─► carpeta compartida on-prem (SMB por VPN) / SharePoint (Graph)
+                                         ├─► Bedrock (descripciones)
+                                         └─► S3 catálogo + conocimiento ─► Lambda indexador ─► OpenSearch
 ```
 
 ## Requisitos no funcionales
@@ -51,7 +54,7 @@ EventBridge Scheduler ─► ECS task Catalog Builder + converdata-discovery ─
 - **Disponibilidad**: 99,5 %; ECS en 2 AZ. AgentCore y Bedrock son servicios gestionados. La disponibilidad también depende de la VPN/DX y del SQL Server on-prem (datos y auditoría).
 - **Coste**: se etiqueta todo con `app=converdata` y `env`; presupuesto con AWS Budgets y alertas; límite de tokens por usuario y día en el BFF.
 - **Cumplimiento**: **cero persistencia de datos de clientes en AWS** (ver [F17](../comun/F17-data-residency.md) y CN-06). Model invocation logging de Bedrock **desactivado**. Cifrado KMS en reposo en todo lo que sí persiste (metadatos, plantillas y credenciales).
-- **Red on-prem**: el firewall solo abre el puerto 1433 hacia los CIDR de las subredes de AgentCore (modo VPC) y del Catalog Builder.
+- **Red on-prem**: el firewall solo abre el puerto 1433 hacia los CIDR de las subredes de AgentCore (modo VPC) y del Catalog Builder, y el 445 (SMB) del servidor de archivos solo a la subred del Catalog Builder.
 
 ## Entornos
 | Entorno | Diferencias |

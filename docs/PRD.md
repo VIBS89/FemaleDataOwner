@@ -158,7 +158,7 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 | **Permisos** | Cada usuario solo descubre y consulta lo que su login SQL puede leer, incluidos metadatos, relaciones, reglas y documentos. Si nada visible responde, no se revela la existencia de otros objetos | F14 |
 | **Residencia de datos** | Ningún dato de cliente se persiste fuera de la red del banco; el catálogo no contiene valores; los documentos se indexan con PII redactada | F17, F23 |
 | **Seguridad** | Credenciales cifradas fuera del alcance del LLM; TLS en todas las conexiones; login de metadatos de solo lectura; sin SQL libre en las herramientas de metadatos | F14, F18 |
-| **Rendimiento** | Descubrimiento p50 < 5 s, p95 < 10 s | F22 |
+| **Rendimiento** | Descubrimiento p50 < 5 s, p95 < 10 s. Consulta de datos (fase 1b) p50 < 12 s, p95 < 30 s en producción (el MVP admite p95 < 40 s) | F22, OP-01 |
 | **Calidad** | Hit@3 ≥ 85 %, Hit@1 ≥ 65 %; candidatos con confianza ≥ 0.8 correctos ≥ 85 % | F25 |
 | **Trazabilidad** | Toda respuesta auditada; logs sin contenido | F11 |
 | **Operación** | Despliegue on-premise en el stack Microsoft (Windows Server, IIS, SQL Server 2025, SQL Server Agent); camino a cloud native en AWS sin cambiar la lógica | OP-01, CN-01 |
@@ -171,9 +171,10 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 - **LLM y embeddings**: Amazon Bedrock (Claude para razonar, un modelo distinto como juez, Cohere multilingüe para embeddings).
 - **Memoria**: on-premise en SQL Server 2025 (tipo `VECTOR` + Full-Text, búsqueda híbrida; tablas de grafo para relaciones;
   tablas temporales para el historial); en la nube, OpenSearch Serverless.
-- **Metadatos**: `converdata-discovery`, servidor MCP propio de solo lectura.
+- **Metadatos**: `converdata-discovery`, MCP propio de solo lectura que el Catalog Builder usa como biblioteca (el login de metadatos solo existe ahí).
+- **Ingesta**: Catalog Builder como proceso separado del servicio interactivo (servicio `ConverData-Builder` on-premise, tarea ECS en la nube).
 - **Interfaces**: Chainlit + FastAPI detrás de IIS; MCP en `/mcp`.
-- **Despliegue MVP**: un Windows Server de aplicación + BD `ConverData`; Bedrock como único servicio externo.
+- **Despliegue MVP**: un Windows Server de aplicación (servicios `ConverData-UI`, `ConverData-API` y `ConverData-Builder`) + BD `ConverData`; Bedrock como único servicio externo.
 
 Detalle en los diagramas de `docs/architecture/` y en las specs OP-01 a OP-06 / CN-01 a CN-06.
 
@@ -226,6 +227,7 @@ Lo devuelven `/ask`, `/discover` y la herramienta MCP `ask`/`discover` (F12).
 ```json
 {
   "trace_id": "uuid",
+  "flow": "discover | ask",
   "status": "ok | needs_clarification | rejected | error",
   "answer_text": "Resumen en español",
   "clarification": {"question": "...", "options": ["..."]},
@@ -243,12 +245,12 @@ Lo devuelven `/ask`, `/discover` y la herramienta MCP `ask`/`discover` (F12).
   },
   "confidence": 0.87,
   "chart_spec": {"type": "bar", "x": "...", "y": "..."},
-  "discovery": {"candidates": [], "alternatives": [], "related": [], "knowledge_gap": false},
+  "discovery": {"candidates": [], "alternatives": [], "related": [], "knowledge_gap": false, "suggested_questions": []},
   "timings_ms": {"total": 0, "llm": 0, "db": 0}
 }
 ```
-- `flow`: `discover` | `ask` (campo adicional). En `discover` se llena `discovery` (estructura completa en [F22](specs/comun/F22-discovery-flow.md))
-  y quedan vacíos `data`, `sql`, `validation` y `chart_spec`; en `ask` es al revés.
+- `flow`: en `discover` se llena `discovery` (estructura completa en [F22](specs/comun/F22-discovery-flow.md)) y quedan vacíos `data`, `sql`,
+  `validation` y `chart_spec`; en `ask` es al revés.
 
 
 ## 9. Métricas de éxito
@@ -274,9 +276,10 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 | **Visión** | Linaje automatizado extremo a extremo, generación de glosarios, reglas de calidad, análisis de impacto, multiplataforma | — |
 
 ## 11. Dependencias y supuestos
-- Logins SQL por usuario disponibles para los participantes del piloto (Windows/AD con Kerberos es una evolución posterior).
+- Logins SQL por usuario disponibles para los participantes del piloto en los servidores del piloto (producción y QA); Windows/AD con Kerberos es una evolución posterior.
+- Asociación de cada login SQL del piloto con la cuenta de AD de la persona y lectura de AD por LDAP para resolver grupos (F14).
 - Login técnico de metadatos con `VIEW DEFINITION` y lectura de SSISDB y msdb.
-- Acceso a los diccionarios y a la documentación del dominio piloto (carpeta compartida o SharePoint).
+- Acceso de solo lectura, con una cuenta técnica, a los diccionarios y a la documentación del dominio piloto (carpeta compartida o SharePoint).
 - Cuenta de AWS con Bedrock habilitado (modelos Claude, Nova o Llama, Cohere Embed) e IAM Roles Anywhere.
 - Windows Server para la aplicación y una instancia SQL Server 2025 para la BD `ConverData`.
 - Un steward funcional y uno técnico asignados al dominio piloto con tiempo para curación (semanas 2–3).
@@ -305,14 +308,22 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 3. **Autenticación (decidido, 2026-10-14)**: logins SQL por usuario, que también calculan la visibilidad del descubrimiento (OP-03).
    Windows/AD con SSO y delegación restringida de Kerberos queda como evolución, sujeta a una prueba de concepto (OP-03).
 4. **Nombre**: la propuesta usa "Enterprise Data Discovery Agent"; ConverData es el nombre técnico del proyecto.
+5. **Prioridad del planner (decidido, 2026-10-15)**: métrica certificada / consulta verificada → SP de la lista blanca → golden SQL → SQL nuevo
+   (F6, F21). La capa semántica es revisable y se compila de forma determinista; una métrica puede delegar en un SP oficial.
+6. **Catalog Builder separado (decidido, 2026-10-15)**: on-premise corre como servicio `ConverData-Builder`, no dentro de `ConverData-API`,
+   que atiende las preguntas en un solo proceso; `converdata-discovery` es una biblioteca dentro del Builder en ambos despliegues (F18, OP-01, CN-01).
+7. **Credenciales por servidor y grupos (decidido, 2026-10-15)**: los logins SQL son por instancia, así que la sesión guarda una credencial por
+   servidor; los grupos del usuario (ACL de documentos, roles de curación) vienen de Cognito en la nube y de AD por LDAP on-premise (F14).
+8. **Un solo camino de escritura del conocimiento curado (decidido, 2026-10-15)**: feedback, curación y golden se escriben con herramientas
+   internas de `converdata-mcp`, no publicadas a clientes externos (F12).
 
 ### Preguntas abiertas
-1. ¿Dónde viven exactamente los diccionarios y la documentación del dominio piloto, y quién da acceso?
+1. ¿Dónde viven los diccionarios y la documentación del dominio piloto (carpeta compartida, SharePoint on-premise u Online, Confluence), quién da
+   acceso y son accesibles SSISDB y msdb con un login técnico?
 2. ¿Qué gestor de requerimientos y canal de consultas se usan para la línea base?
-3. ¿Qué servidores y ambientes entran en el piloto?
+3. ¿Qué servidores y ambientes entran en el piloto, y los participantes tienen el mismo login SQL en todos ellos?
 4. ¿Qué canal de notificación prefieren los stewards (correo o Teams)?
 5. ¿Se mantiene la política de permisos heredados también para metadatos después del piloto?
-6. ¿Dónde viven los diccionarios y la documentación (carpeta compartida, SharePoint, Confluence) y son accesibles SSISDB y msdb con un login técnico?
 
 ## 14. Trazabilidad con la propuesta
 Fuente: *Propuesta 1 — Agente de descubrimiento y conocimiento de datos corporativos* (Gerencia de Datos, Banco Atlántida El Salvador).
@@ -442,16 +453,16 @@ docs/specs/
 | F11 | Auditoría | [F11](specs/comun/F11-audit.md) | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) `ConverData_Audit` on-prem | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) esquema `audit` de la BD `ConverData` |
 | F12 | Interfaces (API, chat, MCP) | [F12](specs/comun/F12-interfaces.md) | [CN-04](specs/cloud-native/CN-04-interfaces.md) | [OP-04](specs/on-premise/OP-04-interfaces.md) |
 | F13 | Arquitectura documentada (Archify) | [F13](specs/comun/F13-architecture-docs.md) | = | = |
-| F14 | Identidad y permisos heredados | [F14](specs/comun/F14-identity.md) | [CN-03](specs/cloud-native/CN-03-identidad.md) Cognito + Secrets Manager | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault |
+| F14 | Identidad y permisos heredados | [F14](specs/comun/F14-identity.md) | [CN-03](specs/cloud-native/CN-03-identidad.md) Cognito + Secrets Manager | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault + grupos de AD |
 | F16 | Proveedores LLM: Bedrock (+ NIM opcional) | [F16](specs/comun/F16-llm-providers.md) | = | = |
 | F17 | Residencia de datos | [F17](specs/comun/F17-data-residency.md) | [CN-06](specs/cloud-native/CN-06-residencia-datos.md) | [OP-06](specs/on-premise/OP-06-residencia-datos.md) |
-| F18 | `converdata-discovery`: MCP propio de metadatos (Apache-2.0, sustituye a sql-to-mcp) | [F18](specs/comun/F18-discovery-mcp.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) ECS privado | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) contenedor |
-| F19 | Descubrimiento entre múltiples BDs (grafo del patrimonio, joins entre BDs, planes federados) | [F19](specs/comun/F19-multi-db-discovery.md) | = | = |
-| F20 | Motor de análisis (compare, explain, explore, forecast, sandbox) | [F20](specs/comun/F20-analysis-engine.md) | = | = |
-| F21 | Capa semántica (métricas certificadas, consultas verificadas) | [F21](specs/comun/F21-semantic-layer.md) | = | = |
+| F18 | `converdata-discovery`: MCP propio de metadatos (Apache-2.0, sustituye a sql-to-mcp) | [F18](specs/comun/F18-discovery-mcp.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) biblioteca en la tarea ECS del Catalog Builder | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) biblioteca en el servicio `ConverData-Builder` |
+| F19 | Descubrimiento entre múltiples BDs (grafo del patrimonio, joins entre BDs, planes federados) | [F19](specs/comun/F19-multi-db-discovery.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) YAML `_estate/` en S3 | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) tablas de grafo del esquema `estate` |
+| F20 | Motor de análisis (compare, explain, explore, forecast, sandbox) | [F20](specs/comun/F20-analysis-engine.md) | [CN-01](specs/cloud-native/CN-01-despliegue-aws.md) sandbox AgentCore Code Interpreter | [OP-01](specs/on-premise/OP-01-despliegue-local.md) sin código libre en la v1 |
+| F21 | Capa semántica (métricas certificadas, consultas verificadas) | [F21](specs/comun/F21-semantic-layer.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) YAML `_semantic/` en S3 | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) esquema `semantic` |
 | **F22** | **DiscoverFlow: candidatos con ubicación, descripción, reglas, relaciones y confianza** | [F22](specs/comun/F22-discovery-flow.md) | = | = |
 | F23 | Fuentes de conocimiento: diccionarios, documentación, ETL (SSIS, SQL Agent) y reglas de negocio | [F23](specs/comun/F23-knowledge-sources.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) |
-| F24 | Curación y captura del conocimiento institucional (responsables, escalamiento, brechas) | [F24](specs/comun/F24-knowledge-curation.md) | = | = |
+| F24 | Curación y captura del conocimiento institucional (responsables, escalamiento, brechas) | [F24](specs/comun/F24-knowledge-curation.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) S3 `_curation/`, [CN-04](specs/cloud-native/CN-04-interfaces.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) esquema `curation`, [OP-04](specs/on-premise/OP-04-interfaces.md) |
 | F25 | Métricas de éxito, línea base y piloto | [F25](specs/comun/F25-success-metrics.md) | = | = |
 
 "=" significa que no hay diferencias entre entornos.

@@ -35,8 +35,8 @@ class IntentResult(BaseModel):
 - **`discovery` es el intent por defecto** cuando la pregunta busca *dónde está* o *qué significa* un dato ("necesito el identificador del
   cliente de onboarding", "¿qué tablas tienen datos de clientes?", "¿qué significa EstadoCta?"). Se enruta al **DiscoverFlow (F22)**,
   que responde desde el catálogo y el conocimiento, sin ejecutar SQL sobre datos.
-- `exploration` cubre preguntas como "¿qué datos tenemos de inventario?". Devuelve un resumen del dominio (F22) con tablas, columnas clave,
-  responsables, reglas y ejemplos de preguntas.
+- `exploration` cubre preguntas como "¿qué datos tenemos de inventario?". Se enruta al DiscoverFlow en modo **resumen de dominio**
+  (F22, §Resumen de dominio) con tablas, columnas clave, responsables, reglas y ejemplos de preguntas.
 - `data_query` y `procedure` (piden cifras o filas) se enrutan al AskFlow (F4–F10). Si el despliegue no tiene habilitado el AskFlow
   (`features.ask_flow: false`, fase 1 del piloto), se responden como `discovery` y se indica qué tabla o SP usar.
 - Ante la duda entre `discovery` y `data_query`, gana `discovery` (no ejecuta nada y es más barato).

@@ -15,9 +15,9 @@
 | Bedrock (única llamada externa) | Procesa D1/D2 | *Model invocation logging* desactivado; IAM Roles Anywhere con permiso solo `bedrock:InvokeModel*`. **Con datos reales, preferir la cuenta AWS del propio cliente** o un acuerdo de procesamiento de datos |
 | NVIDIA NIM | Envía datos a un tercero | Solo con datos de prueba |
 | Código Python libre (F20) | Ejecución arbitraria sobre datos | **No disponible en la v1** on-premise |
-| Secretos de servicio | Login de metadatos, certificado de Bedrock | DPAPI con ámbito de la cuenta de servicio y almacén de certificados con clave no exportable |
+| Secretos de servicio | Login de metadatos, sal de MinHash, certificado de Bedrock | DPAPI con ámbito de la cuenta de servicio y almacén de certificados con clave no exportable |
 
 ## Criterios de aceptación
-1. La prueba del literal marcado de F17 encuentra el literal solo en los esquemas `audit` y `golden` de la BD `ConverData`.
+1. La prueba del literal marcado de F17 encuentra el literal solo en los esquemas `audit`, `golden` y `curation` de la BD `ConverData`.
 2. Ninguna tabla de `catalog`, `estate` o `semantic` contiene valores de datos de prueba.
 3. Ningún fragmento de `knowledge` contiene los DUI ni números de cuenta de prueba sembrados en los documentos.

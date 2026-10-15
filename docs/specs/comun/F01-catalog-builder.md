@@ -39,10 +39,10 @@ servers:
    - Vistas: `sys.views` + `sys.sql_expression_dependencies`
    - Conteo aproximado de filas: `sys.dm_db_partition_stats`
    - Índices y PKs: `sys.indexes` + `sys.index_columns`
-2. **Muestras en memoria** (vía `converdata-discovery`, contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
+2. **Muestras en memoria** (herramienta `get_sample_rows` de `converdata-discovery`, solo en modo biblioteca y contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad, sin columnas `pii` ni clasificadas como sensibles. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
 
 ## Enriquecimiento con LLM
-Lo hace el Catalog Builder (proceso batch en Python, con llamadas directas por lotes al rol `planner` de F16). Para cada tabla y columna sin `MS_Description` genera:
+Lo hace el Catalog Builder (proceso batch en Python, separado del servicio interactivo, con llamadas directas por lotes al rol `planner` de F16). Para cada tabla y columna sin `MS_Description` genera:
 - `description` (español, una o dos frases)
 - `synonyms[]` (términos de negocio)
 - `domain` (por ejemplo ventas, inventario, RRHH)
@@ -85,7 +85,7 @@ columns:
     pii: false
 foreign_keys:
   - columns: [ClienteID]
-    ref: SRV01.Ventas.dbo.Cliente
+    ref: Ventas.dbo.Cliente      # asset_key: una FK siempre apunta a la misma BD y ambiente
     ref_columns: [ClienteID]
 schema_hash: "sha256:…"
 ```

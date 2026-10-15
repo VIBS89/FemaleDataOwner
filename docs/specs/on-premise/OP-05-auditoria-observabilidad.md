@@ -4,7 +4,7 @@
 
 ## Auditoría en la BD `ConverData`
 - **Esquema `audit`** de la BD `ConverData` (SQL Server 2025), con el modelo de tablas de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`), incluidas las tablas de descubrimiento (`audit_discovery`, `audit_discovery_feedback`); `golden_discovery` vive en `golden` y `curation_request` en `curation`.
-- La escribe el servicio `ConverData-API` con su cuenta gMSA (solo `INSERT` en `audit`; `SELECT` para el rol `auditor`).
+- La escribe el servicio `ConverData-API` con su cuenta gMSA, con los permisos de escritor de F11 (solo `INSERT` en `audit`; `INSERT`/`UPDATE` en `golden.golden_discovery` y `curation.curation_request`); `SELECT` para el rol `auditor`.
 - **Fail-closed** como en F11.
 - Respaldo, retención y alta disponibilidad: los del plan del DBA para la BD `ConverData`. La purga por retención (180 días) es un job de SQL Server Agent.
 - **Scorecard** (precisión, calibración, latencia, coste, 👍 y las métricas de F25): vistas SQL en el esquema `audit` y el comando `converdata metrics report` de F25. Si la organización tiene **Power BI Report Server**, puede leer esas vistas para un tablero.

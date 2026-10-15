@@ -15,7 +15,7 @@ No hay ChromaDB, SQLite ni archivos de catálogo como almacén de trabajo.
 | `semantic` | Métricas, dimensiones y consultas verificadas (F21) | Tablas normales con validación por `CHECK` y versionado temporal |
 | `golden` | Golden SQL original (con literales) y su plantilla anonimizada | Tablas normales |
 | `knowledge` | Fragmentos **redactados** de documentos y diccionarios, reglas de negocio, aristas de linaje ETL, anotaciones de responsables y `golden_discovery` (plantillas), con sus vectores (F23, F24) | `VECTOR` + Full-Text; linaje como aristas `etl` en las tablas de grafo de `estate`; temporal tables para reglas y anotaciones |
-| `curation` | Responsables por dominio (`owners`), solicitudes escaladas y cola de revisión (F24) | Tablas normales; las solicitudes contienen la pregunta (D2), por eso solo on-prem |
+| `curation` | Responsables por dominio (`owners`, cargado desde `owners.yaml`), directorio de usuarios (`user_directory`: login SQL → cuenta de AD, F14), solicitudes escaladas y cola de revisión (F24) | Tablas normales; las solicitudes contienen la pregunta (D2), por eso solo on-prem |
 | `audit` | Modelo de F11 | Ver OP-05 |
 
 El volumen esperado (300–3 000 tablas, decenas de miles de columnas) permite **búsqueda vectorial exacta**: no hace falta el índice
@@ -30,10 +30,11 @@ DiskANN, que sigue en preview.
 ## Ingesta y descubrimiento
 | Pieza | Implementación |
 |---|---|
-| Disparo | **Job de SQL Server Agent** nocturno con un paso PowerShell que llama a `POST /api/admin/catalog/refresh` (autenticado con un token de servicio) en el servidor de aplicación, donde corre el Catalog Builder; también bajo demanda desde la UI de administración. Alternativa: Programador de tareas de Windows en el servidor de aplicación |
-| `converdata-discovery` (F18) | Servicio de Windows en el servidor de aplicación, escuchando solo en `localhost`; usa el login de metadatos guardado con DPAPI |
-| Fuentes adicionales (F23) | Diccionarios y documentos (carpeta compartida o SharePoint), **SSISDB** y **msdb** (paquetes SSIS y jobs de SQL Agent) leídos por `converdata-discovery` |
-| Redacción de PII (F23) | **Presidio** con reconocedores en español y patrones locales (DUI, NIT, cuenta, tarjeta), en el proceso de ingesta del servidor de aplicación, antes de escribir en `knowledge`; los documentos originales no se copian |
+| Catalog Builder | Servicio de Windows **`ConverData-Builder`** (gMSA) en el servidor de aplicación, separado de `ConverData-API`; IIS le enruta `/api/admin/*` |
+| Disparo | **Job de SQL Server Agent** nocturno con un paso PowerShell que llama a `POST /api/admin/catalog/refresh` (autenticado con un token de servicio) en `ConverData-Builder`; también bajo demanda desde la UI de administración. Alternativa: Programador de tareas de Windows en el servidor de aplicación |
+| `converdata-discovery` (F18) | Biblioteca dentro de `ConverData-Builder`; usa el login de metadatos guardado con DPAPI |
+| Fuentes adicionales (F23) | **SSISDB** y **msdb** (paquetes SSIS y jobs de SQL Agent) leídos con `converdata-discovery`; diccionarios y documentos leídos por los conectores de `ConverData-Builder` desde la carpeta compartida (SMB) o SharePoint, con una cuenta técnica de solo lectura |
+| Redacción de PII (F23) | **Presidio** con reconocedores en español y patrones locales (DUI, NIT, cuenta, tarjeta), en memoria dentro de `ConverData-Builder`, antes de escribir en `knowledge`; los documentos originales no se copian |
 | Ingesta de conocimiento | Mismo job nocturno de SQL Server Agent (paso `POST /api/admin/knowledge/ingest`), procesando solo lo que cambió por hash |
 | Grafo entre BDs (F19) | Se escribe en el esquema `estate`; los sketches MinHash solo viven en memoria durante el job |
 | Revisión humana | UI de administración (descripciones, entidades, tablas canónicas, métricas); cada cambio queda en el historial temporal |
@@ -45,7 +46,7 @@ DiskANN, que sigue en preview.
 2. Al cambiar una descripción, el historial temporal permite ver la versión anterior y quién la cambió.
 3. Un usuario sin acceso al esquema `RRHH` no recibe objetos de `RRHH` en la búsqueda (filtro `visible_ids`).
 4. Los tests de contrato de `VectorStore` pasan contra `SqlServerVectorStore`.
-5. Ninguna tabla de la BD `ConverData` fuera de `audit` y `golden` contiene valores de datos ni literales de preguntas (test de literales marcados).
+5. Ninguna tabla de la BD `ConverData` fuera de `audit`, `golden` y `curation` (solicitudes escaladas) contiene valores de datos ni literales de preguntas (test de literales marcados).
 6. El job de SQL Server Agent registra éxito o fallo en su historial y avisa por correo (Database Mail) si falla.
 7. Un documento de prueba con un DUI y un número de cuenta queda en `knowledge` con ambos valores redactados (búsqueda del literal = 0).
 8. `SqlServerVectorStore.search_knowledge` y `search_golden_discovery` pasan los tests de contrato de F2, con el filtro `visible_ids` aplicado.

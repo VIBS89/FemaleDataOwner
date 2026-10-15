@@ -6,7 +6,8 @@
 |---|---|---|
 | Catálogo en S3 y OpenSearch | Valores de columnas | El YAML nunca lleva valores (F1); el indexador rechaza los que los tengan; no existe índice de valores |
 | Golden SQL | Pregunta y SQL con literales | Original en `ConverData_Audit` on-prem; en OpenSearch solo la plantilla anonimizada |
-| Documentos y diccionarios (F23) | Datos de clientes en ejemplos o capturas | Redacción de PII en memoria en la tarea ECS antes de escribir; a S3 y OpenSearch solo llegan fragmentos redactados; el original no se copia |
+| Documentos y diccionarios (F23) | Datos de clientes en ejemplos o capturas | Se leen por la VPN (SMB) o por Graph con egress filtrado (CN-01); redacción de PII en memoria en la tarea ECS antes de escribir; a S3 y OpenSearch solo llegan fragmentos redactados; el original no se copia ni pasa a disco |
+| Ediciones de curación en S3 (F24) | Descripciones o reglas con datos pegados por un steward | Pasan por el mismo detector de PII antes de escribirse en `_curation/`; el indexador rechaza valores |
 | Golden discovery y curación (F24) | Pregunta de descubrimiento (D2) | Original y solicitudes escaladas en `ConverData_Audit` on-prem; en OpenSearch solo la plantilla; notificaciones sin texto de la pregunta |
 | Auditoría | Pregunta, SQL, supuestos | `ConverData_Audit` en SQL Server on-prem (CN-05) |
 | Historial de conversación | Respuestas con datos | Solo en la memoria de la sesión de AgentCore Runtime (microVM); **no se usa AgentCore Memory** |

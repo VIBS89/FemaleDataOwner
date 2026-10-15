@@ -52,7 +52,7 @@
         160,
         64
       ],
-      "description": "Ingenieros de datos, analistas y Product Owners que preguntan en lenguaje natural dónde están los datos (descubrimiento) o piden los datos (consulta). Entran con su propio login SQL, que define lo que pueden ver y consultar. (F14, F22, OP-03)"
+      "description": "Ingenieros de datos, analistas y Product Owners que preguntan en lenguaje natural dónde están los datos (descubrimiento) o piden los datos (consulta). Entran con su propio login SQL, uno por servidor (o el mismo en todos los que marquen), que define lo que pueden ver y consultar en cada ambiente. (F14, F22, OP-03)"
     },
     {
       "id": "iis",
@@ -68,7 +68,7 @@
         64
       ],
       "tag": "PKI corporativa",
-      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, publica / (chat), /api y /mcp, y con HttpPlatformHandler lanza, supervisa y reinicia los procesos Python. Request Filtering activado; sus logs no registran cuerpos ni la cabecera Authorization. El Firewall de Windows solo abre el 443 a las redes de usuarios. (OP-04)"
+      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, publica / (chat), /api y /mcp hacia ConverData-API y /api/admin/* hacia ConverData-Builder (solo desde las IPs de los SQL Server y de administración). Con HttpPlatformHandler lanza, supervisa y reinicia los procesos Python. Request Filtering activado; sus logs no registran cuerpos ni la cabecera Authorization. (OP-04)"
     },
     {
       "id": "app",
@@ -84,13 +84,13 @@
         64
       ],
       "tag": "SessionVault en memoria",
-      "description": "Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + grafos de LangGraph DiscoverFlow y AskFlow + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con sus pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan el login SQL de cada sesión cifrado solo en memoria. Incluye la vista de curación para responsables y el envío de notificaciones sin el texto de la pregunta. (F3–F10, F12, F20, F22, F24, OP-01, OP-03, OP-04)"
+      "description": "Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + grafos de LangGraph DiscoverFlow y AskFlow + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan en memoria, cifrado, un login SQL por servidor para cada sesión y resuelven los grupos del usuario en AD por LDAP. Incluyen la vista de curación y el envío de notificaciones sin el texto de la pregunta. (F3–F10, F12, F14, F20, F22, F24, OP-01, OP-03, OP-04)"
     },
     {
       "id": "builder",
       "type": "backend",
-      "label": "Catalog Builder",
-      "sublabel": "catálogo + grafo entre BDs",
+      "label": "ConverData-Builder",
+      "sublabel": "Catalog Builder · F1 F19 F23",
       "pos": [
         760,
         360
@@ -99,7 +99,7 @@
         160,
         64
       ],
-      "description": "Proceso del servidor de aplicación que mapea todas las BDs: lee la estructura con converdata-discovery, conecta diccionarios, documentación y paquetes SSIS con el catálogo, construye el grafo de entidades y relaciones entre BDs, propone métricas y genera descripciones con Bedrock. Escribe todo en la BD ConverData, sin valores de datos. Lo dispara un job de SQL Server Agent. (F1, F19, F21, F23, OP-02)"
+      "description": "Servicio de Windows propio (gMSA), separado de ConverData-API para que la ingesta no compita con las preguntas. Mapea todas las BDs y ambientes con converdata-discovery (biblioteca), lee diccionarios y documentos con cuenta de solo lectura, redacta los datos personales con Presidio en memoria, construye el grafo de entidades y linaje, propone métricas y genera descripciones con Bedrock. Escribe todo en la BD ConverData, sin valores de datos. Lo dispara un job de SQL Server Agent. (F1, F19, F21, F23, OP-02)"
     },
     {
       "id": "discovery",
@@ -114,8 +114,8 @@
         160,
         64
       ],
-      "tag": "solo localhost",
-      "description": "MCP propio de descubrimiento (Apache-2.0), como servicio de Windows que solo escucha en localhost, con el login de metadatos guardado con DPAPI. Lee inventario, columnas, FKs, dependencias entre BDs, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. (F18, F23, OP-02)"
+      "tag": "biblioteca del Builder",
+      "description": "MCP propio de descubrimiento (Apache-2.0), usado como biblioteca dentro de ConverData-Builder: el login de metadatos, guardado con DPAPI, solo existe en ese proceso. Lee inventario, columnas, FKs, dependencias entre BDs, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas. Las muestras para describir columnas y los sketches MinHash salados viven solo en memoria. (F18, F19, F23, OP-02)"
     },
     {
       "id": "convdb",
@@ -131,7 +131,7 @@
         64
       ],
       "tag": "VECTOR · Full-Text · grafo",
-      "description": "Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (con tablas temporales para el historial de cambios y columnas VECTOR para la búsqueda semántica), Full-Text Search para la búsqueda por palabras, estate (tablas de grafo NODE/EDGE para las relaciones entre BDs y el linaje ETL), knowledge (documentos redactados, reglas de negocio, anotaciones y golden discovery), curation (responsables y dudas escaladas), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y los archivos YAML como almacén de trabajo. (F2, F11, F19, F21, F23, F24, OP-02, OP-05)"
+      "description": "Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (tablas temporales para el historial y columnas VECTOR para la búsqueda semántica, más Full-Text), estate (tablas de grafo NODE/EDGE para relaciones entre BDs y linaje ETL), knowledge (documentos redactados, reglas, anotaciones y golden discovery), curation (responsables, directorio login SQL → AD y dudas escaladas), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y YAML como almacén de trabajo. (F2, F11, F19, F21, F23, F24, OP-02, OP-05)"
     },
     {
       "id": "agent",
@@ -146,7 +146,7 @@
         160,
         64
       ],
-      "description": "Job nocturno (y bajo demanda) con pasos PowerShell que llaman a /api/admin/catalog/refresh y /api/admin/knowledge/ingest en el servidor de aplicación, para que el catálogo, el grafo, el conocimiento y los vectores reflejen los cambios. También ejecuta la purga de auditoría por retención y la evaluación semanal del descubrimiento, y avisa por Database Mail si algo falla o si baja la calidad. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)"
+      "description": "Job nocturno (y bajo demanda) con pasos PowerShell que llaman a /api/admin/catalog/refresh y /api/admin/knowledge/ingest en ConverData-Builder, para que el catálogo, el grafo, el conocimiento y los vectores reflejen los cambios. También ejecuta la purga de auditoría por retención y la evaluación semanal del descubrimiento, y avisa por Database Mail si algo falla o si baja la calidad. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)"
     },
     {
       "id": "sqldata",
@@ -176,7 +176,22 @@
         160,
         64
       ],
-      "description": "Conocimiento que hoy está disperso: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. converdata-discovery los lee y el Catalog Builder los vincula con tablas y columnas, con redacción de PII (Presidio) antes de escribir en la BD ConverData. (F23, OP-02)"
+      "description": "Conocimiento que hoy está disperso: diccionarios de datos y documentación funcional y técnica (carpetas compartidas o SharePoint), que leen los conectores de ConverData-Builder, y paquetes SSIS (SSISDB) y jobs de SQL Agent (msdb), que lee converdata-discovery. Los datos personales se redactan con Presidio antes de escribir en la BD ConverData; el original no se copia. (F23, OP-02)"
+    },
+    {
+      "id": "ad",
+      "type": "security",
+      "label": "Active Directory",
+      "sublabel": "grupos por LDAP",
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Directorio corporativo. ConverData-API lo consulta por LDAP (solo lectura, con su gMSA) al iniciar sesión para obtener los grupos de la cuenta de AD asociada al login SQL (tabla curation.user_directory). Los grupos filtran los documentos con ACL de origen y dan los roles steward y data_admin; sin asociación, el usuario no tiene grupos (fail-closed). (F14, F24, OP-03)"
     }
   ],
   "boundaries": [
@@ -245,7 +260,7 @@
       "id": "agent-builder",
       "from": "agent",
       "to": "builder",
-      "label": "refresh",
+      "label": "HTTPS refresh",
       "variant": "dashed"
     },
     {
@@ -259,7 +274,27 @@
       "id": "discovery-sources",
       "from": "discovery",
       "to": "sources",
-      "label": "lee"
+      "label": "SSISDB · msdb"
+    },
+    {
+      "id": "app-ad",
+      "from": "app",
+      "to": "ad",
+      "label": "LDAP grupos",
+      "variant": "security"
+    },
+    {
+      "id": "builder-llm",
+      "from": "builder",
+      "to": "bedrock",
+      "label": "descripciones",
+      "variant": "dashed"
+    },
+    {
+      "id": "builder-sources",
+      "from": "builder",
+      "to": "sources",
+      "label": "docs · diccionarios"
     }
   ],
   "cards": [
@@ -267,7 +302,7 @@
       "dot": "cyan",
       "title": "Stack Microsoft",
       "items": [
-        "Windows Server + IIS: Servicios ConverData, Catalog Builder y converdata-discovery como servicios de Windows (gMSA), sin Docker",
+        "Windows Server + IIS: servicios ConverData-UI, ConverData-API y ConverData-Builder (gMSA), sin Docker; converdata-discovery como biblioteca del Builder",
         "SQL Server 2025: VECTOR, Full-Text, grafo y tablas temporales en la BD ConverData",
         "SQL Server Agent para el refresco; Always On para leer sin cargar producción"
       ]
@@ -276,7 +311,7 @@
       "dot": "rose",
       "title": "Permisos y datos",
       "items": [
-        "Cada consulta y cada descubrimiento usan el login SQL del usuario",
+        "Cada consulta y cada descubrimiento usan el login SQL del usuario en cada servidor",
         "RLS, enmascaramiento y clasificación de SQL Server se aplican solos",
         "Nada sale de la red salvo el contexto enviado a Bedrock"
       ]

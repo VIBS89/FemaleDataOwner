@@ -7,9 +7,9 @@ Mantener tres diagramas interactivos y versionados que expliquen la solución, g
 ## Vistas
 | Archivo | Modo | Qué explica |
 |---|---|---|
-| `docs/architecture/cloud-native-architecture.html` | Architecture | **Arquitectura cloud native en AWS**: Cognito, WAF/ALB, ECS (Chainlit + BFF), AgentCore Runtime y Gateway, Bedrock, OpenSearch Serverless, Secrets Manager/KMS, S3 (catálogo sin muestras), Catalog Builder + converdata-discovery, sandbox Code Interpreter, y VPN/DX hacia SQL Server on-prem (datos + `ConverData_Audit`) (CN-01 a CN-06) |
-| `docs/architecture/onpremise-architecture.html` | Architecture | **Arquitectura on-premise sobre stack Microsoft**: Windows Server con IIS y servicios Python (AskFlow + converdata-mcp, converdata-discovery), BD `ConverData` en SQL Server 2025 (vectores, Full-Text, grafo, auditoría), SQL Server Agent, converdata-discovery, analysis-sandbox) con Bedrock como único servicio externo (OP-01 a OP-06) |
-| `docs/architecture/permisos-heredados.html` | Sequence | **Permisos de BD heredados**: el login SQL del usuario determina qué ve el catálogo, con qué login se ejecuta cada consulta y cómo se deniega un acceso fuera de permisos (F14) |
+| `docs/architecture/cloud-native-architecture.html` | Architecture | **Arquitectura cloud native en AWS**: Cognito, WAF/ALB, ECS (Chainlit + BFF), AgentCore Runtime (DiscoverFlow + AskFlow) y Gateway, Bedrock, OpenSearch Serverless, Secrets Manager/KMS, S3 (catálogo y conocimiento redactado, sin valores), Catalog Builder + converdata-discovery, fuentes de conocimiento, sandbox Code Interpreter, y VPN/DX hacia SQL Server on-prem (datos + `ConverData_Audit`) (CN-01 a CN-06) |
+| `docs/architecture/onpremise-architecture.html` | Architecture | **Arquitectura on-premise sobre stack Microsoft**: Windows Server con IIS y servicios de Windows (`ConverData-UI`, `ConverData-API` con DiscoverFlow + AskFlow + converdata-mcp, `ConverData-Builder` con converdata-discovery como biblioteca), BD `ConverData` en SQL Server 2025 (vectores, Full-Text, grafo, conocimiento, curación, auditoría), SQL Server Agent y fuentes de conocimiento, con Bedrock como único servicio externo (OP-01 a OP-06) |
+| `docs/architecture/permisos-heredados.html` | Sequence | **Permisos de BD heredados**: el login SQL del usuario determina qué ve el catálogo al descubrir y al consultar, con qué login se ejecuta cada consulta y cómo se deniega un acceso fuera de permisos (F14) |
 
 Las fuentes de cada diagrama (`*.archify.json`) se guardan junto al HTML, así que se pueden regenerar:
 ```bash

@@ -15,7 +15,7 @@ para no depender de expertos ni de documentación dispersa.
 | Pregunta típica | "¿Dónde está el dato X?", "¿qué significa el campo Y?" | "¿Cuánto vendimos en Q3?" |
 | Ejecuta SQL contra datos | **No** (solo catálogo, conocimiento y, si aplica, permisos) | Sí, con el login del usuario |
 | Requiere login SQL del usuario | Sí, para calcular su visibilidad (F14); no consulta datos | Sí |
-| Latencia objetivo | p95 < 10 s | p95 < 40 s |
+| Latencia objetivo | p50 < 5 s · p95 < 10 s | p50 < 12 s · p95 < 30 s (producción; el MVP admite p95 < 40 s, OP-01) |
 | Salida | `discovery` (candidatos) | `data` + `sql` |
 
 ## Pasos (grafo de LangGraph determinista)
@@ -41,9 +41,15 @@ para no depender de expertos ni de documentación dispersa.
    - indicadores certificados de la capa semántica que usan el activo ([F21](F21-semantic-layer.md), `list_metrics`);
    - **alternativas**: columnas con la misma semántica (sinónimos, mismo término de glosario o mismo nombre normalizado) en otras tablas.
 6. **Cálculo de confianza** (abajo).
-7. **Respuesta**: el agente redacta 1 a 4 frases que recomiendan el candidato principal y explican por qué; **no puede mencionar objetos
-   que no estén en `candidates`, `alternatives` o `related`** (validación por id).
+7. **Respuesta**: el nodo `respond` (rol `fast` de F16, en streaming) redacta 1 a 4 frases que recomiendan el candidato principal y explican
+   por qué; **no puede mencionar objetos que no estén en `candidates`, `alternatives` o `related`** (validación por id). Las tarjetas se
+   envían antes que la narrativa, así que el usuario ve los candidatos sin esperar al texto.
 8. **Brecha de conocimiento**: si ningún candidato llega a 0.6, `knowledge_gap = true` y se ofrece "Preguntar al responsable del dominio" (F24).
+
+## Resumen de dominio (intent `exploration`)
+Para "¿qué datos tenemos de X?" (F3, RF-11) el flow usa el mismo grafo con otro paso 2: `estate_overview(domain)` (F19) y `search_tables`
+filtrados por visibilidad. Devuelve como `candidates` las tablas principales del dominio (`kind: table`, tabla canónica primero), sus columnas
+clave, responsables, reglas destacadas y `suggested_questions`. No ejecuta SQL sobre datos.
 
 ## Contrato: sección `discovery` del `AnswerEnvelope`
 ```json

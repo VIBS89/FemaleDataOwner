@@ -7,7 +7,7 @@
 | Chat web | **Chainlit**, servicio de Windows `ConverData-UI`, publicado por IIS en `/` | Login de Chainlit con el login SQL (OP-03) |
 | API REST | **FastAPI**, servicio `ConverData-API`, publicado por IIS en `/api` (con `POST /login` y `POST /logout` adicionales) | `Authorization: Bearer <session_id>` |
 | MCP | **FastMCP** montado en `/mcp` del servicio `ConverData-API`; los agentes lo llaman en proceso | `Bearer` obtenido con `/login` |
-| MCP de descubrimiento (F18) | Servicio `ConverData-Discovery`, **solo `localhost`**, no publicado por IIS | Token de servicio |
+| Administración de ingesta (`/api/admin/*`) | Servicio `ConverData-Builder` (Catalog Builder + `converdata-discovery` como biblioteca), publicado por IIS solo para las IPs de los SQL Server (SQL Agent) y de administración | Token de servicio |
 
 ## IIS
 - **HttpPlatformHandler** lanza y supervisa los procesos Python (uvicorn), y reenvía las peticiones; es la opción recomendada por Microsoft frente a WFastCGI, que ya no se mantiene.
@@ -15,12 +15,13 @@
 - Soporte de **WebSockets** activado en IIS (Chainlit lo usa) y respuestas en *streaming* para `/ask/stream`.
 - *Request Filtering*: tamaño máximo de petición y verbos permitidos; las preguntas viajan en el cuerpo, no en la URL.
 - Los logs de IIS (W3C) no registran cuerpos ni la cabecera `Authorization`.
-- **Firewall de Windows**: entrada solo en 443 desde las redes de los usuarios; salida solo a los SQL Server (1433), al proxy corporativo (Bedrock) y a AD.
+- **Firewall de Windows**: entrada solo en 443 desde las redes de los usuarios (y `/api/admin/*` restringido por IP en IIS); salida solo a los SQL Server (1433), al proxy corporativo (Bedrock y SharePoint Online si se usa), a AD (LDAP/Kerberos) y al servidor de archivos (SMB 445).
 
 ## API
-- `POST /login`: `{server, login, password}` → `{session_id, expires_at, databases[]}`.
+- `POST /login`: `{credentials: [{server, login, password}]}` → `{session_id, expires_at, servers: [{alias, ok}], databases[]}` (F14, OP-03).
+  Es la implementación on-premise de `/credentials` de F12.
 - Rutas de descubrimiento de F12 (`/api/discover`, `/api/assets/{asset_key}`, `/api/discover/feedback`, `/api/curation/*`, `/api/metrics`), en el mismo servicio `ConverData-API`.
-- Los roles `steward` y `data_admin` (F24) se asignan a logins SQL o a grupos en la tabla `curation.owners`.
+- Los roles `steward` y `data_admin` (F24) se asignan a grupos de AD (resueltos con `curation.user_directory`, OP-03) o, en su defecto, a logins SQL, en la tabla `curation.owners`.
 - **Notificaciones a responsables** (F24): correo con **Database Mail** de la BD `ConverData` o webhook de Teams. El mensaje solo lleva el dominio y un enlace a `/curation`; la pregunta se lee dentro de la aplicación.
 - Rate limit simple en FastAPI: 30 preguntas por minuto y sesión.
 - CORS restringido al origen del sitio.
@@ -29,7 +30,7 @@
 1. Flujo E2E en Chainlit a través de `https://<servidor>/`: login → pregunta → tabla, gráfico y SQL → 👍.
 2. `curl https://<servidor>/api/ask` sin token devuelve 401.
 3. Claude Code, con `.mcp.json` apuntando a `https://<servidor>/mcp`, usa `ask` y recibe un `AnswerEnvelope`.
-4. `ConverData-Discovery` no responde desde otra máquina (test de red).
+4. `/api/admin/*` responde 403 desde una IP fuera de la lista permitida (test de red).
 5. Si un proceso Python cae, IIS lo reinicia automáticamente.
 6. Flujo E2E de descubrimiento: pregunta de onboarding digital → tarjetas de candidatos con ambiente y servidor → "✔ Es este" → registro en `audit.audit_discovery_feedback`.
 7. "Preguntar al responsable" envía la notificación sin el texto de la pregunta, y la respuesta del steward aparece como candidato principal en una pregunta equivalente.

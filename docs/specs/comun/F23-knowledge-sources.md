@@ -9,7 +9,9 @@ Como **administrador de datos**, quiero cargar los diccionarios de datos, la doc
 de negocio que hoy están dispersos, para que el agente los conecte con las tablas y columnas del catálogo.
 
 ## Fuentes y conectores
-Cada fuente implementa la interfaz `KnowledgeConnector`:
+Los conectores corren dentro del **Catalog Builder** (F1). Los que leen SQL Server (SSISDB, msdb, definiciones de SPs y vistas) usan las
+herramientas de `converdata-discovery` (F18); los de diccionarios y documentos leen directamente la carpeta compartida o SharePoint con una
+cuenta técnica de solo lectura. Cada fuente implementa la interfaz `KnowledgeConnector`:
 ```python
 class KnowledgeConnector(Protocol):
     kind: Literal["data_dictionary", "document", "etl", "business_rule", "metadata"]
@@ -69,7 +71,8 @@ el nivel de tabla; el linaje completo de extremo a extremo es la visión futura 
 - El SQL embebido en paquetes y SPs se guarda sin literales (sustituidos por placeholders tipados, como el golden SQL).
 - Los conectores de SSISDB, msdb y definiciones de SPs se implementan como herramientas adicionales de `converdata-discovery`
   ([F18](F18-discovery-mcp.md)): consultas fijas y parametrizadas, con un login técnico de solo lectura, como el de metadatos de F1.
-- Cada fragmento conserva la ACL de su origen cuando el conector la conoce (`allowed_groups`) y la búsqueda la aplica como pre-filtro.
+- Cada fragmento conserva la ACL de su origen cuando el conector la conoce (`allowed_groups`) y la búsqueda la aplica como pre-filtro
+  con los grupos del usuario (F14, §Grupos y roles).
 
 ## Comandos
 - `converdata knowledge ingest [--source <nombre>]`: procesa solo lo que cambió (por hash).

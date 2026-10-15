@@ -21,7 +21,7 @@
         160,
         64
       ],
-      "description": "Identidad de aplicación. Federa el SSO corporativo y emite el JWT que validan el ALB, AgentCore Runtime y AgentCore Gateway. Su 'sub' identifica al usuario en todo el sistema y es la clave para recuperar su login SQL, de modo que nunca se usa una identidad que el LLM pueda inventar. (F14, CN-01, CN-03)"
+      "description": "Identidad de aplicación. Federa el SSO corporativo y emite el JWT que validan el ALB, AgentCore Runtime y AgentCore Gateway. Su 'sub' identifica al usuario en todo el sistema y es la clave para recuperar sus logins SQL, y el claim cognito:groups da sus grupos (ACL de documentos, roles de curación), de modo que nunca se usa una identidad que el LLM pueda inventar. (F14, CN-01, CN-03)"
     },
     {
       "id": "bedrock",
@@ -112,7 +112,7 @@
         160,
         64
       ],
-      "description": "Interfaz web Chainlit y API REST (FastAPI BFF) en ECS Fargate. Muestra los pasos del flow en vivo, las tablas y los gráficos; reenvía el JWT del usuario a AgentCore Runtime y transmite la respuesta en streaming. Data layer de Chainlit desactivado: no persiste chats; las descargas CSV/XLSX van directas al navegador. (F12, CN-06, CN-04)"
+      "description": "Interfaz web Chainlit y API REST (FastAPI BFF) en ECS Fargate. Muestra los pasos del flow en vivo, las tarjetas de candidatos, las tablas y los gráficos; reenvía el JWT del usuario a AgentCore Runtime y transmite la respuesta en streaming. El feedback, la curación y el alta de credenciales van a las herramientas internas de converdata-mcp. Data layer de Chainlit desactivado: no persiste chats; las descargas CSV/XLSX van directas al navegador. (F12, CN-04, CN-06)"
     },
     {
       "id": "runtime",
@@ -143,7 +143,7 @@
         160,
         64
       ],
-      "description": "Punto único MCP. Publica las herramientas de converdata-mcp (discover, get_asset, get_lineage, where_is, search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask, entre otras) para los agentes internos y los clientes externos, con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. (F12, F22, CN-01, CN-04)"
+      "description": "Punto único MCP. Publica las herramientas de converdata-mcp (discover, get_asset, get_lineage, where_is, search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask, entre otras) con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. Las herramientas internas de feedback y curación solo se exponen con el scope converdata/internal del BFF, nunca a clientes MCP externos. (F12, F22, CN-01, CN-04)"
     },
     {
       "id": "mcp",
@@ -158,7 +158,7 @@
         160,
         64
       ],
-      "description": "Servidor MCP propio, en AgentCore Runtime en modo VPC. Busca en el catálogo, valida el SQL (AST, objetos visibles, NOEXEC, SHOWPLAN), ejecuta SELECT y SPs de la lista blanca con el login SQL del propio usuario y escribe la auditoría on-prem. Es el único componente que toca SQL Server en tiempo de consulta. (F7, F8, F14, CN-03)"
+      "description": "Servidor MCP propio, en AgentCore Runtime en modo VPC. Busca en el catálogo, valida el SQL (AST, objetos visibles, NOEXEC, SHOWPLAN) y ejecuta SELECT y SPs de la lista blanca con el login SQL del propio usuario en cada servidor. Es el único camino de escritura: auditoría, golden y solicitudes de curación en ConverData_Audit on-prem, y ediciones humanas y plantillas de golden discovery en S3. Es el único componente que toca SQL Server en tiempo de consulta. (F7, F8, F12, F14, F24, CN-03, CN-05)"
     },
     {
       "id": "secrets",
@@ -174,7 +174,7 @@
         64
       ],
       "tag": "CMK KMS",
-      "description": "Guarda el login SQL de cada usuario, cifrado con una CMK de KMS dedicada. Solo el rol de converdata-mcp puede leerlo, y solo para el usuario del JWT. Permite que cada consulta corra con los permisos reales de SQL Server. CloudTrail audita cada lectura. Son credenciales, no datos de clientes. (F14, CN-03)"
+      "description": "Guarda el login SQL de cada usuario por servidor (converdata/sql-logins/<sub>/<server>), cifrado con una CMK de KMS dedicada. Solo el rol de converdata-mcp puede leerlo, y solo para el usuario del JWT. Permite que cada consulta corra con los permisos reales de SQL Server. CloudTrail audita cada lectura. Son credenciales, no datos de clientes. (F14, CN-03)"
     },
     {
       "id": "tgw",
@@ -234,7 +234,7 @@
         160,
         64
       ],
-      "description": "Tarea ECS que mapea todas las BDs y ambientes: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs, ingiere diccionarios, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio (redactando datos personales con Presidio antes de escribir), propone métricas y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, F23, CN-02)"
+      "description": "Tarea ECS que mapea todas las BDs y ambientes: lee la estructura con converdata-discovery (biblioteca), construye el grafo del patrimonio de datos entre BDs, ingiere diccionarios y documentos (SMB por la VPN o SharePoint por Graph con egress filtrado), paquetes SSIS, jobs de SQL Agent y reglas de negocio, redacta los datos personales con Presidio en memoria antes de escribir, propone métricas y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, F23, CN-02)"
     },
     {
       "id": "discovery",
@@ -249,7 +249,7 @@
         160,
         64
       ],
-      "description": "MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, F23, CN-02)"
+      "description": "MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), usado como biblioteca dentro de la tarea ECS del Catalog Builder: el login de metadatos solo existe ahí. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas, sin SQL libre. Muestras y sketches MinHash salados viven solo en memoria. Nunca responde a usuarios. (F18, F19, F23, CN-02)"
     },
     {
       "id": "s3",
@@ -264,7 +264,7 @@
         160,
         64
       ],
-      "description": "Catálogo y conocimiento versionados (YAML), solo con metadatos estructurales, conocimiento ya redactado, reglas, linaje, responsables (owners.yaml) y ediciones humanas (*.human.yaml). Permite la revisión humana, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con valores. (F1, F2, F23, F24, CN-02, CN-06)"
+      "description": "Catálogo y conocimiento versionados (YAML), solo con metadatos estructurales, conocimiento ya redactado, reglas, linaje, responsables (owners.yaml), ediciones humanas (_curation/*.human.yaml) y plantillas de golden discovery. Permite la revisión humana y el historial de cambios; cada objeto nuevo dispara un indexador Lambda que rechaza YAML con valores y actualiza OpenSearch. (F1, F2, F23, F24, CN-02, CN-06)"
     },
     {
       "id": "auditdb",
@@ -311,7 +311,7 @@
         160,
         64
       ],
-      "description": "Conocimiento que hoy está disperso en la red del banco: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. El Catalog Builder los lee por la VPN y redacta los datos personales antes de que nada se escriba en AWS. (F23, CN-02, CN-06)"
+      "description": "Conocimiento que hoy está disperso en la red del banco: diccionarios de datos y documentación funcional y técnica (carpetas compartidas o SharePoint), que lee el Catalog Builder, y paquetes SSIS (SSISDB) y jobs de SQL Agent (msdb), que lee converdata-discovery por la VPN. Los datos personales se redactan en memoria antes de que nada se escriba en AWS. (F23, CN-02, CN-06)"
     }
   ],
   "boundaries": [
@@ -461,7 +461,35 @@
       "id": "discovery-sources",
       "from": "discovery",
       "to": "sources",
-      "label": "docs · SSIS",
+      "label": "SSISDB · msdb",
+      "variant": "dashed"
+    },
+    {
+      "id": "s3-index",
+      "from": "s3",
+      "to": "opensearch",
+      "label": "indexa (Lambda)",
+      "variant": "dashed"
+    },
+    {
+      "id": "mcp-s3",
+      "from": "mcp",
+      "to": "s3",
+      "label": "curación",
+      "variant": "dashed"
+    },
+    {
+      "id": "catalog-llm",
+      "from": "catalog",
+      "to": "bedrock",
+      "label": "descripciones",
+      "variant": "dashed"
+    },
+    {
+      "id": "catalog-sources",
+      "from": "catalog",
+      "to": "sources",
+      "label": "docs · SMB / Graph",
       "variant": "dashed"
     }
   ],
@@ -481,7 +509,8 @@
       "items": [
         "AWS procesa y muestra: no persiste datos, preguntas ni SQL",
         "Auditoría y golden SQL en SQL Server on-prem",
-        "Historial solo en la sesión; sandbox y sketches sin persistencia"
+        "Historial solo en la sesión; sandbox y sketches sin persistencia",
+        "Egress a internet solo por Network Firewall con lista blanca (Graph / SharePoint)"
       ]
     },
     {

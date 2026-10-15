@@ -8,6 +8,7 @@
 | DiscoverFlow y AskFlow | **AgentCore Runtime** (`runtimeSessionId` = `conversation_id`) | Inbound JWT authorizer (Cognito) |
 | Descubrimiento, curación y métricas (`/discover`, `/assets`, `/curation`, `/metrics`) | El mismo BFF; `/discover` invoca el DiscoverFlow en AgentCore Runtime | Cognito; los roles `steward` y `data_admin` salen de grupos del IdP (F24) |
 | MCP para clientes externos | **AgentCore Gateway** (endpoint MCP) con target `converdata-mcp` (MCP server en AgentCore Runtime) | OAuth 2.0 de Cognito; la identidad del usuario se propaga al target |
+| Feedback y curación (`/discover/feedback`, `/curation/*`, `/credentials`) | El BFF llama a las herramientas internas de `converdata-mcp` (F12) por AgentCore Gateway con el JWT del usuario | Scope OAuth `converdata/internal`, que solo tiene el cliente de la aplicación; los clientes MCP externos no ven esas herramientas |
 
 - El streaming de pasos (`/ask/stream`) usa la respuesta en streaming de `InvokeAgentRuntime`, que el BFF reenvía como SSE.
 - Rate limit en WAF y un límite de tokens por usuario y día en el BFF.

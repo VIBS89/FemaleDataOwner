@@ -28,15 +28,17 @@ Las descripciones de `tables` y `columns` usan la mejor fuente disponible (`huma
 
 ## Interfaz `VectorStore` (idéntica en ambos entornos)
 ```python
-index_catalog(catalog_dir) -> IndexStats
-search_tables(query, k=30, databases=None, visible_ids=None) -> list[TableHit]
-search_columns(query, k=50, table_ids=None) -> list[ColumnHit]
-search_golden(query, k=5, database=None) -> list[GoldenHit]
+index_catalog(source: CatalogSource) -> IndexStats      # tablas `catalog` (OP) o YAML en S3 (CN)
+search_tables(query, k=30, visible_ids, databases=None) -> list[TableHit]
+search_columns(query, k=50, visible_ids, table_ids=None) -> list[ColumnHit]
+search_golden(query, k=5, visible_ids, database=None) -> list[GoldenHit]
 add_golden_template(template, sql_template|procedure, meta) -> None
 index_knowledge(items: list[KnowledgeItem]) -> IndexStats                       # F23, F24
-search_knowledge(query, k=30, kinds=None, visible_ids=None, groups=None) -> list[KnowledgeHit]
-search_golden_discovery(query, k=5) -> list[GoldenDiscoveryHit]                 # F22, F24
+search_knowledge(query, k=30, visible_ids, groups, kinds=None) -> list[KnowledgeHit]
+search_golden_discovery(query, k=5, visible_ids) -> list[GoldenDiscoveryHit]    # F22, F24
 ```
+`visible_ids` (y `groups` en el conocimiento) son **obligatorios** en toda búsqueda: no existe una llamada sin filtro de permisos (F14).
+Un golden SQL o golden discovery solo se devuelve si **todos** sus objetos están en `visible_ids`.
 La búsqueda es **híbrida** en ambos entornos (vectorial + BM25): los nombres técnicos (`ClientCode`, `LegalClientId`) se encuentran mejor por
 coincidencia léxica y los conceptos de negocio por similitud semántica.
 Hay dos implementaciones, `OpenSearchStore` y `SqlServerVectorStore`. Los mismos tests de contrato corren contra ambas.

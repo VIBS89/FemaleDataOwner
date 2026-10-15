@@ -16,6 +16,7 @@
 | GET | `/catalog/search?q=` | Búsqueda en el catálogo filtrada por la visibilidad del usuario |
 | GET | `/audit` | Solo administradores (F11) |
 | GET | `/health` | Estado de Bedrock, memoria semántica, `converdata-discovery` y SQL Server |
+| POST/DELETE | `/credentials` | Registra o retira el login SQL del usuario por servidor (F14). On-premise se expone como `POST /login` y `POST /logout` (OP-04) |
 
 Las preguntas viajan siempre en el cuerpo, nunca en la URL, para que no queden en logs de acceso.
 
@@ -52,7 +53,10 @@ Alternativas: LegalClientId (71 %) · UserId (64 %)
 - `where_is`, `estate_overview` y `find_join_path` entre BDs vienen de F19; `list_metrics` de F21; `analyze` ejecuta los modos de F20.
 - Descubrimiento (F22–F24): `discover`, `get_asset`, `get_related`, `get_lineage`, `list_business_rules`, `find_alternatives`.
   `discover` devuelve el `AnswerEnvelope` con `flow=discover` y usa `where_is` (F19) para las entidades entre BDs.
-- Para un cliente externo (Claude Desktop o Claude Code), basta normalmente con `ask`.
+- Para un cliente externo (Claude Desktop o Claude Code), basta normalmente con `discover` (fase 1a) o `ask` (fase 1b).
+- **Herramientas internas** (las usa la API, no se publican a clientes externos): `record_discovery_feedback` y `curation_*`
+  (crear, responder y cerrar solicitudes; editar descripciones, reglas y vínculos). Comprueban el rol (`steward`/`data_admin`) y son el único
+  camino de escritura del conocimiento curado y de los golden, de modo que ambos despliegues escriben por el mismo código.
 - `run_select` siempre llama primero a `validate_sql`; no hay forma de ejecutar sin validar.
 - La identidad del usuario llega por el contexto autenticado de la petición, **nunca como argumento** que el LLM pueda modificar (F14).
 

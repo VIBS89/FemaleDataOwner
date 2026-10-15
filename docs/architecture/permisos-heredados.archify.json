@@ -40,8 +40,8 @@
       "id": "llm",
       "type": "cloud",
       "label": "Amazon Bedrock",
-      "sublabel": "genera el SQL",
-      "description": "Modelo que redacta el SQL. Solo recibe la pregunta y el esquema ya filtrado del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), la ejecución sigue atada a los permisos reales del usuario. (F16)"
+      "sublabel": "candidatos y SQL",
+      "description": "Modelo que ordena los candidatos del descubrimiento y redacta el SQL de la consulta. Solo recibe la pregunta y los metadatos ya filtrados del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), lo que ve y ejecuta sigue atado a los permisos reales del usuario. (F16, F22)"
     },
     {
       "id": "sqlserver",
@@ -59,13 +59,18 @@
     },
     {
       "from": 390,
-      "to": 690,
-      "label": "2 · Pregunta dentro de sus permisos"
+      "to": 600,
+      "label": "2 · Descubrimiento dentro de sus permisos"
     },
     {
-      "from": 700,
-      "to": 850,
-      "label": "3 · Pregunta fuera de sus permisos"
+      "from": 610,
+      "to": 910,
+      "label": "3 · Pregunta de datos dentro de sus permisos"
+    },
+    {
+      "from": 920,
+      "to": 1070,
+      "label": "4 · Pregunta fuera de sus permisos"
     }
   ],
   "messages": [
@@ -74,7 +79,7 @@
       "from": "user",
       "to": "app",
       "y": 160,
-      "label": "inicia sesión con su login SQL",
+      "label": "inicia sesión con su login SQL (por servidor)",
       "variant": "security"
     },
     {
@@ -82,7 +87,7 @@
       "from": "app",
       "to": "sqlserver",
       "y": 188,
-      "label": "conecta con ese login",
+      "label": "conecta con ese login en cada servidor",
       "variant": "security"
     },
     {
@@ -126,10 +131,58 @@
       "label": "filtra el catálogo"
     },
     {
-      "id": "m-ask",
+      "id": "m-disc",
       "from": "user",
       "to": "app",
       "y": 404,
+      "label": "¿dónde está el ID del cliente de onboarding?",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-disc-search",
+      "from": "app",
+      "to": "catalog",
+      "y": 432,
+      "label": "busca columnas y conocimiento"
+    },
+    {
+      "id": "m-disc-hits",
+      "from": "catalog",
+      "to": "app",
+      "y": 460,
+      "label": "solo activos, reglas y documentos visibles",
+      "variant": "return"
+    },
+    {
+      "id": "m-rerank",
+      "from": "app",
+      "to": "llm",
+      "y": 488,
+      "label": "ordena candidatos",
+      "note": "solo metadatos permitidos, sin datos"
+    },
+    {
+      "id": "m-rank",
+      "from": "llm",
+      "to": "app",
+      "y": 548,
+      "label": "orden y justificación",
+      "variant": "return"
+    },
+    {
+      "id": "m-cands",
+      "from": "app",
+      "to": "user",
+      "y": 576,
+      "label": "candidatos con ambiente, servidor y confianza",
+      "variant": "return",
+      "note": "no consulta datos"
+    },
+    {
+      "id": "m-ask",
+      "from": "user",
+      "to": "app",
+      "y": 624,
       "label": "¿ventas por región?",
       "variant": "emphasis"
     },
@@ -137,14 +190,14 @@
       "id": "m-search",
       "from": "app",
       "to": "catalog",
-      "y": 432,
+      "y": 652,
       "label": "busca tablas"
     },
     {
       "id": "m-tables",
       "from": "catalog",
       "to": "app",
-      "y": 460,
+      "y": 680,
       "label": "solo tablas permitidas",
       "variant": "return"
     },
@@ -152,7 +205,7 @@
       "id": "m-gen",
       "from": "app",
       "to": "llm",
-      "y": 488,
+      "y": 708,
       "label": "genera SQL",
       "note": "solo esquema permitido, sin credenciales"
     },
@@ -160,7 +213,7 @@
       "id": "m-sql",
       "from": "llm",
       "to": "app",
-      "y": 548,
+      "y": 768,
       "label": "SQL propuesto",
       "variant": "return"
     },
@@ -168,7 +221,7 @@
       "id": "m-cred",
       "from": "app",
       "to": "vault",
-      "y": 576,
+      "y": 796,
       "label": "credencial del usuario",
       "variant": "security"
     },
@@ -176,7 +229,7 @@
       "id": "m-cred-ok",
       "from": "vault",
       "to": "app",
-      "y": 604,
+      "y": 824,
       "label": "su login",
       "variant": "return"
     },
@@ -184,7 +237,7 @@
       "id": "m-exec",
       "from": "app",
       "to": "sqlserver",
-      "y": 632,
+      "y": 852,
       "label": "valida y ejecuta con SU login",
       "variant": "emphasis"
     },
@@ -192,7 +245,7 @@
       "id": "m-rows",
       "from": "sqlserver",
       "to": "app",
-      "y": 660,
+      "y": 880,
       "label": "solo filas permitidas",
       "variant": "return"
     },
@@ -200,7 +253,7 @@
       "id": "m-answer",
       "from": "app",
       "to": "user",
-      "y": 684,
+      "y": 904,
       "label": "respuesta",
       "variant": "return"
     },
@@ -208,7 +261,7 @@
       "id": "m-ask2",
       "from": "user",
       "to": "app",
-      "y": 714,
+      "y": 934,
       "label": "¿salarios de RRHH?",
       "variant": "emphasis"
     },
@@ -216,14 +269,14 @@
       "id": "m-search2",
       "from": "app",
       "to": "catalog",
-      "y": 742,
+      "y": 962,
       "label": "busca tablas"
     },
     {
       "id": "m-none",
       "from": "catalog",
       "to": "app",
-      "y": 770,
+      "y": 990,
       "label": "ninguna visible",
       "variant": "return"
     },
@@ -231,7 +284,7 @@
       "id": "m-deny",
       "from": "app",
       "to": "user",
-      "y": 798,
+      "y": 1018,
       "label": "no hay datos disponibles para ti",
       "variant": "security",
       "note": "no revela que RRHH existe; si se forzara: error 229"

@@ -7,13 +7,14 @@
 |---|---|
 | Disparo | **EventBridge Scheduler** (nocturno) y **Step Functions** (bajo demanda) |
 | Catalog Builder | Tarea **ECS Fargate** en subred privada; LLM vía Bedrock (VPC endpoint) |
-| `converdata-discovery` (F18) | Biblioteca dentro de la tarea del Catalog Builder (o servicio ECS privado); login de metadatos y sal MinHash en Secrets Manager |
+| `converdata-discovery` (F18) | Biblioteca dentro de la tarea del Catalog Builder; login de metadatos y sal MinHash en Secrets Manager |
 | Descubrimiento entre BDs (F19) | Misma tarea ECS, tras F1; el grafo `_estate/` y la capa semántica `_semantic/` (F21) se guardan en S3 junto al catálogo |
 | Catálogo fuente | **S3 versionado** (`s3://converdata-catalog/`), cifrado KMS, **solo metadatos estructurales** |
-| Indexación | El evento `s3:ObjectCreated` dispara el indexador, que rechaza YAML con valores y escribe en OpenSearch |
-| Fuentes de conocimiento (F23) | Misma tarea ECS: diccionarios y documentos desde la carpeta compartida on-prem (SMB por la VPN) o SharePoint (Microsoft Graph); SSISDB y msdb vía `converdata-discovery` |
+| Indexación | El evento `s3:ObjectCreated` dispara el indexador (**Lambda** en la VPC), que rechaza YAML con valores y escribe en OpenSearch; reindexa solo el activo cambiado |
+| Fuentes de conocimiento (F23) | Misma tarea ECS: diccionarios y documentos desde la carpeta compartida on-prem (SMB por la VPN) o SharePoint (Microsoft Graph, por el egress filtrado de CN-01); SSISDB y msdb vía `converdata-discovery` |
+| Curación (F24) | Las herramientas internas de `converdata-mcp` escriben las ediciones humanas (`*.human.yaml`) y las plantillas de `golden_discovery` en `s3://converdata-catalog/_curation/` (el mismo indexador las lleva a OpenSearch) y los originales y solicitudes en `ConverData_Audit` on-prem |
 | Redacción de PII (F23) | **Presidio** dentro de la tarea ECS, en memoria, antes de escribir; a S3 (`s3://converdata-catalog/_knowledge/`) solo llegan fragmentos redactados, reglas, linaje y anotaciones. Alternativa más estricta: ejecutar la redacción en un agente on-prem y enviar solo el resultado |
-| Responsables (F24) | `owners.yaml` en S3, con grupos del IdP federado en Cognito |
+| Responsables (F24) | `owners.yaml` en S3, con grupos del IdP federado en Cognito (claim `cognito:groups`, F14) |
 | Red hacia SQL Server | Transit Gateway + VPN/DX (CN-01); el firewall on-prem abre el 1433 solo a la subred del Catalog Builder |
 
 ## Memoria semántica: `OpenSearchStore`
