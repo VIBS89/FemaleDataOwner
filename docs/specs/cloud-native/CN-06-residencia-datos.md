@@ -15,6 +15,8 @@
 | NVIDIA NIM (fallback) | Envía datos a un tercero | Desactivado en prod; solo con acuerdo de procesamiento de datos o NIM autoalojado en la VPC |
 | ALB / WAF logs | URLs y cabeceras | Preguntas en el cuerpo, nunca en la URL; los access logs no incluyen cuerpos |
 | Disco efímero de AgentCore Runtime | Resultados | Sin escritura a disco; DataFrames solo en memoria |
+| AgentCore Code Interpreter (F20) | Código y DataFrames | Sesión aislada, sin persistencia; se cierra al terminar el análisis |
+| Sketches de descubrimiento (F19) | Huellas de valores | Calculados en memoria en la tarea ECS con hashes salados; nunca se escriben |
 | Secrets Manager | Credenciales SQL | No son datos de clientes; cifradas con CMK y acceso restringido (CN-03) |
 
 ## Criterios de aceptación

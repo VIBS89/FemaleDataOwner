@@ -86,8 +86,8 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 1. **Visibilidad (decidido, 2026-10-14)**: el usuario solo ve información a la que tiene acceso, también en el descubrimiento (metadatos,
    relaciones, reglas, documentos). Consecuencia: quien no tiene acceso a una BD no descubrirá que existe; el agente le ofrece escalar al
    responsable sin revelar nombres. Esto limita en parte la "democratización" de la propuesta a favor de la seguridad.
-2. **Autenticación**: las specs asumen login SQL por usuario, que ahora también se necesita para descubrir. Si el banco usa autenticación de
-   Windows/AD, hay que definir delegación Kerberos o el mapeo del usuario del IdP a su login.
+2. **Autenticación (decidido, 2026-10-14)**: logins SQL por usuario, que también calculan la visibilidad del descubrimiento (OP-03).
+   Windows/AD con SSO y delegación restringida de Kerberos queda como evolución, sujeta a una prueba de concepto (OP-03).
 3. **Disponibilidad de fuentes**: hay que confirmar dónde viven los diccionarios y la documentación (carpeta compartida, SharePoint,
    Confluence) y si SSISDB y msdb son accesibles con un login técnico.
 4. **Línea base**: sin las mediciones de la semana 0–1 no se pueden demostrar los porcentajes de la propuesta.

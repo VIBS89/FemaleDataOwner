@@ -19,6 +19,8 @@ persistir y puede contener datos vive **on-premise**.
 
 ## Reglas comunes
 - El catálogo nunca contiene valores (F1) y no existe índice de valores (F5).
+- Los sketches MinHash del descubrimiento (F18, F19) se calculan en memoria con hashes salados y se descartan; solo persisten las relaciones inferidas.
+- El sandbox de análisis (F20) no tiene red ni almacenamiento persistente.
 - El historial de conversación vive solo en la memoria de la sesión.
 - Chainlit sin data layer; las descargas se generan en streaming al navegador.
 - Logs y spans con lista blanca de atributos D5; un filtro descarta `question`, `sql`, `rows`, `prompt` y `completion`.

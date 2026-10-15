@@ -15,7 +15,7 @@
 | GET | `/metrics` | Métricas de F25 (solo `data_admin`) |
 | GET | `/catalog/search?q=` | Búsqueda en el catálogo filtrada por la visibilidad del usuario |
 | GET | `/audit` | Solo administradores (F11) |
-| GET | `/health` | Estado de Bedrock, memoria semántica, sql-to-mcp y SQL Server |
+| GET | `/health` | Estado de Bedrock, memoria semántica, `converdata-discovery` y SQL Server |
 
 Las preguntas viajan siempre en el cuerpo, nunca en la URL, para que no queden en logs de acceso.
 
@@ -48,7 +48,8 @@ Alternativas: LegalClientId (71 %) · UserId (64 %)
 - Vista **Curación** (solo `steward`/`data_admin`) y vista **Métricas** (solo `data_admin`).
 
 ## Herramientas MCP de `converdata-mcp`
-`ask`, `search_catalog`, `describe_table`, `find_join_path`, `lookup_values`, `validate_sql`, `run_select`, `list_procedures`, `exec_procedure`.
+`ask`, `search_catalog`, `where_is`, `estate_overview`, `describe_table`, `find_join_path`, `lookup_values`, `validate_sql`, `run_select`, `list_procedures`, `exec_procedure`, `list_metrics`, `analyze`.
+- `where_is`, `estate_overview` y `find_join_path` entre BDs vienen de F19; `list_metrics` de F21; `analyze` ejecuta los modos de F20.
 - Descubrimiento (F22–F24): `discover`, `get_asset`, `get_related`, `get_lineage`, `list_business_rules`, `find_alternatives`.
   `discover` devuelve el `AnswerEnvelope` con `flow=discover` y usa `where_is` (F19) para las entidades entre BDs.
 - Para un cliente externo (Claude Desktop o Claude Code), basta normalmente con `ask`.

@@ -1,6 +1,6 @@
 # F2 — Memoria semántica · común
 
-> Implementación por entorno: **cloud native** → OpenSearch Serverless ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)) · **on-premise** → ChromaDB embebida ([OP-02](../on-premise/OP-02-catalogo-memoria.md))
+> Implementación por entorno: **cloud native** → OpenSearch Serverless ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)) · **on-premise** → SQL Server 2025 con `VECTOR` y Full-Text Search ([OP-02](../on-premise/OP-02-catalogo-memoria.md))
 
 ## Historia de usuario
 Como **agente**, necesito buscar rápidamente qué tablas, columnas y consultas previas son relevantes para una pregunta,
@@ -39,7 +39,7 @@ search_golden_discovery(query, k=5) -> list[GoldenDiscoveryHit]                 
 ```
 La búsqueda es **híbrida** en ambos entornos (vectorial + BM25): los nombres técnicos (`ClientCode`, `LegalClientId`) se encuentran mejor por
 coincidencia léxica y los conceptos de negocio por similitud semántica.
-Hay dos implementaciones, `OpenSearchStore` y `ChromaStore`. Los mismos tests de contrato corren contra ambas.
+Hay dos implementaciones, `OpenSearchStore` y `SqlServerVectorStore`. Los mismos tests de contrato corren contra ambas.
 
 ## Glosario de negocio
 `glossary.yaml` se mantiene a mano y el CatalogBuilder lo amplía con sugerencias (`reviewed: false`). Ejemplo:

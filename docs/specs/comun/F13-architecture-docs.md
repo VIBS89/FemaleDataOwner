@@ -7,8 +7,8 @@ Mantener tres diagramas interactivos y versionados que expliquen la solución, g
 ## Vistas
 | Archivo | Modo | Qué explica |
 |---|---|---|
-| `docs/architecture/cloud-native-architecture.html` | Architecture | **Arquitectura cloud native en AWS**: Cognito, WAF/ALB, ECS (Chainlit + BFF), AgentCore Runtime y Gateway, Bedrock, OpenSearch Serverless, Secrets Manager/KMS, S3 (catálogo sin muestras), Catalog Builder + sql-to-mcp, y VPN/DX hacia SQL Server on-prem (datos + `ConverData_Audit`) (CN-01 a CN-06) |
-| `docs/architecture/onpremise-architecture.html` | Architecture | **Arquitectura on-premise**: docker compose dentro de la red corporativa (converdata-app con AskFlow + converdata-mcp, ChromaDB, auditoría SQLite, sql-to-mcp) con Bedrock como único servicio externo (OP-01 a OP-06) |
+| `docs/architecture/cloud-native-architecture.html` | Architecture | **Arquitectura cloud native en AWS**: Cognito, WAF/ALB, ECS (Chainlit + BFF), AgentCore Runtime y Gateway, Bedrock, OpenSearch Serverless, Secrets Manager/KMS, S3 (catálogo sin muestras), Catalog Builder + converdata-discovery, sandbox Code Interpreter, y VPN/DX hacia SQL Server on-prem (datos + `ConverData_Audit`) (CN-01 a CN-06) |
+| `docs/architecture/onpremise-architecture.html` | Architecture | **Arquitectura on-premise sobre stack Microsoft**: Windows Server con IIS y servicios Python (AskFlow + converdata-mcp, converdata-discovery), BD `ConverData` en SQL Server 2025 (vectores, Full-Text, grafo, auditoría), SQL Server Agent, converdata-discovery, analysis-sandbox) con Bedrock como único servicio externo (OP-01 a OP-06) |
 | `docs/architecture/permisos-heredados.html` | Sequence | **Permisos de BD heredados**: el login SQL del usuario determina qué ve el catálogo, con qué login se ejecuta cada consulta y cómo se deniega un acceso fuera de permisos (F14) |
 
 Las fuentes de cada diagrama (`*.archify.json`) se guardan junto al HTML, así que se pueden regenerar:
@@ -22,5 +22,5 @@ Cada componente o participante tiene un campo `description` (extensión del fork
 
 ## Criterios de aceptación
 1. Las tres vistas abren sin conexión a internet en un navegador.
-2. Cada componente corresponde a un módulo de `src/converdata/`, a un servicio de `docker-compose.yml` o a un recurso de la IaC de AWS.
+2. Cada componente corresponde a un módulo de `src/converdata/`, a un servicio de Windows o a un recurso de SQL Server (on-premise), o a un recurso de la IaC de AWS (cloud native).
 3. Los diagramas se regeneran cuando cambia la arquitectura (checklist del PR).

@@ -38,7 +38,7 @@ docs/specs/
 | ID | Feature | Spec | Implementación cloud native | Implementación on-premise |
 |---|---|---|---|---|
 | F1 | Catalog Builder (ingesta y mapeo) | [F01](specs/comun/F01-catalog-builder.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) |
-| F2 | Memoria semántica (`VectorStore`) | [F02](specs/comun/F02-semantic-memory.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) OpenSearch | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) Chroma |
+| F2 | Memoria semántica (`VectorStore`) | [F02](specs/comun/F02-semantic-memory.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) OpenSearch | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) SQL Server 2025 (`VECTOR` + Full-Text) |
 | F3 | Intent & Router | [F03](specs/comun/F03-intent-router.md) | = | = |
 | F4 | Schema Linking | [F04](specs/comun/F04-schema-linking.md) | = | = |
 | F5 | Value Resolution (en vivo) | [F05](specs/comun/F05-value-resolution.md) | = | = |
@@ -47,7 +47,7 @@ docs/specs/
 | F8 | Executor | [F08](specs/comun/F08-executor.md) | = | = |
 | F9 | Result Verifier | [F09](specs/comun/F09-result-verifier.md) | = | = |
 | F10 | Analyst | [F10](specs/comun/F10-analyst.md) | = | = |
-| F11 | Auditoría | [F11](specs/comun/F11-audit.md) | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) `ConverData_Audit` on-prem | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) SQLite |
+| F11 | Auditoría | [F11](specs/comun/F11-audit.md) | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) `ConverData_Audit` on-prem | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) esquema `audit` de la BD `ConverData` |
 | F12 | Interfaces (API, chat, MCP) | [F12](specs/comun/F12-interfaces.md) | [CN-04](specs/cloud-native/CN-04-interfaces.md) | [OP-04](specs/on-premise/OP-04-interfaces.md) |
 | F13 | Arquitectura documentada (Archify) | [F13](specs/comun/F13-architecture-docs.md) | = | = |
 | F14 | Identidad y permisos heredados | [F14](specs/comun/F14-identity.md) | [CN-03](specs/cloud-native/CN-03-identidad.md) Cognito + Secrets Manager | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault |

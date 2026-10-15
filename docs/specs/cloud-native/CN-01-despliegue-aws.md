@@ -15,7 +15,8 @@ Llevar ConverData a AWS como servicio gestionado y seguro:
 |---|---|---|
 | Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con el AskFlow de CrewAI) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
 | Servidor MCP propio | `converdata-mcp` desplegado como **MCP server en AgentCore Runtime** y registrado como target de **AgentCore Gateway** | Un único endpoint MCP, con autenticación OAuth, para los agentes internos y los clientes externos |
-| sql-to-mcp (AnythingMCP) | ECS Fargate en subred privada, sin exposición pública | Solo se usa en la ingesta (F1); no es AgentCore porque es una imagen Node/AGPL de terceros |
+| `converdata-discovery` (F18, propio, Apache-2.0) | Dentro de la tarea ECS del Catalog Builder (como biblioteca) o como servicio ECS privado | Solo ingesta y descubrimiento (F1, F19); usa el login de metadatos |
+| Sandbox de análisis (F20) | **AgentCore Code Interpreter** | Ejecución aislada por sesión de código Python de último recurso |
 | Catalog Builder | Tarea ECS Fargate lanzada por **EventBridge Scheduler** (nocturna) y bajo demanda mediante Step Functions | Proceso batch largo, fuera del camino interactivo |
 | Catálogo fuente (YAML) | **S3** versionado (`s3://converdata-catalog/`), **solo metadatos estructurales, sin `sample_values`** | Revisión humana, historial y fuente para reindexar |
 | Memoria semántica | **OpenSearch Serverless** (colección *vector search*, endpoint VPC) | k-NN + BM25 híbrido con filtros por metadatos (`visible_ids`) |
@@ -40,7 +41,7 @@ Clientes MCP (Claude, IDE) ──OAuth──────────────
                                                                                     ├─► OpenSearch Serverless (VPC endpoint)
                                                                                     ├─► Secrets Manager (credenciales por usuario)
                                                                                     └─► Transit GW ─► VPN/DX ─► SQL Server on-prem (datos + ConverData_Audit)
-EventBridge Scheduler ─► ECS task Catalog Builder ─► AnythingMCP (Fargate) ─► SQL Server on-prem
+EventBridge Scheduler ─► ECS task Catalog Builder + converdata-discovery ─► SQL Server on-prem (metadatos, Query Store)
                                          └─► S3 catálogo ─► OpenSearch (indexación)
 ```
 
@@ -58,7 +59,7 @@ EventBridge Scheduler ─► ECS task Catalog Builder ─► AnythingMCP (Fargat
 | stg | Stack completo de AWS, contra una copia o réplica de SQL Server |
 | prod | Stack completo; WAF con rate limiting; alarmas en PagerDuty o correo; fallback a NIM desactivado (F17) |
 
-La capa `VectorStore` (F2) tiene dos implementaciones (`OpenSearchStore` aquí, `ChromaStore` on-premise) y se elige por configuración.
+La capa `VectorStore` (F2) tiene dos implementaciones (`OpenSearchStore` aquí, `SqlServerVectorStore` on-premise) y se elige por configuración.
 
 ## Criterios de aceptación
 1. `cdk deploy` (o `terraform apply`) crea el entorno stg completo sin pasos manuales, salvo la VPN o DX y el alta de la app en el IdP.

@@ -32,15 +32,14 @@ servers:
 - Las búsquedas por defecto priorizan el ambiente con `is_reference: true`.
 
 ## Fuentes (las mismas en ambos entornos)
-1. **sql-to-mcp / AnythingMCP** (HTTP `:4000/mcp`, login de metadatos): `mssql_list_tables`, `mssql_describe_table`, `mssql_find_columns`.
-2. **Consultas directas a `sys.*`** (mismo login de metadatos), para lo que sql-to-mcp no expone:
+1. **`converdata-discovery`** ([F18](F18-discovery-mcp.md)): MCP propio Apache-2.0 con el login de metadatos. Expone inventario, columnas, FKs, dependencias (también entre BDs), firmas de SPs, estadísticas, Query Store y clasificación de sensibilidad. Cubre, entre otras, estas vistas de catálogo:
    - FKs: `sys.foreign_keys` + `sys.foreign_key_columns`
    - Descripciones: `sys.extended_properties` (`MS_Description`)
    - Stored procedures y parámetros: `sys.procedures` + `sys.parameters`
    - Vistas: `sys.views` + `sys.sql_expression_dependencies`
    - Conteo aproximado de filas: `sys.dm_db_partition_stats`
    - Índices y PKs: `sys.indexes` + `sys.index_columns`
-3. **Muestras en memoria**: `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
+2. **Muestras en memoria** (vía `converdata-discovery`, contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
 
 ## Enriquecimiento con LLM
 Lo hace el CatalogBuilder Crew con el rol `planner` de F16. Para cada tabla y columna sin `MS_Description` genera:
@@ -107,7 +106,8 @@ Además se genera `_database.yaml` por BD con el resumen, los dominios detectado
 2. Un segundo `refresh` sin cambios en la BD no llama al LLM ni reescribe archivos.
 3. Si se añade una columna en la BD, `refresh` solo regenera ese YAML.
 4. Ningún YAML contiene valores de datos (test automatizado).
-5. Si sql-to-mcp no está disponible, la ingesta continúa solo con `sys.*` y deja un aviso en el log.
+5. Si un servidor no responde, la ingesta continúa con los demás y deja un aviso en el log.
+6. Tras F1 se ejecuta el pipeline de descubrimiento entre BDs ([F19](F19-multi-db-discovery.md)).
 
 ## Casos límite
 - Nombres con espacios o caracteres especiales: se citan siempre con `[]`.

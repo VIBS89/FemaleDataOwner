@@ -5276,11 +5276,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
         <g data-graph-role="automatic-crossover" style="--step:13">
           <path data-graph-role="automatic-crossover-underlay" d="M 1160 552 L 1240 552" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="catalog" data-edge-to="anythingmcp" data-edge-label="describe" data-edge-key="13" data-edge-id="catalog-discover" data-composition-points="1160,552;1240,552" data-composition-crossover="halo" data-composition-independent="true" d="M 1160 552 L 1240 552" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-edge-from="catalog" data-edge-to="discovery" data-edge-label="describe" data-edge-key="13" data-edge-id="catalog-discover" data-composition-points="1160,552;1240,552" data-composition-crossover="halo" data-composition-independent="true" d="M 1160 552 L 1240 552" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:14">
           <path data-graph-role="automatic-crossover-underlay" d="M 1320 520 L 1320 424" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="anythingmcp" data-edge-to="tgw" data-edge-label="metadatos" data-edge-key="14" data-edge-id="discover-tgw" data-composition-points="1320,520;1320,424" data-composition-crossover="halo" data-composition-independent="true" d="M 1320 520 L 1320 424" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-edge-from="discovery" data-edge-to="tgw" data-edge-label="metadatos" data-edge-key="14" data-edge-id="discover-tgw" data-composition-points="1320,520;1320,424" data-composition-crossover="halo" data-composition-independent="true" d="M 1320 520 L 1320 424" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:15">
           <path data-graph-role="automatic-crossover-underlay" d="M 1080 584 L 1080 680" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
@@ -5289,6 +5289,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <g data-graph-role="automatic-crossover" style="--step:16">
           <path data-graph-role="automatic-crossover-underlay" d="M 1400 399 L 1432 399 Q 1440 399 1440 407 L 1440 544 Q 1440 552 1448 552 L 1480 552" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
           <path data-edge-from="tgw" data-edge-to="auditdb" data-edge-label="auditoría" data-edge-key="16" data-edge-id="tgw-audit" data-composition-points="1400,399;1440,399;1440,552;1480,552" data-composition-crossover="halo" data-composition-independent="true" d="M 1400 399 L 1432 399 Q 1440 399 1440 407 L 1440 544 Q 1440 552 1448 552 L 1480 552" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:17">
+          <path data-graph-role="automatic-crossover-underlay" d="M 840 264 L 840 360" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="runtime" data-edge-to="codeint" data-edge-label="código" data-edge-key="17" data-edge-id="runtime-sandbox" data-composition-points="840,264;840,360" data-composition-crossover="halo" data-composition-independent="true" d="M 840 264 L 840 360" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         </g>
 
         <!-- Components -->
@@ -5378,15 +5382,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="600" y="246" class="t-muted" font-size="9" text-anchor="middle">ECS Fargate</text>
         </g>
 
-        <g id="node-runtime" data-node-id="runtime" data-node-label="AgentCore Runtime" tabindex="0" role="button" aria-label="Enfocar AgentCore Runtime, AskFlow CrewAI, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AskFlow CrewAI" data-node-tag="historial solo en sesión" data-node-description="Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)" data-node-context="Componente de arquitectura">
-          <title>AgentCore Runtime · AskFlow CrewAI · Componente de arquitectura · historial solo en sesión · Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)</title>
+        <g id="node-runtime" data-node-id="runtime" data-node-label="AgentCore Runtime" tabindex="0" role="button" aria-label="Enfocar AgentCore Runtime, AskFlow + análisis, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AskFlow + análisis" data-node-tag="historial solo en sesión" data-node-description="Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)" data-node-context="Componente de arquitectura">
+          <title>AgentCore Runtime · AskFlow + análisis · Componente de arquitectura · historial solo en sesión · Ejecuta el AskFlow de CrewAI: intención, schema linking, resolución de valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial de conversación vive solo ahí y desaparece al cerrar la sesión. Envía telemetría sin contenido a CloudWatch. (F3–F10, CN-01)</title>
           <rect x="760" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="760" y="200" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 206) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="840" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">AgentCore Runtime</text>
-        <text data-detail="context" x="840" y="246" class="t-muted" font-size="9" text-anchor="middle">AskFlow CrewAI</text>
+        <text data-detail="context" x="840" y="246" class="t-muted" font-size="9" text-anchor="middle">AskFlow + análisis</text>
         <text data-detail="fine" x="840" y="256" class="t-backend" font-size="7" text-anchor="middle">historial solo en sesión</text>
         </g>
 
@@ -5462,26 +5466,26 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="840" y="566" class="t-muted" font-size="9" text-anchor="middle">nocturno / bajo demanda</text>
         </g>
 
-        <g id="node-catalog" data-node-id="catalog" data-node-label="Catalog Builder" tabindex="0" role="button" aria-label="Enfocar Catalog Builder, ECS task, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ECS task" data-node-description="Tarea ECS que mapea las BDs: lee la estructura con sql-to-mcp y sys.*, usa Bedrock para generar descripciones y sinónimos de negocio, y escribe YAML revisable por humanos en S3. Las muestras de datos solo se usan en memoria y se descartan. Es incremental: un hash del esquema evita reprocesar lo que no cambió. (F1, CN-06, CN-02)" data-node-context="Ingesta de catálogo">
-          <title>Catalog Builder · ECS task · Ingesta de catálogo · Tarea ECS que mapea las BDs: lee la estructura con sql-to-mcp y sys.*, usa Bedrock para generar descripciones y sinónimos de negocio, y escribe YAML revisable por humanos en S3. Las muestras de datos solo se usan en memoria y se descartan. Es incremental: un hash del esquema evita reprocesar lo que no cambió. (F1, CN-06, CN-02)</title>
+        <g id="node-catalog" data-node-id="catalog" data-node-label="Catalog Builder" tabindex="0" role="button" aria-label="Enfocar Catalog Builder, ECS task · F1 + F19, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ECS task · F1 + F19" data-node-description="Tarea ECS que mapea todas las BDs: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs (entidades, tablas canónicas, relaciones declaradas, observadas en Query Store e inferidas), propone métricas para la capa semántica y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, CN-02)" data-node-context="Ingesta de catálogo">
+          <title>Catalog Builder · ECS task · F1 + F19 · Ingesta de catálogo · Tarea ECS que mapea todas las BDs: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs (entidades, tablas canónicas, relaciones declaradas, observadas en Query Store e inferidas), propone métricas para la capa semántica y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, CN-02)</title>
           <rect x="1000" y="520" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1000" y="520" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1006 526) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1080" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Catalog Builder</text>
-        <text data-detail="context" x="1080" y="566" class="t-muted" font-size="9" text-anchor="middle">ECS task</text>
+        <text data-detail="context" x="1080" y="566" class="t-muted" font-size="9" text-anchor="middle">ECS task · F1 + F19</text>
         </g>
 
-        <g id="node-anythingmcp" data-node-id="anythingmcp" data-node-label="sql-to-mcp" tabindex="0" role="button" aria-label="Enfocar sql-to-mcp, AnythingMCP Fargate, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AnythingMCP Fargate" data-node-description="sql-to-mcp (AnythingMCP) en Fargate privado, con un login técnico de solo metadatos. Expone mssql_list_tables, describe_table y find_columns para el descubrimiento inicial. Solo participa en la ingesta, nunca en consultas de usuarios. Servicio aislado por su licencia AGPL. (F1, CN-02)" data-node-context="Ingesta de catálogo">
-          <title>sql-to-mcp · AnythingMCP Fargate · Ingesta de catálogo · sql-to-mcp (AnythingMCP) en Fargate privado, con un login técnico de solo metadatos. Expone mssql_list_tables, describe_table y find_columns para el descubrimiento inicial. Solo participa en la ingesta, nunca en consultas de usuarios. Servicio aislado por su licencia AGPL. (F1, CN-02)</title>
+        <g id="node-discovery" data-node-id="discovery" data-node-label="converdata-discovery" tabindex="0" role="button" aria-label="Enfocar converdata-discovery, MCP propio Apache-2.0, Ingesta de catálogo" aria-pressed="false" data-node-kind="backend" data-node-sublabel="MCP propio Apache-2.0" data-node-description="MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store y clasificación de sensibilidad, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, CN-02)" data-node-context="Ingesta de catálogo">
+          <title>converdata-discovery · MCP propio Apache-2.0 · Ingesta de catálogo · MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store y clasificación de sensibilidad, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, CN-02)</title>
           <rect x="1240" y="520" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1240" y="520" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1246 526) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1320" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">sql-to-mcp</text>
-        <text data-detail="context" x="1320" y="566" class="t-muted" font-size="9" text-anchor="middle">AnythingMCP Fargate</text>
+          <text data-node-label="" data-detail-anchor="" x="1320" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">converdata-discovery</text>
+        <text data-detail="context" x="1320" y="566" class="t-muted" font-size="9" text-anchor="middle">MCP propio Apache-2.0</text>
         </g>
 
         <g id="node-s3" data-node-id="s3" data-node-label="S3 catálogo" tabindex="0" role="button" aria-label="Enfocar S3 catálogo, YAML sin muestras, Ingesta de catálogo" aria-pressed="false" data-node-kind="database" data-node-sublabel="YAML sin muestras" data-node-description="Catálogo fuente versionado en YAML, solo con metadatos estructurales. Permite la revisión humana de descripciones, el historial de cambios y reindexar OpenSearch con un evento S3. El indexador rechaza cualquier YAML con sample_values. (F1, F2, CN-06, CN-02)" data-node-context="Ingesta de catálogo">
@@ -5507,6 +5511,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-node-label="" data-detail-anchor="" x="1560" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData_Audit</text>
         <text data-detail="context" x="1560" y="566" class="t-muted" font-size="9" text-anchor="middle">auditoría + golden SQL</text>
         <text data-detail="fine" x="1560" y="576" class="t-database" font-size="7" text-anchor="middle">on-prem</text>
+        </g>
+
+        <g id="node-codeint" data-node-id="codeint" data-node-label="Code Interpreter" tabindex="0" role="button" aria-label="Enfocar Code Interpreter, AgentCore · sin red, Componente de arquitectura" aria-pressed="false" data-node-kind="security" data-node-sublabel="AgentCore · sin red" data-node-tag="último recurso" data-node-description="Sandbox gestionado de AgentCore donde el motor de análisis ejecuta código Python de último recurso, cuando ninguna función de la biblioteca determinista (comparar, descomponer variaciones, detectar anomalías, tendencias, pronóstico) sirve. Recibe DataFrames ya obtenidos con el login del usuario, no tiene acceso a SQL Server y no persiste nada al cerrar la sesión. (F20, CN-06)" data-node-context="Componente de arquitectura">
+          <title>Code Interpreter · AgentCore · sin red · Componente de arquitectura · último recurso · Sandbox gestionado de AgentCore donde el motor de análisis ejecuta código Python de último recurso, cuando ninguna función de la biblioteca determinista (comparar, descomponer variaciones, detectar anomalías, tendencias, pronóstico) sirve. Recibe DataFrames ya obtenidos con el login del usuario, no tiene acceso a SQL Server y no persiste nada al cerrar la sesión. (F20, CN-06)</title>
+          <rect x="760" y="360" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="760" y="360" width="160" height="64" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(766 366) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="840" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Code Interpreter</text>
+        <text data-detail="context" x="840" y="406" class="t-muted" font-size="9" text-anchor="middle">AgentCore · sin red</text>
+        <text data-detail="fine" x="840" y="416" class="t-security" font-size="7" text-anchor="middle">último recurso</text>
         </g>
 
         <!-- Connection labels -->
@@ -5562,11 +5579,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="945" y="532" width="30" height="14" rx="3" class="c-mask"/>
           <text x="960" y="542" class="t-edge-dashed" font-size="8" text-anchor="middle">cron</text>
         </g>
-        <g data-detail="context" data-edge-from="catalog" data-edge-to="anythingmcp" data-edge-label="describe" data-edge-key="13" data-edge-id="catalog-discover">
+        <g data-detail="context" data-edge-from="catalog" data-edge-to="discovery" data-edge-label="describe" data-edge-key="13" data-edge-id="catalog-discover">
           <rect x="1175.8" y="532" width="48.4" height="14" rx="3" class="c-mask"/>
           <text x="1200" y="542" class="t-edge-default" font-size="8" text-anchor="middle">describe</text>
         </g>
-        <g data-detail="context" data-edge-from="anythingmcp" data-edge-to="tgw" data-edge-label="metadatos" data-edge-key="14" data-edge-id="discover-tgw">
+        <g data-detail="context" data-edge-from="discovery" data-edge-to="tgw" data-edge-label="metadatos" data-edge-key="14" data-edge-id="discover-tgw">
           <rect x="1293.4" y="500" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="1320" y="510" class="t-edge-dashed" font-size="8" text-anchor="middle">metadatos</text>
         </g>
@@ -5577,6 +5594,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <g data-detail="context" data-edge-from="tgw" data-edge-to="auditdb" data-edge-label="auditoría" data-edge-key="16" data-edge-id="tgw-audit">
           <rect x="1413.4" y="455.5" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="1440" y="465.5" class="t-edge-security" font-size="8" text-anchor="middle">auditoría</text>
+        </g>
+        <g data-detail="context" data-edge-from="runtime" data-edge-to="codeint" data-edge-label="código" data-edge-key="17" data-edge-id="runtime-sandbox">
+          <rect x="795.2" y="305" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="814.6" y="315" class="t-edge-security" font-size="8" text-anchor="middle">código</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
@@ -5808,19 +5829,29 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <ul>
           <li>AWS procesa y muestra: no persiste datos, preguntas ni SQL</li>
           <li>Auditoría y golden SQL en SQL Server on-prem</li>
-          <li>Historial solo en la microVM de la sesión; Chainlit sin data layer</li>
+          <li>Historial solo en la sesión; sandbox y sketches sin persistencia</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Bedrock AgentCore</h3>
+          <h3>Descubrimiento entre BDs</h3>
         </div>
         <ul>
-          <li>Runtime: AskFlow (CrewAI) y converdata-mcp, aislados por sesión</li>
-          <li>Gateway: un endpoint MCP para agentes y clientes externos</li>
-          <li>Observability: solo telemetría sin contenido → CloudWatch</li>
+          <li>Grafo del patrimonio: entidades, tabla canónica, joins declarados / Query Store / inferidos</li>
+          <li>Consultas entre servidores con plan federado y el login del usuario (F19)</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Análisis</h3>
+        </div>
+        <ul>
+          <li>Modos comparar, explicar (causa raíz), explorar insights, pronóstico e informe (F20)</li>
+          <li>Métricas certificadas y consultas verificadas (F21)</li>
         </ul>
       </div>
 
@@ -5837,23 +5868,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot violet"></div>
-          <h3>Modelos</h3>
-        </div>
-        <ul>
-          <li>Bedrock por rol: Claude Sonnet / Haiku, juez Nova o Llama, Cohere embeddings</li>
-          <li>Fallback NIM desactivado en prod salvo DPA o NIM en la VPC</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Ingesta</h3>
+          <h3>Licencias</h3>
         </div>
         <ul>
-          <li>Catalog Builder: muestras solo en memoria para describir columnas</li>
-          <li>S3 (solo metadatos) → indexador → OpenSearch</li>
+          <li>converdata-discovery y converdata-mcp propios bajo Apache-2.0</li>
+          <li>Sin componentes AGPL</li>
         </ul>
       </div>
     </div>

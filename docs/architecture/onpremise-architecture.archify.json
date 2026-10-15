@@ -2,19 +2,34 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — Arquitectura on-premise",
+    "title": "ConverData — Arquitectura on-premise sobre stack Microsoft",
     "output": "docs/architecture/onpremise-architecture.html",
     "locale": "es",
     "quality_profile": "showcase"
   },
   "components": [
     {
+      "id": "mcpclient",
+      "type": "external",
+      "label": "Cliente MCP",
+      "sublabel": "Claude Code / Desktop",
+      "pos": [
+        280,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (normalmente 'ask' o 'discover') a través de https://<servidor>/mcp, con el session_id obtenido en /login. Heredan los mismos permisos SQL que en el chat. (F12, OP-04)"
+    },
+    {
       "id": "bedrock",
       "type": "cloud",
       "label": "Amazon Bedrock",
       "sublabel": "LLM por rol + embeddings",
       "pos": [
-        40,
+        520,
         40
       ],
       "size": [
@@ -22,59 +37,13 @@
         64
       ],
       "tag": "único servicio externo",
-      "description": "Único servicio AWS del MVP, usado con la cuenta actual y un perfil IAM limitado a bedrock:InvokeModel. Sirve un modelo por rol: Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez independiente y Cohere multilingüe para embeddings. Invocation logging desactivado: procesa sin guardar. Es la misma config/models.yaml que usará producción. (F16, OP-06)"
-    },
-    {
-      "id": "chroma",
-      "type": "database",
-      "label": "ChromaDB",
-      "sublabel": "embebida ./.chroma",
-      "pos": [
-        760,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Memoria semántica local que sustituye a OpenSearch en el MVP. Indexa tablas, columnas, glosario y plantillas de golden SQL para que el Schema Linker elija 5–15 tablas entre todas, filtrando por lo que el usuario puede ver. Sin valores de clientes. Detrás de la interfaz VectorStore, así que cambiar a OpenSearch no toca la lógica. (F2, OP-02)"
-    },
-    {
-      "id": "catalog",
-      "type": "backend",
-      "label": "Catalog Builder",
-      "sublabel": "CLI manual",
-      "pos": [
-        1000,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Comando 'converdata catalog build/refresh' que se ejecuta a mano. Lee la estructura de las BDs piloto con sql-to-mcp y sys.*, genera descripciones y sinónimos con Bedrock, escribe YAML revisable en catalog/ (versionado en git) e indexa en Chroma. Las muestras de datos se usan solo en memoria. Sustituye a EventBridge + ECS + S3. (F1, OP-02)"
-    },
-    {
-      "id": "anythingmcp",
-      "type": "cloud",
-      "label": "sql-to-mcp",
-      "sublabel": "AnythingMCP :4000",
-      "pos": [
-        1240,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "login metadatos",
-      "description": "Contenedor AnythingMCP del mismo docker compose, con un login técnico de solo metadatos. Expone mssql_list_tables, describe_table y find_columns para el mapeo inicial de las BDs. Solo se usa en la ingesta, nunca para responder a usuarios. (F1, OP-02)"
+      "description": "Único servicio fuera de la red. Sirve un modelo por rol (Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez y Cohere multilingüe para embeddings). Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere y un certificado de la PKI corporativa, sin claves de larga duración. Invocation logging desactivado: procesa sin guardar. (F16, OP-06)"
     },
     {
       "id": "users",
       "type": "external",
-      "label": "Usuario piloto",
-      "sublabel": "navegador",
+      "label": "Usuario",
+      "sublabel": "navegador · login SQL",
       "pos": [
         40,
         200
@@ -83,13 +52,13 @@
         160,
         64
       ],
-      "description": "Grupo piloto de 3–5 personas de negocio que validan el MVP durante 2 semanas. Entran con su propio login SQL, preguntan en lenguaje natural y valoran cada respuesta con 👍/👎. Su feedback mide la hipótesis (≥ 70 % 👍) y alimenta el golden SQL. (OP-01)"
+      "description": "Ingenieros de datos, analistas y Product Owners que preguntan en lenguaje natural dónde están los datos (descubrimiento) o piden los datos (consulta). Entran con su propio login SQL, que define lo que pueden ver y consultar. (F14, F22, OP-03)"
     },
     {
-      "id": "chainlit",
-      "type": "frontend",
-      "label": "Chainlit",
-      "sublabel": "chat + login SQL",
+      "id": "iis",
+      "type": "security",
+      "label": "IIS",
+      "sublabel": "HTTPS 443 · proxy inverso",
       "pos": [
         280,
         200
@@ -98,13 +67,14 @@
         160,
         64
       ],
-      "description": "Interfaz de chat del MVP. Su pantalla de login valida directamente el login SQL del usuario, sin Cognito ni SSO. Muestra los pasos del AskFlow en vivo, la tabla, el gráfico y el panel 'cómo lo obtuve' con SQL, supuestos y confianza. Data layer desactivado: no guarda chats. (F12, OP-04)"
+      "tag": "PKI corporativa",
+      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, publica / (chat), /api y /mcp, y con HttpPlatformHandler lanza, supervisa y reinicia los procesos Python. Request Filtering activado; sus logs no registran cuerpos ni la cabecera Authorization. El Firewall de Windows solo abre el 443 a las redes de usuarios. (OP-04)"
     },
     {
       "id": "app",
       "type": "backend",
-      "label": "FastAPI + AskFlow",
-      "sublabel": "CrewAI Flow en proceso",
+      "label": "Servicios ConverData",
+      "sublabel": "Chainlit · FastAPI · AskFlow",
       "pos": [
         520,
         200
@@ -114,43 +84,13 @@
         64
       ],
       "tag": "SessionVault en memoria",
-      "description": "Corazón del MVP en un solo proceso: FastAPI (/login, /ask, /feedback) y el AskFlow de CrewAI con sus 8 pasos deterministas: intención, schema linking, valores, planner, validator con autocorrección, executor, verifier y analyst. Guarda el login SQL de cada sesión cifrado solo en memoria (SessionVault). Es el mismo código que irá a AgentCore Runtime. (F3–F10, F14, OP-03)"
+      "description": "Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + AskFlow de CrewAI + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con sus pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan el login SQL de cada sesión cifrado solo en memoria. (F3–F10, F12, F20, F22, OP-01, OP-03)"
     },
     {
-      "id": "mcp",
+      "id": "builder",
       "type": "backend",
-      "label": "converdata-mcp",
-      "sublabel": "FastMCP en /mcp",
-      "pos": [
-        760,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Herramientas del agente (search_catalog, describe_table, lookup_values, validate_sql, run_select, exec_procedure, ask). Los agentes las llaman en proceso y los clientes externos por /mcp. Valida todo el SQL (AST, objetos visibles, NOEXEC, SHOWPLAN) y lo ejecuta con el login del propio usuario. Es el mismo servidor que irá a AgentCore Gateway. (F7, F8, F12, OP-04)"
-    },
-    {
-      "id": "sqlserver",
-      "type": "database",
-      "label": "SQL Server",
-      "sublabel": "BD piloto (réplica)",
-      "pos": [
-        1240,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Primero AdventureWorks en un contenedor (sqlserver-dev), después 1–2 BDs reales en una réplica o copia de solo lectura. Conexión TDS directa desde la red corporativa, sin VPN. Aplica los permisos reales de cada login: es la barrera de seguridad final. (F8, F14, OP-01)"
-    },
-    {
-      "id": "mcpclient",
-      "type": "external",
-      "label": "Cliente MCP",
-      "sublabel": "Claude Code / Desktop",
+      "label": "Catalog Builder",
+      "sublabel": "catálogo + grafo entre BDs",
       "pos": [
         760,
         360
@@ -159,13 +99,13 @@
         160,
         64
       ],
-      "description": "Prueba opcional de la interfaz MCP: Claude Code o Claude Desktop apuntan a http://localhost/mcp con el session_id de /login y usan la herramienta 'ask'. Valida que ConverData sirve como herramienta para otros agentes antes de publicarlo en AgentCore Gateway. (F12, OP-04)"
+      "description": "Proceso del servidor de aplicación que mapea todas las BDs: lee la estructura con converdata-discovery, conecta diccionarios, documentación y paquetes SSIS con el catálogo, construye el grafo de entidades y relaciones entre BDs, propone métricas y genera descripciones con Bedrock. Escribe todo en la BD ConverData, sin valores de datos. Lo dispara un job de SQL Server Agent. (F1, F19, F21, F23, OP-02)"
     },
     {
-      "id": "audit",
-      "type": "database",
-      "label": "Auditoría SQLite",
-      "sublabel": "./data/audit.db",
+      "id": "discovery",
+      "type": "backend",
+      "label": "converdata-discovery",
+      "sublabel": "MCP propio Apache-2.0",
       "pos": [
         1000,
         360
@@ -174,56 +114,100 @@
         160,
         64
       ],
-      "tag": "on-prem",
-      "description": "Trazabilidad del MVP en un archivo SQLite local con el modelo de tablas de F11: pregunta, SQL, tablas, validaciones, latencias, tokens, confianza y feedback, además del golden SQL aprobado. Queda en el equipo on-prem (cumple F17) y sirve para calcular las métricas de salida del MVP. En producción se sustituye por ConverData_Audit. (F11, OP-05)"
+      "tag": "solo localhost",
+      "description": "MCP propio de descubrimiento (Apache-2.0), como servicio de Windows que solo escucha en localhost, con el login de metadatos guardado con DPAPI. Lee inventario, columnas, FKs, dependencias entre BDs, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. (F18, F23, OP-02)"
+    },
+    {
+      "id": "convdb",
+      "type": "database",
+      "label": "BD ConverData",
+      "sublabel": "SQL Server 2025",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "VECTOR · Full-Text · grafo",
+      "description": "Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (con tablas temporales para el historial de cambios y columnas VECTOR para la búsqueda semántica), Full-Text Search para la búsqueda por palabras, estate (tablas de grafo NODE/EDGE para las relaciones entre BDs), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y los archivos YAML como almacén de trabajo. (F2, F11, F19, F21, OP-02, OP-05)"
+    },
+    {
+      "id": "agent",
+      "type": "messagebus",
+      "label": "SQL Server Agent",
+      "sublabel": "job nocturno de refresco",
+      "pos": [
+        520,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Job nocturno (y bajo demanda) con un paso PowerShell que llama a /api/admin/catalog/refresh en el servidor de aplicación, para que el catálogo, el grafo y los vectores reflejen los cambios de esquema. También ejecuta la purga de auditoría por retención y avisa por Database Mail si algo falla. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)"
+    },
+    {
+      "id": "sqldata",
+      "type": "database",
+      "label": "SQL Server de datos",
+      "sublabel": "BDs de negocio · réplica AG",
+      "pos": [
+        1000,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Las BDs de negocio, en sus versiones actuales. Cada consulta llega con el login del propio usuario y ApplicationName=ConverData, así que SQL Server aplica sus permisos reales, RLS, enmascaramiento dinámico y clasificación de datos, y el DBA puede auditarlas con SQL Server Audit. Se consulta la secundaria legible de Always On cuando existe. Es la barrera de seguridad final. (F8, F14, OP-03, OP-05)"
+    },
+    {
+      "id": "sources",
+      "type": "external",
+      "label": "Fuentes de conocimiento",
+      "sublabel": "diccionarios · docs · SSIS",
+      "pos": [
+        1240,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Conocimiento que hoy está disperso: diccionarios de datos, documentación funcional y técnica (carpetas compartidas o SharePoint), paquetes SSIS (SSISDB), jobs de SQL Agent (msdb) y reglas de negocio. converdata-discovery los lee y el Catalog Builder los vincula con tablas y columnas, con redacción de PII en los documentos. (F23)"
     }
   ],
   "boundaries": [
     {
       "kind": "region",
-      "label": "Red corporativa (on-premise)",
+      "label": "SQL Server 2025 · ConverData",
       "wraps": [
-        "chainlit",
-        "app",
-        "mcp",
-        "chroma",
-        "catalog",
-        "anythingmcp",
-        "sqlserver",
-        "mcpclient",
-        "audit"
-      ]
-    },
-    {
-      "kind": "security-group",
-      "label": "Contenedor converdata-app",
-      "wraps": [
-        "app",
-        "mcp"
-      ]
-    },
-    {
-      "kind": "region",
-      "label": "Ingesta manual",
-      "wraps": [
-        "catalog",
-        "anythingmcp"
+        "convdb",
+        "agent"
       ]
     }
   ],
   "connections": [
     {
-      "id": "user-chat",
+      "id": "user-iis",
       "from": "users",
-      "to": "chainlit",
-      "label": "pregunta",
+      "to": "iis",
+      "label": "HTTPS",
       "variant": "emphasis"
     },
     {
-      "id": "chat-app",
-      "from": "chainlit",
+      "id": "client-iis",
+      "from": "mcpclient",
+      "to": "iis",
+      "label": "MCP"
+    },
+    {
+      "id": "iis-app",
+      "from": "iis",
       "to": "app",
-      "label": "SSE",
+      "label": "proxy",
       "variant": "emphasis"
     },
     {
@@ -233,90 +217,86 @@
       "label": "LLM"
     },
     {
-      "id": "app-tools",
+      "id": "app-db",
       "from": "app",
-      "to": "mcp",
-      "label": "tools",
+      "to": "convdb",
+      "label": "vectores · audit"
+    },
+    {
+      "id": "app-data",
+      "from": "app",
+      "to": "sqldata",
+      "label": "login del usuario",
       "variant": "emphasis"
     },
     {
-      "id": "tools-rag",
-      "from": "mcp",
-      "to": "chroma",
-      "label": "RAG"
+      "id": "builder-discovery",
+      "from": "builder",
+      "to": "discovery",
+      "label": "metadatos"
     },
     {
-      "id": "tools-sql",
-      "from": "mcp",
-      "to": "sqlserver",
-      "label": "login usuario",
-      "variant": "emphasis"
+      "id": "builder-db",
+      "from": "builder",
+      "to": "convdb",
+      "label": "catálogo"
     },
     {
-      "id": "tools-audit",
-      "from": "mcp",
-      "to": "audit",
-      "label": "traza"
-    },
-    {
-      "id": "client-mcp",
-      "from": "mcpclient",
-      "to": "mcp",
-      "label": "MCP"
-    },
-    {
-      "id": "catalog-index",
-      "from": "catalog",
-      "to": "chroma",
-      "label": "indexa"
-    },
-    {
-      "id": "catalog-discover",
-      "from": "catalog",
-      "to": "anythingmcp",
-      "label": "describe"
-    },
-    {
-      "id": "discover-db",
-      "from": "anythingmcp",
-      "to": "sqlserver",
-      "label": "metadatos",
+      "id": "agent-builder",
+      "from": "agent",
+      "to": "builder",
+      "label": "refresh",
       "variant": "dashed"
+    },
+    {
+      "id": "discovery-data",
+      "from": "discovery",
+      "to": "sqldata",
+      "label": "sys.* · QS",
+      "variant": "dashed"
+    },
+    {
+      "id": "discovery-sources",
+      "from": "discovery",
+      "to": "sources",
+      "label": "lee"
     }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "Qué valida el MVP",
+      "title": "Stack Microsoft",
       "items": [
-        "Precisión ≥ 80 % en 30–50 preguntas reales",
-        "0 ejecuciones indebidas · permisos por usuario respetados",
-        "Latencia, coste Bedrock por pregunta y 👍 del piloto"
-      ]
-    },
-    {
-      "dot": "emerald",
-      "title": "Despliegue",
-      "items": [
-        "Un docker compose en un servidor de la red corporativa",
-        "converdata-app + anythingmcp (+ sqlserver-dev para pruebas)",
-        "Sin VPN ni infraestructura cloud: solo llamadas HTTPS a Bedrock"
+        "Windows Server + IIS: Servicios ConverData, Catalog Builder y converdata-discovery como servicios de Windows (gMSA), sin Docker",
+        "SQL Server 2025: VECTOR, Full-Text, grafo y tablas temporales en la BD ConverData",
+        "SQL Server Agent para el refresco; Always On para leer sin cargar producción"
       ]
     },
     {
       "dot": "rose",
-      "title": "Residencia de datos",
+      "title": "Permisos y datos",
       "items": [
-        "Catálogo, Chroma, auditoría y sesión quedan on-prem",
-        "Bedrock solo procesa (invocation logging desactivado)"
+        "Cada consulta y cada descubrimiento usan el login SQL del usuario",
+        "RLS, enmascaramiento y clasificación de SQL Server se aplican solos",
+        "Nada sale de la red salvo el contexto enviado a Bedrock"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Descubrimiento y análisis",
+      "items": [
+        "Dónde está cada dato, entre BDs y ambientes (F19, F22)",
+        "Comparar, causa raíz, insights y pronóstico con biblioteca determinista (F20)",
+        "Métricas certificadas (F21)"
       ]
     },
     {
       "dot": "amber",
-      "title": "Camino a AWS",
+      "title": "Evolución",
       "items": [
-        "Chroma → OpenSearch · SessionVault → Secrets Manager",
-        "SQLite → ConverData_Audit · proceso → AgentCore Runtime + Gateway"
+        "SSO con Windows/AD y delegación Kerberos (requiere prueba de concepto)",
+        "Sandbox de Python con contenedor aislado por Hyper-V",
+        "Migración a cloud native sin rehacer la lógica"
       ]
     }
   ]

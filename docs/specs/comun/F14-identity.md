@@ -51,7 +51,8 @@ un usuario solo descubre los objetos que están en sus `visible_ids`, aunque se 
 ## Reglas
 - **El LLM nunca ve credenciales**: las herramientas reciben la identidad desde el contexto autenticado (`state.user`), no como argumento.
 - **No se revela lo que no se puede ver**: si una pregunta solo podría responderse con objetos fuera de la visibilidad, la respuesta es "no encontré datos disponibles para ti sobre …", sin confirmar que esas tablas existen.
-- **Login de metadatos**: solo lo usa el Catalog Builder (F1); nunca se usa para responder preguntas de usuarios.
+- **Login de metadatos**: solo lo usan `converdata-discovery` (F18) y el Catalog Builder (F1); nunca se usa para responder preguntas de usuarios.
+- **Consultas entre BDs y servidores** (F19): cada rama se ejecuta con el login del usuario en su servidor; si no tiene permisos en una de ellas, esa parte se omite y se indica.
 - TLS en todas las conexiones (`Encrypt=yes; TrustServerCertificate=no` en producción).
 - Bloqueo tras 5 logins fallidos en 10 min por login.
 - Las contraseñas se excluyen de logs, trazas, auditoría y mensajes de error.

@@ -1,5 +1,7 @@
 # F10 — Analyst (post-proceso y respuesta)
 
+> Los modos analíticos avanzados (comparar, explicar, explorar, pronosticar, informe) están en [F20](F20-analysis-engine.md).
+
 ## Historia de usuario
 Como **usuario de negocio**, quiero una respuesta clara en español, con los datos en una tabla, un gráfico cuando
 aporte valor y una explicación de cómo se obtuvo.

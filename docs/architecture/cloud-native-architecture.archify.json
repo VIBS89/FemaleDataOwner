@@ -118,7 +118,7 @@
       "id": "runtime",
       "type": "backend",
       "label": "AgentCore Runtime",
-      "sublabel": "AskFlow CrewAI",
+      "sublabel": "AskFlow + análisis",
       "pos": [
         760,
         200
@@ -225,7 +225,7 @@
       "id": "catalog",
       "type": "backend",
       "label": "Catalog Builder",
-      "sublabel": "ECS task",
+      "sublabel": "ECS task · F1 + F19",
       "pos": [
         1000,
         520
@@ -234,13 +234,13 @@
         160,
         64
       ],
-      "description": "Tarea ECS que mapea las BDs: lee la estructura con sql-to-mcp y sys.*, usa Bedrock para generar descripciones y sinónimos de negocio, y escribe YAML revisable por humanos en S3. Las muestras de datos solo se usan en memoria y se descartan. Es incremental: un hash del esquema evita reprocesar lo que no cambió. (F1, CN-06, CN-02)"
+      "description": "Tarea ECS que mapea todas las BDs: lee la estructura con converdata-discovery, construye el grafo del patrimonio de datos entre BDs (entidades, tablas canónicas, relaciones declaradas, observadas en Query Store e inferidas), propone métricas para la capa semántica y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, CN-02)"
     },
     {
-      "id": "anythingmcp",
+      "id": "discovery",
       "type": "backend",
-      "label": "sql-to-mcp",
-      "sublabel": "AnythingMCP Fargate",
+      "label": "converdata-discovery",
+      "sublabel": "MCP propio Apache-2.0",
       "pos": [
         1240,
         520
@@ -249,7 +249,7 @@
         160,
         64
       ],
-      "description": "sql-to-mcp (AnythingMCP) en Fargate privado, con un login técnico de solo metadatos. Expone mssql_list_tables, describe_table y find_columns para el descubrimiento inicial. Solo participa en la ingesta, nunca en consultas de usuarios. Servicio aislado por su licencia AGPL. (F1, CN-02)"
+      "description": "MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), dentro de la tarea ECS del Catalog Builder y con el login de metadatos. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store y clasificación de sensibilidad, siempre con consultas fijas, sin SQL libre. Calcula en memoria sketches MinHash salados para inferir relaciones entre BDs, sin persistirlos. Nunca responde a usuarios. (F18, F19, CN-02)"
     },
     {
       "id": "s3",
@@ -281,6 +281,22 @@
       ],
       "tag": "on-prem",
       "description": "Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, tablas, validaciones, confianza, feedback) y el golden SQL original con sus literales. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, CN-06, CN-05)"
+    },
+    {
+      "id": "codeint",
+      "type": "security",
+      "label": "Code Interpreter",
+      "sublabel": "AgentCore · sin red",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "último recurso",
+      "description": "Sandbox gestionado de AgentCore donde el motor de análisis ejecuta código Python de último recurso, cuando ninguna función de la biblioteca determinista (comparar, descomponer variaciones, detectar anomalías, tendencias, pronóstico) sirve. Recibe DataFrames ya obtenidos con el login del usuario, no tiene acceso a SQL Server y no persiste nada al cerrar la sesión. (F20, CN-06)"
     }
   ],
   "boundaries": [
@@ -290,7 +306,7 @@
       "wraps": [
         "scheduler",
         "catalog",
-        "anythingmcp",
+        "discovery",
         "s3"
       ]
     },
@@ -395,12 +411,12 @@
     {
       "id": "catalog-discover",
       "from": "catalog",
-      "to": "anythingmcp",
+      "to": "discovery",
       "label": "describe"
     },
     {
       "id": "discover-tgw",
-      "from": "anythingmcp",
+      "from": "discovery",
       "to": "tgw",
       "label": "metadatos",
       "variant": "dashed"
@@ -417,6 +433,13 @@
       "to": "auditdb",
       "label": "auditoría",
       "variant": "security"
+    },
+    {
+      "id": "runtime-sandbox",
+      "from": "runtime",
+      "to": "codeint",
+      "label": "código",
+      "variant": "security"
     }
   ],
   "cards": [
@@ -426,16 +449,23 @@
       "items": [
         "AWS procesa y muestra: no persiste datos, preguntas ni SQL",
         "Auditoría y golden SQL en SQL Server on-prem",
-        "Historial solo en la microVM de la sesión; Chainlit sin data layer"
+        "Historial solo en la sesión; sandbox y sketches sin persistencia"
       ]
     },
     {
       "dot": "cyan",
-      "title": "Bedrock AgentCore",
+      "title": "Descubrimiento entre BDs",
       "items": [
-        "Runtime: AskFlow (CrewAI) y converdata-mcp, aislados por sesión",
-        "Gateway: un endpoint MCP para agentes y clientes externos",
-        "Observability: solo telemetría sin contenido → CloudWatch"
+        "Grafo del patrimonio: entidades, tabla canónica, joins declarados / Query Store / inferidos",
+        "Consultas entre servidores con plan federado y el login del usuario (F19)"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Análisis",
+      "items": [
+        "Modos comparar, explicar (causa raíz), explorar insights, pronóstico e informe (F20)",
+        "Métricas certificadas y consultas verificadas (F21)"
       ]
     },
     {
@@ -447,19 +477,11 @@
       ]
     },
     {
-      "dot": "violet",
-      "title": "Modelos",
-      "items": [
-        "Bedrock por rol: Claude Sonnet / Haiku, juez Nova o Llama, Cohere embeddings",
-        "Fallback NIM desactivado en prod salvo DPA o NIM en la VPC"
-      ]
-    },
-    {
       "dot": "emerald",
-      "title": "Ingesta",
+      "title": "Licencias",
       "items": [
-        "Catalog Builder: muestras solo en memoria para describir columnas",
-        "S3 (solo metadatos) → indexador → OpenSearch"
+        "converdata-discovery y converdata-mcp propios bajo Apache-2.0",
+        "Sin componentes AGPL"
       ]
     }
   ]

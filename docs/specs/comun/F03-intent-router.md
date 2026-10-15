@@ -10,6 +10,8 @@ mi pregunta sea ambigua en lugar de inventar una respuesta.
 ```python
 class IntentResult(BaseModel):
     intent: Literal["discovery", "exploration", "data_query", "procedure", "out_of_scope", "ambiguous"]
+    analysis_mode: Literal["lookup", "compare", "explain", "explore", "forecast", "report"]  # F20
+    entities_resolved: list[str]  # entidades del grafo de F19 (p. ej. "cliente")
     databases: list[str]          # candidatas, ordenadas
     domain: str | None
     entities: list[str]           # sustantivos de negocio ("ventas", "clientes")
@@ -26,6 +28,7 @@ class IntentResult(BaseModel):
 ## Comportamiento
 - Agente `Intent Analyst` (rol `planner` de F16, temperatura 0.1, `output_pydantic=IntentResult`).
 - El enrutamiento por BD combina:
+  0. las **entidades del grafo** de F19 (dónde vive cada concepto y su tabla canónica); si una entidad vive en varias BDs sin canónica, se pide aclaración,
   1. `search_tables(question)` agrupado por base de datos (votación ponderada por score),
   2. los dominios del `_database.yaml`,
   3. la decisión final del LLM.

@@ -7,7 +7,8 @@
 |---|---|
 | Disparo | **EventBridge Scheduler** (nocturno) y **Step Functions** (bajo demanda) |
 | Catalog Builder | Tarea **ECS Fargate** en subred privada; LLM vía Bedrock (VPC endpoint) |
-| sql-to-mcp | **AnythingMCP en ECS Fargate** privado, sin exposición pública; login de metadatos en Secrets Manager |
+| `converdata-discovery` (F18) | Biblioteca dentro de la tarea del Catalog Builder (o servicio ECS privado); login de metadatos y sal MinHash en Secrets Manager |
+| Descubrimiento entre BDs (F19) | Misma tarea ECS, tras F1; el grafo `_estate/` y la capa semántica `_semantic/` (F21) se guardan en S3 junto al catálogo |
 | Catálogo fuente | **S3 versionado** (`s3://converdata-catalog/`), cifrado KMS, **solo metadatos estructurales** |
 | Indexación | El evento `s3:ObjectCreated` dispara el indexador, que rechaza YAML con valores y escribe en OpenSearch |
 | Red hacia SQL Server | Transit Gateway + VPN/DX (CN-01); el firewall on-prem abre el 1433 solo a la subred del Catalog Builder |

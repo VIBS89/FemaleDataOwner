@@ -1,6 +1,6 @@
 # F11 — Auditoría y trazabilidad · común
 
-> Almacenamiento por entorno: **cloud native** → `ConverData_Audit` en SQL Server on-prem vía VPN ([CN-05](../cloud-native/CN-05-auditoria-observabilidad.md)) · **on-premise** → SQLite local ([OP-05](../on-premise/OP-05-auditoria-observabilidad.md))
+> Almacenamiento por entorno: **cloud native** → `ConverData_Audit` en SQL Server on-prem vía VPN ([CN-05](../cloud-native/CN-05-auditoria-observabilidad.md)) · **on-premise** → esquema `audit` de la BD `ConverData` en SQL Server ([OP-05](../on-premise/OP-05-auditoria-observabilidad.md))
 
 ## Historia de usuario
 Como **auditor o administrador**, quiero saber quién preguntó qué, qué SQL se ejecutó, sobre qué objetos, cuánto costó y
