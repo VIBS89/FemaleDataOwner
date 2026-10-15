@@ -27,6 +27,20 @@ lo ve en ConverData.
    El resultado se mapea a los `id` del catálogo y forma `visible_ids`. Los `DENY` a nivel de columna se detectan con `HAS_PERMS_BY_NAME(..., 'COLUMN')` solo en las tablas que pasan el schema linking.
 4. **Ejecución**: toda consulta (F5, F7 compilación, F8) usa una conexión abierta con la credencial del usuario.
 
+## Visibilidad en el descubrimiento (F22–F24) — decisión tomada
+**El descubrimiento hereda exactamente los mismos permisos que la consulta de datos.** No existe un modo de "catálogo abierto":
+un usuario solo descubre los objetos que están en sus `visible_ids`, aunque se trate únicamente de metadatos.
+- Aplica a todo lo que muestra el DiscoverFlow: candidatos, ubicaciones por ambiente, alternativas, relaciones, linaje, reglas de negocio,
+  documentos vinculados e indicadores. Un elemento que mencione objetos fuera de `visible_ids` se descarta o se recorta
+  (por ejemplo, una arista de linaje hacia una tabla no visible no se muestra).
+- Las ubicaciones se filtran por ambiente: si el usuario puede leer `VBank_ING.dbo.Users` en QA pero no en producción, solo ve la de QA.
+- Los fragmentos de documentos y reglas se muestran solo si **todos** sus `linked_assets` son visibles para el usuario y, además,
+  pertenece a los `allowed_groups` de su origen (F23).
+- Los golden discovery (F24) solo se sugieren si todos sus `asset_keys` son visibles.
+- Si nada visible responde la pregunta, la respuesta es la de la regla general ("no encontré datos disponibles para ti sobre …") y se ofrece
+  "Preguntar al responsable" (F24) **sin** revelar qué objetos existen; el responsable decide si concede acceso.
+- Por tanto, **el descubrimiento también requiere el login SQL del usuario** (para calcular `visible_ids`).
+
 ## Tres capas de defensa
 | Capa | Dónde | Qué hace |
 |---|---|---|
@@ -48,3 +62,5 @@ lo ve en ConverData.
 3. Si el usuario A fuerza `run_select` sobre `RRHH.Empleado` vía MCP, el validador lo rechaza y, sin el validador, SQL Server devuelve el error 229.
 4. Al cerrar la sesión, la credencial deja de ser utilizable (401).
 5. Ningún log ni traza contiene la contraseña (test de logs).
+6. En el DiscoverFlow, el usuario A (solo `Ventas`) no recibe candidatos, alternativas, relaciones, linaje, reglas ni fragmentos de documentos
+   que mencionen objetos de `RRHH` o de `VBank_ING`, ni ubicaciones en ambientes donde no tiene permiso.

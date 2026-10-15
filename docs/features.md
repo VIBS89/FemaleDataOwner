@@ -1,9 +1,17 @@
 # ConverData — Catálogo de features
 
-ConverData es un agente de descubrimiento de datos en lenguaje natural sobre Microsoft SQL Server.
-Un conjunto de agentes CrewAI, con el LLM servido por Amazon Bedrock, entiende la estructura de varias bases de datos,
-decide de dónde tomar los datos, genera y valida T-SQL (o elige un stored procedure de una lista blanca),
-lo ejecuta **con los permisos del usuario** y devuelve resultados procesados, verificados y trazables.
+ConverData es la implementación del **Enterprise Data Discovery Agent** (propuesta de la Gerencia de Datos de Banco Atlántida;
+trazabilidad en [propuesta-trazabilidad.md](propuesta-trazabilidad.md)): un agente de descubrimiento y conocimiento de datos
+corporativos en lenguaje natural sobre Microsoft SQL Server. Tiene dos flujos:
+
+1. **DiscoverFlow (F22), el caso de uso principal**: el usuario describe el dato que necesita y recibe una lista priorizada de campos y
+   tablas candidatas, con base de datos, ambiente, servidor, descripción funcional, reglas de negocio, relaciones, responsables y nivel
+   de confianza. Razona sobre metadatos, diccionarios, documentación, ETL y conocimiento capturado de expertos (F23, F24). No ejecuta SQL.
+2. **AskFlow (F3–F10, F20, F21), la evolución**: genera y valida T-SQL (o elige un stored procedure de una lista blanca),
+   lo ejecuta **con los permisos del usuario** y devuelve resultados procesados, verificados y trazables. Corresponde a la visión
+   futura "Recomendación y generación de SQL" de la propuesta.
+
+Los agentes CrewAI usan Amazon Bedrock como LLM.
 
 ## Principios de diseño
 1. **Determinismo en la orquestación**: un CrewAI Flow con pasos fijos. Los agentes razonan dentro de cada paso, pero no deciden saltarse pasos.
@@ -13,11 +21,15 @@ lo ejecuta **con los permisos del usuario** y devuelve resultados procesados, ve
 5. **Memoria revisable por humanos**: el catálogo vive en YAML versionable; el índice vectorial es derivado.
 6. **Cero persistencia de datos fuera de la red del cliente**: la nube procesa y muestra; datos, preguntas, SQL y auditoría persisten solo on-premise (F17).
 7. **Misma lógica, dos despliegues**: los agentes, las herramientas MCP y el validador son idénticos en cloud native y on-premise; solo cambia la infraestructura.
+8. **Descubrir antes que consultar**: ante la duda, el router elige el DiscoverFlow, que no toca datos (F3, F22).
+9. **El conocimiento se captura con el uso**: cada confirmación de un usuario o respuesta de un responsable se convierte en conocimiento revisado y reutilizable (F24).
+10. **Cada recomendación muestra su evidencia**: fuente de la descripción (humana, diccionario, documento o IA sin revisar) y por qué se recomienda.
+11. **El éxito se mide contra una línea base**: las métricas de la propuesta se instrumentan desde el día uno (F25).
 
 ## Organización de las specs
 ```
 docs/specs/
-├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F17)
+├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F25)
 ├─ cloud-native/   Despliegue en AWS con Bedrock AgentCore (CN-01 a CN-06)
 └─ on-premise/     Despliegue local en la red corporativa; sirve también como MVP (OP-01 a OP-06)
 ```
@@ -41,6 +53,14 @@ docs/specs/
 | F14 | Identidad y permisos heredados | [F14](specs/comun/F14-identity.md) | [CN-03](specs/cloud-native/CN-03-identidad.md) Cognito + Secrets Manager | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault |
 | F16 | Proveedores LLM: Bedrock (+ NIM opcional) | [F16](specs/comun/F16-llm-providers.md) | = | = |
 | F17 | Residencia de datos | [F17](specs/comun/F17-data-residency.md) | [CN-06](specs/cloud-native/CN-06-residencia-datos.md) | [OP-06](specs/on-premise/OP-06-residencia-datos.md) |
+| F18 | `converdata-discovery`: MCP propio de metadatos (Apache-2.0, sustituye a sql-to-mcp) | [F18](specs/comun/F18-discovery-mcp.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) ECS privado | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) contenedor |
+| F19 | Descubrimiento entre múltiples BDs (grafo del patrimonio, joins entre BDs, planes federados) | [F19](specs/comun/F19-multi-db-discovery.md) | = | = |
+| F20 | Motor de análisis (compare, explain, explore, forecast, sandbox) | [F20](specs/comun/F20-analysis-engine.md) | = | = |
+| F21 | Capa semántica (métricas certificadas, consultas verificadas) | [F21](specs/comun/F21-semantic-layer.md) | = | = |
+| **F22** | **DiscoverFlow: candidatos con ubicación, descripción, reglas, relaciones y confianza** | [F22](specs/comun/F22-discovery-flow.md) | = | = |
+| F23 | Fuentes de conocimiento: diccionarios, documentación, ETL (SSIS, SQL Agent) y reglas de negocio | [F23](specs/comun/F23-knowledge-sources.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) |
+| F24 | Curación y captura del conocimiento institucional (responsables, escalamiento, brechas) | [F24](specs/comun/F24-knowledge-curation.md) | = | = |
+| F25 | Métricas de éxito, línea base y piloto | [F25](specs/comun/F25-success-metrics.md) | = | = |
 
 "=" significa que no hay diferencias entre entornos.
 
@@ -74,12 +94,19 @@ Los permisos heredados se explican en `architecture/permisos-heredados.html` (F1
   },
   "confidence": 0.87,
   "chart_spec": {"type": "bar", "x": "...", "y": "..."},
+  "discovery": {"candidates": [], "alternatives": [], "related": [], "knowledge_gap": false},
   "timings_ms": {"total": 0, "llm": 0, "db": 0}
 }
 ```
+- `flow`: `discover` | `ask` (campo adicional). En `discover` se llena `discovery` (estructura completa en [F22](specs/comun/F22-discovery-flow.md))
+  y quedan vacíos `data`, `sql`, `validation` y `chart_spec`; en `ask` es al revés.
 
 ## Glosario
 - **Catálogo**: descripción de BDs, esquemas, tablas, columnas, FKs y SPs, **sin valores de datos** (`**/*.yaml`).
 - **Golden SQL**: pares pregunta→SQL validados por un humano. El original vive en la auditoría on-prem; en el índice solo su plantilla anonimizada.
 - **Visibilidad**: conjunto de objetos que el login del usuario puede leer o ejecutar, según SQL Server.
-- **Confidence**: puntuación de 0 a 1 que combina los chequeos deterministas con el veredicto del LLM-judge.
+- **Confidence**: puntuación de 0 a 1. En el AskFlow combina los chequeos deterministas con el veredicto del LLM-judge (F9); en el DiscoverFlow combina relevancia, evidencia, confirmaciones y acuerdo entre fuentes (F22).
+- **`asset_key`**: identificador lógico de un objeto (`db.schema.objeto[.columna]`) que agrupa sus copias en todos los ambientes (F1).
+- **Golden discovery**: pregunta de descubrimiento (plantilla anonimizada) confirmada por usuarios o por un responsable, ligada a los activos correctos (F24).
+- **Steward / responsable**: grupo funcional o técnico dueño de un dominio de datos (`config/owners.yaml`, F24).
+- **Brecha de conocimiento**: pregunta sin candidato con confianza suficiente, o activo muy consultado sin descripción revisada (F24).

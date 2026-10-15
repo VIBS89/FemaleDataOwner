@@ -13,6 +13,14 @@ sin cargar las más de 300 tablas en el contexto del LLM.
 | `columns` | `"{table}.{column} ({type}): {description}"` | `table_id, database, pii, low_cardinality` |
 | `glossary` | `"{término}: {definición}"` | `domain, maps_to (table/column/expresión)` |
 | `golden_sql` | **Plantilla** de la pregunta, con los literales sustituidos por placeholders tipados | `sql_template, procedure, database, tables_used, approved_by, created_at` |
+| `documents` | Fragmento **redactado** de documentación o diccionario (F23) | `source, section, linked_assets[], redacted, allowed_groups, reviewed` |
+| `business_rules` | `"{id}: {texto}"` (F23) | `domain, applies_to[], source, owner, reviewed` |
+| `etl` | `"{paquete/job/SP}: {origen} → {destino}. {descripción}"` (F23) | `kind, from[], to[], schedule` |
+| `annotations` | Respuesta o corrección de un responsable (F24) | `asset_key, domain, author_group, created_at` |
+| `golden_discovery` | **Plantilla** de una pregunta de descubrimiento confirmada (F24) | `asset_keys[], confirmed_by{steward\|users}, confirmations, created_at` |
+
+Las descripciones de `tables` y `columns` usan la mejor fuente disponible (`human` > `data_dictionary` > `ms_description` > `document` >
+`generated`) y se indexan por `asset_key`, con los ambientes como metadato (`environments[]`), para no duplicar un objeto por cada ambiente.
 
 - **No existe colección de valores**: los valores reales se resuelven siempre en vivo contra SQL Server (F5).
 - **Embeddings**: rol `embed` de F16 (Cohere Embed Multilingual en Bedrock). El índice guarda `embed_model` y la búsqueda verifica que coincida.
@@ -25,7 +33,12 @@ search_tables(query, k=30, databases=None, visible_ids=None) -> list[TableHit]
 search_columns(query, k=50, table_ids=None) -> list[ColumnHit]
 search_golden(query, k=5, database=None) -> list[GoldenHit]
 add_golden_template(template, sql_template|procedure, meta) -> None
+index_knowledge(items: list[KnowledgeItem]) -> IndexStats                       # F23, F24
+search_knowledge(query, k=30, kinds=None, visible_ids=None, groups=None) -> list[KnowledgeHit]
+search_golden_discovery(query, k=5) -> list[GoldenDiscoveryHit]                 # F22, F24
 ```
+La búsqueda es **híbrida** en ambos entornos (vectorial + BM25): los nombres técnicos (`ClientCode`, `LegalClientId`) se encuentran mejor por
+coincidencia léxica y los conceptos de negocio por similitud semántica.
 Hay dos implementaciones, `OpenSearchStore` y `ChromaStore`. Los mismos tests de contrato corren contra ambas.
 
 ## Glosario de negocio
@@ -46,3 +59,5 @@ Hay dos implementaciones, `OpenSearchStore` y `ChromaStore`. Los mismos tests de
 2. Con un `visible_ids` que excluye el esquema `RRHH`, ninguna búsqueda devuelve objetos de `RRHH`.
 3. Ninguna colección contiene valores de datos ni literales de preguntas (test con literales marcados).
 4. `search_tables` con k=30 tarda menos de 300 ms en AdventureWorks.
+5. Los mismos tests de contrato cubren `search_knowledge` y `search_golden_discovery` en ambas implementaciones.
+6. La búsqueda de `ClientCode` (nombre técnico exacto) devuelve esa columna en la primera posición (componente léxico).

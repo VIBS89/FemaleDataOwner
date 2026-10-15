@@ -6,6 +6,31 @@
 Como **administrador de datos**, quiero que ConverData recorra todas las bases SQL Server configuradas y genere un
 catálogo descriptivo, para que los agentes entiendan la estructura sin consultarla en cada pregunta.
 
+## Ambientes y servidores (campos adicionales en `config/databases.yaml`)
+La propuesta exige indicar **base de datos, ambiente y servidor** de cada recomendación. El inventario de servidores de F18
+(`config/databases.yaml`) se amplía con el ambiente de cada instancia:
+```yaml
+servers:
+  - id: SRVPRDSQL01             # se muestra al usuario como `alias`, nunca el host ni la cadena de conexión
+    host: sqlprd01.corp.local
+    alias: "SQL Producción Canales"
+    environment: produccion     # produccion | qa | desarrollo | dr | otro
+    platform: sqlserver         # sqlserver; otras plataformas vía MetadataConnector (F23)
+    is_reference: true          # ambiente de referencia para descripciones y búsquedas
+    databases: [VBank_ING, Onboarding]
+  - id: SRVQASQL01
+    host: sqlqa01.corp.local
+    alias: "SQL QA Canales"
+    environment: qa
+    platform: sqlserver
+    databases: [VBank_ING]
+```
+- **Id físico**: `<environment>:<server>.<db>.<schema>.<objeto>` (ej. `produccion:SRVPRDSQL01.VBank_ING.dbo.Users`).
+- **`asset_key` lógico**: `<db>.<schema>.<objeto>[.<columna>]`. Agrupa el mismo objeto en todos los ambientes; las descripciones,
+  reglas y dueños se asocian al `asset_key`, no a cada copia.
+- Si el `schema_hash` de un objeto difiere entre ambientes, el YAML lleva `drift: [{environment, detail}]` (F22 lo muestra como aviso).
+- Las búsquedas por defecto priorizan el ambiente con `is_reference: true`.
+
 ## Fuentes (las mismas en ambos entornos)
 1. **sql-to-mcp / AnythingMCP** (HTTP `:4000/mcp`, login de metadatos): `mssql_list_tables`, `mssql_describe_table`, `mssql_find_columns`.
 2. **Consultas directas a `sys.*`** (mismo login de metadatos), para lo que sql-to-mcp no expone:
@@ -26,17 +51,23 @@ Lo hace el CatalogBuilder Crew con el rol `planner` de F16. Para cada tabla y co
 
 Todo se marca como `generated: true` hasta que un humano lo revise.
 
-## Salida: `<catálogo>/<server>/<db>/<schema>.<table>.yaml`
+Las fuentes de conocimiento no estructurales (diccionarios de datos, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio)
+se ingieren con F23 y se vinculan a este catálogo por `asset_key`.
+
+## Salida: `<catálogo>/<environment>/<server>/<db>/<schema>.<table>.yaml`
 ```yaml
-id: SRV01.Ventas.dbo.Pedido
+id: produccion:SRV01.Ventas.dbo.Pedido
+asset_key: Ventas.dbo.Pedido
+environment: produccion
+server: SRV01
 kind: table            # table | view | procedure
 database: Ventas
 schema: dbo
 name: Pedido
 description: "Encabezado de pedidos de clientes."
-description_source: ms_description   # ms_description | generated | human
+description_source: ms_description   # human | data_dictionary | ms_description | document | generated
 reviewed: false
-domain: ventas
+domain: ventas         # el dominio determina los responsables (config/owners.yaml, F24)
 synonyms: [orden, venta, compra]
 row_count: 1250340
 primary_key: [PedidoID]
