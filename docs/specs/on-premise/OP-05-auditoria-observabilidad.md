@@ -3,7 +3,7 @@
 > Implementa en on-premise Microsoft: [F11](../comun/F11-audit.md)
 
 ## Auditoría en la BD `ConverData`
-- **Esquema `audit`** de la BD `ConverData` (SQL Server 2025), con el modelo de tablas de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`).
+- **Esquema `audit`** de la BD `ConverData` (SQL Server 2025), con el modelo de tablas de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`), incluidas las tablas de descubrimiento (`audit_discovery`, `audit_discovery_feedback`); `golden_discovery` vive en `golden` y `curation_request` en `curation`.
 - La escribe el servicio `ConverData-API` con su cuenta gMSA (solo `INSERT` en `audit`; `SELECT` para el rol `auditor`).
 - **Fail-closed** como en F11.
 - Respaldo, retención y alta disponibilidad: los del plan del DBA para la BD `ConverData`. La purga por retención (180 días) es un job de SQL Server Agent.
@@ -20,6 +20,7 @@
 
 ## Criterios de aceptación
 1. Cada pregunta deja exactamente un registro en `audit.audit_question`.
-2. El scorecard se genera desde las vistas del esquema `audit`.
+2. El scorecard se genera desde las vistas del esquema `audit`, incluidas las métricas de descubrimiento de F25 (tiempo hasta "✔", escalamientos, Hit@k del set de evaluación).
 3. Los logs, el Visor de eventos y los logs de IIS no contienen preguntas, SQL ni filas.
 4. Una sesión de SQL Server Audit filtrada por `ConverData` muestra las consultas ejecutadas con el login de cada usuario.
+5. Un job de SQL Server Agent ejecuta `converdata eval discovery` cada semana y tras cada cambio de modelo o índice; si Hit@3 baja más de 5 puntos, avisa por Database Mail.

@@ -3,7 +3,8 @@
 > Implementa en AWS: [F11](../comun/F11-audit.md)
 
 ## Auditoría: on-premise aunque la app esté en la nube
-- BD **`ConverData_Audit` en el SQL Server on-prem**, con el modelo de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`).
+- BD **`ConverData_Audit` en el SQL Server on-prem**, con el modelo de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`), incluidas las tablas de descubrimiento y curación (`audit_discovery`, `audit_discovery_feedback`, `golden_discovery` original y `curation_request`).
+- Las métricas de F25 se calculan con vistas en `ConverData_Audit` (on-prem); a CloudWatch solo llegan contadores sin contenido.
 - Escribe `converdata-mcp` a través de Transit Gateway + VPN/DX con el login técnico `converdata_audit_writer` (solo `INSERT` en el esquema `audit` y `SELECT`/`INSERT` en `golden`). Sus credenciales están en Secrets Manager.
 - Es fail-closed (F11): si no se puede escribir, no se responde.
 - `GET /audit` lee on-prem en vivo con los permisos del auditor.

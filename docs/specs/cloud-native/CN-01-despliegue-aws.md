@@ -13,7 +13,7 @@ Llevar ConverData a AWS como servicio gestionado y seguro:
 ## Decisiones
 | Tema | Decisión | Motivo |
 |---|---|---|
-| Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con el AskFlow de CrewAI) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
+| Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con el **DiscoverFlow (F22)** y el AskFlow de CrewAI) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
 | Servidor MCP propio | `converdata-mcp` desplegado como **MCP server en AgentCore Runtime** y registrado como target de **AgentCore Gateway** | Un único endpoint MCP, con autenticación OAuth, para los agentes internos y los clientes externos |
 | `converdata-discovery` (F18, propio, Apache-2.0) | Dentro de la tarea ECS del Catalog Builder (como biblioteca) o como servicio ECS privado | Solo ingesta y descubrimiento (F1, F19); usa el login de metadatos |
 | Sandbox de análisis (F20) | **AgentCore Code Interpreter** | Ejecución aislada por sesión de código Python de último recurso |
@@ -22,6 +22,7 @@ Llevar ConverData a AWS como servicio gestionado y seguro:
 | Memoria semántica | **OpenSearch Serverless** (colección *vector search*, endpoint VPC) | k-NN + BM25 híbrido con filtros por metadatos (`visible_ids`) |
 | Memoria conversacional | **Solo en la memoria de la sesión** de AgentCore Runtime (microVM); **no se usa AgentCore Memory** | Residencia de datos (F17): el historial contiene datos |
 | Auditoría y golden SQL (F11) | **BD `ConverData_Audit` en SQL Server on-prem** (vía VPN/DX) | Residencia de datos (F17): preguntas y SQL con literales no se guardan en AWS |
+| Conocimiento y curación (F23, F24) | Ingesta de documentos, diccionarios y ETL en la tarea ECS del Catalog Builder, con redacción de PII **antes** de salir de la red del banco; reglas, anotaciones y `golden_discovery` (plantillas) en S3 + OpenSearch; solicitudes de curación (contienen la pregunta) en `ConverData_Audit` on-prem | Residencia de datos (F17) y conocimiento revisable |
 | UI y API REST | **Chainlit + FastAPI BFF** en ECS Fargate detrás de **ALB** con autenticación Cognito (OIDC) y **AWS WAF** | Sesiones WebSocket/SSE de Chainlit; el BFF invoca `InvokeAgentRuntime` |
 | Usuarios | **Amazon Cognito** (federable con el IdP corporativo, por ejemplo Entra ID o Google) | JWT de entrada para el ALB, AgentCore Runtime y Gateway |
 | Credenciales SQL por usuario | Secrets Manager + KMS (CN-03) | Herencia de permisos (F14) |
@@ -46,7 +47,7 @@ EventBridge Scheduler ─► ECS task Catalog Builder + converdata-discovery ─
 ```
 
 ## Requisitos no funcionales
-- **Latencia**: p50 menor de 12 s y p95 menor de 30 s por pregunta, con streaming de pasos al UI.
+- **Latencia**: descubrimiento (F22) p50 < 5 s y p95 < 10 s; consulta de datos p50 menor de 12 s y p95 menor de 30 s, con streaming de pasos al UI.
 - **Disponibilidad**: 99,5 %; ECS en 2 AZ. AgentCore y Bedrock son servicios gestionados. La disponibilidad también depende de la VPN/DX y del SQL Server on-prem (datos y auditoría).
 - **Coste**: se etiqueta todo con `app=converdata` y `env`; presupuesto con AWS Budgets y alertas; límite de tokens por usuario y día en el BFF.
 - **Cumplimiento**: **cero persistencia de datos de clientes en AWS** (ver [F17](../comun/F17-data-residency.md) y CN-06). Model invocation logging de Bedrock **desactivado**. Cifrado KMS en reposo en todo lo que sí persiste (metadatos, plantillas y credenciales).
@@ -67,3 +68,4 @@ La capa `VectorStore` (F2) tiene dos implementaciones (`OpenSearchStore` aquí, 
 3. Desde AgentCore Runtime (modo VPC) se completa una consulta a SQL Server on-prem con el login del usuario.
 4. Un cliente MCP externo autenticado con Cognito invoca `ask` a través de AgentCore Gateway.
 5. Las trazas de una pregunta se ven de punta a punta en CloudWatch (BFF → Runtime → Gateway → MCP → SQL).
+6. Los criterios de aceptación de F22–F25 se cumplen en stg con el mismo set de evaluación de descubrimiento que on-premise.

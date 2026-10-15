@@ -24,7 +24,7 @@ aporte valor y una explicación de cómo se obtuvo.
    - responden directamente con las cifras clave;
    - mencionan supuestos y avisos de F9;
    - **no inventan cifras**: cada número de la narrativa debe existir en el resultado o derivarse de él (validación con regex de números contra el DataFrame).
-4. Construye el `AnswerEnvelope` (ver `docs/features.md`).
+4. Construye el `AnswerEnvelope` (ver la sección 8.3 de [docs/PRD.md](../../PRD.md)).
 
 ## Criterios de aceptación
 1. La narrativa no contiene números que no aparezcan en los datos (test automatizado sobre el set de evaluación).

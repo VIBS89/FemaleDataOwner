@@ -19,6 +19,9 @@
 
 ## API
 - `POST /login`: `{server, login, password}` → `{session_id, expires_at, databases[]}`.
+- Rutas de descubrimiento de F12 (`/api/discover`, `/api/assets/{asset_key}`, `/api/discover/feedback`, `/api/curation/*`, `/api/metrics`), en el mismo servicio `ConverData-API`.
+- Los roles `steward` y `data_admin` (F24) se asignan a logins SQL o a grupos en la tabla `curation.owners`.
+- **Notificaciones a responsables** (F24): correo con **Database Mail** de la BD `ConverData` o webhook de Teams. El mensaje solo lleva el dominio y un enlace a `/curation`; la pregunta se lee dentro de la aplicación.
 - Rate limit simple en FastAPI: 30 preguntas por minuto y sesión.
 - CORS restringido al origen del sitio.
 
@@ -28,3 +31,5 @@
 3. Claude Code, con `.mcp.json` apuntando a `https://<servidor>/mcp`, usa `ask` y recibe un `AnswerEnvelope`.
 4. `ConverData-Discovery` no responde desde otra máquina (test de red).
 5. Si un proceso Python cae, IIS lo reinicia automáticamente.
+6. Flujo E2E de descubrimiento: pregunta de onboarding digital → tarjetas de candidatos con ambiente y servidor → "✔ Es este" → registro en `audit.audit_discovery_feedback`.
+7. "Preguntar al responsable" envía la notificación sin el texto de la pregunta, y la respuesta del steward aparece como candidato principal en una pregunta equivalente.

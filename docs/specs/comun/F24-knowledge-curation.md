@@ -31,7 +31,7 @@ Los grupos se resuelven contra el IdP corporativo (F14). Las personas no se guar
    - Un "✖" de un `steward` retira el par del índice.
 3. **Escalamiento al responsable**: con `knowledge_gap = true` o a petición del usuario, "Preguntar al responsable" crea una
    `curation_request` (pregunta reescrita, candidatos mostrados y dominio probable) asignada al grupo `steward` del dominio.
-   - Se notifica por correo o Teams (webhook configurable). El contenido viaja dentro de la red corporativa.
+   - Se notifica por correo o Teams (webhook configurable). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
    - La respuesta del steward puede: elegir un activo, escribir o corregir una descripción, crear una regla de negocio o marcar el dato como
      "no existe en las fuentes catalogadas" (registrado como brecha).
    - La respuesta se convierte en conocimiento revisado (`description_source: human`, `reviewed: true`) y en golden discovery, y se notifica al
