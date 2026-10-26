@@ -4,7 +4,45 @@ Asistente de IA para la **Gerencia de Datos de Banco Atlántida El Salvador** qu
 qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece la recomendación*. Su objetivo es reducir la dependencia
 del conocimiento tribal y convertir la experiencia de los expertos en conocimiento reutilizable por toda la organización.
 
-> **Estado:** especificación y arquitectura terminadas; implementación sin iniciar. Todo el detalle está en el **[PRD](docs/PRD.md)**.
+> **Estado:** especificación y arquitectura terminadas; fase 1a on-premise en desarrollo (DiscoverFlow, agente de esquemas, GraphRAG y gateway de LLM). Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
+> Todo el detalle está en el **[PRD](docs/PRD.md)**.
+
+## Desarrollo
+```bash
+python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim,bedrock,sqlserver]"
+.venv/Scripts/python -m pytest -q
+
+# 1. El agente de esquemas descubre las BDs con su acceso (sin catálogo previo) y escribe el catálogo
+.venv/Scripts/python -m converdata.cli catalog build --config config/databases.local.yaml --out data/catalog_bancos
+#    con descripciones y sinónimos generados por el LLM (marcados "sugeridos por IA, sin revisar")
+.venv/Scripts/python -m converdata.cli catalog build --out data/catalog_bancos_enriched --models config/models.yaml
+
+# 2. Preguntar (GraphRAG híbrido: léxico + vectorial + grafo del patrimonio)
+.venv/Scripts/python -m converdata.cli discover "¿Dónde está el DUI del cliente?" --root data/catalog_bancos
+.venv/Scripts/python -m converdata.cli discover "<pregunta>" --root data/catalog_bancos_enriched --models config/models.embed.yaml --embeddings-only
+
+# 3. Medir: set de evaluación por tipo de pregunta y ablación de patrones
+.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos
+.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --patterns query_expansion,grade,review,cascade  # sin grafo
+
+# Gateway de LLM
+cp config/models.local.example.yaml config/models.yaml  # Ollama local (o models.example.yaml para NVIDIA NIM)
+.venv/Scripts/python -m converdata.cli llm smoke
+```
+| Capa | Paquete | Contenido |
+|---|---|---|
+| Orquestación (única con LangGraph) | `converdata.flows` | **CatalogBuildFlow** `extract → enrich → relate → write` y **DiscoverFlow** `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize`, ciclos acotados, sin checkpointer persistente |
+| Metadatos | `converdata.metadata` | `converdata-discovery` (F18): consultas fijas de solo lectura sobre `sys.*` |
+| Catálogo | `converdata.builder`, `converdata.catalog` | Conversión a F1, PII, entidades entre BDs (F19), linaje de vistas, refresco incremental que respeta ediciones humanas |
+| Grafo del patrimonio | `converdata.graph` | Entidades y copias canónicas, caminos de unión entre tablas y BDs filtrados por permisos |
+| LLM (única con LangChain) | `converdata.llm` | Gateway: Ollama (solo local), NVIDIA NIM, Bedrock por configuración; respaldo, circuit breaker y guarda de residencia |
+| Lógica determinista | `converdata.discovery` | Expansión y descomposición de la consulta, calificación, revisor, cascada, confianza de F22, guardas |
+| Memoria | `converdata.memory` | `VectorStore` híbrido (BM25 + embeddings, RRF); `InMemoryVectorStore` y `SqlServerVectorStore` (OP-02, pendiente de validar en SQL Server 2025) |
+| Evaluación | `converdata.evaluation` | Hit@k por tipo (A–G), calibración, caminos, duplicados, fugas, inventados, latencia |
+| Identidad y auditoría | `converdata.identity`, `converdata.audit` | `visible_ids` con el login del usuario (F14); auditoría fail-closed (F11) |
+| BD `ConverData` | `db/converdata/001_esquemas.sql` | Esquemas `catalog`, `knowledge`, `golden`, `curation`, `audit` con `VECTOR`, Full-Text y tablas temporales |
+
+Fixtures: `tests/fixtures/vbank` (ejemplo de la propuesta) y `tests/fixtures/bancos` (catálogo que el agente descubrió de BancosSQL, solo metadatos).
 
 ## Ejemplo
 > *"Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital."*

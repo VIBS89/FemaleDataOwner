@@ -1,0 +1,6 @@
+- from: Onboarding.dbo.Solicitud
+  to: VBank_ING.dbo.Users
+  via: {kind: ssis, name: ONB_CargaUsuarios, job: JOB_ONB_Nocturno, schedule: "diario 02:00"}
+- from: VBank_ING.dbo.Users
+  to: DWH.dim.Cliente
+  via: {kind: ssis, name: DWH_CargaClientes, job: JOB_DWH_Nocturno, schedule: "diario 04:00"}

@@ -1,0 +1,13 @@
+- id: BR-ONB-004
+  text: "ClientCode se asigna al completar la verificación de identidad; antes de eso el usuario solo tiene UserId."
+  domain: onboarding_digital
+  applies_to: [VBank_ING.dbo.Users.ClientCode, VBank_ING.dbo.Users.UserId]
+  source: "Manual de procesos Banca Digital v3, sección 4.2"
+  owner: "Producto Banca Digital"
+  reviewed: true
+- id: BR-ONB-001
+  text: "Una solicitud de onboarding se considera aprobada solo cuando Estado = 'A' y existe verificación biométrica."
+  domain: onboarding_digital
+  applies_to: [Onboarding.dbo.Solicitud.Estado]
+  source: "Manual de procesos Banca Digital v3, sección 2.1"
+  reviewed: true

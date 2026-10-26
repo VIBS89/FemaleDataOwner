@@ -1,0 +1,59 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.ProductosTarjeta
+asset_key: BancaTarjetasCredito.dbo.ProductosTarjeta
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTarjetasCredito
+schema: dbo
+name: ProductosTarjeta
+domain: tarjetas_credito
+synonyms:
+- productos tarjeta
+row_count: 10
+primary_key:
+- ProductoID
+columns:
+- name: ProductoID
+  type: int
+  nullable: false
+  synonyms:
+  - producto id
+  - producto identificador
+- name: Nombre
+  type: nvarchar(60)
+  nullable: false
+  pii: true
+- name: Marca
+  type: nvarchar(20)
+  nullable: false
+- name: Categoria
+  type: nvarchar(20)
+  nullable: false
+- name: LimiteMinimo
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - limite minimo
+- name: LimiteMaximo
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - limite maximo
+- name: TasaInteresAnual
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - tasa interes anual
+- name: CuotaAnual
+  type: decimal(10,2)
+  nullable: false
+  synonyms:
+  - cuota anual
+- name: BIN
+  type: char(6)
+  nullable: false
+- name: ProgramaLealtad
+  type: nvarchar(20)
+  nullable: false
+  synonyms:
+  - programa lealtad
+schema_hash: sha256:04c838a8fe9573b049845118276e34df

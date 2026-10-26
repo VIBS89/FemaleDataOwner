@@ -1,0 +1,30 @@
+- id: dic-vbank-users-legal
+  kind: data_dictionary
+  text: "Users.LegalClientId: identificador legal del cliente (número de documento) que asigna el core bancario."
+  source: "Diccionario_VBank.xlsx#Users"
+  domain: onboarding_digital
+  linked_assets: [{asset_key: VBank_ING.dbo.Users.LegalClientId}]
+  reviewed: true
+- id: dic-vbank-users-clientcode
+  kind: data_dictionary
+  text: "Users.ClientCode: identificador único del cliente digital, usado en todo el proceso de onboarding digital."
+  source: "Diccionario_VBank.xlsx#Users"
+  domain: onboarding_digital
+  linked_assets: [{asset_key: VBank_ING.dbo.Users.ClientCode}]
+  reviewed: true
+- id: doc-onb-manual-4-2
+  kind: document
+  text: "Al finalizar la verificación de identidad del onboarding digital se genera el código de cliente (ClientCode) en VBank_ING y se replica al DWH. Ejemplo: cliente <DUI>."
+  source: "Manual_Onboarding_v3.docx#4.2"
+  domain: onboarding_digital
+  linked_assets: [{asset_key: VBank_ING.dbo.Users.ClientCode}, {asset_key: DWH.dim.Cliente.ClientCode}]
+  reviewed: false
+  redacted: true
+- id: doc-rrhh-planilla
+  kind: document
+  text: "La planilla identifica a cada empleado por su identificador único EmpleadoId y calcula el salario mensual."
+  source: "Politica_Planilla.pdf#1"
+  domain: rrhh
+  linked_assets: [{asset_key: RRHH.dbo.Empleado.EmpleadoId}]
+  allowed_groups: [GG-RRHH]
+  reviewed: true

@@ -1,0 +1,34 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.Wallets
+asset_key: BancaTokenizacion.dbo.Wallets
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: Wallets
+domain: tokenizacion
+row_count: 10
+primary_key:
+- WalletID
+columns:
+- name: WalletID
+  type: int
+  nullable: false
+  synonyms:
+  - wallet id
+  - wallet identificador
+- name: Nombre
+  type: nvarchar(60)
+  nullable: false
+  pii: true
+- name: DominioToken
+  type: nvarchar(40)
+  nullable: false
+  synonyms:
+  - dominio token
+- name: TokenRequestorID
+  type: char(11)
+  nullable: false
+  synonyms:
+  - token requestor id
+  - token requestor identificador
+schema_hash: sha256:c86eab7ff45dfbf92dd9022160a97b0b

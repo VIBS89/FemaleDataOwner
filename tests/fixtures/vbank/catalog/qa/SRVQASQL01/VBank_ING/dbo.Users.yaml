@@ -1,0 +1,45 @@
+# Copia en QA: le falta OnboardingStatus → schema_hash distinto (aviso de drift, F22 paso 3).
+id: qa:SRVQASQL01.VBank_ING.dbo.Users
+asset_key: VBank_ING.dbo.Users
+environment: qa
+server: SRVQASQL01
+kind: table
+database: VBank_ING
+schema: dbo
+name: Users
+description: "Usuarios registrados en la banca digital (app y web) tras el onboarding digital."
+description_source: human
+reviewed: true
+domain: onboarding_digital
+synonyms: [usuarios digitales, clientes digitales, onboarding digital]
+row_count: 1200
+primary_key: [UserId]
+columns:
+  - name: UserId
+    type: int
+    nullable: false
+    description: "Identificador técnico del usuario de la app."
+    description_source: ms_description
+    synonyms: [id usuario, identificador usuario, usuario app]
+  - name: ClientCode
+    type: varchar(20)
+    description: "Código que identifica a los clientes digitales registrados."
+    description_source: human
+    reviewed: true
+    synonyms: [codigo cliente, identificador cliente, id cliente digital, identificador unico cliente]
+  - name: LegalClientId
+    type: varchar(20)
+    description: "Identificador legal del cliente en el core bancario."
+    description_source: data_dictionary
+    synonyms: [identificador cliente, identificador legal, documento cliente]
+  - name: Email
+    type: nvarchar(200)
+    description: "Correo electrónico del usuario."
+    description_source: ms_description
+    pii: true
+  - name: CreatedAt
+    type: datetime2
+    description: "Fecha de registro del usuario en la app."
+    description_source: ms_description
+    synonyms: [fecha registro, fecha alta digital]
+schema_hash: "sha256:users-v1"

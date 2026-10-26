@@ -1,0 +1,61 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.PagosPrestamo
+asset_key: BancaPrestamos.dbo.PagosPrestamo
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: PagosPrestamo
+domain: prestamos
+synonyms:
+- pagos prestamo
+row_count: 66785
+primary_key:
+- PagoID
+columns:
+- name: PagoID
+  type: bigint
+  nullable: false
+  synonyms:
+  - pago id
+  - pago identificador
+- name: PrestamoID
+  type: int
+  nullable: false
+  synonyms:
+  - prestamo id
+  - prestamo identificador
+- name: FechaPago
+  type: date
+  nullable: false
+  synonyms:
+  - fecha pago
+- name: MontoTotal
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto total
+- name: AbonoCapital
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - abono capital
+- name: AbonoInteres
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - abono interes
+- name: InteresMoratorio
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - interes moratorio
+- name: Canal
+  type: nvarchar(30)
+  nullable: false
+foreign_keys:
+- columns:
+  - PrestamoID
+  ref: BancaPrestamos.dbo.Prestamos
+  ref_columns:
+  - PrestamoID
+schema_hash: sha256:14b07320577f6264d75e2f47dea3d2f4

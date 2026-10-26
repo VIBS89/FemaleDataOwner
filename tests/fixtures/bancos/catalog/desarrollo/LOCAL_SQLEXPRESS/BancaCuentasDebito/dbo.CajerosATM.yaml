@@ -1,0 +1,37 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.CajerosATM
+asset_key: BancaCuentasDebito.dbo.CajerosATM
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: CajerosATM
+domain: cuentas_debito
+synonyms:
+- cajeros atm
+row_count: 180
+primary_key:
+- ATMID
+columns:
+- name: ATMID
+  type: int
+  nullable: false
+- name: CodigoATM
+  type: varchar(10)
+  nullable: false
+  synonyms:
+  - codigo atm
+- name: Ubicacion
+  type: nvarchar(100)
+  nullable: false
+- name: Departamento
+  type: nvarchar(40)
+  nullable: false
+- name: Red
+  type: nvarchar(15)
+  nullable: false
+- name: AceptaDeposito
+  type: bit
+  nullable: false
+  synonyms:
+  - acepta deposito
+schema_hash: sha256:c417593313061339b5ce0257afc5c773

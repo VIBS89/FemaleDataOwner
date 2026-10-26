@@ -1,0 +1,79 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.MovimientosCuenta
+asset_key: BancaCuentasDebito.dbo.MovimientosCuenta
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: MovimientosCuenta
+domain: cuentas_debito
+synonyms:
+- movimientos cuenta
+row_count: 83085
+primary_key:
+- MovimientoID
+columns:
+- name: MovimientoID
+  type: bigint
+  nullable: false
+  synonyms:
+  - movimiento id
+  - movimiento identificador
+- name: CuentaID
+  type: int
+  nullable: false
+  synonyms:
+  - cuenta id
+  - cuenta identificador
+- name: TarjetaDebitoID
+  type: int
+  synonyms:
+  - tarjeta debito id
+  - tarjeta debito identificador
+- name: FechaHora
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha hora
+- name: TipoMovimiento
+  type: nvarchar(30)
+  nullable: false
+  synonyms:
+  - tipo movimiento
+- name: Naturaleza
+  type: char(1)
+  nullable: false
+- name: Monto
+  type: decimal(12,2)
+  nullable: false
+- name: SaldoPosterior
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo posterior
+- name: Canal
+  type: nvarchar(20)
+  nullable: false
+- name: ATMID
+  type: int
+- name: Descripcion
+  type: nvarchar(100)
+- name: Referencia
+  type: varchar(20)
+  nullable: false
+foreign_keys:
+- columns:
+  - ATMID
+  ref: BancaCuentasDebito.dbo.CajerosATM
+  ref_columns:
+  - ATMID
+- columns:
+  - CuentaID
+  ref: BancaCuentasDebito.dbo.CuentasDeposito
+  ref_columns:
+  - CuentaID
+- columns:
+  - TarjetaDebitoID
+  ref: BancaCuentasDebito.dbo.TarjetasDebito
+  ref_columns:
+  - TarjetaDebitoID
+schema_hash: sha256:47811d272f27a85780e63a5dc908bf5a

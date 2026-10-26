@@ -1,0 +1,57 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.GestionesCobro
+asset_key: BancaPrestamos.dbo.GestionesCobro
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: GestionesCobro
+domain: prestamos
+synonyms:
+- gestiones cobro
+row_count: 2303
+primary_key:
+- GestionID
+columns:
+- name: GestionID
+  type: int
+  nullable: false
+  synonyms:
+  - gestion id
+  - gestion identificador
+- name: PrestamoID
+  type: int
+  nullable: false
+  synonyms:
+  - prestamo id
+  - prestamo identificador
+- name: FechaHora
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha hora
+- name: TipoGestion
+  type: nvarchar(30)
+  nullable: false
+  synonyms:
+  - tipo gestion
+- name: Resultado
+  type: nvarchar(40)
+  nullable: false
+- name: FechaPromesaPago
+  type: date
+  synonyms:
+  - fecha promesa pago
+- name: MontoPromesa
+  type: decimal(12,2)
+  synonyms:
+  - monto promesa
+- name: Gestor
+  type: nvarchar(30)
+  nullable: false
+foreign_keys:
+- columns:
+  - PrestamoID
+  ref: BancaPrestamos.dbo.Prestamos
+  ref_columns:
+  - PrestamoID
+schema_hash: sha256:da934944a95ff0dc5d22744ed9eed765

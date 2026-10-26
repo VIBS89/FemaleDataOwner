@@ -1,0 +1,17 @@
+id: produccion:SRVDWHSQL01.DWH.dim.Cliente
+asset_key: DWH.dim.Cliente
+environment: produccion
+server: SRVDWHSQL01
+database: DWH
+schema: dim
+name: Cliente
+description: "Dimensión de clientes del data warehouse."
+description_source: data_dictionary
+domain: dwh_clientes
+synonyms: [dimension cliente, clientes dwh]
+primary_key: [ClienteKey]
+columns:
+  - {name: ClienteKey, type: int, nullable: false, description: "Llave subrogada del cliente en el DWH.", description_source: data_dictionary}
+  - {name: ClientCode, type: varchar(20), description: "Código de cliente digital replicado desde la banca digital.", description_source: data_dictionary, synonyms: [codigo cliente]}
+  - {name: Segmento, type: varchar(30), description: "Segmento comercial del cliente.", description_source: data_dictionary, low_cardinality: true}
+schema_hash: "sha256:dimcliente-v1"

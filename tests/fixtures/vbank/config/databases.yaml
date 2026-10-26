@@ -1,0 +1,18 @@
+servers:
+  - id: SRVPRDSQL01
+    host: sqlprd01.corp.local
+    alias: "SQL Producción Canales"
+    environment: produccion
+    is_reference: true
+    databases: [VBank_ING, Onboarding, RRHH]
+  - id: SRVQASQL01
+    host: sqlqa01.corp.local
+    alias: "SQL QA Canales"
+    environment: qa
+    databases: [VBank_ING]
+  - id: SRVDWHSQL01
+    host: sqldwh01.corp.local
+    alias: "SQL Producción DWH"
+    environment: produccion
+    is_reference: true
+    databases: [DWH]

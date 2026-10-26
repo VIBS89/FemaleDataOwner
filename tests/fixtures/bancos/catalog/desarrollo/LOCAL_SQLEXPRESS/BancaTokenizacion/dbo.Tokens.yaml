@@ -1,0 +1,103 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.Tokens
+asset_key: BancaTokenizacion.dbo.Tokens
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: Tokens
+domain: tokenizacion
+row_count: 6391
+primary_key:
+- TokenID
+columns:
+- name: TokenID
+  type: int
+  nullable: false
+  synonyms:
+  - token id
+  - token identificador
+- name: TokenReferenceID
+  type: varchar(30)
+  nullable: false
+  synonyms:
+  - token reference id
+  - token reference identificador
+- name: TokenEnmascarado
+  type: char(16)
+  nullable: false
+  synonyms:
+  - token enmascarado
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: WalletID
+  type: int
+  nullable: false
+  synonyms:
+  - wallet id
+  - wallet identificador
+- name: ProveedorID
+  type: int
+  nullable: false
+  synonyms:
+  - proveedor id
+  - proveedor identificador
+- name: DispositivoID
+  type: int
+  synonyms:
+  - dispositivo id
+  - dispositivo identificador
+- name: TokenRequestorID
+  type: char(11)
+  nullable: false
+  synonyms:
+  - token requestor id
+  - token requestor identificador
+- name: FechaProvision
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha provision
+- name: FechaVencimientoToken
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento token
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: MetodoVerificacion
+  type: nvarchar(30)
+  nullable: false
+  synonyms:
+  - metodo verificacion
+- name: NivelAseguramiento
+  type: nvarchar(10)
+  nullable: false
+  synonyms:
+  - nivel aseguramiento
+foreign_keys:
+- columns:
+  - DispositivoID
+  ref: BancaTokenizacion.dbo.Dispositivos
+  ref_columns:
+  - DispositivoID
+- columns:
+  - ProveedorID
+  ref: BancaTokenizacion.dbo.ProveedoresToken
+  ref_columns:
+  - ProveedorID
+- columns:
+  - TarjetaID
+  ref: BancaTokenizacion.dbo.TarjetasOrigen
+  ref_columns:
+  - TarjetaID
+- columns:
+  - WalletID
+  ref: BancaTokenizacion.dbo.Wallets
+  ref_columns:
+  - WalletID
+schema_hash: sha256:69aa0b29825dd98df95aceba1e2ac239

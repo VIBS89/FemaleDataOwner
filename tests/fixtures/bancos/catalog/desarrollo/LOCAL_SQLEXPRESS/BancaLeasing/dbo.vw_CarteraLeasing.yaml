@@ -1,0 +1,62 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.vw_CarteraLeasing
+asset_key: BancaLeasing.dbo.vw_CarteraLeasing
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+kind: view
+database: BancaLeasing
+schema: dbo
+name: vw_CarteraLeasing
+domain: leasing
+synonyms:
+- vw cartera leasing
+columns:
+- name: NumeroContrato
+  type: varchar(20)
+  nullable: false
+  synonyms:
+  - numero contrato
+- name: TipoPersona
+  type: nvarchar(10)
+  nullable: false
+  synonyms:
+  - tipo persona
+- name: NombreRazonSocial
+  type: nvarchar(120)
+  nullable: false
+  synonyms:
+  - nombre razon social
+- name: TipoActivo
+  type: nvarchar(30)
+  nullable: false
+  synonyms:
+  - tipo activo
+- name: Marca
+  type: nvarchar(30)
+  nullable: false
+- name: Modelo
+  type: nvarchar(40)
+  nullable: false
+- name: TipoLeasing
+  type: nvarchar(12)
+  nullable: false
+  synonyms:
+  - tipo leasing
+- name: MontoFinanciado
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto financiado
+- name: SaldoCapitalPendiente
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo capital pendiente
+- name: Estado
+  type: nvarchar(25)
+  nullable: false
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+schema_hash: sha256:b549ca261712d649099fd1f0eb5fe1e0

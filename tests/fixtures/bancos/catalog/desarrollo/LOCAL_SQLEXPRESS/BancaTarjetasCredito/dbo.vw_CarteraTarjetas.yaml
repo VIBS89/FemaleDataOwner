@@ -1,0 +1,62 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.vw_CarteraTarjetas
+asset_key: BancaTarjetasCredito.dbo.vw_CarteraTarjetas
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+kind: view
+database: BancaTarjetasCredito
+schema: dbo
+name: vw_CarteraTarjetas
+domain: tarjetas_credito
+synonyms:
+- vw cartera tarjetas
+columns:
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: DUI
+  type: char(10)
+  nullable: false
+  pii: true
+- name: Cliente
+  type: nvarchar(121)
+  nullable: false
+- name: Segmento
+  type: nvarchar(20)
+  nullable: false
+- name: Producto
+  type: nvarchar(60)
+  nullable: false
+- name: Marca
+  type: nvarchar(20)
+  nullable: false
+- name: PANEnmascarado
+  type: char(16)
+  nullable: false
+  synonyms:
+  - pan enmascarado
+- name: Estado
+  type: nvarchar(20)
+  nullable: false
+- name: LimiteCredito
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - limite credito
+- name: SaldoActual
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - saldo actual
+- name: PorcentajeUso
+  type: decimal(6,2)
+  synonyms:
+  - porcentaje uso
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+schema_hash: sha256:30af1cb705ff09242e4b08d304031d50

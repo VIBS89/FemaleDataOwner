@@ -1,0 +1,19 @@
+id: produccion:SRVPRDSQL01.VBank_ING.dbo.UserDevices
+asset_key: VBank_ING.dbo.UserDevices
+environment: produccion
+server: SRVPRDSQL01
+database: VBank_ING
+schema: dbo
+name: UserDevices
+description: "Dispositivos registrados por cada usuario digital."
+description_source: ms_description
+domain: onboarding_digital
+synonyms: [dispositivos, equipos del usuario]
+primary_key: [DeviceId]
+columns:
+  - {name: DeviceId, type: int, nullable: false, description: "Identificador del dispositivo.", description_source: ms_description}
+  - {name: UserId, type: int, nullable: false, description: "Usuario dueño del dispositivo.", description_source: ms_description}
+  - {name: DeviceType, type: varchar(20), description: "Tipo de dispositivo (iOS, Android, web).", description_source: generated, low_cardinality: true}
+foreign_keys:
+  - {columns: [UserId], ref: VBank_ING.dbo.Users, ref_columns: [UserId]}
+schema_hash: "sha256:devices-v1"

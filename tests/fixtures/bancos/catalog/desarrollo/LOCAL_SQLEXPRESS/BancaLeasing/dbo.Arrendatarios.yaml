@@ -1,0 +1,55 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.Arrendatarios
+asset_key: BancaLeasing.dbo.Arrendatarios
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaLeasing
+schema: dbo
+name: Arrendatarios
+domain: leasing
+row_count: 1300
+primary_key:
+- ArrendatarioID
+columns:
+- name: ArrendatarioID
+  type: int
+  nullable: false
+  synonyms:
+  - arrendatario id
+  - arrendatario identificador
+- name: TipoPersona
+  type: nvarchar(10)
+  nullable: false
+  synonyms:
+  - tipo persona
+- name: NombreRazonSocial
+  type: nvarchar(120)
+  nullable: false
+  synonyms:
+  - nombre razon social
+- name: Documento
+  type: varchar(20)
+  nullable: false
+- name: GiroEconomico
+  type: nvarchar(40)
+  synonyms:
+  - giro economico
+- name: Departamento
+  type: nvarchar(40)
+  nullable: false
+- name: Municipio
+  type: nvarchar(60)
+  nullable: false
+- name: Email
+  type: nvarchar(120)
+  synonyms:
+  - correo
+  pii: true
+- name: Telefono
+  type: varchar(15)
+  pii: true
+- name: IngresoAnual
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - ingreso anual
+schema_hash: sha256:f0369dfbfde51f409c37e6a13282ade0

@@ -1,0 +1,24 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.vw_TokensPorWallet
+asset_key: BancaTokenizacion.dbo.vw_TokensPorWallet
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+kind: view
+database: BancaTokenizacion
+schema: dbo
+name: vw_TokensPorWallet
+domain: tokenizacion
+synonyms:
+- vw tokens por wallet
+columns:
+- name: Wallet
+  type: nvarchar(60)
+  nullable: false
+- name: TSP
+  type: varchar(10)
+  nullable: false
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: Tokens
+  type: int
+schema_hash: sha256:0342fb4d2d328ca41cb905a9537b2406

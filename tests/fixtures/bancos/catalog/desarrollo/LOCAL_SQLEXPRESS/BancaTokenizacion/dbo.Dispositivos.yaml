@@ -1,0 +1,58 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.Dispositivos
+asset_key: BancaTokenizacion.dbo.Dispositivos
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: Dispositivos
+domain: tokenizacion
+row_count: 3065
+primary_key:
+- DispositivoID
+columns:
+- name: DispositivoID
+  type: int
+  nullable: false
+  synonyms:
+  - dispositivo id
+  - dispositivo identificador
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: TipoDispositivo
+  type: nvarchar(15)
+  nullable: false
+  synonyms:
+  - tipo dispositivo
+- name: SistemaOperativo
+  type: nvarchar(15)
+  nullable: false
+  synonyms:
+  - sistema operativo
+- name: Modelo
+  type: nvarchar(40)
+  nullable: false
+- name: DeviceFingerprint
+  type: char(32)
+  nullable: false
+  synonyms:
+  - device fingerprint
+  - dispositivo fingerprint
+- name: FechaRegistro
+  type: date
+  nullable: false
+  synonyms:
+  - fecha registro
+- name: Confiable
+  type: bit
+  nullable: false
+foreign_keys:
+- columns:
+  - ClienteID
+  ref: BancaTokenizacion.dbo.Clientes
+  ref_columns:
+  - ClienteID
+schema_hash: sha256:4ceeab4f3ac2a34201602892acf6aa65

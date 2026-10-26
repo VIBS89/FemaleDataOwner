@@ -1,0 +1,55 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.vw_ResumenCuentas
+asset_key: BancaCuentasDebito.dbo.vw_ResumenCuentas
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+kind: view
+database: BancaCuentasDebito
+schema: dbo
+name: vw_ResumenCuentas
+domain: cuentas_debito
+synonyms:
+- vw resumen cuentas
+columns:
+- name: CuentaID
+  type: int
+  nullable: false
+  synonyms:
+  - cuenta id
+  - cuenta identificador
+- name: NumeroCuenta
+  type: char(12)
+  nullable: false
+  synonyms:
+  - numero cuenta
+  pii: true
+- name: DUI
+  type: char(10)
+  nullable: false
+  pii: true
+- name: Cliente
+  type: nvarchar(121)
+  nullable: false
+- name: TipoCuenta
+  type: nvarchar(15)
+  nullable: false
+  synonyms:
+  - tipo cuenta
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: SaldoDisponible
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo disponible
+- name: PANEnmascarado
+  type: char(16)
+  synonyms:
+  - pan enmascarado
+- name: Marca
+  type: nvarchar(25)
+- name: EstadoTarjeta
+  type: nvarchar(15)
+  synonyms:
+  - estado tarjeta
+schema_hash: sha256:7eb4f2d77e273a2799f8e0152b952f61

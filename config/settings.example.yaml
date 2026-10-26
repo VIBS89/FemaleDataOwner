@@ -1,0 +1,20 @@
+# Ajustes del DiscoverFlow (valores por defecto de converdata.config.Settings).
+features:
+  ask_flow: false          # fase 1a (OP-01): las preguntas de cifras se responden como descubrimiento
+audit:
+  fail_open: false         # F11: fail-closed; true solo en desarrollo
+discovery:
+  k_columns: 50
+  k_tables: 30
+  k_knowledge: 30
+  k_golden: 5
+  rerank_max: 25
+  expand_top: 5
+  max_candidates: 3
+  secondary_candidate_min: 0.5
+  max_alternatives: 3
+  min_relevance: 0.4
+  gap_threshold: 0.6       # F22 paso 8: por debajo, knowledge_gap y "Preguntar al responsable"
+  generated_only_cap: 0.6
+  golden_similarity_min: 0.85
+  weights: {relevance_llm: 0.35, retrieval: 0.25, evidence: 0.15, confirmation: 0.15, agreement: 0.10}

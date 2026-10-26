@@ -1,0 +1,44 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.PagosTC
+asset_key: BancaTarjetasCredito.dbo.PagosTC
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTarjetasCredito
+schema: dbo
+name: PagosTC
+domain: tarjetas_credito
+synonyms:
+- pagos tc
+row_count: 26976
+primary_key:
+- PagoID
+columns:
+- name: PagoID
+  type: int
+  nullable: false
+  synonyms:
+  - pago id
+  - pago identificador
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: FechaPago
+  type: date
+  nullable: false
+  synonyms:
+  - fecha pago
+- name: Monto
+  type: decimal(12,2)
+  nullable: false
+- name: Canal
+  type: nvarchar(25)
+  nullable: false
+foreign_keys:
+- columns:
+  - TarjetaID
+  ref: BancaTarjetasCredito.dbo.TarjetasCredito
+  ref_columns:
+  - TarjetaID
+schema_hash: sha256:ec8a99a7438101ba4a19c9b56905fa4d

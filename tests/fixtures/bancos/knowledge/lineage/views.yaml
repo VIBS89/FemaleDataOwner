@@ -1,0 +1,70 @@
+- from: BancaCuentasDebito.dbo.Clientes
+  to: BancaCuentasDebito.dbo.vw_ResumenCuentas
+  via:
+    kind: view
+    name: vw_ResumenCuentas
+- from: BancaCuentasDebito.dbo.CuentasDeposito
+  to: BancaCuentasDebito.dbo.vw_ResumenCuentas
+  via:
+    kind: view
+    name: vw_ResumenCuentas
+- from: BancaCuentasDebito.dbo.TarjetasDebito
+  to: BancaCuentasDebito.dbo.vw_ResumenCuentas
+  via:
+    kind: view
+    name: vw_ResumenCuentas
+- from: BancaLeasing.dbo.Activos
+  to: BancaLeasing.dbo.vw_CarteraLeasing
+  via:
+    kind: view
+    name: vw_CarteraLeasing
+- from: BancaLeasing.dbo.Arrendatarios
+  to: BancaLeasing.dbo.vw_CarteraLeasing
+  via:
+    kind: view
+    name: vw_CarteraLeasing
+- from: BancaLeasing.dbo.ContratosLeasing
+  to: BancaLeasing.dbo.vw_CarteraLeasing
+  via:
+    kind: view
+    name: vw_CarteraLeasing
+- from: BancaPrestamos.dbo.Prestamos
+  to: BancaPrestamos.dbo.vw_CarteraPorCategoria
+  via:
+    kind: view
+    name: vw_CarteraPorCategoria
+- from: BancaPrestamos.dbo.ProductosPrestamo
+  to: BancaPrestamos.dbo.vw_CarteraPorCategoria
+  via:
+    kind: view
+    name: vw_CarteraPorCategoria
+- from: BancaTarjetasCredito.dbo.Clientes
+  to: BancaTarjetasCredito.dbo.vw_CarteraTarjetas
+  via:
+    kind: view
+    name: vw_CarteraTarjetas
+- from: BancaTarjetasCredito.dbo.ProductosTarjeta
+  to: BancaTarjetasCredito.dbo.vw_CarteraTarjetas
+  via:
+    kind: view
+    name: vw_CarteraTarjetas
+- from: BancaTarjetasCredito.dbo.TarjetasCredito
+  to: BancaTarjetasCredito.dbo.vw_CarteraTarjetas
+  via:
+    kind: view
+    name: vw_CarteraTarjetas
+- from: BancaTokenizacion.dbo.ProveedoresToken
+  to: BancaTokenizacion.dbo.vw_TokensPorWallet
+  via:
+    kind: view
+    name: vw_TokensPorWallet
+- from: BancaTokenizacion.dbo.Tokens
+  to: BancaTokenizacion.dbo.vw_TokensPorWallet
+  via:
+    kind: view
+    name: vw_TokensPorWallet
+- from: BancaTokenizacion.dbo.Wallets
+  to: BancaTokenizacion.dbo.vw_TokensPorWallet
+  via:
+    kind: view
+    name: vw_TokensPorWallet

@@ -1,0 +1,44 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.EventosCicloVidaToken
+asset_key: BancaTokenizacion.dbo.EventosCicloVidaToken
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: EventosCicloVidaToken
+domain: tokenizacion
+synonyms:
+- eventos ciclo vida token
+row_count: 24437
+primary_key:
+- EventoID
+columns:
+- name: EventoID
+  type: bigint
+  nullable: false
+  synonyms:
+  - evento id
+  - evento identificador
+- name: TokenID
+  type: int
+  nullable: false
+  synonyms:
+  - token id
+  - token identificador
+- name: FechaHora
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha hora
+- name: Evento
+  type: nvarchar(60)
+  nullable: false
+- name: Origen
+  type: nvarchar(25)
+  nullable: false
+foreign_keys:
+- columns:
+  - TokenID
+  ref: BancaTokenizacion.dbo.Tokens
+  ref_columns:
+  - TokenID
+schema_hash: sha256:5e98f08c04f7603b0139fadd48f46f44

@@ -5,3 +5,8 @@ docs/architecture/*.delivery.json
 docs/architecture/review-*/
 .chroma/
 data/
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+config/models.yaml

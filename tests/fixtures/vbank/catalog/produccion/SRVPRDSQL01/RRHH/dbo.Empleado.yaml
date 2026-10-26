@@ -1,0 +1,16 @@
+id: produccion:SRVPRDSQL01.RRHH.dbo.Empleado
+asset_key: RRHH.dbo.Empleado
+environment: produccion
+server: SRVPRDSQL01
+database: RRHH
+schema: dbo
+name: Empleado
+description: "Empleados del banco con su salario."
+description_source: human
+domain: rrhh
+synonyms: [empleados, colaboradores, salarios]
+primary_key: [EmpleadoId]
+columns:
+  - {name: EmpleadoId, type: int, nullable: false, description: "Identificador único del empleado.", description_source: human, synonyms: [identificador empleado]}
+  - {name: Salario, type: "decimal(12,2)", description: "Salario mensual del empleado.", description_source: human, pii: true, synonyms: [sueldo]}
+schema_hash: "sha256:empleado-v1"

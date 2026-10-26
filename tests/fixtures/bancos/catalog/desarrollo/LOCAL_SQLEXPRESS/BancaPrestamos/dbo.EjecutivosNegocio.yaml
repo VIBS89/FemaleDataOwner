@@ -1,0 +1,34 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.EjecutivosNegocio
+asset_key: BancaPrestamos.dbo.EjecutivosNegocio
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: EjecutivosNegocio
+domain: prestamos
+synonyms:
+- ejecutivos negocio
+row_count: 60
+primary_key:
+- EjecutivoID
+columns:
+- name: EjecutivoID
+  type: int
+  nullable: false
+  synonyms:
+  - ejecutivo id
+  - ejecutivo identificador
+- name: Nombre
+  type: nvarchar(80)
+  nullable: false
+  pii: true
+- name: Area
+  type: nvarchar(30)
+  nullable: false
+- name: AgenciaID
+  type: int
+  nullable: false
+  synonyms:
+  - agencia id
+  - agencia identificador
+schema_hash: sha256:84f9f4eefe4d1a0dec5f08e9c2cf831b

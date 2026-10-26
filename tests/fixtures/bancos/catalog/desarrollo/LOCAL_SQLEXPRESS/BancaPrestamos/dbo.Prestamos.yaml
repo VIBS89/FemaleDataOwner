@@ -1,0 +1,117 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.Prestamos
+asset_key: BancaPrestamos.dbo.Prestamos
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: Prestamos
+domain: prestamos
+row_count: 2780
+primary_key:
+- PrestamoID
+columns:
+- name: PrestamoID
+  type: int
+  nullable: false
+  synonyms:
+  - prestamo id
+  - prestamo identificador
+- name: NumeroPrestamo
+  type: varchar(25)
+  nullable: false
+  synonyms:
+  - numero prestamo
+- name: SolicitudID
+  type: int
+  nullable: false
+  synonyms:
+  - solicitud id
+  - solicitud identificador
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: ProductoID
+  type: int
+  nullable: false
+  synonyms:
+  - producto id
+  - producto identificador
+- name: FechaDesembolso
+  type: date
+  nullable: false
+  synonyms:
+  - fecha desembolso
+- name: MontoDesembolsado
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto desembolsado
+- name: TasaAnual
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - tasa anual
+- name: PlazoMeses
+  type: smallint
+  nullable: false
+  synonyms:
+  - plazo meses
+- name: CuotaMensual
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - cuota mensual
+- name: SaldoCapital
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo capital
+- name: Estado
+  type: nvarchar(30)
+  nullable: false
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+- name: CategoriaRiesgo
+  type: varchar(2)
+  nullable: false
+  synonyms:
+  - categoria riesgo
+- name: FechaVencimientoFinal
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento final
+- name: EjecutivoID
+  type: int
+  nullable: false
+  synonyms:
+  - ejecutivo id
+  - ejecutivo identificador
+foreign_keys:
+- columns:
+  - ClienteID
+  ref: BancaPrestamos.dbo.Clientes
+  ref_columns:
+  - ClienteID
+- columns:
+  - EjecutivoID
+  ref: BancaPrestamos.dbo.EjecutivosNegocio
+  ref_columns:
+  - EjecutivoID
+- columns:
+  - ProductoID
+  ref: BancaPrestamos.dbo.ProductosPrestamo
+  ref_columns:
+  - ProductoID
+- columns:
+  - SolicitudID
+  ref: BancaPrestamos.dbo.SolicitudesCredito
+  ref_columns:
+  - SolicitudID
+schema_hash: sha256:31bc65bae11bb9d2a46126fc1f0bfd5f

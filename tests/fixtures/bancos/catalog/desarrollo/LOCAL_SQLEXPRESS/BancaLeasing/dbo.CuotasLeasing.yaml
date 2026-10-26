@@ -1,0 +1,76 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.CuotasLeasing
+asset_key: BancaLeasing.dbo.CuotasLeasing
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaLeasing
+schema: dbo
+name: CuotasLeasing
+domain: leasing
+synonyms:
+- cuotas leasing
+row_count: 75864
+primary_key:
+- CuotaID
+columns:
+- name: CuotaID
+  type: bigint
+  nullable: false
+  synonyms:
+  - cuota id
+  - cuota identificador
+- name: ContratoID
+  type: int
+  nullable: false
+  synonyms:
+  - contrato id
+  - contrato identificador
+- name: NumeroCuota
+  type: smallint
+  nullable: false
+  synonyms:
+  - numero cuota
+- name: FechaVencimiento
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento
+- name: Capital
+  type: decimal(12,2)
+  nullable: false
+- name: Interes
+  type: decimal(12,2)
+  nullable: false
+- name: IVA
+  type: decimal(12,2)
+  nullable: false
+- name: Seguro
+  type: decimal(12,2)
+  nullable: false
+- name: TotalCuota
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - total cuota
+- name: FechaPago
+  type: date
+  synonyms:
+  - fecha pago
+- name: MontoPagado
+  type: decimal(12,2)
+  synonyms:
+  - monto pagado
+- name: Estado
+  type: nvarchar(12)
+  nullable: false
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+foreign_keys:
+- columns:
+  - ContratoID
+  ref: BancaLeasing.dbo.ContratosLeasing
+  ref_columns:
+  - ContratoID
+schema_hash: sha256:1a047c396e6e7bef7cd218766b8134cf

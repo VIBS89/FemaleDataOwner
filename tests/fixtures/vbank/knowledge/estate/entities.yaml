@@ -1,0 +1,6 @@
+- name: Cliente
+  synonyms: [clientes, cliente digital]
+  definition: "Persona que mantiene una relación con el banco."
+  tables: [VBank_ING.dbo.Users, Onboarding.dbo.Solicitud, DWH.dim.Cliente]
+  canonical: VBank_ING.dbo.Users
+  domain: onboarding_digital

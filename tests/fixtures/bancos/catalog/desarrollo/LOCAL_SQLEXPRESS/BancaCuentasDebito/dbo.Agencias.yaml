@@ -1,0 +1,34 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.Agencias
+asset_key: BancaCuentasDebito.dbo.Agencias
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: Agencias
+domain: cuentas_debito
+row_count: 40
+primary_key:
+- AgenciaID
+columns:
+- name: AgenciaID
+  type: int
+  nullable: false
+  synonyms:
+  - agencia id
+  - agencia identificador
+- name: Nombre
+  type: nvarchar(80)
+  nullable: false
+  pii: true
+- name: TipoAgencia
+  type: nvarchar(25)
+  nullable: false
+  synonyms:
+  - tipo agencia
+- name: Departamento
+  type: nvarchar(40)
+  nullable: false
+- name: Municipio
+  type: nvarchar(60)
+  nullable: false
+schema_hash: sha256:6ccf11fdf61f38dfca3366d8c31d2f29

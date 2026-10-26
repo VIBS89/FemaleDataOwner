@@ -1,0 +1,60 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.ProductosPrestamo
+asset_key: BancaPrestamos.dbo.ProductosPrestamo
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: ProductosPrestamo
+domain: prestamos
+synonyms:
+- productos prestamo
+row_count: 10
+primary_key:
+- ProductoID
+columns:
+- name: ProductoID
+  type: int
+  nullable: false
+  synonyms:
+  - producto id
+  - producto identificador
+- name: Nombre
+  type: nvarchar(60)
+  nullable: false
+  pii: true
+- name: TipoCredito
+  type: nvarchar(20)
+  nullable: false
+  synonyms:
+  - tipo credito
+- name: TasaMinima
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - tasa minima
+- name: TasaMaxima
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - tasa maxima
+- name: PlazoMinimoMeses
+  type: smallint
+  nullable: false
+  synonyms:
+  - plazo minimo meses
+- name: PlazoMaximoMeses
+  type: smallint
+  nullable: false
+  synonyms:
+  - plazo maximo meses
+- name: MontoMinimo
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto minimo
+- name: MontoMaximo
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto maximo
+schema_hash: sha256:161f46851fafc11468d39b38369a025d

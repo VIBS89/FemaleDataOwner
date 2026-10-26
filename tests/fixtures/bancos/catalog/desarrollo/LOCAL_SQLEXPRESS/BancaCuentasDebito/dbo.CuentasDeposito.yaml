@@ -1,0 +1,80 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.CuentasDeposito
+asset_key: BancaCuentasDebito.dbo.CuentasDeposito
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: CuentasDeposito
+domain: cuentas_debito
+synonyms:
+- cuentas deposito
+row_count: 3589
+primary_key:
+- CuentaID
+columns:
+- name: CuentaID
+  type: int
+  nullable: false
+  synonyms:
+  - cuenta id
+  - cuenta identificador
+- name: NumeroCuenta
+  type: char(12)
+  nullable: false
+  synonyms:
+  - numero cuenta
+  pii: true
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: TipoCuenta
+  type: nvarchar(15)
+  nullable: false
+  synonyms:
+  - tipo cuenta
+- name: Moneda
+  type: char(3)
+  nullable: false
+- name: SaldoDisponible
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo disponible
+- name: TasaInteresAnual
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - tasa interes anual
+- name: FechaApertura
+  type: date
+  nullable: false
+  synonyms:
+  - fecha apertura
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: AgenciaID
+  type: int
+  nullable: false
+  synonyms:
+  - agencia id
+  - agencia identificador
+- name: FechaUltimoMovimiento
+  type: date
+  synonyms:
+  - fecha ultimo movimiento
+foreign_keys:
+- columns:
+  - AgenciaID
+  ref: BancaCuentasDebito.dbo.Agencias
+  ref_columns:
+  - AgenciaID
+- columns:
+  - ClienteID
+  ref: BancaCuentasDebito.dbo.Clientes
+  ref_columns:
+  - ClienteID
+schema_hash: sha256:86a75be7788bbfc4a3fcdb837b737497

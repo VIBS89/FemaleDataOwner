@@ -1,0 +1,58 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.Activos
+asset_key: BancaLeasing.dbo.Activos
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaLeasing
+schema: dbo
+name: Activos
+domain: leasing
+row_count: 1700
+primary_key:
+- ActivoID
+columns:
+- name: ActivoID
+  type: int
+  nullable: false
+  synonyms:
+  - activo id
+  - activo identificador
+- name: TipoActivo
+  type: nvarchar(30)
+  nullable: false
+  synonyms:
+  - tipo activo
+- name: Marca
+  type: nvarchar(30)
+  nullable: false
+- name: Modelo
+  type: nvarchar(40)
+  nullable: false
+- name: Anio
+  type: smallint
+  nullable: false
+- name: NumeroSerieVIN
+  type: varchar(20)
+  nullable: false
+  synonyms:
+  - numero serie vin
+- name: ValorCompra
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - valor compra
+- name: ProveedorID
+  type: int
+  nullable: false
+  synonyms:
+  - proveedor id
+  - proveedor identificador
+- name: Condicion
+  type: nvarchar(12)
+  nullable: false
+foreign_keys:
+- columns:
+  - ProveedorID
+  ref: BancaLeasing.dbo.ProveedoresActivo
+  ref_columns:
+  - ProveedorID
+schema_hash: sha256:816c5a2586600f0bf575b569e98c8598

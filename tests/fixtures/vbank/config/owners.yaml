@@ -1,0 +1,11 @@
+- domain: onboarding_digital
+  assets: ["VBank_ING.dbo.*", "Onboarding.dbo.*"]
+  business_owner: {name: "Producto Banca Digital", group: "GG-Datos-BancaDigital"}
+  technical_owner: {name: "Ingeniería de Datos — Canales", group: "GG-IngDatos-Canales"}
+- domain: dwh_clientes
+  assets: ["DWH.dim.*"]
+  business_owner: {name: "Inteligencia de Negocios", group: "GG-BI"}
+  technical_owner: {name: "Ingeniería de Datos — DWH", group: "GG-IngDatos-DWH"}
+- domain: rrhh
+  assets: ["RRHH.*"]
+  business_owner: {name: "Recursos Humanos", group: "GG-RRHH"}

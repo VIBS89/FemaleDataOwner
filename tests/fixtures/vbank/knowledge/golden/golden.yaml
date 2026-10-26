@@ -1,0 +1,5 @@
+- id: gd-001
+  template: "identificador del cliente en onboarding digital"
+  asset_keys: [VBank_ING.dbo.Users.ClientCode]
+  confirmed_by: users
+  confirmations: 3

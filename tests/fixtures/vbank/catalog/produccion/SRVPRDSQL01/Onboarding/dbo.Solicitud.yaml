@@ -1,0 +1,18 @@
+id: produccion:SRVPRDSQL01.Onboarding.dbo.Solicitud
+asset_key: Onboarding.dbo.Solicitud
+environment: produccion
+server: SRVPRDSQL01
+database: Onboarding
+schema: dbo
+name: Solicitud
+description: "Solicitudes de apertura recibidas en el proceso de onboarding digital."
+description_source: data_dictionary
+domain: onboarding_digital
+synonyms: [solicitud de apertura, solicitud onboarding]
+primary_key: [SolicitudId]
+columns:
+  - {name: SolicitudId, type: int, nullable: false, description: "Identificador de la solicitud de onboarding.", description_source: data_dictionary}
+  - {name: NumeroDocumento, type: varchar(20), description: "Número de documento de identidad del solicitante.", description_source: data_dictionary, pii: true, synonyms: [documento cliente, dui]}
+  - {name: Estado, type: char(1), description: "Estado de la solicitud de onboarding (pendiente, aprobada o rechazada).", description_source: data_dictionary, low_cardinality: true}
+  - {name: FechaSolicitud, type: datetime2, description: "Fecha en que se recibió la solicitud.", description_source: data_dictionary}
+schema_hash: "sha256:solicitud-v1"

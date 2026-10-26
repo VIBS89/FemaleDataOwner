@@ -1,0 +1,20 @@
+# Tabla con nombres solo en inglés y sin descripción revisada: caso típico de los sistemas del banco.
+id: produccion:SRVPRDSQL01.VBank_ING.dbo.CustomerConsents
+asset_key: VBank_ING.dbo.CustomerConsents
+environment: produccion
+server: SRVPRDSQL01
+database: VBank_ING
+schema: dbo
+name: CustomerConsents
+description: null
+description_source: generated
+domain: onboarding_digital
+primary_key: [ConsentId]
+columns:
+  - {name: ConsentId, type: int, nullable: false, description_source: generated}
+  - {name: UserId, type: int, nullable: false, description_source: generated}
+  - {name: ConsentType, type: varchar(30), description_source: generated, low_cardinality: true}
+  - {name: AcceptedAt, type: datetime2, description_source: generated}
+foreign_keys:
+  - {columns: [UserId], ref: VBank_ING.dbo.Users, ref_columns: [UserId]}
+schema_hash: "sha256:consents-v1"

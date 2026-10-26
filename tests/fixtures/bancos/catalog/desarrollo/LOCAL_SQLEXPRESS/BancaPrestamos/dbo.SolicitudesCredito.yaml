@@ -1,0 +1,95 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.SolicitudesCredito
+asset_key: BancaPrestamos.dbo.SolicitudesCredito
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: SolicitudesCredito
+domain: prestamos
+synonyms:
+- solicitudes credito
+row_count: 4500
+primary_key:
+- SolicitudID
+columns:
+- name: SolicitudID
+  type: int
+  nullable: false
+  synonyms:
+  - solicitud id
+  - solicitud identificador
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: ProductoID
+  type: int
+  nullable: false
+  synonyms:
+  - producto id
+  - producto identificador
+- name: FechaSolicitud
+  type: date
+  nullable: false
+  synonyms:
+  - fecha solicitud
+- name: MontoSolicitado
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto solicitado
+- name: PlazoSolicitado
+  type: smallint
+  nullable: false
+  synonyms:
+  - plazo solicitado
+- name: Destino
+  type: nvarchar(60)
+  nullable: false
+- name: ScoreBuro
+  type: smallint
+  nullable: false
+  synonyms:
+  - score buro
+- name: RelacionCuotaIngreso
+  type: decimal(7,2)
+  nullable: false
+  synonyms:
+  - relacion cuota ingreso
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: MotivoRechazo
+  type: nvarchar(60)
+  synonyms:
+  - motivo rechazo
+- name: CanalOrigen
+  type: nvarchar(30)
+  nullable: false
+  synonyms:
+  - canal origen
+- name: EjecutivoID
+  type: int
+  nullable: false
+  synonyms:
+  - ejecutivo id
+  - ejecutivo identificador
+foreign_keys:
+- columns:
+  - ClienteID
+  ref: BancaPrestamos.dbo.Clientes
+  ref_columns:
+  - ClienteID
+- columns:
+  - EjecutivoID
+  ref: BancaPrestamos.dbo.EjecutivosNegocio
+  ref_columns:
+  - EjecutivoID
+- columns:
+  - ProductoID
+  ref: BancaPrestamos.dbo.ProductosPrestamo
+  ref_columns:
+  - ProductoID
+schema_hash: sha256:edf0d5035c8fdd6c19e9fa3a95be65ef

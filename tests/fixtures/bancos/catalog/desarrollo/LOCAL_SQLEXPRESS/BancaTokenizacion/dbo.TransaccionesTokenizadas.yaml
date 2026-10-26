@@ -1,0 +1,68 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.TransaccionesTokenizadas
+asset_key: BancaTokenizacion.dbo.TransaccionesTokenizadas
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: TransaccionesTokenizadas
+domain: tokenizacion
+synonyms:
+- transacciones tokenizadas
+row_count: 50918
+primary_key:
+- TransaccionID
+columns:
+- name: TransaccionID
+  type: bigint
+  nullable: false
+  synonyms:
+  - transaccion id
+  - transaccion identificador
+- name: TokenID
+  type: int
+  nullable: false
+  synonyms:
+  - token id
+  - token identificador
+- name: FechaHora
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha hora
+- name: Comercio
+  type: nvarchar(80)
+  nullable: false
+- name: Canal
+  type: nvarchar(25)
+  nullable: false
+- name: Monto
+  type: decimal(12,2)
+  nullable: false
+- name: Moneda
+  type: char(3)
+  nullable: false
+- name: ValidacionCriptograma
+  type: nvarchar(10)
+  nullable: false
+  synonyms:
+  - validacion criptograma
+- name: ECI
+  type: char(2)
+- name: Estado
+  type: nvarchar(12)
+  nullable: false
+- name: MotivoRechazo
+  type: nvarchar(40)
+  synonyms:
+  - motivo rechazo
+- name: CodigoAutorizacion
+  type: char(6)
+  synonyms:
+  - codigo autorizacion
+foreign_keys:
+- columns:
+  - TokenID
+  ref: BancaTokenizacion.dbo.Tokens
+  ref_columns:
+  - TokenID
+schema_hash: sha256:b5576f484989b8cb20cf6a3b958bc41b

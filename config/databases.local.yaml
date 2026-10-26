@@ -1,0 +1,10 @@
+# Inventario de la instancia local de desarrollo (BancosSQL). El agente descubre las BDs con su acceso (databases: "*").
+servers:
+  - id: LOCAL_SQLEXPRESS
+    host: localhost\SQLEXPRESS
+    alias: "SQL Express local"
+    environment: desarrollo
+    is_reference: true
+    databases: ["*"]
+    auth: windows                 # login de metadatos = tu usuario de Windows en local; gMSA en el servidor
+    trust_server_certificate: true  # solo local: certificado autofirmado de SQL Express

@@ -1,0 +1,10 @@
+- name: Cliente
+  synonyms:
+  - clientes
+  definition: Entidad presente en 4 bases de datos con la misma estructura.
+  tables:
+  - BancaCuentasDebito.dbo.Clientes
+  - BancaPrestamos.dbo.Clientes
+  - BancaTarjetasCredito.dbo.Clientes
+  - BancaTokenizacion.dbo.Clientes
+  canonical: BancaPrestamos.dbo.Clientes

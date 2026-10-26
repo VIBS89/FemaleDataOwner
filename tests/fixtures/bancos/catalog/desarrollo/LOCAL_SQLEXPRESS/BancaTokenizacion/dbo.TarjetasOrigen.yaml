@@ -1,0 +1,54 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.TarjetasOrigen
+asset_key: BancaTokenizacion.dbo.TarjetasOrigen
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: TarjetasOrigen
+domain: tokenizacion
+synonyms:
+- tarjetas origen
+row_count: 2694
+primary_key:
+- TarjetaID
+columns:
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: PANEnmascarado
+  type: char(16)
+  nullable: false
+  synonyms:
+  - pan enmascarado
+- name: Marca
+  type: nvarchar(20)
+  nullable: false
+- name: TipoTarjeta
+  type: nvarchar(10)
+  nullable: false
+  synonyms:
+  - tipo tarjeta
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: FechaVencimiento
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento
+foreign_keys:
+- columns:
+  - ClienteID
+  ref: BancaTokenizacion.dbo.Clientes
+  ref_columns:
+  - ClienteID
+schema_hash: sha256:670efc48271bbe545f158f2a17de37c4

@@ -1,0 +1,111 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.ContratosLeasing
+asset_key: BancaLeasing.dbo.ContratosLeasing
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaLeasing
+schema: dbo
+name: ContratosLeasing
+domain: leasing
+synonyms:
+- contratos leasing
+row_count: 1700
+primary_key:
+- ContratoID
+columns:
+- name: ContratoID
+  type: int
+  nullable: false
+  synonyms:
+  - contrato id
+  - contrato identificador
+- name: NumeroContrato
+  type: varchar(20)
+  nullable: false
+  synonyms:
+  - numero contrato
+- name: ArrendatarioID
+  type: int
+  nullable: false
+  synonyms:
+  - arrendatario id
+  - arrendatario identificador
+- name: ActivoID
+  type: int
+  nullable: false
+  synonyms:
+  - activo id
+  - activo identificador
+- name: TipoLeasing
+  type: nvarchar(12)
+  nullable: false
+  synonyms:
+  - tipo leasing
+- name: FechaInicio
+  type: date
+  nullable: false
+  synonyms:
+  - fecha inicio
+- name: PlazoMeses
+  type: smallint
+  nullable: false
+  synonyms:
+  - plazo meses
+- name: ValorActivo
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - valor activo
+- name: PrimaPorcentaje
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - prima porcentaje
+- name: MontoFinanciado
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - monto financiado
+- name: TasaAnual
+  type: decimal(5,2)
+  nullable: false
+  synonyms:
+  - tasa anual
+- name: ValorResidual
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - valor residual
+- name: CuotaMensualSinIVA
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - cuota mensual sin iva
+- name: Estado
+  type: nvarchar(25)
+  nullable: false
+- name: OpcionCompra
+  type: nvarchar(15)
+  synonyms:
+  - opcion compra
+- name: SaldoCapitalPendiente
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo capital pendiente
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+foreign_keys:
+- columns:
+  - ActivoID
+  ref: BancaLeasing.dbo.Activos
+  ref_columns:
+  - ActivoID
+- columns:
+  - ArrendatarioID
+  ref: BancaLeasing.dbo.Arrendatarios
+  ref_columns:
+  - ArrendatarioID
+schema_hash: sha256:6b7e6178d6309bfa1a0ff2424dd33e7f

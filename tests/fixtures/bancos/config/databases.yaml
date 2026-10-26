@@ -1,0 +1,12 @@
+servers:
+- id: LOCAL_SQLEXPRESS
+  alias: SQL Express local
+  environment: desarrollo
+  platform: sqlserver
+  is_reference: true
+  databases:
+  - BancaCuentasDebito
+  - BancaLeasing
+  - BancaPrestamos
+  - BancaTarjetasCredito
+  - BancaTokenizacion

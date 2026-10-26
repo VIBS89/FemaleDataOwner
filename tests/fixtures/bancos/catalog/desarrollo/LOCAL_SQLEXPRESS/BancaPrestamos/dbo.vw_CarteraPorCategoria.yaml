@@ -1,0 +1,29 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.vw_CarteraPorCategoria
+asset_key: BancaPrestamos.dbo.vw_CarteraPorCategoria
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+kind: view
+database: BancaPrestamos
+schema: dbo
+name: vw_CarteraPorCategoria
+domain: prestamos
+synonyms:
+- vw cartera por categoria
+columns:
+- name: TipoCredito
+  type: nvarchar(20)
+  nullable: false
+  synonyms:
+  - tipo credito
+- name: CategoriaRiesgo
+  type: varchar(2)
+  nullable: false
+  synonyms:
+  - categoria riesgo
+- name: Prestamos
+  type: int
+- name: SaldoCapital
+  type: decimal(38,2)
+  synonyms:
+  - saldo capital
+schema_hash: sha256:bb424b16032000bca61d36806e8f851c

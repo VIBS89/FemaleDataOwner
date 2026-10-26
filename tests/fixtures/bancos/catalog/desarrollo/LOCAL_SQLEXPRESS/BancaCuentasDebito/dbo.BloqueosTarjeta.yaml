@@ -1,0 +1,53 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.BloqueosTarjeta
+asset_key: BancaCuentasDebito.dbo.BloqueosTarjeta
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: BloqueosTarjeta
+domain: cuentas_debito
+synonyms:
+- bloqueos tarjeta
+row_count: 298
+primary_key:
+- BloqueoID
+columns:
+- name: BloqueoID
+  type: int
+  nullable: false
+  synonyms:
+  - bloqueo id
+  - bloqueo identificador
+- name: TarjetaDebitoID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta debito id
+  - tarjeta debito identificador
+- name: FechaBloqueo
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha bloqueo
+- name: Motivo
+  type: nvarchar(40)
+  nullable: false
+- name: CanalSolicitud
+  type: nvarchar(25)
+  nullable: false
+  synonyms:
+  - canal solicitud
+- name: Desbloqueada
+  type: bit
+  nullable: false
+- name: FechaDesbloqueo
+  type: datetime2(0)
+  synonyms:
+  - fecha desbloqueo
+foreign_keys:
+- columns:
+  - TarjetaDebitoID
+  ref: BancaCuentasDebito.dbo.TarjetasDebito
+  ref_columns:
+  - TarjetaDebitoID
+schema_hash: sha256:3a12fdf6825c8755162d58086da64465

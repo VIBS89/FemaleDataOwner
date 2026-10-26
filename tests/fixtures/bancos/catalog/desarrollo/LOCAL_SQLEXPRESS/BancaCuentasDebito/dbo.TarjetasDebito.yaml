@@ -1,0 +1,67 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.TarjetasDebito
+asset_key: BancaCuentasDebito.dbo.TarjetasDebito
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: TarjetasDebito
+domain: cuentas_debito
+synonyms:
+- tarjetas debito
+row_count: 2984
+primary_key:
+- TarjetaDebitoID
+columns:
+- name: TarjetaDebitoID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta debito id
+  - tarjeta debito identificador
+- name: CuentaID
+  type: int
+  nullable: false
+  synonyms:
+  - cuenta id
+  - cuenta identificador
+- name: PANEnmascarado
+  type: char(16)
+  nullable: false
+  synonyms:
+  - pan enmascarado
+- name: Marca
+  type: nvarchar(25)
+  nullable: false
+- name: FechaEmision
+  type: date
+  nullable: false
+  synonyms:
+  - fecha emision
+- name: FechaVencimiento
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento
+- name: LimiteDiarioATM
+  type: decimal(10,2)
+  nullable: false
+  synonyms:
+  - limite diario atm
+- name: LimiteDiarioPOS
+  type: decimal(10,2)
+  nullable: false
+  synonyms:
+  - limite diario pos
+- name: Estado
+  type: nvarchar(15)
+  nullable: false
+- name: Contactless
+  type: bit
+  nullable: false
+foreign_keys:
+- columns:
+  - CuentaID
+  ref: BancaCuentasDebito.dbo.CuentasDeposito
+  ref_columns:
+  - CuentaID
+schema_hash: sha256:25ae7a3f815807da4e4d3c1c4ec35d4e

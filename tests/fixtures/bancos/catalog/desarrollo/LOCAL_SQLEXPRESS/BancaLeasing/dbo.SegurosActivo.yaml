@@ -1,0 +1,59 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.SegurosActivo
+asset_key: BancaLeasing.dbo.SegurosActivo
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaLeasing
+schema: dbo
+name: SegurosActivo
+domain: leasing
+synonyms:
+- seguros activo
+row_count: 1700
+primary_key:
+- SeguroID
+columns:
+- name: SeguroID
+  type: int
+  nullable: false
+  synonyms:
+  - seguro id
+  - seguro identificador
+- name: ContratoID
+  type: int
+  nullable: false
+  synonyms:
+  - contrato id
+  - contrato identificador
+- name: Aseguradora
+  type: nvarchar(60)
+  nullable: false
+- name: NumeroPoliza
+  type: varchar(20)
+  nullable: false
+  synonyms:
+  - numero poliza
+- name: Cobertura
+  type: nvarchar(40)
+  nullable: false
+- name: PrimaAnual
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - prima anual
+- name: VigenciaDesde
+  type: date
+  nullable: false
+  synonyms:
+  - vigencia desde
+- name: VigenciaHasta
+  type: date
+  nullable: false
+  synonyms:
+  - vigencia hasta
+foreign_keys:
+- columns:
+  - ContratoID
+  ref: BancaLeasing.dbo.ContratosLeasing
+  ref_columns:
+  - ContratoID
+schema_hash: sha256:5b8cbaab9ba7970b27257d2dab812f8c

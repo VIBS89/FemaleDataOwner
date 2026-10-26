@@ -1,0 +1,34 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaLeasing.dbo.ProveedoresActivo
+asset_key: BancaLeasing.dbo.ProveedoresActivo
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaLeasing
+schema: dbo
+name: ProveedoresActivo
+domain: leasing
+synonyms:
+- proveedores activo
+row_count: 16
+primary_key:
+- ProveedorID
+columns:
+- name: ProveedorID
+  type: int
+  nullable: false
+  synonyms:
+  - proveedor id
+  - proveedor identificador
+- name: Nombre
+  type: nvarchar(100)
+  nullable: false
+  pii: true
+- name: TipoProveedor
+  type: nvarchar(40)
+  nullable: false
+  synonyms:
+  - tipo proveedor
+- name: NIT
+  type: varchar(20)
+  nullable: false
+  pii: true
+schema_hash: sha256:fe82b8dce88a3efbfc5070baa511aa6d

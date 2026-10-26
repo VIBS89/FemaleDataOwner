@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "converdata"
+version = "0.1.0"
+description = "Enterprise Data Discovery Agent (ConverData) — DiscoverFlow on-premise"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+]
+
+[project.optional-dependencies]
+# Proveedores del gateway de LLM (F16). Sin ninguno, el flujo corre en modo determinista.
+nim = ["langchain-nvidia-ai-endpoints>=1.0"]
+ollama = ["langchain-ollama>=1.0"]  # solo environment: local
+bedrock = ["langchain-aws>=0.2"]
+# SqlServerVectorStore, VisibilityResolver y auditoría en la BD ConverData (OP-02, OP-03, OP-05).
+sqlserver = ["pyodbc>=5.1"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+converdata = "converdata.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

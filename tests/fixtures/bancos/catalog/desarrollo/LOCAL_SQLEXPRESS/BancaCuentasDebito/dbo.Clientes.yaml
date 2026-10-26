@@ -1,0 +1,67 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaCuentasDebito.dbo.Clientes
+asset_key: BancaCuentasDebito.dbo.Clientes
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaCuentasDebito
+schema: dbo
+name: Clientes
+domain: cuentas_debito
+row_count: 3000
+primary_key:
+- ClienteID
+columns:
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: DUI
+  type: char(10)
+  nullable: false
+  pii: true
+- name: Nombres
+  type: nvarchar(60)
+  nullable: false
+  pii: true
+- name: Apellidos
+  type: nvarchar(60)
+  nullable: false
+  pii: true
+- name: FechaNacimiento
+  type: date
+  nullable: false
+  synonyms:
+  - fecha nacimiento
+  pii: true
+- name: Genero
+  type: char(1)
+  nullable: false
+- name: Email
+  type: nvarchar(120)
+  synonyms:
+  - correo
+  pii: true
+- name: Telefono
+  type: varchar(15)
+  pii: true
+- name: Departamento
+  type: nvarchar(40)
+  nullable: false
+- name: Municipio
+  type: nvarchar(60)
+  nullable: false
+- name: IngresoMensual
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - ingreso mensual
+- name: Segmento
+  type: nvarchar(20)
+  nullable: false
+- name: FechaAlta
+  type: date
+  nullable: false
+  synonyms:
+  - fecha alta
+schema_hash: sha256:a0ac1a09ed9cb2d3127d61e04be381a1

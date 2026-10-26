@@ -1,0 +1,112 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.TarjetasCredito
+asset_key: BancaTarjetasCredito.dbo.TarjetasCredito
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTarjetasCredito
+schema: dbo
+name: TarjetasCredito
+domain: tarjetas_credito
+synonyms:
+- tarjetas credito
+row_count: 3258
+primary_key:
+- TarjetaID
+columns:
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: ClienteID
+  type: int
+  nullable: false
+  synonyms:
+  - cliente id
+  - cliente identificador
+- name: ProductoID
+  type: int
+  nullable: false
+  synonyms:
+  - producto id
+  - producto identificador
+- name: PANEnmascarado
+  type: char(16)
+  nullable: false
+  synonyms:
+  - pan enmascarado
+- name: BIN
+  type: char(6)
+  nullable: false
+- name: Ultimos4
+  type: char(4)
+  nullable: false
+- name: FechaEmision
+  type: date
+  nullable: false
+  synonyms:
+  - fecha emision
+- name: FechaVencimiento
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento
+- name: LimiteCredito
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - limite credito
+- name: SaldoActual
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - saldo actual
+- name: Estado
+  type: nvarchar(20)
+  nullable: false
+- name: DiaCorte
+  type: tinyint
+  nullable: false
+  synonyms:
+  - dia corte
+- name: DisponibleCompras
+  type: decimal(12,2)
+  synonyms:
+  - disponible compras
+- name: EsAdicional
+  type: bit
+  nullable: false
+  synonyms:
+  - es adicional
+- name: TarjetaTitularID
+  type: int
+  synonyms:
+  - tarjeta titular id
+  - tarjeta titular identificador
+- name: PerfilPago
+  type: nvarchar(15)
+  nullable: false
+  synonyms:
+  - perfil pago
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+foreign_keys:
+- columns:
+  - ClienteID
+  ref: BancaTarjetasCredito.dbo.Clientes
+  ref_columns:
+  - ClienteID
+- columns:
+  - ProductoID
+  ref: BancaTarjetasCredito.dbo.ProductosTarjeta
+  ref_columns:
+  - ProductoID
+- columns:
+  - TarjetaTitularID
+  ref: BancaTarjetasCredito.dbo.TarjetasCredito
+  ref_columns:
+  - TarjetaID
+schema_hash: sha256:d1fb7ccd4f9afd5ea13478721918df46

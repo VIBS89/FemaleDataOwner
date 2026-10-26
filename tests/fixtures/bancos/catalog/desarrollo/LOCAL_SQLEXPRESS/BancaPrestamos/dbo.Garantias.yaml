@@ -1,0 +1,52 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.Garantias
+asset_key: BancaPrestamos.dbo.Garantias
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: Garantias
+domain: prestamos
+row_count: 3475
+primary_key:
+- GarantiaID
+columns:
+- name: GarantiaID
+  type: int
+  nullable: false
+  synonyms:
+  - garantia id
+  - garantia identificador
+- name: PrestamoID
+  type: int
+  nullable: false
+  synonyms:
+  - prestamo id
+  - prestamo identificador
+- name: TipoGarantia
+  type: nvarchar(40)
+  nullable: false
+  synonyms:
+  - tipo garantia
+- name: Descripcion
+  type: nvarchar(120)
+  nullable: false
+- name: ValorAvaluo
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - valor avaluo
+- name: FechaAvaluo
+  type: date
+  nullable: false
+  synonyms:
+  - fecha avaluo
+- name: Referencia
+  type: nvarchar(60)
+  nullable: false
+foreign_keys:
+- columns:
+  - PrestamoID
+  ref: BancaPrestamos.dbo.Prestamos
+  ref_columns:
+  - PrestamoID
+schema_hash: sha256:f6de2fc4fea5b8f684a68204f165f8c7

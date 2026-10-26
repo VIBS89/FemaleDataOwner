@@ -1,0 +1,80 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.EstadosCuentaTC
+asset_key: BancaTarjetasCredito.dbo.EstadosCuentaTC
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTarjetasCredito
+schema: dbo
+name: EstadosCuentaTC
+domain: tarjetas_credito
+synonyms:
+- estados cuenta tc
+row_count: 34288
+primary_key:
+- EstadoCuentaID
+columns:
+- name: EstadoCuentaID
+  type: int
+  nullable: false
+  synonyms:
+  - estado cuenta id
+  - estado cuenta identificador
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: Periodo
+  type: char(7)
+  nullable: false
+- name: FechaCorte
+  type: date
+  nullable: false
+  synonyms:
+  - fecha corte
+- name: SaldoAnterior
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - saldo anterior
+- name: Compras
+  type: decimal(12,2)
+  nullable: false
+- name: Pagos
+  type: decimal(12,2)
+  nullable: false
+- name: Intereses
+  type: decimal(12,2)
+  nullable: false
+- name: CargosComisiones
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - cargos comisiones
+- name: SaldoCorte
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - saldo corte
+- name: PagoMinimo
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - pago minimo
+- name: FechaLimitePago
+  type: date
+  nullable: false
+  synonyms:
+  - fecha limite pago
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+foreign_keys:
+- columns:
+  - TarjetaID
+  ref: BancaTarjetasCredito.dbo.TarjetasCredito
+  ref_columns:
+  - TarjetaID
+schema_hash: sha256:ab28d9c1931a3c4a8b383b50bcc72410

@@ -1,0 +1,45 @@
+# Gateway de LLM (F16). Copiar a config/models.yaml (ignorado por git).
+# Sin este archivo, `converdata discover` corre en modo determinista.
+#
+# Fase actual: NVIDIA NIM (API alojada) con datos de prueba (BancosSQL, fixture VBank).
+# Para activar Bedrock: providers.bedrock.enabled: true y cambiar `provider`/`model` de cada rol. Sin cambios de código.
+
+# test = solo datos ficticios. Con datos reales poner "real": el gateway se niega a arrancar si algún rol
+# (o el respaldo) apunta a un proveedor con allowed_data: test (F17, OP-06).
+data_mode: test
+
+providers:
+  nvidia_nim:
+    enabled: true
+    base_url: null               # null = https://integrate.api.nvidia.com/v1 ; NIM autoalojado: http://<host>:8000/v1
+    api_key_env: NVIDIA_API_KEY  # clave nvapi-... ; no hace falta con un NIM autoalojado sin autenticación
+    allowed_data: test           # la API alojada de NVIDIA es un tercero: solo datos de prueba
+  bedrock:
+    enabled: false               # activar cuando la cuenta AWS tenga Bedrock y IAM Roles Anywhere (OP-01)
+    region: us-east-1
+    allowed_data: real           # sin model invocation logging (F17)
+
+roles:
+  planner: {provider: nvidia_nim, model: meta/llama-3.3-70b-instruct, temperature: 0.0, max_tokens: 1024}
+  fast:    {provider: nvidia_nim, model: meta/llama-3.1-8b-instruct, temperature: 0.0, max_tokens: 400}
+  judge:   {provider: nvidia_nim, model: nvidia/llama-3.3-nemotron-super-49b-v1.5, temperature: 0.0}
+  # 1024 dimensiones = VECTOR(1024) de la BD ConverData (OP-02). Cambiar de modelo exige reindexar.
+  embed:   {provider: nvidia_nim, model: nvidia/llama-nemotron-embed-1b-v2, dimensions: 1024}
+
+# Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Los embeddings no tienen respaldo.
+# Con Bedrock activo como principal, NIM puede quedar aquí como respaldo (solo si data_mode: test o NIM autoalojado).
+fallback: null
+# fallback:
+#   provider: bedrock
+#   models: {planner: "<inference-profile sonnet>", fast: "<inference-profile haiku>", judge: amazon.nova-pro-v1:0}
+
+circuit: {errors: 3, window_s: 60, open_s: 300}
+
+# --- Ejemplo con Bedrock como principal (cuando se active) ---
+# data_mode: real
+# providers: {bedrock: {enabled: true, region: us-east-1, allowed_data: real}, nvidia_nim: {enabled: false}}
+# roles:
+#   planner: {provider: bedrock, model: "<inference-profile sonnet>", temperature: 0.0}
+#   fast:    {provider: bedrock, model: "<inference-profile haiku>", temperature: 0.0}
+#   judge:   {provider: bedrock, model: amazon.nova-pro-v1:0, temperature: 0.0}
+#   embed:   {provider: bedrock, model: cohere.embed-multilingual-v3}   # 1024 dimensiones

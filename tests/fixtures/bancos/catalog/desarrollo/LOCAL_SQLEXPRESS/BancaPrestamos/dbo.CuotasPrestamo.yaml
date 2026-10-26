@@ -1,0 +1,75 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaPrestamos.dbo.CuotasPrestamo
+asset_key: BancaPrestamos.dbo.CuotasPrestamo
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaPrestamos
+schema: dbo
+name: CuotasPrestamo
+domain: prestamos
+synonyms:
+- cuotas prestamo
+row_count: 69555
+primary_key:
+- CuotaID
+columns:
+- name: CuotaID
+  type: bigint
+  nullable: false
+  synonyms:
+  - cuota id
+  - cuota identificador
+- name: PrestamoID
+  type: int
+  nullable: false
+  synonyms:
+  - prestamo id
+  - prestamo identificador
+- name: NumeroCuota
+  type: smallint
+  nullable: false
+  synonyms:
+  - numero cuota
+- name: FechaVencimiento
+  type: date
+  nullable: false
+  synonyms:
+  - fecha vencimiento
+- name: CuotaProgramada
+  type: decimal(12,2)
+  nullable: false
+  synonyms:
+  - cuota programada
+- name: Capital
+  type: decimal(12,2)
+  nullable: false
+- name: Interes
+  type: decimal(12,2)
+  nullable: false
+- name: SaldoDespues
+  type: decimal(14,2)
+  nullable: false
+  synonyms:
+  - saldo despues
+- name: FechaPago
+  type: date
+  synonyms:
+  - fecha pago
+- name: MontoPagado
+  type: decimal(12,2)
+  synonyms:
+  - monto pagado
+- name: Estado
+  type: nvarchar(12)
+  nullable: false
+- name: DiasMora
+  type: smallint
+  nullable: false
+  synonyms:
+  - dias mora
+foreign_keys:
+- columns:
+  - PrestamoID
+  ref: BancaPrestamos.dbo.Prestamos
+  ref_columns:
+  - PrestamoID
+schema_hash: sha256:937ed750aadb671e15e875599867a078

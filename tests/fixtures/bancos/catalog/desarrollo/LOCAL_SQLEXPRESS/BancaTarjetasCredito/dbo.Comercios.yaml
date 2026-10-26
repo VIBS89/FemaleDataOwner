@@ -1,0 +1,36 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.Comercios
+asset_key: BancaTarjetasCredito.dbo.Comercios
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTarjetasCredito
+schema: dbo
+name: Comercios
+domain: tarjetas_credito
+row_count: 400
+primary_key:
+- ComercioID
+columns:
+- name: ComercioID
+  type: int
+  nullable: false
+  synonyms:
+  - comercio id
+  - comercio identificador
+- name: Nombre
+  type: nvarchar(100)
+  nullable: false
+  pii: true
+- name: MCC
+  type: smallint
+  nullable: false
+- name: CategoriaMCC
+  type: nvarchar(40)
+  nullable: false
+  synonyms:
+  - categoria mcc
+- name: Ciudad
+  type: nvarchar(60)
+- name: Pais
+  type: char(2)
+  nullable: false
+schema_hash: sha256:c0dd9d91f44c83d7ce4f99a75c83f3c4

@@ -1,0 +1,31 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTokenizacion.dbo.ProveedoresToken
+asset_key: BancaTokenizacion.dbo.ProveedoresToken
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTokenizacion
+schema: dbo
+name: ProveedoresToken
+domain: tokenizacion
+synonyms:
+- proveedores token
+row_count: 2
+primary_key:
+- ProveedorID
+columns:
+- name: ProveedorID
+  type: int
+  nullable: false
+  synonyms:
+  - proveedor id
+  - proveedor identificador
+- name: Nombre
+  type: nvarchar(60)
+  nullable: false
+  pii: true
+- name: Sigla
+  type: varchar(10)
+  nullable: false
+- name: Marca
+  type: nvarchar(20)
+  nullable: false
+schema_hash: sha256:137cdd68215ce07585252dde7b889088

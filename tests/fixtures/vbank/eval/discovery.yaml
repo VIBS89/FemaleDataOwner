@@ -1,0 +1,34 @@
+# Set de evaluación del DiscoverFlow (F25, OP-01 D1/D2/D6). `expected`: cualquiera de esos activos cuenta como acierto.
+# `databases`: visibilidad del usuario (por defecto la del analista). `expect_gap`: no hay respuesta disponible para él.
+# `forbidden`: textos que no pueden aparecer en la respuesta (permisos, F14).
+defaults:
+  databases: [VBank_ING, Onboarding, DWH]
+
+cases:
+  - {id: onb-01, question: "Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital.", expected: [VBank_ING.dbo.Users.ClientCode]}
+  - {id: onb-02, question: "¿Cuál es el identificador legal del cliente en el core bancario?", expected: [VBank_ING.dbo.Users.LegalClientId]}
+  - {id: onb-03, question: "¿Dónde está el id técnico del usuario de la app?", expected: [VBank_ING.dbo.Users.UserId]}
+  - {id: onb-04, question: "¿Dónde está la fecha de alta del cliente digital?", expected: [VBank_ING.dbo.Users.CreatedAt]}
+  - {id: onb-05, question: "¿Dónde está el correo electrónico del usuario?", expected: [VBank_ING.dbo.Users.Email]}
+  - {id: onb-06, question: "¿Qué significa el estado de la solicitud de onboarding?", expected: [Onboarding.dbo.Solicitud.Estado]}
+  - {id: onb-07, question: "¿Dónde está el número de documento del solicitante?", expected: [Onboarding.dbo.Solicitud.NumeroDocumento]}
+  - {id: onb-08, question: "¿Qué tipo de dispositivo usa el cliente?", expected: [VBank_ING.dbo.UserDevices.DeviceType]}
+  - {id: onb-09, question: "¿Qué proceso llena la dimensión de clientes del DWH?", expected: [DWH.dim.Cliente]}
+  - {id: onb-10, question: "¿Qué datos tenemos de clientes?", expected: [VBank_ING.dbo.Users]}
+  - {id: onb-11, question: "¿Cuántos clientes se registraron por onboarding el mes pasado?", expected: [VBank_ING.dbo.Users, VBank_ING.dbo.Users.CreatedAt]}
+  - {id: onb-12, question: "¿En qué tabla están los dispositivos registrados?", expected: [VBank_ING.dbo.UserDevices]}
+  - {id: onb-13, question: "¿Dónde está el segmento comercial del cliente?", expected: [DWH.dim.Cliente.Segmento]}
+  - {id: onb-14, question: "¿Cuál es la llave del cliente en el data warehouse?", expected: [DWH.dim.Cliente.ClienteKey]}
+  - {id: onb-15, question: "¿Dónde está la fecha de la solicitud de onboarding?", expected: [Onboarding.dbo.Solicitud.FechaSolicitud]}
+  - {id: onb-16, question: "¿Qué reglas aplican al ClientCode?", expected: [VBank_ING.dbo.Users.ClientCode]}
+  - {id: onb-17, question: "ClientCode", expected: [VBank_ING.dbo.Users.ClientCode, DWH.dim.Cliente.ClientCode]}
+  # Nombres solo en inglés y sin descripción (patrón D: expansión de la consulta)
+  - {id: eng-01, question: "¿Cuándo fue el último ingreso del usuario a la app?", expected: [VBank_ING.dbo.Users.LastLoginAt]}
+  - {id: eng-02, question: "¿Dónde están los consentimientos aceptados por el cliente?", expected: [VBank_ING.dbo.CustomerConsents, VBank_ING.dbo.CustomerConsents.AcceptedAt]}
+  - {id: eng-03, question: "¿Qué tipo de consentimiento firmó el usuario?", expected: [VBank_ING.dbo.CustomerConsents.ConsentType]}
+  - {id: eng-04, question: "¿En qué fecha aceptó el cliente el consentimiento?", expected: [VBank_ING.dbo.CustomerConsents.AcceptedAt]}
+  # Sin respuesta disponible (brecha) y permisos
+  - {id: gap-01, question: "¿Dónde está el salario de los empleados?", expect_gap: true, forbidden: [RRHH, Salario, Empleado]}
+  - {id: gap-02, question: "Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital.", databases: [RRHH], expect_gap: true, forbidden: [VBank_ING, Onboarding, DWH, ClientCode]}
+  - {id: gap-03, question: "¿Dónde está el saldo de las cuentas de ahorro?", expect_gap: true}
+  - {id: gap-04, question: "¿Dónde está la tasa de interés de los préstamos?", expect_gap: true}

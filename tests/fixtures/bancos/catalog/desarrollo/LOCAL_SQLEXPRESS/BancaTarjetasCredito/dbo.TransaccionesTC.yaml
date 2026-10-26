@@ -1,0 +1,78 @@
+id: desarrollo:LOCAL_SQLEXPRESS.BancaTarjetasCredito.dbo.TransaccionesTC
+asset_key: BancaTarjetasCredito.dbo.TransaccionesTC
+environment: desarrollo
+server: LOCAL_SQLEXPRESS
+database: BancaTarjetasCredito
+schema: dbo
+name: TransaccionesTC
+domain: tarjetas_credito
+synonyms:
+- transacciones tc
+row_count: 101095
+primary_key:
+- TransaccionID
+columns:
+- name: TransaccionID
+  type: bigint
+  nullable: false
+  synonyms:
+  - transaccion id
+  - transaccion identificador
+- name: TarjetaID
+  type: int
+  nullable: false
+  synonyms:
+  - tarjeta id
+  - tarjeta identificador
+- name: ComercioID
+  type: int
+  synonyms:
+  - comercio id
+  - comercio identificador
+- name: FechaHora
+  type: datetime2(0)
+  nullable: false
+  synonyms:
+  - fecha hora
+- name: TipoTransaccion
+  type: nvarchar(25)
+  nullable: false
+  synonyms:
+  - tipo transaccion
+- name: Monto
+  type: decimal(12,2)
+  nullable: false
+- name: Moneda
+  type: char(3)
+  nullable: false
+- name: Canal
+  type: nvarchar(20)
+  nullable: false
+- name: NumeroCuotas
+  type: tinyint
+  nullable: false
+  synonyms:
+  - numero cuotas
+- name: CodigoAutorizacion
+  type: char(6)
+  synonyms:
+  - codigo autorizacion
+- name: Estado
+  type: nvarchar(12)
+  nullable: false
+- name: MotivoRechazo
+  type: nvarchar(60)
+  synonyms:
+  - motivo rechazo
+foreign_keys:
+- columns:
+  - ComercioID
+  ref: BancaTarjetasCredito.dbo.Comercios
+  ref_columns:
+  - ComercioID
+- columns:
+  - TarjetaID
+  ref: BancaTarjetasCredito.dbo.TarjetasCredito
+  ref_columns:
+  - TarjetaID
+schema_hash: sha256:669fa2a699201bdfad17b3ecbea028c5

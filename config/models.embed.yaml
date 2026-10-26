@@ -1,0 +1,7 @@
+# Solo embeddings locales (Ollama bge-m3) para evaluar el canal semántico sin nodos LLM.
+environment: local
+data_mode: test
+providers:
+  ollama: {base_url: "http://localhost:11434"}
+roles:
+  embed: {provider: ollama, model: bge-m3}
