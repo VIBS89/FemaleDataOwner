@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import re
 import threading
 import time
@@ -27,6 +28,7 @@ from converdata.cli import load_dotenv, use_system_certificates
 from converdata.config import ServerConfig
 from converdata.models.discovery import AnswerEnvelope
 from converdata.models.knowledge import BusinessRule
+from converdata.observability.logging import configure_logging, log_event
 from converdata.observability.metrics import Metrics
 
 from converdata_api.audit import FileAuditSink
@@ -125,8 +127,8 @@ class StewardsRequest(BaseModel):
 class MetricsMiddleware:
     """ASGI: peticiones, errores y latencia por ruta (HU-22). Solo la plantilla de la ruta y números, nunca el contenido."""
 
-    def __init__(self, app, metrics: Metrics):
-        self.app, self.metrics = app, metrics
+    def __init__(self, app, metrics: Metrics, logger: logging.Logger | None = None):
+        self.app, self.metrics, self.logger = app, metrics, logger
 
     @staticmethod
     def route_name(scope) -> str:
@@ -142,7 +144,7 @@ class MetricsMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        started, code = time.perf_counter(), 500
+        started, code, error_type = time.perf_counter(), 500, None
 
         async def tracking_send(message):
             nonlocal code
@@ -152,10 +154,19 @@ class MetricsMiddleware:
 
         try:
             await self.app(scope, receive, tracking_send)
+        except Exception as exc:
+            error_type = type(exc).__name__  # solo el tipo: el texto puede llevar SQL o valores (D5)
+            raise
         finally:
             name = self.route_name(scope)
+            elapsed_ms = (time.perf_counter() - started) * 1000
             if name != "health_metrics":
-                self.metrics.observe_request(name, (time.perf_counter() - started) * 1000, ok=code < 500)
+                self.metrics.observe_request(name, elapsed_ms, ok=code < 500)
+            if self.logger is not None:  # HU-21: ni ruta con parámetros, ni cabeceras, ni cuerpo
+                fields = {"route": name, "method": scope["method"], "http_status": code, "duration_ms": round(elapsed_ms, 1)}
+                if error_type:
+                    fields["error_type"] = error_type
+                log_event(self.logger, "http.request", logging.ERROR if code >= 500 else logging.INFO, **fields)
 
 
 class RateLimiter:
@@ -194,6 +205,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         seed_stewards(curation)
     limiter = RateLimiter(settings.rate_limit_per_minute)
     metrics = Metrics()
+    logger = configure_logging(settings.log_dir, event_log=settings.event_log) if settings.log_dir else None
 
     mcp_mount = build_mcp_mount(runtime, vault, settings) if settings.mcp_enabled else None
 
@@ -209,7 +221,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                   lifespan=lifespan)
     app.state.runtime = runtime
     app.state.curation = curation
-    app.add_middleware(MetricsMiddleware, metrics=metrics)
+    app.add_middleware(MetricsMiddleware, metrics=metrics, logger=logger)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
                        allow_methods=["*"], allow_headers=["*"])
 
@@ -521,6 +533,45 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         runtime.reload()
         audit.event("curation_description", session.user_id, asset_key=body.asset_key, copies=copies)
         return {"ok": True, "copies": copies}
+
+    # --- reglas de negocio gestionadas (HU-28, F23 CA4) ----------------------------------------------
+    def rule_scope(session: Session, service, asset_keys: list[str]) -> None:
+        for key in asset_keys:
+            if not service.deps.catalog.exists(key):
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Activo no encontrado: {key}")
+            if not can_curate(session, domain_of(service, key)):
+                raise HTTPException(status.HTTP_403_FORBIDDEN, f"No eres responsable del dominio de {key}")
+
+    @app.get("/curation/rules")
+    def curation_rules(session: Session = Depends(steward_session), service=Depends(require_service)):
+        rules = [r for r in curation.curated_rules()
+                 if all(can_curate(session, domain_of(service, k)) for k in r.applies_to if service.deps.catalog.exists(k))]
+        return {"items": [r.model_dump(exclude_none=True) for r in rules]}
+
+    @app.put("/curation/rules")
+    def curation_rule_upsert(body: RuleRequest, session: Session = Depends(steward_session),
+                             service=Depends(require_service)):
+        rule_scope(session, service, body.applies_to)
+        existing = next((r for r in curation.curated_rules() if r.id == body.id), None)
+        if existing is not None:  # no se pisa una regla de otro dominio
+            rule_scope(session, service, [k for k in existing.applies_to if service.deps.catalog.exists(k)])
+        rule = BusinessRule(id=body.id, text=body.text, applies_to=body.applies_to, domain=body.domain,
+                            source=f"steward:{session.user_id}", owner=session.user_id, reviewed=True)
+        curation.upsert_rule(rule)
+        runtime.reload()
+        audit.event("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to))
+        return {"ok": True, "rule": rule.model_dump(exclude_none=True)}
+
+    @app.delete("/curation/rules/{rule_id}")
+    def curation_rule_delete(rule_id: str, session: Session = Depends(steward_session), service=Depends(require_service)):
+        rule = next((r for r in curation.curated_rules() if r.id == rule_id), None)
+        if rule is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
+        rule_scope(session, service, [k for k in rule.applies_to if service.deps.catalog.exists(k)])
+        curation.delete_rule(rule_id)
+        runtime.reload()
+        audit.event("curation_rule_deleted", session.user_id, rule_id=rule_id)
+        return {"ok": True}
 
     # --- impacto (F25, HU-23) ------------------------------------------------------------------------
     @app.get("/admin/metrics")

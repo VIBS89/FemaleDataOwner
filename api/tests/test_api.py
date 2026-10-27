@@ -5,6 +5,7 @@ retroalimentación y auditoría; y la herencia de permisos con un login que solo
 """
 
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -173,3 +174,47 @@ def test_health_metrics_cuenta_sin_contenido_y_solo_para_admin(ready, settings):
     login(analyst, user="analista")
     assert analyst.get("/health/metrics").status_code == 403
     assert TestClient(ready.app).get("/health/metrics").status_code == 401
+
+
+def test_logs_json_sin_contenido(settings, tmp_path):
+    settings.log_dir, settings.event_log = tmp_path / "logs", False
+    client = make_client(settings)
+    login(client, host="demo-sql", alias="SQL demo")
+    build(client)
+    secret = "pregunta-secreta-sobre-el-dui-del-cliente"
+    r = client.post("/discover", json={"question": secret}, headers={"Authorization": "Bearer token-que-no-debe-salir"})
+    client.get("/catalog/objects", params={"q": "termino-de-busqueda-privado"})
+    for handler in logging.getLogger("converdata").handlers:
+        handler.flush()
+    text = (tmp_path / "logs" / "converdata.log").read_text(encoding="utf-8")
+    events = [json.loads(line) for line in text.splitlines()]
+    assert any(e["event"] == "http.request" and e["route"] == "discover" and e["http_status"] == r.status_code for e in events)
+    for forbidden in (secret, "token-que-no-debe-salir", "Authorization", "Bearer", "termino-de-busqueda-privado", "demo"):
+        assert forbidden not in text, forbidden
+
+
+def test_reglas_de_negocio_gestionadas_por_el_steward(ready, settings):
+    asset = "BancaPrestamos.dbo.Prestamos.CategoriaRiesgo"
+    hidden = "BancaLeasing.dbo.Activos.TipoActivo"  # el analista no lee BancaLeasing
+    steward = TestClient(ready.app)
+    login(steward, user="responsable")
+    analyst = TestClient(ready.app)
+    login(analyst, user="analista")
+
+    assert analyst.put("/curation/rules", json={"id": "BR-PRE-001", "text": "Regla que no debe guardarse", "applies_to": [asset]}).status_code == 403
+    ok = steward.put("/curation/rules", json={"id": "BR-PRE-001", "applies_to": [asset], "domain": "prestamos",
+                                              "text": "La categoría de riesgo se recalcula cada mes con la mora vigente."})
+    assert ok.status_code == 200 and ok.json()["rule"]["reviewed"] is True
+    steward.put("/curation/rules", json={"id": "BR-LEA-001", "applies_to": [hidden], "text": "Regla de leasing solo para quien lo ve."})
+
+    assert steward.put("/curation/rules", json={"id": "BR-X-001", "applies_to": ["Nada.dbo.No.existe"], "text": "Activo inexistente aquí"}).status_code == 404
+    assert [r["id"] for r in steward.get("/curation/rules").json()["items"]] == ["BR-PRE-001", "BR-LEA-001"]
+
+    env = analyst.post("/discover", json={"question": "¿Qué reglas aplican a la categoría de riesgo del préstamo?"}).json()
+    shown = {r["id"] for c in env["discovery"]["candidates"] for r in c["business_rules"]}
+    assert "BR-PRE-001" in shown and "BR-LEA-001" not in shown  # con su fuente; sin fugas (F14)
+    card = analyst.get(f"/assets/{asset}").json()
+    assert any(r["id"] == "BR-PRE-001" for r in card["business_rules"])
+
+    assert steward.delete("/curation/rules/BR-PRE-001").status_code == 200
+    assert steward.delete("/curation/rules/BR-PRE-001").status_code == 404

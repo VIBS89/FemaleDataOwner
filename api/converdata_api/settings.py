@@ -23,6 +23,8 @@ class ApiSettings:
     inventory_path: Path = Path("data/inventory.yaml")
     audit_dir: Path = Path("data/audit")
     curation_dir: Path = Path("data/curation")
+    log_dir: Path | None = None  # logs JSON rotados sin contenido (HU-21, OP-05); None = sin archivo
+    event_log: bool = True  # además, errores al Visor de eventos de Windows (origen ConverData)
     models_path: Path | None = None  # config/models.yaml; sin él, modo determinista
     embeddings_only: bool = False
     admins: frozenset[str] = field(default_factory=frozenset)  # logins con rol admin además de sysadmin/VIEW ANY DEFINITION
@@ -49,6 +51,8 @@ class ApiSettings:
             inventory_path=Path(os.environ.get("CONVERDATA_INVENTORY", "data/inventory.yaml")),
             audit_dir=Path(os.environ.get("CONVERDATA_AUDIT_DIR", "data/audit")),
             curation_dir=Path(os.environ.get("CONVERDATA_CURATION_DIR", "data/curation")),
+            log_dir=Path(os.environ.get("CONVERDATA_LOG_DIR", "data/logs")),
+            event_log=_flag("CONVERDATA_EVENT_LOG", True),
             models_path=Path(models) if models and Path(models).is_file() else None,
             embeddings_only=_flag("CONVERDATA_EMBEDDINGS_ONLY"),
             admins=frozenset(a.strip().lower() for a in os.environ.get("CONVERDATA_ADMINS", "").split(",") if a.strip()),

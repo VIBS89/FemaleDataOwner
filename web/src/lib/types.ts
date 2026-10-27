@@ -262,3 +262,13 @@ export interface Metrics {
   top_databases: [string, number][];
   requests_open: number;
 }
+
+export interface ManagedRule {
+  id: string;
+  text: string;
+  domain?: string | null;
+  applies_to: string[];
+  source?: string | null;
+  owner?: string | null;
+  reviewed: boolean;
+}

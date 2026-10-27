@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Flame, Inbox, Loader2, PenLine, Search, SearchX, Sparkles, User } from "lucide-react";
+import { CheckCircle2, Clock, Flame, Inbox, Loader2, PenLine, Plus, Scale, Trash2, Search, SearchX, Sparkles, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { relativeTime } from "@/lib/format";
-import type { CurationRequest, ObjectRow, ReviewItem } from "@/lib/types";
+import type { CurationRequest, ManagedRule, ObjectRow, ReviewItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function CurationPage() {
@@ -52,12 +52,18 @@ export default function CurationPage() {
             <TabsTrigger value="review">
               <PenLine /> Documentar activos
             </TabsTrigger>
+            <TabsTrigger value="rules">
+              <Scale /> Reglas de negocio
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="requests" className="mt-5">
             <RequestsPanel onCount={setOpenCount} />
           </TabsContent>
           <TabsContent value="review" className="mt-5">
             <ReviewPanel />
+          </TabsContent>
+          <TabsContent value="rules" className="mt-5">
+            <RulesPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -391,3 +397,103 @@ function ReviewPanel() {
   );
 }
 
+
+
+// --- Reglas de negocio vinculadas a activos (HU-28, F23 CA4) --------------------------------------------
+function RulesPanel() {
+  const [rules, setRules] = useState<ManagedRule[] | null>(null);
+  const [id, setId] = useState("");
+  const [text, setText] = useState("");
+  const [asset, setAsset] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    api
+      .rules()
+      .then((d) => setRules(d.items))
+      .catch((e: Error) => {
+        setRules([]);
+        toast.error(e.message);
+      });
+  }, []);
+  useEffect(load, [load]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.saveRule({ id: id.trim(), text: text.trim(), applies_to: [asset.trim()] });
+      toast.success("Regla guardada", { description: "Aparece como revisada junto al dato en las respuestas." });
+      setId("");
+      setText("");
+      setAsset("");
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(rule: ManagedRule) {
+    try {
+      await api.deleteRule(rule.id);
+      toast.success(`Regla ${rule.id} eliminada`);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo eliminar");
+    }
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Reglas vinculadas a activos</CardTitle>
+          <CardDescription>Cada regla se muestra junto al dato correcto, con su fuente, solo a quien puede ver ese activo.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {rules === null && <Skeleton className="h-16 w-full" />}
+          {rules?.length === 0 && <p className="text-muted-foreground py-6 text-center text-sm">Aún no hay reglas registradas.</p>}
+          {rules?.map((r) => (
+            <div key={r.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{r.id}</Badge>
+                  {r.reviewed && <Badge variant="outline">Revisada</Badge>}
+                  {r.source && <span className="text-muted-foreground text-xs">{r.source}</span>}
+                </div>
+                <p className="text-sm">{r.text}</p>
+                <p className="text-muted-foreground truncate font-mono text-xs">{r.applies_to.join(" · ")}</p>
+              </div>
+              <Button variant="ghost" size="icon" aria-label={`Eliminar ${r.id}`} onClick={() => remove(r)}>
+                <Trash2 />
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Nueva regla</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-id">Identificador</Label>
+            <Input id="rule-id" value={id} onChange={(e) => setId(e.target.value)} placeholder="BR-PRE-001" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-asset">Activo (BD.esquema.tabla[.columna])</Label>
+            <Input id="rule-asset" value={asset} onChange={(e) => setAsset(e.target.value)} placeholder="BancaPrestamos.dbo.Prestamos.CategoriaRiesgo" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-text">Regla</Label>
+            <Textarea id="rule-text" value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="Qué regla aplica a este dato, en palabras del negocio" />
+          </div>
+          <Button className="w-full" disabled={saving || !id.trim() || !asset.trim() || text.trim().length < 5} onClick={save}>
+            {saving ? <Loader2 className="animate-spin" /> : <Plus />} Guardar regla
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

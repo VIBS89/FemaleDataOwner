@@ -382,6 +382,10 @@ mantener el catálogo al día cada noche sin intervención manual.
   y los logs de IIS, **entonces** no aparecen la pregunta, SQL, filas ni la cabecera `Authorization`.
 - **Dado** los logs en disco, **cuando** superan el tamaño configurado, **entonces** rotan.
 
+> **Estado (2026-10-27):** hecho en `ConverData-API` (`CONVERDATA_LOG_DIR`, `CONVERDATA_EVENT_LOG`): un evento `http.request` por petición con ruta,
+> método, estado y duración (lista blanca D5), archivo JSON rotado y Visor de eventos en Windows. Test: `test_logs_json_sin_contenido`. Falta comprobar los logs
+> de IIS y el origen `ConverData` en un servidor Windows real (HU-37).
+
 #### HU-22 · Contadores en `/health/metrics`
 **Como** administrador de Plataformas **quiero** peticiones, latencia p50/p95, errores y tokens en `/health/metrics` **para** integrarlos en
 el monitoreo existente (SCOM o Zabbix ⚠️ S11).
@@ -466,6 +470,9 @@ regresiones sin acordarme de lanzarlas.
 - **Dado** la regla `BR-ONB-004` vinculada a `ClientCode`, **cuando** pregunto "¿qué reglas aplican al ClientCode?", **entonces** la respuesta la
   incluye con su fuente.
 - **Dado** una regla vinculada a un activo que no veo, **cuando** pregunto, **entonces** no aparece.
+
+> **Estado (2026-10-27):** hecho sobre archivos (`knowledge/rules/curadas.yaml`): `GET/PUT/DELETE /curation/rules` con control por dominio del steward,
+> pestaña *Reglas de negocio* en Curación y test `test_reglas_de_negocio_gestionadas_por_el_steward`. Pasa a la BD `ConverData` con HU-06.
 
 ---
 
