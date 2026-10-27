@@ -1,6 +1,6 @@
 # OP-01 — Despliegue on-premise sobre stack Microsoft (Windows Server + SQL Server)
 
-> Diagrama: `docs/architecture/onpremise-architecture.html` · Specs relacionadas: [OP-02](OP-02-catalogo-memoria.md) catálogo y memoria · [OP-03](OP-03-identidad.md) identidad · [OP-04](OP-04-interfaces.md) interfaces · [OP-05](OP-05-auditoria-observabilidad.md) auditoría · [OP-06](OP-06-residencia-datos.md) residencia de datos
+> Diagrama: `docs/architecture/onpremise-architecture.html` · Specs relacionadas: [OP-02](OP-02-catalogo-memoria.md) catálogo y memoria · [OP-03](OP-03-identidad.md) identidad · [OP-04](OP-04-interfaces.md) interfaces · [OP-05](OP-05-auditoria-observabilidad.md) auditoría · [OP-06](OP-06-residencia-datos.md) residencia de datos · [OP-07](OP-07-instalacion-operacion.md) instalación, entornos y operación
 >
 > Este despliegue sirve como **MVP** para validar la solución antes de invertir en la nube, y como opción on-premise.
 
@@ -14,17 +14,17 @@ la lógica.
 ## Decisiones (2026-10-14)
 | Tema | Decisión |
 |---|---|
-| Servidor de aplicación | **Windows Server sin Docker**: Python como servicios de Windows detrás de IIS |
+| Servidor de aplicación | **Windows Server sin Docker**: procesos Python detrás de IIS. Modelo de procesos (2026-10-27): `ConverData-UI` y `ConverData-API` como aplicaciones de IIS con HttpPlatformHandler y `ConverData-Builder` como servicio de Windows ([OP-07](OP-07-instalacion-operacion.md)) |
 | BD de trabajo de ConverData | **SQL Server 2025** (BD `ConverData`). Las BDs de datos pueden seguir en sus versiones actuales |
 | Identidad | **Logins SQL por usuario** (OP-03). Windows/AD con Kerberos queda como evolución |
 | Código Python libre (F20) | **No en la v1**: solo la biblioteca de análisis determinista |
-| Catalog Builder | **Servicio de Windows propio (`ConverData-Builder`)**, separado de `ConverData-API`: la ingesta es un batch largo y `ConverData-API` corre en un solo proceso (SessionVault, OP-03), así que no deben competir. `converdata-discovery` es una biblioteca dentro de este servicio |
+| Catalog Builder | **Servicio de Windows propio (`ConverData-Builder`)**, separado de `ConverData-API` y fuera del ciclo de vida de IIS: la ingesta es un batch largo y `ConverData-API` corre en un solo proceso (SessionVault, OP-03), así que no deben competir. `converdata-discovery` es una biblioteca dentro de este servicio |
 
 ## Componentes
 | Pieza | Cloud native (CN) | On-premise Microsoft (OP) |
 |---|---|---|
-| Entrada web | ALB + WAF + Cognito | **IIS** en el Windows Server (443, certificado de la PKI corporativa), como proxy inverso con HttpPlatformHandler |
-| Chat y API | ECS Fargate | **Chainlit + FastAPI** como servicios de Windows (`ConverData-UI`, `ConverData-API`) |
+| Entrada web | ALB + WAF + Cognito | **IIS** en el Windows Server (443, certificado de la PKI corporativa), como proxy inverso: HttpPlatformHandler para UI y API, URL Rewrite + ARR hacia `ConverData-Builder` |
+| Chat y API | ECS Fargate | **Chainlit + FastAPI** como aplicaciones de IIS (`ConverData-UI`, `ConverData-API`) cuyos procesos lanza y supervisa HttpPlatformHandler |
 | Orquestación | DiscoverFlow y AskFlow (LangGraph) en AgentCore Runtime | **Los mismos grafos de LangGraph** dentro del servicio `ConverData-API` (FastAPI) |
 | Herramientas MCP | converdata-mcp en Runtime + AgentCore Gateway | **El mismo `converdata-mcp`** en `/mcp` del servicio `ConverData-API`, publicado por IIS |
 | Descubrimiento (F18) | `converdata-discovery` como biblioteca en la tarea ECS del Catalog Builder | **`converdata-discovery`** como biblioteca dentro del servicio `ConverData-Builder` |
@@ -33,13 +33,13 @@ la lógica.
 | Grafo entre BDs (F19) | YAML en S3 + memoria | **Tablas de grafo de SQL Server** (`NODE`/`EDGE`, consultas `MATCH`) en la BD `ConverData` |
 | Catálogo fuente | S3 versionado | **Tablas de la BD `ConverData` con *system-versioned temporal tables*** (historial de cada cambio); export a YAML para revisión en git |
 | Auditoría + golden SQL | ConverData_Audit on-prem | **Esquema `audit` de la BD `ConverData`** (mismo modelo de F11) |
-| LLM y embeddings | Bedrock por rol + Guardrails + NIM fallback | **Bedrock por rol** por HTTPS a través del proxy corporativo; NIM solo con datos de prueba |
+| LLM y embeddings | Bedrock por rol + Guardrails + NIM fallback | **Bedrock por rol** + **Bedrock Guardrails** (`ApplyGuardrail` sobre la pregunta y la respuesta, logging del guardrail desactivado) por HTTPS a través del proxy corporativo; NIM solo con datos de prueba |
 | Credenciales SQL de usuarios | Secrets Manager + KMS | **SessionVault en memoria** del servicio `ConverData-API` (OP-03) |
 | Secretos de servicio (login de metadatos, acceso a Bedrock) | Secrets Manager | **DPAPI** (ámbito de la cuenta de servicio) o Windows Credential Manager; Bedrock con **IAM Roles Anywhere** y un certificado de la PKI corporativa, sin claves de larga duración |
 | Cuentas de servicio | Roles IAM | **gMSA** (cuentas de servicio administradas por grupo), sin contraseñas que rotar a mano |
 | Sandbox de análisis (F20) | AgentCore Code Interpreter | **No en la v1** (solo biblioteca determinista); después, contenedor aislado con Hyper-V |
 | Consultas de usuarios | Transit GW + VPN/DX | **Directas** por TDS 1433; contra la **secundaria legible de Always On** (`ApplicationIntent=ReadOnly`) cuando exista |
-| Observabilidad | AgentCore Observability → CloudWatch | Logs JSON rotados + **Visor de eventos de Windows**; vistas SQL de métricas en la BD `ConverData` |
+| Observabilidad | AgentCore Observability → CloudWatch | Logs JSON rotados + **Visor de eventos de Windows** + alertas en el monitoreo existente (OP-05); vistas SQL de métricas en la BD `ConverData` |
 
 ## Alcance funcional del MVP
 El MVP sigue el orden de valor de la propuesta: **primero descubrimiento, después consulta**.
@@ -68,13 +68,16 @@ El MVP sigue el orden de valor de la propuesta: **primero descubrimiento, despu�
   no se leen datos salvo muestras en memoria contra la réplica (F1).
 - Fase 1b: 1 o 2 BDs del dominio (no las 300+ tablas de golpe), consultadas en **réplica o copia de solo lectura**.
 
+Entornos (dev, qa, piloto), requisitos no funcionales, instalación con scripts, respaldo y actualización: [OP-07](OP-07-instalacion-operacion.md).
+
 ## Topología
 ```
 Windows Server 2022/2025 — servidor de aplicación (red corporativa)
 ├─ IIS :443 (TLS PKI corporativa) ── proxy inverso (HttpPlatformHandler)
-│   ├─ /            → servicio ConverData-UI   (Chainlit)
-│   ├─ /api  /mcp   → servicio ConverData-API     (FastAPI + DiscoverFlow + AskFlow + converdata-mcp + SessionVault)
-│   └─ /api/admin/* → servicio ConverData-Builder (Catalog Builder + converdata-discovery como biblioteca + conectores F23 + Presidio)
+│   ├─ /            → aplicación ConverData-UI  (Chainlit, HttpPlatformHandler)
+│   ├─ /api  /mcp   → aplicación ConverData-API (FastAPI + DiscoverFlow + AskFlow + converdata-mcp + SessionVault; un solo proceso)
+│   └─ /api/admin/* → servicio de Windows ConverData-Builder en 127.0.0.1:8100 (URL Rewrite + ARR; Catalog Builder + converdata-discovery
+│                     como biblioteca + conectores F23 + Presidio)
 │                     solo desde la red de los SQL Server y de administración
 └─ Python 3.12 en un entorno gestionado con uv; servicios con cuentas gMSA
 
@@ -92,7 +95,7 @@ búsquedas vectoriales las hace SQL Server.
 
 ## Configuración AWS mínima
 - **IAM Roles Anywhere** con el certificado del servidor emitido por la PKI corporativa (alternativa: usuario IAM con clave guardada con DPAPI).
-- Política de **mínimo privilegio**: `bedrock:InvokeModel` y `bedrock:InvokeModelWithResponseStream` sobre los modelos o inference profiles elegidos, y nada más.
+- Política de **mínimo privilegio**: `bedrock:InvokeModel` y `bedrock:InvokeModelWithResponseStream` sobre los modelos o inference profiles elegidos, y `bedrock:ApplyGuardrail` sobre el guardrail de ConverData; nada más.
 - Acceso a los modelos habilitado en Bedrock (Claude Sonnet/Haiku, Nova o Llama para el juez, Cohere Embed).
 - **Model invocation logging desactivado** (F17).
 

@@ -176,7 +176,7 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 - **Interfaces**: Chainlit + FastAPI detrás de IIS; MCP en `/mcp`.
 - **Despliegue MVP**: un Windows Server de aplicación (servicios `ConverData-UI`, `ConverData-API` y `ConverData-Builder`) + BD `ConverData`; Bedrock como único servicio externo.
 
-Detalle en los diagramas de `docs/architecture/` y en las specs OP-01 a OP-06 / CN-01 a CN-06.
+Detalle en los diagramas de `docs/architecture/` y en las specs OP-01 a OP-07 / CN-01 a CN-06.
 
 ### Stack tecnológico (decidido el 2026-10-15)
 | Capa | Tecnología | Uso |
@@ -435,7 +435,7 @@ Los tres diagramas de `docs/architecture/` reflejan el descubrimiento: DiscoverF
 docs/specs/
 ├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F25)
 ├─ cloud-native/   Despliegue en AWS con Bedrock AgentCore (CN-01 a CN-06)
-└─ on-premise/     Despliegue local en la red corporativa; sirve también como MVP (OP-01 a OP-06)
+└─ on-premise/     Despliegue local en la red corporativa; sirve también como MVP (OP-01 a OP-07; OP-07: instalación y operación)
 ```
 
 | ID | Feature | Spec | Implementación cloud native | Implementación on-premise |

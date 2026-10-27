@@ -2,6 +2,7 @@
 
 > Última actualización: 2026-10-25. Documento vivo: se actualiza al cerrar cada sesión de trabajo.
 > Specs: [PRD](PRD.md), [comun/](specs/comun/), [on-premise/](specs/on-premise/). Uso diario: [README](../README.md#desarrollo).
+> Backlog para terminar la versión on-premise (objetivos SMART e historias): [backlog/on-premise.md](backlog/on-premise.md).
 
 ## 1. Dónde estamos
 Fase 1a on-premise (descubrimiento), núcleo implementado y medido. **81 tests en verde.** Todo el código está **sin commit**

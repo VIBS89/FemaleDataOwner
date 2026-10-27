@@ -16,7 +16,22 @@
 ## Observabilidad
 - Logs JSON (structlog) rotados en disco del servidor de aplicación, con la lista blanca D5 de F17.
 - Errores y arranques o paradas de los servicios en el **Visor de eventos de Windows** (origen `ConverData`), sin contenido de preguntas.
-- Contadores básicos (peticiones, latencia p50/p95, errores, tokens) expuestos en `/health/metrics` para el monitoreo existente (por ejemplo SCOM o Zabbix).
+- Contadores básicos (peticiones, latencia p50/p95, errores, tokens, bloqueos de Guardrails) expuestos en `/health/metrics` para el monitoreo existente (por ejemplo SCOM o Zabbix).
+- **Correlación**: cada línea de log, cada evento y cada fila de `audit.audit_question` llevan el mismo `trace_id`, que la API devuelve en la cabecera `X-Trace-Id`; así se reconstruye una pregunta de punta a punta (IIS → API → DiscoverFlow → SQL Server) sin que los logs contengan su texto.
+
+## Alertas
+Las recoge el monitoreo existente a partir del Visor de eventos (origen `ConverData`, un ID de evento por tipo) y de `/health/metrics`; los jobs
+de SQL Server Agent avisan además por Database Mail.
+
+| Alerta | Condición | Severidad |
+|---|---|---|
+| Fallo de escritura de auditoría | Cualquier escritura fallida en `audit` (las respuestas quedan bloqueadas por fail-closed) | Crítica |
+| BD `ConverData` inaccesible | Fallo de conexión durante más de 1 min | Crítica |
+| Latencia | p95 del descubrimiento > 10 s durante 15 min | Alta |
+| Bedrock | Tasa de *throttling* o de errores > 5 % durante 5 min, o circuit breaker abierto (F16) | Alta |
+| Jobs de SQL Server Agent | Fallo del refresco, de la ingesta o de la purga, o regresión de Hit@3 | Alta |
+| Certificados | TLS de IIS o certificado de IAM Roles Anywhere a menos de 30 días de expirar | Media |
+| Proceso reiniciado | HttpPlatformHandler o el administrador de servicios reinició un proceso de ConverData | Media |
 
 ## Criterios de aceptación
 1. Cada pregunta deja exactamente un registro en `audit.audit_question`.
@@ -24,3 +39,5 @@
 3. Los logs, el Visor de eventos y los logs de IIS no contienen preguntas, SQL ni filas.
 4. Una sesión de SQL Server Audit filtrada por `ConverData` muestra las consultas ejecutadas con el login de cada usuario.
 5. Un job de SQL Server Agent ejecuta `converdata eval discovery` cada semana y tras cada cambio de modelo o índice; si Hit@3 baja más de 5 puntos, avisa por Database Mail.
+6. Con la BD `ConverData` inaccesible, las preguntas no reciben respuesta (fail-closed) y se disparan las alertas "BD `ConverData` inaccesible" y "Fallo de escritura de auditoría".
+7. A partir del `trace_id` de una respuesta se encuentran sus líneas de log, sus eventos y su fila de `audit.audit_question`, y ningún log contiene el texto de la pregunta.

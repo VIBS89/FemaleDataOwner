@@ -102,7 +102,8 @@ Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredado
 |---|---|
 | [docs/PRD.md](docs/PRD.md) | Producto, usuarios, requisitos, métricas, fases, riesgos, decisiones, contrato de respuesta (§8.3), trazabilidad con la propuesta (§14), catálogo de specs (anexo A) y glosario (anexo B) |
 | [docs/specs/comun/](docs/specs/comun/) | F1–F25: lógica de la solución, idéntica en ambos despliegues |
-| [docs/specs/on-premise/](docs/specs/on-premise/) | OP-01 a OP-06: despliegue sobre el stack Microsoft |
+| [docs/specs/on-premise/](docs/specs/on-premise/) | OP-01 a OP-07: despliegue sobre el stack Microsoft (OP-07: instalación, entornos y operación) |
+| [docs/backlog/on-premise.md](docs/backlog/on-premise.md) | Objetivos SMART, épicas e historias de usuario para terminar la versión on-premise |
 | [docs/specs/cloud-native/](docs/specs/cloud-native/) | CN-01 a CN-06: despliegue en AWS |
 | [docs/architecture/](docs/architecture/) | Diagramas interactivos (HTML) y sus fuentes `*.archify.json` |
 
