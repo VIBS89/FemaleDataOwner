@@ -392,6 +392,10 @@ el monitoreo existente (SCOM o Zabbix ⚠️ S11).
 
 - **Dado** tráfico en la API, **cuando** consulto `/health/metrics`, **entonces** veo los contadores sin ningún contenido de preguntas.
 
+> **Estado (2026-10-27):** hecho en `ConverData-API`: `MetricsMiddleware` y `GET /health/metrics` (solo administradores; peticiones, errores,
+> p50/p95 por ruta, `login_failed` y `rate_limited`), con test en `api/tests/test_api.py`. Faltan los contadores de tokens y de Guardrails
+> (HU-35, HU-36) y decidir si el monitoreo (⚠️ S11) usa un login de servicio o una ruta interna sin sesión.
+
 #### HU-23 · Scorecard y `converdata metrics report`
 **Como** Gerencia de Datos **quiero** un reporte de métricas de negocio, adopción y calidad **para** comparar el piloto con la línea base.
 

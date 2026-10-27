@@ -157,3 +157,19 @@ def test_stream_escalation_and_rate_limit(ready, settings):
     for _ in range(30):
         ready.post("/discover", json={"question": "clientes"})
     assert ready.post("/discover", json={"question": "clientes"}).status_code == 429
+
+
+def test_health_metrics_cuenta_sin_contenido_y_solo_para_admin(ready, settings):
+    secret = "pregunta-secreta-sobre-el-dui-del-cliente"
+    ready.post("/discover", json={"question": secret})
+    ready.post("/auth/login", json={"login": "nadie", "password": "mal", "host": "demo-sql"})
+    snap = ready.get("/health/metrics")
+    assert snap.status_code == 200
+    data = snap.json()
+    assert data["routes"]["discover"]["requests"] >= 1 and data["routes"]["discover"]["p95_ms"] is not None
+    assert data["counters"].get("login_failed", 0) >= 1
+    assert secret not in snap.text  # D5: ningún contenido de preguntas
+    analyst = TestClient(ready.app)
+    login(analyst, user="analista")
+    assert analyst.get("/health/metrics").status_code == 403
+    assert TestClient(ready.app).get("/health/metrics").status_code == 401

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import threading
 import time
 from collections import defaultdict, deque
@@ -26,6 +27,7 @@ from converdata.cli import load_dotenv, use_system_certificates
 from converdata.config import ServerConfig
 from converdata.models.discovery import AnswerEnvelope
 from converdata.models.knowledge import BusinessRule
+from converdata.observability.metrics import Metrics
 
 from converdata_api.audit import FileAuditSink
 from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlConnector, server_from_host
@@ -120,6 +122,42 @@ class StewardsRequest(BaseModel):
     stewards: list[StewardIn]
 
 
+class MetricsMiddleware:
+    """ASGI: peticiones, errores y latencia por ruta (HU-22). Solo la plantilla de la ruta y números, nunca el contenido."""
+
+    def __init__(self, app, metrics: Metrics):
+        self.app, self.metrics = app, metrics
+
+    @staticmethod
+    def route_name(scope) -> str:
+        path = scope["path"]
+        if path == "/mcp" or path.startswith("/mcp/"):
+            return "mcp"
+        route = scope.get("route")
+        template = getattr(route, "path", None)
+        if not template:
+            return "otras"
+        return re.sub(r"[^a-z0-9_.]+", "_", template.lower()).strip("_") or "raiz"
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        started, code = time.perf_counter(), 500
+
+        async def tracking_send(message):
+            nonlocal code
+            if message["type"] == "http.response.start":
+                code = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracking_send)
+        finally:
+            name = self.route_name(scope)
+            if name != "health_metrics":
+                self.metrics.observe_request(name, (time.perf_counter() - started) * 1000, ok=code < 500)
+
+
 class RateLimiter:
     """OP-04: N preguntas por minuto y sesión, en memoria del proceso (un solo worker)."""
 
@@ -155,6 +193,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     if settings.demo:
         seed_stewards(curation)
     limiter = RateLimiter(settings.rate_limit_per_minute)
+    metrics = Metrics()
 
     mcp_mount = build_mcp_mount(runtime, vault, settings) if settings.mcp_enabled else None
 
@@ -170,6 +209,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                   lifespan=lifespan)
     app.state.runtime = runtime
     app.state.curation = curation
+    app.add_middleware(MetricsMiddleware, metrics=metrics)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
                        allow_methods=["*"], allow_headers=["*"])
 
@@ -218,6 +258,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
 
     def check_rate(session: Session) -> None:
         if not limiter.check(session.id):
+            metrics.increment("rate_limited")
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                                 f"Hiciste más de {settings.rate_limit_per_minute} preguntas en un minuto; espera un momento")
 
@@ -236,6 +277,11 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     @app.get("/health")
     def health():
         return {"ok": True}
+
+    @app.get("/health/metrics")
+    def health_metrics(session: Session = Depends(admin_session)):
+        """Contadores para el monitoreo (HU-22, OP-05): peticiones, errores, p50/p95 y bloqueos; sin contenido de preguntas."""
+        return metrics.snapshot()
 
     @app.get("/setup/status")
     def setup_status():
@@ -287,6 +333,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                 errors[server.alias] = str(exc)
         if not ok:
             audit.event("login_failed", login_name or "windows", servers=list(errors))
+            metrics.increment("login_failed")
             detail = "; ".join(f"{k}: {v}" for k, v in errors.items())
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail or "No se pudo iniciar sesión")
 
