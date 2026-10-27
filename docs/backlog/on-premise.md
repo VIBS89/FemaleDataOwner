@@ -337,7 +337,7 @@ mantener el catálogo al día cada noche sin intervención manual.
 
 > **Estado (2026-10-27):** hecho el modo *rechazar*: `CONVERDATA_TOKEN_LIMIT` (0 = sin tope), `TokenLedger` por usuario y día UTC, gancho `usage_hook` del gateway
 > (tokens del proveedor o estimación de ~4 caracteres por token con salida estructurada), 429 con mensaje claro y contador `token_limit`. Los mismos tokens
-> alimentan `/health/metrics` (cierra ese pendiente de HU-22). Verificado en pantalla (aviso en el chat y toast, catálogo accesible). Falta el modo *determinista* (responder sin LLM al llegar al tope) y probar con Bedrock real (HU-35).
+> alimentan `/health/metrics` (cierra ese pendiente de HU-22). Verificado en pantalla (aviso en el chat y toast, catálogo accesible). Modo *determinista* hecho (`CONVERDATA_TOKEN_LIMIT_MODE=deterministic`: responde sin LLM con un aviso y cuenta `token_limit_deterministic`), también verificado en pantalla. Falta probar con Bedrock real (HU-35).
 
 #### HU-42 · Usar ConverData desde Claude con MCP
 **Como** ingeniero de datos o analista que trabaja con Claude Desktop o Claude Code **quiero** conectar ConverData como servidor MCP

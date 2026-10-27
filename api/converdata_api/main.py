@@ -279,12 +279,19 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                                 f"Hiciste más de {settings.rate_limit_per_minute} preguntas en un minuto; espera un momento")
 
-    def check_tokens(session: Session) -> None:
-        if tokens.exceeded(session.user_id):
-            metrics.increment("token_limit")
-            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
-                                f"Alcanzaste el tope diario de {tokens.limit:,} tokens de IA; se restablece mañana (UTC). "
-                                "Puedes seguir explorando el catálogo.")
+    DEGRADED_NOTE = "Alcanzaste el tope diario de IA: esta respuesta salió sin IA generativa (búsqueda determinista)."
+
+    def pick_service(session: Session, service):
+        """(servicio, degradado): con el tope agotado, rechaza o responde sin LLM según `token_limit_mode` (HU-19)."""
+        if not tokens.exceeded(session.user_id):
+            return service, False
+        if settings.token_limit_mode == "deterministic":
+            metrics.increment("token_limit_deterministic")
+            return runtime.deterministic_service() or service, True
+        metrics.increment("token_limit")
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                            f"Alcanzaste el tope diario de {tokens.limit:,} tokens de IA; se restablece mañana (UTC). "
+                            "Puedes seguir explorando el catálogo.")
 
     def require_service():
         if runtime.service is None:
@@ -411,10 +418,12 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     @app.post("/discover")
     def discover(body: DiscoverRequest, session: Session = Depends(current_session), service=Depends(require_service)):
         check_rate(session)
-        check_tokens(session)
+        run_service, degraded = pick_service(session, service)
         asked_at = time.time()
         with tokens.as_user(session.user_id):
-            envelope = service.run(body.question, runtime.user_context(session), history=body.history, client="web")
+            envelope = run_service.run(body.question, runtime.user_context(session), history=body.history, client="web")
+        if degraded:
+            envelope.assumptions.append(DEGRADED_NOTE)
         remember(envelope, body.question, session, service, asked_at)
         return envelope.model_dump(by_alias=True, mode="json")
 
@@ -423,12 +432,12 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                         service=Depends(require_service)):
         """Lo mismo por SSE: un evento `step` por nodo del grafo y al final `answer` (F12, OP-04 CA8)."""
         check_rate(session)
-        check_tokens(session)
+        run_service, degraded = pick_service(session, service)
         user = runtime.user_context(session)
         asked_at = time.time()
 
         def events():
-            steps = service.stream(body.question, user, history=body.history, client="web")
+            steps = run_service.stream(body.question, user, history=body.history, client="web")
             while True:
                 with tokens.as_user(session.user_id):  # cada paso corre en un hilo con su propio contexto
                     try:
@@ -436,6 +445,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                     except StopIteration:
                         break
                 if kind == "answer":
+                    if degraded:
+                        payload.setdefault("assumptions", []).append(DEGRADED_NOTE)
                     remember(AnswerEnvelope.model_validate(payload), body.question, session, service, asked_at)
                 yield f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
 

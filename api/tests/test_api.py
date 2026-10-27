@@ -260,3 +260,19 @@ def test_el_uso_del_gateway_se_atribuye_al_usuario_y_a_las_metricas(settings):
     runtime._on_usage("planner", 50, 10)  # sin usuario en contexto (p. ej. indexación): solo cuenta en métricas
     assert ledger.used("analista") == 420
     assert client.get("/health/metrics").json()["tokens"] == {"in": 350, "out": 130}
+
+
+def test_tope_agotado_en_modo_determinista_responde_sin_ia(settings):
+    settings.token_limit_daily, settings.token_limit_mode = 1000, "deterministic"
+    client = make_client(settings)
+    login(client, host="demo-sql", alias="SQL demo")
+    build(client)
+    analyst = TestClient(client.app)
+    login(analyst, user="analista")
+    client.app.state.tokens.add("analista", 5000)
+    r = analyst.post("/discover", json={"question": "¿Dónde está el puntaje de riesgo crediticio del cliente?"})
+    assert r.status_code == 200 and any("sin IA generativa" in a for a in r.json()["assumptions"])
+    assert r.json()["discovery"]["candidates"]  # sigue encontrando el dato
+    streamed = analyst.post("/discover/stream", json={"question": "¿Dónde está el puntaje de riesgo crediticio del cliente?"})
+    assert streamed.status_code == 200 and "sin IA generativa" in streamed.text
+    assert client.get("/health/metrics").json()["counters"]["token_limit_deterministic"] == 2

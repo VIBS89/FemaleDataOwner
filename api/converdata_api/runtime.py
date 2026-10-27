@@ -85,6 +85,7 @@ class AgentRuntime:
         self.job = BuildJob()
         self.load_error: str | None = None
         self._lock = threading.RLock()
+        self._deterministic: tuple[int, DiscoverService] | None = None
         self.usage_listeners: list = []  # (rol, tokens_in, tokens_out): tope diario (HU-19) y /health/metrics (HU-22)
         self._visibility: dict[str, tuple[int, frozenset[str]]] = {}
         self._traces: OrderedDict[str, ShownTrace] = OrderedDict()
@@ -114,6 +115,15 @@ class AgentRuntime:
     def has_catalog(self) -> bool:
         root = self.settings.data_root
         return (root / "config" / "databases.yaml").is_file() and any((root / "catalog").rglob("*.yaml"))
+
+    def deterministic_service(self) -> DiscoverService | None:
+        """El mismo catálogo sin nodos de LLM ni embeddings remotos (modo del tope diario agotado, HU-19)."""
+        if self.service is None or not self.settings.models_path:
+            return self.service  # sin LLM configurado el servicio ya es determinista
+        with self._lock:
+            if self._deterministic is None or self._deterministic[0] != self.version:
+                self._deterministic = (self.version, build_service(self.settings.data_root, audit=self.audit))
+            return self._deterministic[1]
 
     def _on_usage(self, role: str, tokens_in: int, tokens_out: int) -> None:
         for listener in self.usage_listeners:
