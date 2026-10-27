@@ -1,0 +1,47 @@
+# ConverData: frontend web (Next.js + shadcn) y ConverData-API (FastAPI + agente).
+#
+#   docker compose up --build                      → http://localhost:3000
+#   CONVERDATA_DEMO=1 docker compose up --build    → servidor simulado (usuarios demo/analista, contraseña demo)
+#
+# El primer login (inventario vacío) registra el servidor SQL Server y el agente descubre sus esquemas desde Administración.
+# Desde el contenedor, un SQL Server del equipo anfitrión es `host.docker.internal,1433` (TCP habilitado; las instancias
+# con nombre necesitan un puerto fijo). La autenticación de Windows no está disponible dentro del contenedor.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      args:
+        EXTRAS: ${CONVERDATA_EXTRAS:-api}  # api,nim | api,bedrock | api,ollama para el gateway de LLM
+    environment:
+      CONVERDATA_DATA_ROOT: /app/data/catalog
+      CONVERDATA_INVENTORY: /app/data/inventory.yaml
+      CONVERDATA_AUDIT_DIR: /app/data/audit
+      CONVERDATA_CURATION_DIR: /app/data/curation
+      CONVERDATA_MODELS: ${CONVERDATA_MODELS:-}  # p. ej. /app/config/models.yaml (montar abajo)
+      CONVERDATA_ADMINS: ${CONVERDATA_ADMINS:-}
+      CONVERDATA_DEMO: ${CONVERDATA_DEMO:-0}
+      CONVERDATA_ALLOW_WINDOWS_AUTH: "0"
+      CONVERDATA_COOKIE_SECURE: ${CONVERDATA_COOKIE_SECURE:-0}  # 1 detrás de HTTPS
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+    volumes:
+      - converdata-data:/app/data
+      # - ./config/models.yaml:/app/config/models.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    # La API no se publica: solo la usa el frontend por la red interna.
+
+  web:
+    build: ./web
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "${CONVERDATA_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  converdata-data:

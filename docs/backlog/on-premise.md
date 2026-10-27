@@ -293,8 +293,9 @@ desde mi IDE.
   identidad del `Bearer` (A no obtiene datos ni credenciales de B).
 
 > **Estado (2026-10-27):** capa de herramientas (`converdata.application.discovery`) y servidor MCP HTTP con `require_bearer`
-> (`converdata.integration.mcp.server`) hechos y probados con el cliente MCP oficial (`tests/test_mcp_server.py`). Falta montarlo
-> en `/mcp` de `ConverData-API` con el SessionVault real y el nombre del servidor de IIS en `transport_security` (tras HU-14).
+> (`converdata.integration.mcp.server`) hechos y probados con el cliente MCP oficial (`tests/test_mcp_server.py`). Montado el 2026-10-27
+> en `/mcp` de `ConverData-API` con el SessionVault real (`api/converdata_api/mcp_mount.py`, `api/tests/test_mcp.py`). Falta fijar
+> `CONVERDATA_MCP_HOSTS` con el nombre del servidor de IIS (`transport_security`) y la regla de límite de preguntas en `/mcp`.
 
 #### HU-17 · Chat Chainlit con tarjetas de candidatos
 **Como** Product Owner **quiero** preguntar en un chat web y ver tarjetas con BD, ambiente, servidor, descripción, reglas, relaciones,

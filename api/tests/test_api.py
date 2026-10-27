@@ -1,0 +1,159 @@
+"""ConverData-API de punta a punta con el servidor simulado (`DemoConnector` sobre tests/fixtures/bancos).
+
+Primer arranque sin catálogo → login del admin con su usuario de BD → descubrimiento de esquemas → chat, explorador,
+retroalimentación y auditoría; y la herencia de permisos con un login que solo lee dos BDs (F14).
+"""
+
+import json
+import time
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from converdata_api.connector import DemoConnector
+from converdata_api.main import create_app
+from converdata_api.settings import ApiSettings
+
+FIXTURE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "bancos"
+
+
+@pytest.fixture
+def settings(tmp_path):
+    return ApiSettings(
+        data_root=tmp_path / "catalog", inventory_path=tmp_path / "inventory.yaml", audit_dir=tmp_path / "audit",
+        curation_dir=tmp_path / "curation", demo=True, demo_fixtures=[FIXTURE], demo_preload_inventory=False,
+        allow_windows_auth=False,
+    )
+
+
+def make_client(settings):
+    return TestClient(create_app(settings, DemoConnector(FIXTURE)))
+
+
+def login(client, user="demo", **extra):
+    body = {"login": user, "password": "demo", **extra}
+    r = client.post("/auth/login", json=body)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def build(client):
+    r = client.post("/admin/catalog/build", json={"enrich": False})
+    assert r.status_code == 202, r.text
+    for _ in range(200):
+        job = client.get("/admin/catalog/build").json()
+        if job["status"] != "running":
+            return job
+        time.sleep(0.05)
+    raise AssertionError("la construcción no terminó")
+
+
+@pytest.fixture
+def ready(settings):
+    """API con catálogo construido por el admin `demo`."""
+    client = make_client(settings)
+    login(client, host="demo-sql", alias="SQL demo")
+    job = build(client)
+    assert job["status"] == "ok", job
+    return client
+
+
+def test_first_run_without_catalog(settings):
+    client = make_client(settings)
+    status = client.get("/setup/status").json()
+    assert status["has_inventory"] is False and status["has_catalog"] is False
+
+    r = client.post("/auth/login", json={"login": "demo", "password": "demo"})
+    assert r.status_code == 400  # sin inventario hay que indicar el servidor
+    r = client.post("/auth/login", json={"login": "demo", "password": "mala", "host": "demo-sql"})
+    assert r.status_code == 401
+    # un login sin permisos de metadatos no puede registrar el primer servidor
+    r = client.post("/auth/login", json={"login": "analista", "password": "demo", "host": "demo-sql"})
+    assert r.status_code == 403
+
+    data = login(client, host="demo-sql", alias="SQL demo")
+    assert "data_admin" in data["user"]["roles"]
+    assert client.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"}).status_code == 409
+    status = client.get("/setup/status").json()
+    assert status["servers"] == [{"id": "DEMO_SQL", "alias": "SQL demo", "environment": "desarrollo"}]
+    assert "host" not in json.dumps(status["servers"])  # el host nunca se publica
+
+    job = build(client)
+    assert job["status"] == "ok" and job["report"]["objects"] > 0
+    status = client.get("/setup/status").json()
+    assert status["has_catalog"] and status["catalog"]["databases"] == 5
+    assert (settings.data_root / "config" / "databases.yaml").is_file()
+    assert "*" in settings.inventory_path.read_text(encoding="utf-8")  # el inventario guardado conserva "*"
+
+
+def test_discover_feedback_and_audit(ready, settings):
+    r = ready.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"})
+    assert r.status_code == 200, r.text
+    env = r.json()
+    assert env["status"] == "ok" and env["discovery"]["candidates"]
+    top = env["discovery"]["candidates"][0]
+
+    r = ready.post("/discover/feedback", json={"trace_id": env["trace_id"], "asset_key": top["asset_key"], "verdict": "confirm"})
+    assert r.status_code == 200 and r.json()["confirmations"] == 1
+    # solo se califican activos mostrados en esa respuesta
+    r = ready.post("/discover/feedback", json={"trace_id": env["trace_id"], "asset_key": "X.dbo.Y", "verdict": "confirm"})
+    assert r.status_code == 404
+    golden = settings.data_root / "knowledge" / "golden" / "confirmaciones_usuarios.yaml"
+    assert top["asset_key"] in golden.read_text(encoding="utf-8")
+
+    kinds = [row["type"] for row in ready.get("/admin/audit").json()["items"]]
+    assert {"login", "question", "feedback", "catalog_build_finished"} <= set(kinds)
+    raw = "".join(p.read_text(encoding="utf-8") for p in settings.audit_dir.glob("*.jsonl"))
+    assert '"demo"' in raw and "password" not in raw
+    assert ready.get("/me/history").json()["items"][0]["trace_id"] == env["trace_id"]
+
+
+def test_catalog_explorer(ready):
+    dbs = ready.get("/catalog/databases").json()
+    assert {d["database"] for d in dbs} >= {"BancaPrestamos", "BancaLeasing"}
+    page = ready.get("/catalog/objects", params={"database": "BancaPrestamos"}).json()
+    assert page["total"] > 0
+    obj = ready.get("/catalog/object", params={"id": page["items"][0]["id"]}).json()
+    assert obj["columns"] and obj["server_alias"] == "SQL demo"
+    by_key = ready.get(f"/assets/{page['items'][0]['asset_key']}.ColumnaX").json()
+    assert by_key["id"] == obj["id"]
+
+
+def test_permissions_are_inherited(ready, settings):
+    analyst = make_client(settings)
+    analyst.app = ready.app  # mismo proceso, otra sesión
+    data = login(analyst, user="analista")
+    assert "data_admin" not in data["user"]["roles"]
+    dbs = {d["database"] for d in analyst.get("/catalog/databases").json()}
+    assert dbs == {"BancaPrestamos", "BancaCuentasDebito"}
+    hidden = ready.get("/catalog/objects", params={"database": "BancaLeasing"}).json()["items"][0]["id"]
+    assert analyst.get("/catalog/object", params={"id": hidden}).status_code == 404
+    env = analyst.post("/discover", json={"question": "¿Dónde está el contrato de leasing?"}).json()
+    shown = [c["database"] for c in (env.get("discovery") or {}).get("candidates", [])]
+    assert "BancaLeasing" not in shown
+    assert analyst.post("/admin/catalog/build", json={}).status_code == 403
+    assert analyst.get("/admin/audit").status_code == 403
+
+
+def test_session_required_and_logout(ready):
+    anon = TestClient(ready.app)
+    assert anon.post("/discover", json={"question": "hola mundo"}).status_code == 401
+    assert ready.post("/auth/logout").status_code == 200
+    assert ready.get("/auth/me").status_code == 401
+
+
+def test_stream_escalation_and_rate_limit(ready, settings):
+    with ready.stream("POST", "/discover/stream", json={"question": "¿Dónde está el DUI del cliente?"}) as r:
+        body = "".join(r.iter_text())
+    assert "event: step" in body and "event: answer" in body
+    answer = json.loads(body.split("event: answer\ndata: ")[1].split("\n")[0])
+    req = ready.post("/curation/requests", json={"trace_id": answer["trace_id"]})
+    assert req.status_code == 200 and req.json()["status"] == "open"
+    mine = ready.get("/me/requests").json()["items"]
+    assert mine[0]["id"] == req.json()["id"] and mine[0]["answer"] is None
+    login_resp = ready.post("/login", json={"login": "demo", "password": "demo"}).json()  # alias OP-04
+    assert login_resp["servers"] == [{"alias": "SQL demo", "ok": True}] and "BancaLeasing" in login_resp["databases"]
+    for _ in range(30):
+        ready.post("/discover", json={"question": "clientes"})
+    assert ready.post("/discover", json={"question": "clientes"}).status_code == 429

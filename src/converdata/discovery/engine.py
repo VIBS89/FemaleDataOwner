@@ -641,7 +641,8 @@ def drift_of(copies: list) -> str | None:
         return None
     ref = copies[0]
     others = sorted({o.environment for o in copies if o.schema_hash != ref.schema_hash})
-    return f"{', '.join(o.upper() if o == 'qa' else o for o in others)} difiere de {ref.environment}"
+    shown = {"qa": "QA", "produccion": "producción"}
+    return f"{', '.join(shown.get(o, o) for o in others)} difiere de {shown.get(ref.environment, ref.environment)}"
 
 
 def visible_lineage(asset_key: str, catalog: Catalog, kb: KnowledgeBase, vis) -> Lineage:

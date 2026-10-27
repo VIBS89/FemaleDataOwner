@@ -29,6 +29,22 @@ python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim
 cp config/models.local.example.yaml config/models.yaml  # Ollama local (o models.example.yaml para NVIDIA NIM)
 .venv/Scripts/python -m converdata.cli llm smoke
 ```
+### Web (Next.js + shadcn) y ConverData-API (FastAPI)
+`web/` es el chat y el explorador del catálogo; `api/` expone el agente (`/discover`, `/discover/feedback`, `/assets/{asset_key}`,
+`/catalog/*`, `/auth/login`, `/admin/*`). El login es el **usuario de base de datos** de cada persona (OP-03): la API calcula con él lo que
+puede ver (F14) y guarda la contraseña cifrada solo en memoria. **Primer arranque**: sin inventario ni catálogo, el primer login (con
+`VIEW ANY DEFINITION` o `sysadmin`) registra el servidor y, desde *Administración → Descubrir esquemas*, el agente extrae los esquemas
+con ese acceso. La auditoría base queda en `data/audit/*.jsonl` y las confirmaciones "Es este" en `knowledge/golden` (F24).
+```bash
+docker compose up --build                    # http://localhost:3000
+CONVERDATA_DEMO=1 docker compose up --build  # servidor simulado: usuarios demo (admin) / analista, contraseña demo
+
+# Sin Docker
+.venv/Scripts/python -m pip install -e ".[api,dev]"
+.venv/Scripts/python -m uvicorn converdata_api.main:app --app-dir api --port 8000   # CONVERDATA_DEMO=1 para el modo demo
+npm --prefix web install && npm --prefix web run dev                                  # API_URL=http://localhost:8000 por defecto
+```
+
 | Capa | Paquete | Contenido |
 |---|---|---|
 | Orquestación (única con LangGraph) | `converdata.flows` | **CatalogBuildFlow** `extract → enrich → relate → write` y **DiscoverFlow** `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize`, ciclos acotados, sin checkpointer persistente |

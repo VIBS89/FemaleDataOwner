@@ -1,0 +1,12 @@
+.git
+.venv
+.pytest_cache
+**/__pycache__
+*.egg-info
+.env
+data
+BancosSQL.zip
+docs
+tools
+web
+config/models.yaml

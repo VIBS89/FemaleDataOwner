@@ -23,9 +23,11 @@ ollama = ["langchain-ollama>=1.0"]  # solo environment: local
 bedrock = ["langchain-aws>=0.2"]
 # SqlServerVectorStore, VisibilityResolver y auditoría en la BD ConverData (OP-02, OP-03, OP-05).
 sqlserver = ["pyodbc>=5.1"]
+# ConverData-API para el frontend web (api/, web/).
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "cryptography>=43", "pyodbc>=5.1", "mcp>=2.3,<3"]
 # converdata-mcp (F12): `converdata mcp serve` por stdio y `/mcp` en ConverData-API. FastMCP pasó a MCPServer en la 2.x.
 mcp = ["mcp>=2.3,<3"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "httpx>=0.27"]
 
 [project.scripts]
 converdata = "converdata.cli:main"
@@ -34,5 +36,5 @@ converdata = "converdata.cli:main"
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["tests", "api/tests"]
+pythonpath = ["src", "api"]

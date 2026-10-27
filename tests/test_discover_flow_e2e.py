@@ -61,7 +61,7 @@ def test_reglas_responsables_y_drift(service, analyst):
     top = env.discovery.candidates[0]
     assert [r.id for r in top.business_rules] == ["BR-ONB-004"]
     assert top.owners.business == "Producto Banca Digital"
-    assert top.drift_warning == "QA difiere de produccion"
+    assert top.drift_warning == "QA difiere de producción"
     assert any(e.kind == "golden_discovery" for e in top.evidence)
 
 
