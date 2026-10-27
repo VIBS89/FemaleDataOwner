@@ -85,6 +85,7 @@ class AgentRuntime:
         self.job = BuildJob()
         self.load_error: str | None = None
         self._lock = threading.RLock()
+        self.usage_listeners: list = []  # (rol, tokens_in, tokens_out): tope diario (HU-19) y /health/metrics (HU-22)
         self._visibility: dict[str, tuple[int, frozenset[str]]] = {}
         self._traces: OrderedDict[str, ShownTrace] = OrderedDict()
         self.curation = None  # CurationStore; lo asigna create_app (historial simulado del modo demo)
@@ -114,6 +115,10 @@ class AgentRuntime:
         root = self.settings.data_root
         return (root / "config" / "databases.yaml").is_file() and any((root / "catalog").rglob("*.yaml"))
 
+    def _on_usage(self, role: str, tokens_in: int, tokens_out: int) -> None:
+        for listener in self.usage_listeners:
+            listener(role, tokens_in, tokens_out)
+
     def reload(self) -> None:
         """Carga (o recarga) el DiscoverFlow sobre el catálogo escrito; sin catálogo, la API queda en modo configuración."""
         with self._lock:
@@ -121,8 +126,14 @@ class AgentRuntime:
                 self.service, self.load_error = None, None
                 return
             try:
+                gateway = None
+                if self.settings.models_path:
+                    from converdata.llm.gateway import LLMGateway
+
+                    gateway = LLMGateway.from_file(self.settings.models_path)
+                    gateway.usage_hook = self._on_usage
                 service = build_service(
-                    self.settings.data_root, models_path=self.settings.models_path,
+                    self.settings.data_root, gateway=gateway,
                     llm_nodes=not self.settings.embeddings_only, audit=self.audit,
                 )
             except Exception as exc:

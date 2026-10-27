@@ -218,3 +218,45 @@ def test_reglas_de_negocio_gestionadas_por_el_steward(ready, settings):
 
     assert steward.delete("/curation/rules/BR-PRE-001").status_code == 200
     assert steward.delete("/curation/rules/BR-PRE-001").status_code == 404
+
+
+def test_tope_diario_de_tokens_por_usuario(settings):
+    settings.token_limit_daily = 1000
+    client = make_client(settings)
+    login(client, host="demo-sql", alias="SQL demo")
+    build(client)
+    ledger = client.app.state.tokens
+    analyst = TestClient(client.app)
+    login(analyst, user="analista")
+
+    assert analyst.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"}).status_code == 200
+    ledger.add("analista", 1500)  # lo que gastarían varias consultas con IA
+    blocked = analyst.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"})
+    assert blocked.status_code == 429 and "tope diario" in blocked.json()["detail"]
+    assert analyst.post("/discover/stream", json={"question": "¿Dónde está el DUI?"}).status_code == 429
+    assert client.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"}).status_code == 200  # otro usuario
+    assert analyst.get("/catalog/databases").status_code == 200  # explorar el catálogo sigue disponible
+    assert client.get("/health/metrics").json()["counters"]["token_limit"] == 2
+
+
+def test_el_tope_se_restablece_al_cambiar_de_dia():
+    import datetime as dt
+    from converdata_api.tokens import TokenLedger
+
+    now = [dt.datetime(2026, 10, 27, 23, 0, tzinfo=dt.timezone.utc)]
+    ledger = TokenLedger(100, clock=lambda: now[0])
+    ledger.add("ana", 120)
+    assert ledger.exceeded("ana")
+    now[0] += dt.timedelta(hours=2)
+    assert not ledger.exceeded("ana") and ledger.used("ana") == 0
+
+
+def test_el_uso_del_gateway_se_atribuye_al_usuario_y_a_las_metricas(settings):
+    client = make_client(settings)
+    login(client, host="demo-sql", alias="SQL demo")
+    runtime, ledger = client.app.state.runtime, client.app.state.tokens
+    with ledger.as_user("analista"):
+        runtime._on_usage("planner", 300, 120)  # lo que el gateway informa tras cada llamada al LLM
+    runtime._on_usage("planner", 50, 10)  # sin usuario en contexto (p. ej. indexación): solo cuenta en métricas
+    assert ledger.used("analista") == 420
+    assert client.get("/health/metrics").json()["tokens"] == {"in": 350, "out": 130}

@@ -38,6 +38,7 @@ class ApiSettings:
     cors_origins: list[str] = field(default_factory=lambda: ["http://localhost:3000"])
     rate_limit_per_minute: int = 30  # OP-04: preguntas por minuto y sesión
     notify_webhook: str | None = None  # F24: webhook de Teams para dudas escaladas (solo dominio y enlace)
+    token_limit_daily: int = 0  # tope diario de tokens de LLM por usuario (HU-19); 0 = sin tope
     public_url: str = ""  # URL del sitio para los enlaces de las notificaciones
     mcp_enabled: bool = True  # `/mcp` (F12): herramientas de descubrimiento para Claude Code y otros clientes MCP
     mcp_allowed_hosts: list[str] = field(default_factory=list)  # Host del servidor (p. ej. converdata.banco.local:443)
@@ -69,6 +70,7 @@ class ApiSettings:
             rate_limit_per_minute=int(os.environ.get("CONVERDATA_RATE_LIMIT", 30)),
             notify_webhook=os.environ.get("CONVERDATA_NOTIFY_WEBHOOK") or None,
             public_url=os.environ.get("CONVERDATA_PUBLIC_URL", ""),
+            token_limit_daily=int(os.environ.get("CONVERDATA_TOKEN_LIMIT", 0)),
             mcp_enabled=_flag("CONVERDATA_MCP", True),
             mcp_allowed_hosts=[h.strip() for h in os.environ.get("CONVERDATA_MCP_HOSTS", "").split(",") if h.strip()],
             mcp_allowed_origins=[o.strip() for o in os.environ.get("CONVERDATA_MCP_ORIGINS", "").split(",") if o.strip()],

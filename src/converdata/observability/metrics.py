@@ -49,6 +49,11 @@ class Metrics:
             self._tokens["in"] += tokens_in
             self._tokens["out"] += tokens_out
 
+    def add_tokens(self, tokens_in: int, tokens_out: int) -> None:
+        with self._lock:
+            self._tokens["in"] += tokens_in
+            self._tokens["out"] += tokens_out
+
     def increment(self, name: str, by: int = 1) -> None:
         with self._lock:
             self._counters[_check(name)] += by

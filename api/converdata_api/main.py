@@ -36,6 +36,7 @@ from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlC
 from converdata_api.curation import CurationStore, demand_by_asset, metrics_report
 from converdata_api.demo import seed_stewards
 from converdata_api.mcp_mount import build_mcp_mount
+from converdata_api.tokens import TokenLedger
 from converdata_api.runtime import AgentRuntime, ShownTrace
 from converdata_api.settings import ApiSettings
 from converdata_api.vault import Credential, Session, SessionVault
@@ -205,6 +206,9 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         seed_stewards(curation)
     limiter = RateLimiter(settings.rate_limit_per_minute)
     metrics = Metrics()
+    tokens = TokenLedger(settings.token_limit_daily)
+    runtime.usage_listeners += [tokens.record_call, lambda _role, tin, tout: metrics.add_tokens(tin, tout)]
+    app_tokens = tokens
     logger = configure_logging(settings.log_dir, event_log=settings.event_log) if settings.log_dir else None
 
     mcp_mount = build_mcp_mount(runtime, vault, settings) if settings.mcp_enabled else None
@@ -220,6 +224,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     app = FastAPI(title="ConverData API", version="0.1.0", description="Enterprise Data Discovery Agent",
                   lifespan=lifespan)
     app.state.runtime = runtime
+    app.state.tokens = app_tokens
     app.state.curation = curation
     app.add_middleware(MetricsMiddleware, metrics=metrics, logger=logger)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
@@ -273,6 +278,13 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             metrics.increment("rate_limited")
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                                 f"Hiciste más de {settings.rate_limit_per_minute} preguntas en un minuto; espera un momento")
+
+    def check_tokens(session: Session) -> None:
+        if tokens.exceeded(session.user_id):
+            metrics.increment("token_limit")
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                                f"Alcanzaste el tope diario de {tokens.limit:,} tokens de IA; se restablece mañana (UTC). "
+                                "Puedes seguir explorando el catálogo.")
 
     def require_service():
         if runtime.service is None:
@@ -399,8 +411,10 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     @app.post("/discover")
     def discover(body: DiscoverRequest, session: Session = Depends(current_session), service=Depends(require_service)):
         check_rate(session)
+        check_tokens(session)
         asked_at = time.time()
-        envelope = service.run(body.question, runtime.user_context(session), history=body.history, client="web")
+        with tokens.as_user(session.user_id):
+            envelope = service.run(body.question, runtime.user_context(session), history=body.history, client="web")
         remember(envelope, body.question, session, service, asked_at)
         return envelope.model_dump(by_alias=True, mode="json")
 
@@ -409,11 +423,18 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                         service=Depends(require_service)):
         """Lo mismo por SSE: un evento `step` por nodo del grafo y al final `answer` (F12, OP-04 CA8)."""
         check_rate(session)
+        check_tokens(session)
         user = runtime.user_context(session)
         asked_at = time.time()
 
         def events():
-            for kind, payload in service.stream(body.question, user, history=body.history, client="web"):
+            steps = service.stream(body.question, user, history=body.history, client="web")
+            while True:
+                with tokens.as_user(session.user_id):  # cada paso corre en un hilo con su propio contexto
+                    try:
+                        kind, payload = next(steps)
+                    except StopIteration:
+                        break
                 if kind == "answer":
                     remember(AnswerEnvelope.model_validate(payload), body.question, session, service, asked_at)
                 yield f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"

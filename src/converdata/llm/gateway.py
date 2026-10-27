@@ -100,6 +100,20 @@ class Route:
         return f"{self.provider}:{self.role.model}"
 
 
+def estimate_usage(messages, result) -> tuple[int, int]:
+    """(tokens de entrada, tokens de salida): los del proveedor si vienen (`usage_metadata`); si no, ~4 caracteres por token.
+    Con salida estructurada el proveedor no devuelve el uso, así que es una estimación."""
+    usage = getattr(result, "usage_metadata", None)
+    if usage and usage.get("input_tokens") is not None:
+        return int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0))
+    prompt = messages if isinstance(messages, str) else " ".join(str(getattr(m, "content", m)) for m in messages)
+    if hasattr(result, "model_dump_json"):
+        out = result.model_dump_json()
+    else:
+        out = str(getattr(result, "content", result))
+    return max(1, len(prompt) // 4), max(1, len(out) // 4)
+
+
 class RoutedChat:
     """Chat model enrutado por el gateway. Imita la parte de la interfaz de LangChain que usan los nodos."""
 
@@ -142,6 +156,8 @@ class LLMGateway:
         self.breaker = CircuitBreaker(c.errors, c.window_s, c.open_s, clock)
         self._cache: dict[tuple[str, str, str], Any] = {}
         self._last_used: dict[str, str] = {}
+        # (rol, tokens_in, tokens_out) por llamada: lo usa la API para el tope diario por usuario (HU-19) y /health/metrics
+        self.usage_hook: Callable[[str, int, int], None] | None = None
         self.labels = _Labels(self)
         self.validate()
 
@@ -216,6 +232,14 @@ class LLMGateway:
             self._cache[key] = model
         return self._cache[key]
 
+    def _report_usage(self, role: str, messages, result) -> None:
+        if self.usage_hook is None:
+            return
+        try:
+            self.usage_hook(role, *estimate_usage(messages, result))
+        except Exception:  # contar tokens nunca debe romper una respuesta
+            pass
+
     def _invoke(self, role: str, messages, schema, skw, kwargs):
         allowed = set(self.config.fallback.on) if self.config.fallback else set()
         errors: list[str] = []
@@ -239,5 +263,6 @@ class LLMGateway:
                 continue
             self.breaker.record_success(route.provider)
             self._last_used[role] = route.label + (" (respaldo)" if i > 0 else "")
+            self._report_usage(role, messages, result)
             return result
         raise AllProvidersFailed("; ".join(errors) or f"sin rutas para {role}")

@@ -280,3 +280,21 @@ def test_error_de_conexion_a_ollama_es_transitorio():
         pass
 
     assert classify_error(ConnectError("[WinError 10061] conexión rechazada")) == "service_unavailable"
+
+
+def test_el_gateway_informa_el_uso_de_cada_llamada():
+    gw, _ = make_gateway(NIM_ONLY)
+    seen: list[tuple[str, int, int]] = []
+    gw.usage_hook = lambda role, tin, tout: seen.append((role, tin, tout))
+    gw.chat("fast").invoke(["x" * 400])  # sin usage_metadata: estimación de ~4 caracteres por token
+    assert seen and seen[0][0] == "fast" and seen[0][1] == 100 and seen[0][2] >= 1
+
+
+def test_un_gancho_de_uso_que_falla_no_rompe_la_respuesta():
+    gw, _ = make_gateway(NIM_ONLY)
+
+    def boom(*_):
+        raise RuntimeError("fallo del contador")
+
+    gw.usage_hook = boom
+    assert gw.chat("fast").invoke([]).content.startswith("respuesta de")
