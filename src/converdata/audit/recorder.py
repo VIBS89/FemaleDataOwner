@@ -38,6 +38,30 @@ class TraceRecord:
     steps: list[StepRecord] = field(default_factory=list)
 
 
+VERDICTS = {"confirm", "reject", "correct_is"}
+ACTOR_ROLES = {"consumer", "steward"}
+
+
+@dataclass(frozen=True)
+class FeedbackRecord:
+    """Fila de `audit_discovery_feedback`: un ✔/✖ sobre un activo mostrado en una respuesta (F11, F24)."""
+
+    trace_id: str
+    asset_key: str
+    verdict: str  # confirm | reject | correct_is
+    actor_role: str  # consumer | steward
+    correct_asset_key: str | None = None
+    time_to_verdict_ms: int | None = None
+
+    def __post_init__(self):
+        if self.verdict not in VERDICTS:
+            raise ValueError(f"veredicto inválido: {self.verdict!r}")
+        if self.actor_role not in ACTOR_ROLES:
+            raise ValueError(f"rol inválido: {self.actor_role!r}")
+        if (self.verdict == "correct_is") != bool(self.correct_asset_key):
+            raise ValueError("correct_is exige correct_asset_key, y solo él")
+
+
 class AuditSink(Protocol):
     def write(self, record: TraceRecord) -> None: ...
 

@@ -92,6 +92,7 @@ class Discovery(BaseModel):
     related: list[Related] = Field(default_factory=list)
     join_paths: list[JoinPath] = Field(default_factory=list)
     knowledge_gap: bool = False
+    unresolved_parts: list[str] = Field(default_factory=list)  # partes de una pregunta compuesta sin respuesta
     suggested_questions: list[str] = Field(default_factory=list)
 
 

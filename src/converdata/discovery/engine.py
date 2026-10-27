@@ -79,6 +79,7 @@ class Retrieval:
     entity_tables: dict[str, list[str]] = field(default_factory=dict)  # entidad → tablas visibles
     concepts: list[frozenset[str]] = field(default_factory=list)  # conceptos de la pregunta (caminos de unión)
     secondary_parts: list[list[frozenset[str]]] = field(default_factory=list)  # sub-preguntas a unir por el grafo
+    secondary_texts: list[str] = field(default_factory=list)
 
 
 # --- paso 2: recuperación híbrida filtrada por visibilidad --------------------------------------
@@ -192,7 +193,7 @@ def retrieve(
         d.coverage = round(weighted_coverage(plan.primary_concepts or concepts, strong, weak), 4)
     if graph is not None:
         _graph_coverage(drafts.values(), concepts, graph, catalog, vis)
-    return Retrieval(drafts, entity_tables, concepts, plan.secondary_parts)
+    return Retrieval(drafts, entity_tables, concepts, plan.secondary_parts, plan.secondary_texts)
 
 
 GRAPH_HOP_WEIGHT = {1: 0.6, 2: 0.4}
@@ -596,38 +597,82 @@ def build_discovery(
                 relation = {"fk": "fk", "same_entity": "same_entity"}.get(edge.kind, "etl")
                 extra = {"on": edge.detail} if edge.kind == "fk" else {"via": edge.detail}
                 related.append(Related(**{"from": edge.a, "to": edge.b, "relation": relation, **extra}))
-    gap = not chosen or chosen[0].confidence < settings.gap_threshold
+    unresolved = unresolved_parts(chosen[0], retrieval, join_paths, catalog, vis) if chosen else []
+    if unresolved:  # respuesta incompleta: nada de lo mostrado responde esa parte de la pregunta
+        for c in candidates:
+            c.confidence = min(c.confidence, round(settings.gap_threshold - 0.05, 4))
+    gap = not chosen or bool(unresolved) or chosen[0].confidence < settings.gap_threshold
     return Discovery(
         candidates=candidates,
         alternatives=alternatives,
         related=related,
         join_paths=[p.model for p in join_paths],
         knowledge_gap=gap,
+        unresolved_parts=unresolved,
         suggested_questions=_suggested(candidates, kb, vis, catalog),
+    )
+
+
+def unresolved_parts(top: Draft, retrieval: Retrieval, join_paths: list, catalog: Catalog, vis) -> list[str]:
+    """Sub-preguntas que ni el candidato principal cubre ni un camino de unión alcanza (preguntas compuestas)."""
+    if not retrieval.secondary_parts:
+        return []
+    top_terms = _asset_terms(top, catalog, vis)
+    texts = retrieval.secondary_texts or [""] * len(retrieval.secondary_parts)
+    remaining = [t for p, t in zip(retrieval.secondary_parts, texts) if concept_coverage(p, top_terms) < 0.5]
+    return remaining[len(join_paths):]
+
+
+def ordered_copies(asset_key: str, catalog: Catalog, vis, preferred_env: str | None = None) -> list:
+    """Copias visibles de un activo: primero el ambiente pedido y después el de referencia."""
+    copies = catalog.visible_copies(asset_key, vis)
+    copies.sort(key=lambda o: (o.environment != preferred_env, not catalog.inventory.is_reference(o.environment, o.server)))
+    return copies
+
+
+def locations_of(copies: list, catalog: Catalog) -> list[Location]:
+    return [Location(environment=o.environment, server=catalog.inventory.alias(o.server)) for o in copies]
+
+
+def drift_of(copies: list) -> str | None:
+    """Aviso si la estructura difiere entre ambientes (RF-09), respecto de la primera copia."""
+    hashes = {o.schema_hash for o in copies if o.schema_hash}
+    if len(hashes) <= 1:
+        return None
+    ref = copies[0]
+    others = sorted({o.environment for o in copies if o.schema_hash != ref.schema_hash})
+    return f"{', '.join(o.upper() if o == 'qa' else o for o in others)} difiere de {ref.environment}"
+
+
+def visible_lineage(asset_key: str, catalog: Catalog, kb: KnowledgeBase, vis) -> Lineage:
+    tkey = table_key(asset_key)
+    upstream = [e.from_ for e in kb.lineage if e.to == tkey and catalog.is_visible(e.from_, vis)]
+    downstream = [e.to for e in kb.lineage if e.from_ == tkey and catalog.is_visible(e.to, vis)]
+    return Lineage(upstream=sorted(set(upstream)), downstream=sorted(set(downstream)))
+
+
+def visible_rules(asset_key: str, catalog: Catalog, kb: KnowledgeBase, vis) -> list[RuleRef]:
+    """Reglas del activo; una regla que también aplica a objetos no visibles no se muestra (F14)."""
+    return [
+        RuleRef(id=r.id, text=r.text, reviewed=r.reviewed)
+        for r in kb.rules_for(asset_key)
+        if all(catalog.is_visible(a, vis) for a in r.applies_to)
+    ]
+
+
+def owners_of(asset_key: str, owners: OwnersDirectory) -> Owners:
+    dom = owners.for_asset(asset_key)
+    return Owners(
+        business=dom.business_owner.name if dom and dom.business_owner else None,
+        technical=dom.technical_owner.name if dom and dom.technical_owner else None,
     )
 
 
 def _candidate(rank_: int, d: Draft, intent: IntentResult, user, catalog: Catalog, kb, owners) -> Candidate:
     vis = user.visible_ids
-    copies = catalog.visible_copies(d.asset_key, vis)
-    preferred = intent.environment_hint
-    copies.sort(key=lambda o: (o.environment != preferred, not catalog.inventory.is_reference(o.environment, o.server)))
+    copies = ordered_copies(d.asset_key, catalog, vis, intent.environment_hint)
     ref = copies[0]
     column = catalog.column(d.asset_key, vis)[1] if d.kind == "column" else None
-    hashes = {o.schema_hash for o in copies if o.schema_hash}
-    drift = None
-    if len(hashes) > 1:
-        others = sorted({o.environment for o in copies if o.schema_hash != ref.schema_hash})
-        drift = f"{', '.join(o.upper() if o == 'qa' else o for o in others)} difiere de {ref.environment}"
-    tkey = table_key(d.asset_key)
-    upstream = [e.from_ for e in kb.lineage if e.to == tkey and catalog.is_visible(e.from_, vis)]
-    downstream = [e.to for e in kb.lineage if e.from_ == tkey and catalog.is_visible(e.to, vis)]
-    rules = [
-        RuleRef(id=r.id, text=r.text, reviewed=r.reviewed)
-        for r in kb.rules_for(d.asset_key)
-        if all(catalog.is_visible(a, vis) for a in r.applies_to)
-    ]
-    dom = owners.for_asset(d.asset_key)
     return Candidate(
         rank=rank_,
         kind=d.kind,
@@ -637,16 +682,13 @@ def _candidate(rank_: int, d: Draft, intent: IntentResult, user, catalog: Catalo
         table=ref.name,
         column=column.name if column else None,
         data_type=column.type if column else None,
-        locations=[Location(environment=o.environment, server=catalog.inventory.alias(o.server)) for o in copies],
-        drift_warning=drift,
+        locations=locations_of(copies, catalog),
+        drift_warning=drift_of(copies),
         description=d.description,
         description_source=d.description_source,
-        business_rules=rules,
-        owners=Owners(
-            business=dom.business_owner.name if dom and dom.business_owner else None,
-            technical=dom.technical_owner.name if dom and dom.technical_owner else None,
-        ),
-        lineage=Lineage(upstream=sorted(set(upstream)), downstream=sorted(set(downstream))),
+        business_rules=visible_rules(d.asset_key, catalog, kb, vis),
+        owners=owners_of(d.asset_key, owners),
+        lineage=visible_lineage(d.asset_key, catalog, kb, vis),
         evidence=d.evidence,
         why=d.why,
         confidence=d.confidence,
@@ -700,6 +742,10 @@ class _Path:
             tables.append(nxt)
             node = nxt
         return JoinPath(purpose=self.purpose, tables=tables, steps=steps)
+
+
+def join_path_model(purpose: str, start: str, edges: list) -> JoinPath:
+    return _Path(purpose=purpose, edges=edges, start=table_key(start)).model
 
 
 def find_join_paths(top: Draft, pool: list[Draft], concepts, graph, catalog: Catalog, vis, max_paths: int = 2,
@@ -822,8 +868,11 @@ def _column_description(key: str, catalog: Catalog, vis) -> str | None:
 
 
 def _related(chosen: list[Draft], retrieval: Retrieval, user, catalog: Catalog, kb: KnowledgeBase) -> list[Related]:
-    vis = user.visible_ids
-    tables = {table_key(d.asset_key) for d in chosen}
+    return related_for_tables({table_key(d.asset_key) for d in chosen}, catalog, kb, user.visible_ids)
+
+
+def related_for_tables(tables: set[str], catalog: Catalog, kb: KnowledgeBase, vis) -> list[Related]:
+    """Relaciones a un salto (FK, linaje ETL y misma entidad) entre tablas visibles (F22 paso 6)."""
     out: dict[tuple, Related] = {}
     for fk in catalog.fk_edges():
         if (fk.from_table in tables or fk.to_table in tables) and catalog.is_visible(fk.from_table, vis) and catalog.is_visible(fk.to_table, vis):

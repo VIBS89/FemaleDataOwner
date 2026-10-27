@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "converdata-local": {
+      "command": "C:\\Users\\<usuario>\\Documents\\repos\\DataAgent\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "converdata.cli", "mcp", "serve", "--root", "tests/fixtures/bancos"],
+      "cwd": "C:\\Users\\<usuario>\\Documents\\repos\\DataAgent",
+      "env": { "CONVERDATA_ENV": "local" }
+    },
+    "converdata": {
+      "type": "http",
+      "url": "https://<servidor>/mcp",
+      "headers": { "Authorization": "Bearer ${CONVERDATA_TOKEN}" }
+    }
+  }
+}

@@ -21,7 +21,7 @@ from converdata.catalog.ids import asset_key_of, physical_id
 from converdata.config import Inventory, ServerConfig
 from converdata.discovery.expansion import LEXICON
 from converdata.memory.text import normalized_name, strip_accents
-from converdata.metadata.sqlserver import RawObject
+from converdata.metadata.ports import RawObject
 from converdata.models.catalog import CatalogObject, Column, ForeignKey, Parameter
 from converdata.models.knowledge import BusinessEntity, LineageEdge, LineageVia
 

@@ -116,7 +116,21 @@ def main(argv: list[str] | None = None) -> int:
     cb.add_argument("--config", default="config/databases.local.yaml", help="Inventario de servidores")
     cb.add_argument("--out", default="data/catalog_local", help="Directorio de salida (raíz para `discover --root`)")
     cb.add_argument("--models", help="config/models.yaml: enriquece descripciones con el rol planner del gateway")
+    mcp = sub.add_parser("mcp", help="converdata-mcp (F12) para Claude y otros agentes")
+    mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
+    ms = mcp_sub.add_parser("serve", help="Servidor MCP por stdio sobre un catálogo local (solo local/dev)")
+    ms.add_argument("--root", default="tests/fixtures/vbank", help="Directorio con config/, catalog/ y knowledge/")
+    ms.add_argument("--databases", help="BDs visibles para el usuario de desarrollo (coma); por defecto todas")
+    ms.add_argument("--groups", default="", help="Grupos de AD del usuario de desarrollo (coma)")
+    ms.add_argument("--user", default="dev", help="user_id de desarrollo que queda en la auditoría")
+    ms.add_argument("--models", help="config/models.yaml para usar el gateway de LLM; sin él, modo determinista")
+    ms.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
     args = parser.parse_args(argv)
+
+    if args.command == "mcp":  # stdout es el canal del protocolo: nada más puede escribir en él
+        from converdata.integration.mcp.stdio import serve
+
+        return serve(args)
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -146,7 +160,9 @@ def catalog_build(args) -> int:
         from converdata.llm.nodes import LlmEnricher
 
         enricher = LlmEnricher(LLMGateway.from_file(args.models).chat("planner"))
-    report = build_catalog(load_inventory(args.config), Path(args.out), enricher=enricher)
+    from converdata.metadata.sqlserver import SqlServerMetadata
+
+    report = build_catalog(load_inventory(args.config), Path(args.out), source_factory=SqlServerMetadata, enricher=enricher)
     print(report.render())
     return 1 if not report.servers_ok else 0
 

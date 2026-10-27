@@ -65,14 +65,14 @@ Roles: los de PRD §4, más *consumer*, *steward*, *data_admin* y *auditor* de F
 | E0 Specs on-premise | HU-01 a HU-03 | 3 | — | — | 7 |
 | E1 Persistencia en la BD `ConverData` | HU-04 a HU-09 | 4 | 1 | 1 | 34 |
 | E2 Identidad y permisos heredados | HU-10 a HU-13 | 3 | 1 | — | 18 |
-| E3 Interfaces | HU-14 a HU-19 | 4 | 1 | 1 | 31 |
+| E3 Interfaces | HU-14 a HU-19, HU-42 | 4 | 2 | 1 | 34 |
 | E4 Auditoría y observabilidad | HU-20 a HU-24 | 3 | 2 | — | 19 |
 | E5 Fuentes de conocimiento | HU-25 a HU-28 | 3 | 1 | — | 24 |
 | E6 Curación y aprendizaje | HU-29 a HU-32 | 3 | 1 | — | 21 |
 | E7 Calidad del descubrimiento | HU-33 a HU-36 | 3 | 1 | — | 14 |
 | E8 Instalación y operación | HU-37 a HU-39 | 2 | 1 | — | 15 |
 | E9 Piloto | HU-40, HU-41 | 2 | — | — | 8 |
-| **Total** | **41** | **30** | **9** | **2** | **191** |
+| **Total** | **42** | **30** | **10** | **2** | **194** |
 
 *Won't (esta versión)*: AskFlow y fase 1b, código Python libre (F20), `candidates: 2`, SSO con Kerberos, alta disponibilidad del
 servidor de aplicación, fallback automático a NIM con datos reales (OP-01 §Fuera del alcance).
@@ -292,6 +292,10 @@ desde mi IDE.
 - **Dado** un argumento de herramienta con otro `user_id` o `session_id`, **cuando** invoco la herramienta, **entonces** se ignora y se usa la
   identidad del `Bearer` (A no obtiene datos ni credenciales de B).
 
+> **Estado (2026-10-27):** capa de herramientas (`converdata.application.discovery`) y servidor MCP HTTP con `require_bearer`
+> (`converdata.integration.mcp.server`) hechos y probados con el cliente MCP oficial (`tests/test_mcp_server.py`). Falta montarlo
+> en `/mcp` de `ConverData-API` con el SessionVault real y el nombre del servidor de IIS en `transport_security` (tras HU-14).
+
 #### HU-17 · Chat Chainlit con tarjetas de candidatos
 **Como** Product Owner **quiero** preguntar en un chat web y ver tarjetas con BD, ambiente, servidor, descripción, reglas, relaciones,
 responsables y confianza **para** entender un dato sin depender de TI.
@@ -326,6 +330,25 @@ mantener el catálogo al día cada noche sin intervención manual.
 
 - **Dado** un usuario que alcanzó el tope configurado, **cuando** hace otra pregunta, **entonces** recibe un mensaje claro y el DiscoverFlow
   responde en modo determinista o rechaza, según la configuración.
+
+#### HU-42 · Usar ConverData desde Claude con MCP
+**Como** ingeniero de datos o analista que trabaja con Claude Desktop o Claude Code **quiero** conectar ConverData como servidor MCP
+**para** preguntar dónde están los datos, ver fichas, reglas, linaje y caminos de unión sin salir de mi conversación con Claude.
+
+| Prioridad | Estimación | Depende de | Objetivo | Spec |
+|---|---|---|---|---|
+| Should | 3 | — (local); HU-16 (servidor) | O4 | F12, OP-04 CA3, [capas del backend](../architecture/capas-backend.md) |
+
+- **Dado** `config/mcp.example.json` copiado a la configuración de Claude, **cuando** Claude arranca `converdata mcp serve --root <catálogo>`,
+  **entonces** ve las 10 herramientas de lectura (`discover`, `get_asset`, `get_related`, `find_alternatives`, `list_business_rules`,
+  `get_lineage`, `search_catalog`, `where_is`, `find_join_path`, `estate_overview`) y ninguna de escritura.
+- **Dado** `CONVERDATA_ENV=qa` o `prod`, **cuando** se intenta arrancar el modo stdio, **entonces** se niega e indica usar `/mcp` con `Bearer`.
+- **Dado** `--databases RRHH`, **cuando** Claude pide la ficha de `VBank_ING.dbo.Users.ClientCode`, **entonces** recibe `found: false`.
+- **Dado** el servidor del piloto con HU-16, **cuando** Claude usa la entrada `converdata` (HTTP) con `Authorization: Bearer ${CONVERDATA_TOKEN}`,
+  **entonces** las respuestas respetan los permisos del login SQL de esa sesión.
+
+> **Estado (2026-10-27):** modo local (stdio) hecho y probado, incluido el arranque como proceso (`tests/test_mcp_stdio.py`). El modo HTTP
+> depende de HU-16.
 
 ---
 

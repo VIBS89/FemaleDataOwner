@@ -104,3 +104,23 @@ def test_canal_semantico_encuentra_sinonimos_sin_coincidencia_lexica():
     service = build_service(BANCOS, embedder_override=ToyEmbedder())
     hits = service.deps.store.search_tables("billeteras móviles", visible_ids=user.visible_ids)
     assert "BancaTokenizacion.dbo.Wallets" in [h.asset_key for h in hits[:2]]
+
+
+# --- preguntas compuestas a medio responder ---------------------------------------------------------
+
+CARDS_Q = "¿Cómo relaciono los clientes con sus tarjetas de crédito?"
+
+
+def test_parte_sin_resolver_baja_la_confianza_a_brecha(service, analyst):
+    """VBank no tiene tarjetas: "clientes" se encuentra, "sus tarjetas de crédito" no. No puede salir con 85 %."""
+    env = service.run(CARDS_Q, analyst)
+    disc = env.discovery
+    assert disc.knowledge_gap is True
+    assert all(c.confidence < 0.6 for c in disc.candidates)
+    assert any("tarjetas" in a for a in env.assumptions)
+
+
+def test_parte_resuelta_por_el_grafo_conserva_la_confianza(bancos, everyone):
+    env = bancos.run(CARDS_Q, everyone)
+    assert env.discovery.join_paths and env.discovery.join_paths[0].tables[-1] == "BancaTarjetasCredito.dbo.TarjetasCredito"
+    assert env.discovery.knowledge_gap is False

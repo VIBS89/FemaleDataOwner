@@ -9,10 +9,10 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Callable, Protocol
+from typing import Callable
 
 from converdata.config import ServerConfig
+from converdata.metadata.ports import MetadataSource, RawColumn, RawObject  # noqa: F401  (reexportados)
 
 log = logging.getLogger(__name__)
 
@@ -83,37 +83,6 @@ JOIN sys.procedures pr ON pr.object_id = p.object_id
 WHERE p.parameter_id > 0
 ORDER BY p.object_id, p.parameter_id
 """
-
-
-@dataclass
-class RawColumn:
-    name: str
-    type: str
-    nullable: bool
-    ms_description: str | None = None
-    sensitivity: str | None = None
-
-
-@dataclass
-class RawObject:
-    database: str
-    schema: str
-    name: str
-    kind: str  # table | view | procedure
-    ms_description: str | None = None
-    columns: list[RawColumn] = field(default_factory=list)
-    primary_key: list[str] = field(default_factory=list)
-    foreign_keys: list[dict] = field(default_factory=list)  # {name, columns, ref_schema, ref_table, ref_columns}
-    row_count: int | None = None
-    dependencies: list[str] = field(default_factory=list)  # asset_keys referenciados (vistas y SPs)
-    parameters: list[dict] = field(default_factory=list)
-
-
-class MetadataSource(Protocol):
-    """Lo que el Catalog Builder necesita de un servidor. `SqlServerMetadata` lo implementa con pyodbc."""
-
-    def list_databases(self) -> list[str]: ...
-    def extract_database(self, database: str) -> list[RawObject]: ...
 
 
 def format_type(type_name: str, max_length: int, precision: int, scale: int) -> str:

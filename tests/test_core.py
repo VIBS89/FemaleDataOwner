@@ -157,3 +157,17 @@ def test_formula_de_confianza():
 def test_tope_si_solo_hay_descripcion_generada():
     d = Draft("A.dbo.T.C", "column", relevance=1.0, retrieval_norm=1.0, description_source="generated", sources={"catalog"})
     assert compute_confidence(d, DiscoverySettings()) == 0.6
+
+
+# --- F23: los marcadores de redacción no son contenido -------------------------------------------
+
+
+def test_marcadores_de_pii_redactada_no_se_indexan():
+    from converdata.memory.text import tokenize
+
+    assert tokenize("Ejemplo: cliente <DUI> con cuenta <CUENTA_BANCARIA>.") == tokenize("Ejemplo: cliente con cuenta.")
+
+
+def test_dui_no_lo_gana_un_documento_que_solo_tiene_el_marcador(service, analyst):
+    env = service.run("¿Dónde está el DUI del cliente?", analyst)
+    assert env.discovery.candidates[0].asset_key == "Onboarding.dbo.Solicitud.NumeroDocumento"

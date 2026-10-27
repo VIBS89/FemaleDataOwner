@@ -22,7 +22,7 @@ from langgraph.graph import END, START, StateGraph
 
 from converdata.builder import catalog_builder as cb
 from converdata.config import Inventory, ServerConfig
-from converdata.metadata.sqlserver import MetadataSource, RawObject, SqlServerMetadata
+from converdata.metadata.ports import MetadataSource, RawObject
 from converdata.models.catalog import CatalogObject
 
 log = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class BuildState(TypedDict, total=False):
 def build_catalog_graph(
     inventory: Inventory,
     out_dir: Path,
-    source_factory: Callable[[ServerConfig], MetadataSource] = SqlServerMetadata,
+    source_factory: Callable[[ServerConfig], MetadataSource],
     enricher=None,
 ):
     out_dir = Path(out_dir)
@@ -172,7 +172,10 @@ def build_catalog_graph(
     return g.compile()
 
 
-def build_catalog(inventory: Inventory, out_dir: Path, source_factory=SqlServerMetadata, enricher=None) -> BuildReport:
+def build_catalog(
+    inventory: Inventory, out_dir: Path, source_factory: Callable[[ServerConfig], MetadataSource], enricher=None
+) -> BuildReport:
+    """`source_factory` lo inyecta la raíz de composición: `SqlServerMetadata` en producción, fuentes falsas en tests."""
     t0 = time.perf_counter()
     report = BuildReport()
     graph = build_catalog_graph(inventory, out_dir, source_factory, enricher)

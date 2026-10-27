@@ -34,9 +34,14 @@ def stem(word: str) -> str:
     return word[:STEM_LEN]
 
 
+# Marcadores que deja la redacción de PII (F23): `<DUI>`, `<CUENTA_BANCARIA>`. Indican que hubo un dato, no de qué
+# trata el texto, así que no se indexan (si no, "¿dónde está el DUI?" encontraría cualquier documento redactado).
+_REDACTION = re.compile(r"<[A-Z][A-Z0-9_]*>")
+
+
 def tokenize(text: str) -> list[str]:
     tokens: list[str] = []
-    for raw in _WORD.findall(strip_accents(text or "")):
+    for raw in _WORD.findall(strip_accents(_REDACTION.sub(" ", text or ""))):
         for part in _CAMEL.split(raw):
             word = part.lower()
             if len(word) < 2 or word in STOPWORDS:

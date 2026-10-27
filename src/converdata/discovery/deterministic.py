@@ -128,6 +128,10 @@ def _table_dot_column(asset_key: str) -> str:
     return ".".join(asset_key.split(".")[-2:]) if asset_key.count(".") >= 3 else short_name(asset_key)
 
 
+ENV_LABELS = {"produccion": "Producción", "qa": "QA", "desarrollo": "Desarrollo", "dr": "DR"}
+ENV_ORDER = {"produccion": 0, "qa": 1, "desarrollo": 2, "dr": 3}
+
+
 class TemplateNarrator:
     """Narrativa de 1 a 4 frases que solo menciona objetos de la respuesta (F22 paso 7)."""
 
@@ -140,8 +144,10 @@ class TemplateNarrator:
         top = discovery.candidates[0]
         name = top.column or top.table
         where = f"{top.database}.{top.schema_}.{top.table}"
-        envs = ", ".join(sorted({loc.environment for loc in top.locations}))
-        parts = [f"El candidato principal es {name} ({where}, ambiente: {envs}) con {round(top.confidence * 100)} % de confianza."]
+        envs = sorted({loc.environment for loc in top.locations}, key=lambda e: (ENV_ORDER.get(e, 9), e))
+        label = "ambientes" if len(envs) > 1 else "ambiente"
+        shown = " y ".join(ENV_LABELS.get(e, e) for e in envs)
+        parts = [f"El candidato principal es {name} ({where}, {label}: {shown}) con {round(top.confidence * 100)} % de confianza."]
         if top.why:
             parts.append(top.why)
         others = [_table_dot_column(c.asset_key) for c in discovery.candidates[1:]] + [
@@ -149,6 +155,9 @@ class TemplateNarrator:
         ]
         if others:
             parts.append(f"También revisa: {', '.join(dict.fromkeys(others))}.")
-        if discovery.knowledge_gap:
+        if discovery.unresolved_parts:
+            missing = ", ".join(f"«{p}»" for p in discovery.unresolved_parts)
+            parts.append(f"No encontré datos disponibles para {missing}; puedes preguntar al responsable del dominio.")
+        elif discovery.knowledge_gap:
             parts.append("La confianza es baja; puedes preguntar al responsable del dominio.")
         return " ".join(parts[:4])

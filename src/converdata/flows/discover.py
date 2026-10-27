@@ -234,7 +234,10 @@ def build_discover_graph(deps: DiscoverDeps):
             graph=deps.graph if patterns().graph else None,
         )
         detail = f"caminos={len(discovery.join_paths)}" if discovery.join_paths else None
-        return {"discovery": discovery}, None, detail
+        out: dict = {"discovery": discovery}
+        if discovery.unresolved_parts:
+            out["assumptions"] = [f"No encontré datos disponibles para «{p}»." for p in discovery.unresolved_parts]
+        return out, None, detail
 
     # --- B: evaluador-optimizador -----------------------------------------------------------
     def review_node(state):
@@ -320,7 +323,8 @@ def build_discover_graph(deps: DiscoverDeps):
     def finalize_node(state):
         intent = state.get("intent")
         route = state.get("route")
-        env = AnswerEnvelope(trace_id=state["trace_id"], flow="discover", assumptions=state.get("assumptions", []))
+        env = AnswerEnvelope(trace_id=state["trace_id"], flow="discover",
+                             assumptions=list(dict.fromkeys(state.get("assumptions", []))))
         if route == "clarify":
             env.status = "needs_clarification"
             env.clarification = intent.clarification

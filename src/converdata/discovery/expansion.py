@@ -54,6 +54,29 @@ LEXICON: dict[str, list[str]] = {
     "direccion": ["address"],
     "segmento": ["segment"],
     "llave": ["key"],
+    # Glosario bancario: sinónimos en español y nombres técnicos habituales en los esquemas.
+    "billetera": ["wallet"],
+    "monedero": ["wallet"],
+    "huella": ["fingerprint"],
+    "sueldo": ["ingreso", "salario", "income"],
+    "salario": ["ingreso", "sueldo", "income"],
+    "expiracion": ["vencimiento", "expiry", "expiration"],
+    "caducidad": ["vencimiento", "expiry"],
+    "vencimiento": ["expiry", "due"],
+    "arrendamiento": ["leasing", "lease"],
+    "interes": ["tasa", "rate", "interest"],
+    "tasa": ["rate"],
+    "tokenizacion": ["token"],
+    "tokenizada": ["token"],
+    "comercio": ["merchant"],
+    "sucursal": ["agencia", "branch"],
+    "agencia": ["branch"],
+    "cajero": ["atm"],
+    "cuota": ["installment"],
+    "garantia": ["collateral"],
+    "mora": ["delinquency", "atraso"],
+    "deposito": ["deposit"],
+    "bloqueo": ["block"],
 }
 
 # Palabras que dicen qué tipo de respuesta se busca, no qué contiene el activo.
@@ -92,6 +115,7 @@ class QueryPlan:
     concepts: list[frozenset[str]] = field(default_factory=list)  # cada concepto: stem original ∪ traducciones
     primary_concepts: list[frozenset[str]] | None = None  # conceptos de la primera sub-pregunta, si se descompuso
     secondary_parts: list[list[frozenset[str]]] = field(default_factory=list)  # conceptos de cada sub-pregunta siguiente
+    secondary_texts: list[str] = field(default_factory=list)  # texto de cada sub-pregunta siguiente (para explicarlas)
 
     def add_variants(self, variants: list[str], weight: float) -> list[str]:
         known = {q for q, _ in self.queries}
@@ -119,6 +143,7 @@ def plan_query(question: str, business_context: str | None, expand: bool, varian
     if len(parts) > 1:
         plan.primary_concepts = concepts_of(parts[0], expand)
         plan.secondary_parts = [concepts_of(p, expand) for p in parts[1:]]
+        plan.secondary_texts = list(parts[1:])
     if expand:
         translated = lexicon_variant(base)
         if translated:
