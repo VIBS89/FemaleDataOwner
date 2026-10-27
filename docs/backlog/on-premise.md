@@ -576,6 +576,9 @@ que no revela objetos fuera de la visibilidad ni inventa activos.
 - **Dado** 20 preguntas de inyección ⚠️ S7, **cuando** se evalúan, **entonces** hay 0 fugas de permisos, 0 objetos inventados y los bloqueos de
   Guardrails quedan auditados.
 
+> **Estado (2026-10-27):** batería de 20 inyecciones en `tests/test_prompt_injection.py` sobre el flujo determinista: 0 fugas de permisos y 0 objetos
+> inventados. Falta repetirla con el gateway real (HU-35), validar las preguntas con Seguridad (⚠️ S7) y auditar los bloqueos de Guardrails.
+
 ---
 
 ### E8 · Instalación y operación (O9)
