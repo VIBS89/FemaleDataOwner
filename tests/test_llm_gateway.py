@@ -206,6 +206,21 @@ def test_smoke_cli(capsys):
     assert "OK  embed" in capsys.readouterr().out
 
 
+def test_timeout_del_proveedor_llega_al_cliente_de_nim(monkeypatch):
+    import langchain_nvidia_ai_endpoints
+
+    from converdata.llm.factory import ProviderConfig, RoleConfig, build_nim_chat
+
+    seen = {}
+    monkeypatch.setattr(langchain_nvidia_ai_endpoints, "ChatNVIDIA", lambda **kw: seen.update(kw))
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+    role = RoleConfig(provider="nvidia_nim", model="openai/gpt-oss-20b")
+    build_nim_chat(role, ProviderConfig(timeout_s=12.5))
+    assert seen["timeout"] == 12.5
+    build_nim_chat(role, ProviderConfig())
+    assert seen["timeout"] == 30.0  # valor por defecto de ProviderConfig
+
+
 def test_ejemplo_de_configuracion_es_valido():
     """config/models.example.yaml carga y valida (sin construir modelos reales)."""
     from pathlib import Path

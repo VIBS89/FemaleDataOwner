@@ -99,7 +99,9 @@ def _api_key(provider: ProviderConfig, default_env: str) -> str | None:
 def build_nim_chat(role: RoleConfig, provider: ProviderConfig):
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-    kwargs = {"model": role.model, "api_key": _api_key(provider, "NVIDIA_API_KEY"), "usage_telemetry_enabled": False}
+    # timeout: tope por petición HTTP (y por la espera de un 202). NVIDIAEmbeddings no lo expone en su constructor.
+    kwargs = {"model": role.model, "api_key": _api_key(provider, "NVIDIA_API_KEY"), "usage_telemetry_enabled": False,
+              "timeout": provider.timeout_s}
     if provider.base_url:
         kwargs["base_url"] = provider.base_url
     if role.temperature is not None:

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from pathlib import Path
 
 from converdata.bootstrap import build_service, user_with_databases
 
@@ -55,7 +57,33 @@ def render(envelope) -> str:
     return "\n".join(lines)
 
 
+def load_dotenv(path: str | Path = ".env") -> None:
+    """Carga `CLAVE=valor` de un `.env` local (ignorado por git). No pisa variables ya definidas en el entorno."""
+    p = Path(path)
+    if not p.is_file():
+        return
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip().strip("'\"")
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+
+
+def use_system_certificates() -> None:
+    """Valida TLS con el almacén del sistema operativo (antivirus o proxy que inspeccionan HTTPS) en vez de certifi."""
+    try:
+        import truststore
+    except ImportError:
+        return
+    truststore.inject_into_ssl()
+
+
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv()
+    use_system_certificates()
     parser = argparse.ArgumentParser(prog="converdata")
     sub = parser.add_subparsers(dest="command", required=True)
     d = sub.add_parser("discover", help="DiscoverFlow (F22) sobre un catálogo local")

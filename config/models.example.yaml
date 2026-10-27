@@ -14,17 +14,22 @@ providers:
     base_url: null               # null = https://integrate.api.nvidia.com/v1 ; NIM autoalojado: http://<host>:8000/v1
     api_key_env: NVIDIA_API_KEY  # clave nvapi-... ; no hace falta con un NIM autoalojado sin autenticación
     allowed_data: test           # la API alojada de NVIDIA es un tercero: solo datos de prueba
+    timeout_s: 30                # tope por petición HTTP del chat; luego cuenta como timeout para el respaldo
   bedrock:
     enabled: false               # activar cuando la cuenta AWS tenga Bedrock y IAM Roles Anywhere (OP-01)
     region: us-east-1
     allowed_data: real           # sin model invocation logging (F17)
 
+# Modelos verificados con `converdata llm smoke` el 2026-10-27 en la API alojada (cuenta gratuita de desarrollador).
+# Los anteriores (llama-3.3-70b, llama-3.1-8b, nemotron-super-49b, llama-nemotron-embed-1b-v2) llegaron a fin de vida
+# el 2026-08-26 (410 Gone). Con otra cuenta pueden habilitarse modelos más grandes: listar con GET /v1/models y
+# probar con `llm smoke` antes de cambiarlos aquí.
 roles:
-  planner: {provider: nvidia_nim, model: meta/llama-3.3-70b-instruct, temperature: 0.0, max_tokens: 1024}
-  fast:    {provider: nvidia_nim, model: meta/llama-3.1-8b-instruct, temperature: 0.0, max_tokens: 400}
-  judge:   {provider: nvidia_nim, model: nvidia/llama-3.3-nemotron-super-49b-v1.5, temperature: 0.0}
+  planner: {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 1024}
+  fast:    {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 400}
+  judge:   {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 1024}
   # 1024 dimensiones = VECTOR(1024) de la BD ConverData (OP-02). Cambiar de modelo exige reindexar.
-  embed:   {provider: nvidia_nim, model: nvidia/llama-nemotron-embed-1b-v2, dimensions: 1024}
+  embed:   {provider: nvidia_nim, model: nvidia/nemotron-3.5-embed-1b, dimensions: 1024}
 
 # Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Los embeddings no tienen respaldo.
 # Con Bedrock activo como principal, NIM puede quedar aquí como respaldo (solo si data_mode: test o NIM autoalojado).
