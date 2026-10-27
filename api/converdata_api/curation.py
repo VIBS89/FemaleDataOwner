@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import io
+import hashlib
+import csv
 import logging
 import threading
 import urllib.request
@@ -151,6 +154,66 @@ class CurationStore:
                 path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
                 edited += 1
         return edited
+
+    # --- diccionario de datos (HU-25, F23 CA1 y CA5) -------------------------------------------------
+    def _dictionary_ledger(self) -> Path:
+        return self.data_root / "knowledge" / "dictionary_hashes.json"
+
+    def apply_dictionary(self, catalog, text: str, allowed) -> dict:
+        """Aplica un diccionario CSV (`asset_key` o `database,schema,table[,column]`, `description`, `synonyms` con `;`).
+
+        Las descripciones quedan como `data_dictionary` sin pisar las `human`; el mismo archivo dos veces no hace nada (hash).
+        `allowed(asset_key) -> bool` limita el alcance al dominio del steward. No llama al LLM."""
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        with self._lock:
+            ledger_path = self._dictionary_ledger()
+            seen = json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.is_file() else []
+            if digest in seen:
+                return {"unchanged": True, "applied": 0, "skipped_human": 0, "same": 0, "unknown": [], "forbidden": []}
+            sample = text[:2048]
+            delimiter = ";" if sample.count(";") > sample.count(",") else ","
+            rows = list(csv.DictReader(io.StringIO(text), delimiter=delimiter))
+            report = {"unchanged": False, "applied": 0, "skipped_human": 0, "same": 0, "unknown": [], "forbidden": [],
+                      "rows": len(rows)}
+            for row in rows:
+                row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
+                key = row.get("asset_key") or ".".join(p for p in (row.get("database"), row.get("schema"), row.get("table"),
+                                                                    row.get("column")) if p)
+                description = row.get("description", "")
+                if not key or not description:
+                    continue
+                copies = catalog.copies(table_key(key))
+                if not copies or not catalog.exists(key):
+                    report["unknown"].append(key)
+                    continue
+                if not allowed(key):
+                    report["forbidden"].append(key)
+                    continue
+                synonyms = [x.strip() for x in row.get("synonyms", "").split(";") if x.strip()][:12]
+                column = ".".join(key.split(".")[3:]) or None
+                for obj in copies:
+                    path = object_path(self.data_root, obj)
+                    if not path.is_file():
+                        continue
+                    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                    target = data if column is None else next(
+                        (c for c in data.get("columns", []) if c["name"].lower() == column.lower()), None)
+                    if target is None:
+                        continue
+                    if target.get("description_source") == "human":
+                        report["skipped_human"] += 1
+                        continue
+                    if target.get("description") == description and target.get("description_source") == "data_dictionary":
+                        report["same"] += 1
+                        continue
+                    target["description"], target["description_source"] = description, "data_dictionary"
+                    if synonyms:
+                        target["synonyms"] = list(dict.fromkeys([*(target.get("synonyms") or []), *synonyms]))[:12]
+                    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+                    report["applied"] += 1
+            ledger_path.parent.mkdir(parents=True, exist_ok=True)
+            ledger_path.write_text(json.dumps([*seen, digest]), encoding="utf-8")
+            return report
 
     # --- reglas de negocio curadas (HU-28) ----------------------------------------------------------
     def _rules_path(self) -> Path:

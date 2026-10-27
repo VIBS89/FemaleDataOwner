@@ -442,6 +442,10 @@ regresiones sin acordarme de lanzarlas.
   sin sobrescribir las `human`.
 - **Dado** una segunda ingesta sin cambios, **cuando** corre, **entonces** no llama al LLM ni reindexa (hash).
 
+> **Estado (2026-10-27):** hecho para CSV sobre el catálogo en archivos: `POST /curation/dictionary` (steward, por dominio), pestaña *Diccionario* en Curación,
+> descripciones como `data_dictionary` sin pisar las `human`, hash para no repetir y test `test_ingesta_de_diccionario_no_pisa_lo_humano_y_es_idempotente`.
+> Falta Excel, probar con un diccionario de 200 columnas reales y mover la ingesta a la BD `ConverData` (HU-06, HU-18).
+
 #### HU-26 · Ingesta de documentos con redacción de PII
 **Como** responsable de Seguridad de la Información **quiero** que los documentos se indexen con DUI, NIT, cuentas y tarjetas redactados
 **para** que ningún dato de cliente quede en el índice.

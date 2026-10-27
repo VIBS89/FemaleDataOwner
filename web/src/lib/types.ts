@@ -272,3 +272,13 @@ export interface ManagedRule {
   owner?: string | null;
   reviewed: boolean;
 }
+
+export interface DictionaryReport {
+  unchanged: boolean;
+  rows?: number;
+  applied: number;
+  skipped_human: number;
+  same: number;
+  unknown: string[];
+  forbidden: string[];
+}

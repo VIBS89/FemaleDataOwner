@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Flame, Inbox, Loader2, PenLine, Plus, Scale, Trash2, Search, SearchX, Sparkles, User } from "lucide-react";
+import { CheckCircle2, Clock, Flame, Inbox, FileSpreadsheet, Loader2, PenLine, Plus, Scale, Trash2, Search, SearchX, Sparkles, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { relativeTime } from "@/lib/format";
-import type { CurationRequest, ManagedRule, ObjectRow, ReviewItem } from "@/lib/types";
+import type { CurationRequest, DictionaryReport, ManagedRule, ObjectRow, ReviewItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function CurationPage() {
@@ -55,6 +55,9 @@ export default function CurationPage() {
             <TabsTrigger value="rules">
               <Scale /> Reglas de negocio
             </TabsTrigger>
+            <TabsTrigger value="dictionary">
+              <FileSpreadsheet /> Diccionario
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="requests" className="mt-5">
             <RequestsPanel onCount={setOpenCount} />
@@ -64,6 +67,9 @@ export default function CurationPage() {
           </TabsContent>
           <TabsContent value="rules" className="mt-5">
             <RulesPanel />
+          </TabsContent>
+          <TabsContent value="dictionary" className="mt-5">
+            <DictionaryPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -495,5 +501,69 @@ function RulesPanel() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+// --- Ingesta del diccionario de datos en CSV (HU-25, F23 CA1) -------------------------------------------
+function DictionaryPanel() {
+  const [report, setReport] = useState<DictionaryReport | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setFileName(file.name);
+    try {
+      const result = await api.uploadDictionary(await file.text());
+      setReport(result);
+      if (result.unchanged) toast.info("Este diccionario ya estaba cargado", { description: "No se cambió nada." });
+      else toast.success(`${result.applied} descripciones aplicadas`, { description: "Quedan como «Diccionario de datos»." });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo cargar el diccionario");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Cargar el diccionario de datos</CardTitle>
+        <CardDescription>
+          CSV con las columnas <span className="font-mono">asset_key</span> (BD.esquema.tabla[.columna]), <span className="font-mono">description</span> y,
+          opcionalmente, <span className="font-mono">synonyms</span> separados por «;». Las descripciones escritas por una persona no se sobrescriben y
+          cargar el mismo archivo dos veces no cambia nada.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Label htmlFor="dictionary-file" className="sr-only">
+            Archivo CSV del diccionario
+          </Label>
+          <Input id="dictionary-file" type="file" accept=".csv,text/csv" disabled={busy} onChange={(e) => onFile(e.target.files?.[0])} />
+          {busy && <Loader2 className="animate-spin" />}
+        </div>
+        {report && (
+          <div className="space-y-2 rounded-lg border p-4 text-sm">
+            <p className="font-medium">{fileName}</p>
+            {report.unchanged ? (
+              <p className="text-muted-foreground">Ya estaba cargado: no se llamó a nada ni se reindexó.</p>
+            ) : (
+              <ul className="grid gap-1 sm:grid-cols-2">
+                <li>Aplicadas: <strong>{report.applied}</strong></li>
+                <li>Sin cambios: <strong>{report.same}</strong></li>
+                <li>Respetadas (escritas por personas): <strong>{report.skipped_human}</strong></li>
+                <li>Fuera de tu dominio: <strong>{report.forbidden.length}</strong></li>
+              </ul>
+            )}
+            {report.unknown.length > 0 && (
+              <p className="text-destructive">No existen en el catálogo: {report.unknown.slice(0, 5).join(", ")}{report.unknown.length > 5 ? "…" : ""}</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

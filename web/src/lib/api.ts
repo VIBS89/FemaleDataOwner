@@ -3,6 +3,7 @@ import type {
   AuditRow,
   BuildJob,
   CurationRequest,
+  DictionaryReport,
   DatabaseSummary,
   Metrics,
   ManagedRule,
@@ -144,6 +145,7 @@ export const api = {
     request<{ items: ReviewItem[] }>(`/curation/review?limit=100${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`),
   setDescription: (asset_key: string, description: string, synonyms?: string[]) =>
     request<{ ok: boolean; copies: number }>("/curation/description", { method: "PUT", json: { asset_key, description, synonyms } }),
+  uploadDictionary: (csv: string) => request<DictionaryReport>("/curation/dictionary", { method: "POST", json: { csv } }),
   rules: () => request<{ items: ManagedRule[] }>("/curation/rules"),
   saveRule: (rule: { id: string; text: string; applies_to: string[]; domain?: string }) =>
     request<{ ok: boolean; rule: ManagedRule }>("/curation/rules", { method: "PUT", json: rule }),

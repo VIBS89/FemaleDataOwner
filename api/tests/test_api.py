@@ -276,3 +276,35 @@ def test_tope_agotado_en_modo_determinista_responde_sin_ia(settings):
     streamed = analyst.post("/discover/stream", json={"question": "¿Dónde está el puntaje de riesgo crediticio del cliente?"})
     assert streamed.status_code == 200 and "sin IA generativa" in streamed.text
     assert client.get("/health/metrics").json()["counters"]["token_limit_deterministic"] == 2
+
+
+def test_ingesta_de_diccionario_no_pisa_lo_humano_y_es_idempotente(ready):
+    steward = TestClient(ready.app)
+    login(steward, user="responsable")
+    analyst = TestClient(ready.app)
+    login(analyst, user="analista")
+    human = "BancaPrestamos.dbo.Prestamos.CategoriaRiesgo"
+    other = "BancaPrestamos.dbo.Prestamos.MontoDesembolsado"
+    steward.put("/curation/description", json={"asset_key": human, "description": "Descripción escrita por una persona."})
+    csv_text = (
+        "asset_key,description,synonyms\n"
+        f"{human},Texto del diccionario que no debe pisar lo humano,riesgo\n"
+        f"{other},Monto oficial desembolsado al cliente según el core,desembolso;monto entregado\n"
+        "Nada.dbo.No.existe,Fila que no corresponde a ningún activo,\n"
+    )
+    first = steward.post("/curation/dictionary", json={"csv": csv_text})
+    assert first.status_code == 200
+    report = first.json()
+    assert report["applied"] >= 1 and report["skipped_human"] >= 1 and report["unknown"] == ["Nada.dbo.No.existe"]
+
+    def column(key):
+        table = analyst.get(f"/assets/{key.rsplit('.', 1)[0]}").json()
+        return next(c for c in table["columns"] if c["name"] == key.rsplit(".", 1)[1])
+
+    assert column(human)["description"] == "Descripción escrita por una persona."
+    assert column(human)["description_source"] == "human"
+    assert column(other)["description"].startswith("Monto oficial") and column(other)["description_source"] == "data_dictionary"
+
+    again = steward.post("/curation/dictionary", json={"csv": csv_text}).json()
+    assert again["unchanged"] is True and again["applied"] == 0  # mismo hash: sin trabajo ni reindexado
+    assert analyst.post("/curation/dictionary", json={"csv": csv_text}).status_code == 403

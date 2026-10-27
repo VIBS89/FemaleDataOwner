@@ -112,6 +112,10 @@ class RuleRequest(BaseModel):
     domain: str | None = Field(None, max_length=80)
 
 
+class DictionaryRequest(BaseModel):
+    csv: str = Field(min_length=10, max_length=2_000_000)
+
+
 class GoldenAction(BaseModel):
     action: Literal["approve", "retire"]
 
@@ -565,6 +569,19 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         runtime.reload()
         audit.event("curation_description", session.user_id, asset_key=body.asset_key, copies=copies)
         return {"ok": True, "copies": copies}
+
+    # --- diccionario de datos (HU-25, F23 CA1) --------------------------------------------------------
+    @app.post("/curation/dictionary")
+    def curation_dictionary(body: DictionaryRequest, session: Session = Depends(steward_session),
+                            service=Depends(require_service)):
+        report = curation.apply_dictionary(
+            service.deps.catalog, body.csv, lambda key: can_curate(session, domain_of(service, key)))
+        if report["applied"]:
+            runtime.reload()
+        audit.event("curation_dictionary", session.user_id, applied=report["applied"], skipped_human=report["skipped_human"],
+                    unknown=len(report["unknown"]), unchanged=report["unchanged"])
+        report["unknown"], report["forbidden"] = report["unknown"][:50], report["forbidden"][:50]
+        return report
 
     # --- reglas de negocio gestionadas (HU-28, F23 CA4) ----------------------------------------------
     def rule_scope(session: Session, service, asset_keys: list[str]) -> None:
