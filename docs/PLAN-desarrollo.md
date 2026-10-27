@@ -40,6 +40,8 @@ Lecciones que guían lo que sigue:
   "tasa de interés" ↔ `TasaAnual`.
 
 ## 3. Próximos pasos (en orden)
+Orden por historias del backlog para el agente y su MCP: [§7](#7-orden-de-desarrollo-del-agente-y-su-mcp).
+
 1. **Medir embeddings** (paso pendiente de esta sesión). Requiere `bge-m3` en Ollama (`ollama pull bge-m3`; la descarga
    quedó en curso, verificar con `ollama list`). Medir 4 combinaciones y quedarse con la mejor:
    ```bash
@@ -94,3 +96,40 @@ Luego seguir con el paso 1 de §3.
 | `config/models.embed.yaml` | Solo embeddings `bge-m3` en Ollama |
 | Ollama | `qwen3.6:35b-a3b` instalado; `bge-m3` en descarga |
 | `BancosSQL.zip` (13 MB) | Versionado en git desde `main`; conviene sacarlo del repo o usar Git LFS |
+
+## 7. Orden de desarrollo del agente y su MCP
+> Añadido el 2026-10-27. Ordena las historias del [backlog on-premise](backlog/on-premise.md) para construir el DiscoverFlow y
+> `converdata-mcp` (F12) sobre la misma capa de herramientas. Cada paso se apoya en el anterior.
+
+**Antes de empezar:** en `api/converdata_api/` ya hay una API en desarrollo (login, vault, auditoría, `/discover`, `/feedback`, admin)
+con rutas `/auth/login`, `/discover` y `/feedback`, mientras que [OP-04](specs/on-premise/OP-04-interfaces.md) pide `POST /login`,
+`/api/discover` y `/api/discover/feedback`. Hay que acordar cuáles quedan antes del paso 5, porque el MCP y Chainlit dependen de ellas.
+
+| Paso | Qué | Historias | Por qué en este orden |
+|---|---|---|---|
+| 1 | Afinar el agente: medir embeddings (las 4 combinaciones de §3) y probar los roles de Bedrock con latencia y coste reales | [HU-34](backlog/on-premise.md#hu-34--medir-y-ajustar-el-canal-semántico), [HU-35](backlog/on-premise.md#hu-35--bedrock-probado-de-punta-a-punta) | El MCP se construye sobre un agente con calidad ya medida |
+| 2 | Persistencia en la BD `ConverData`: DDL con `estate` y `semantic`, validar `SqlServerVectorStore` en SQL Server 2025, escribir el catálogo y arrancar el agente desde la BD (YAML solo en desarrollo) | [HU-04](backlog/on-premise.md#hu-04--completar-el-ddl-de-la-bd-converdata), [HU-05](backlog/on-premise.md#hu-05--validar-el-ddl-y-sqlservervectorstore-en-sql-server-2025), [HU-06](backlog/on-premise.md#hu-06--escribir-el-catálogo-en-la-bd-converdata-con-historial), [HU-09](backlog/on-premise.md#hu-09--ensamblar-el-discoverflow-desde-la-bd-converdata) | Requiere una instancia SQL Server 2025 |
+| 3 | Identidad: SessionVault, `ConnectionFactory.for_session` y login por servidor | [HU-11](backlog/on-premise.md#hu-11--custodia-de-credenciales-en-sessionvault), [HU-12](backlog/on-premise.md#hu-12--conexiones-con-la-credencial-del-usuario), [HU-10](backlog/on-premise.md#hu-10--iniciar-sesión-con-login-sql-por-servidor) | Cada herramienta toma la identidad de la sesión, nunca de un argumento (F14). Revisar `api/converdata_api/vault.py` contra OP-03 |
+| 4 | Auditoría fail-closed en SQL Server | [HU-20](backlog/on-premise.md#hu-20--auditoría-fail-closed-en-sql-server) | Ninguna interfaz, ni la API ni el MCP, responde sin auditar (F11). Revisar `api/converdata_api/audit.py` |
+| 5 | Capa de herramientas compartida (ver abajo) | [HU-16](backlog/on-premise.md#hu-16--herramientas-mcp-con-la-identidad-de-la-sesión) | La API, el chat y el MCP llaman al mismo código: un único camino de escritura (F12) |
+| 6 | API y MCP publicados: las rutas llaman a las herramientas del paso 5; FastMCP en `/mcp` de `ConverData-API` con el mismo `Bearer` de `/login`; solo se publican las herramientas externas | [HU-14](backlog/on-premise.md#hu-14--api-rest-de-descubrimiento), [HU-15](backlog/on-premise.md#hu-15--confirmar-o-rechazar-un-candidato), [HU-16](backlog/on-premise.md#hu-16--herramientas-mcp-con-la-identidad-de-la-sesión) | Aceptación: Claude Code con `.mcp.json` apuntando a `/mcp` recibe un `AnswerEnvelope` con `flow=discover` (OP-04 CA3) |
+| 7 | Lo que consume las herramientas: chat, curación con las herramientas internas `curation_*` e ingesta de conocimiento | [HU-17](backlog/on-premise.md#hu-17--chat-chainlit-con-tarjetas-de-candidatos), [HU-29](backlog/on-premise.md#hu-29--golden-discovery-desde-las-confirmaciones), [HU-30](backlog/on-premise.md#hu-30--preguntar-al-responsable), [HU-31](backlog/on-premise.md#hu-31--vista-curación-para-stewards), [HU-25](backlog/on-premise.md#hu-25--ingesta-de-diccionarios-de-datos), [HU-26](backlog/on-premise.md#hu-26--ingesta-de-documentos-con-redacción-de-pii), [HU-28](backlog/on-premise.md#hu-28--reglas-de-negocio-gestionadas) | Todo escribe por las herramientas internas |
+| 8 | Operación y piloto: logs, alertas, instalación en IIS y piloto | [HU-21](backlog/on-premise.md#hu-21--logs-json-sin-contenido-y-visor-de-eventos), [HU-22](backlog/on-premise.md#hu-22--contadores-en-healthmetrics), [HU-37](backlog/on-premise.md#hu-37--scripts-de-instalación-en-windows-server), [HU-38](backlog/on-premise.md#hu-38--secretos-de-servicio-sin-contraseñas-en-claro), [HU-40](backlog/on-premise.md#hu-40--línea-base-firmada), [HU-41](backlog/on-premise.md#hu-41--ejecución-del-piloto-e-informe-de-decisión) | Cierra la versión on-premise |
+
+### Paso 5 en detalle: herramientas de `converdata-mcp`
+Funciones Python que reciben el contexto de sesión (usuario, grupos, `visible_ids`), antes de añadir FastMCP:
+
+| Orden | Herramientas | Tipo |
+|---|---|---|
+| 5a | `discover`, `get_asset` | Externas: lo mínimo para un cliente MCP en la fase 1a |
+| 5b | `get_related`, `find_alternatives`, `list_business_rules`, `get_lineage` | Externas: detalle de un candidato |
+| 5c | `record_discovery_feedback` | Interna: solo la usa la API |
+| 5d | `where_is`, `estate_overview`, `find_join_path`, `search_catalog`, `describe_table` | Externas, opcionales en la fase 1a (grafo F19 y catálogo) |
+
+Los tests de permisos deben pasar ya en este paso: el usuario A no ve nada de B, ningún argumento cambia la identidad (OP-03 CA5) y hay
+0 fugas en el set de evaluación.
+
+- El MCP de metadatos (`converdata-discovery`, F18) **no se publica** on-premise: sigue como biblioteca dentro de `ConverData-Builder`
+  (`src/converdata/metadata/sqlserver.py`).
+- **Fuera de la fase 1a:** `ask`, `validate_sql`, `run_select`, `exec_procedure`, `list_metrics` y `analyze` (AskFlow, fase 1b); se añaden
+  después sobre la misma capa de herramientas.
