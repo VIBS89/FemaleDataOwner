@@ -294,7 +294,10 @@ desde mi IDE.
 
 > **Estado (2026-10-27):** capa de herramientas (`converdata.application.discovery`) y servidor MCP HTTP con `require_bearer`
 > (`converdata.integration.mcp.server`) hechos y probados con el cliente MCP oficial (`tests/test_mcp_server.py`). Montado el 2026-10-27
-> en `/mcp` de `ConverData-API` con el SessionVault real (`api/converdata_api/mcp_mount.py`, `api/tests/test_mcp.py`). Falta fijar
+> en `/mcp` de `ConverData-API` con el SessionVault real (`api/converdata_api/mcp_mount.py`, `api/tests/test_mcp.py`). Verificado además con uvicorn real: `initialize` y `tools/call` por SSE responden. En el equipo de desarrollo, cualquier petición con la cabecera
+> `mcp-protocol-version` recibe la respuesta reescrita (`transfer-encoding: chunked` sin cuerpo fragmentado), incluso desde un servidor
+> HTTP de la biblioteca estándar de Python: lo causa algo de esa red local (inspección de tráfico), no ConverData ni el SDK. Repetir la
+> prueba del cliente MCP de Python en el servidor de IIS. Falta fijar
 > `CONVERDATA_MCP_HOSTS` con el nombre del servidor de IIS (`transport_security`) y la regla de límite de preguntas en `/mcp`.
 
 #### HU-17 · Chat Chainlit con tarjetas de candidatos

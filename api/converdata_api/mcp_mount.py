@@ -43,7 +43,7 @@ def build_mcp_mount(runtime: AgentRuntime, vault: SessionVault, settings: ApiSet
                                           allowed_origins=settings.mcp_allowed_origins)
                 if settings.mcp_allowed_hosts else None)
     mcp_app = build_mcp_server(tools, identify).streamable_http_app(
-        streamable_http_path=MCP_PATH, stateless_http=True, transport_security=security)  # SSE: con json_response=True las respuestas llegan truncadas bajo uvicorn (mcp 2.3.0)
+        streamable_http_path=MCP_PATH, stateless_http=True, transport_security=security)
     guarded = require_bearer(mcp_app, lambda token: vault.get(token) is not None)
 
     async def asgi(scope, receive, send):
