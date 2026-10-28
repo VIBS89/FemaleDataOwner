@@ -4,14 +4,26 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" proteger-archivos", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" proteger-archivos",
+            "timeout": 10
+          }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" proteger-git", "timeout": 10 },
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" pruebas-commit", "timeout": 300 }
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" proteger-git",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" pruebas-commit",
+            "timeout": 300
+          }
         ]
       }
     ],
@@ -19,16 +31,27 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" verificar-edicion", "timeout": 100 }
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" verificar-edicion",
+            "timeout": 100
+          }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" cierre", "timeout": 130 }
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ciclo_dev.py\" cierre",
+            "timeout": 130
+          }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "claude-code-setup@claude-plugins-official": true
   }
 }

@@ -1,7 +1,8 @@
 # Backlog — versión on-premise (fase 0 + fase 1a)
 
 > Creado: 2026-10-27. Documento vivo: se actualiza al cerrar cada sprint.
-> Base: [PRD](../PRD.md) §6, §10 y §11 · [OP-01](../specs/on-premise/OP-01-despliegue-local.md) a [OP-06](../specs/on-premise/OP-06-residencia-datos.md) · [F25](../specs/comun/F25-success-metrics.md) · [plan de desarrollo](../PLAN-desarrollo.md).
+> Base: [PRD](../PRD.md) §6, §10 y §11 · [OP-01](../specs/on-premise/OP-01-despliegue-local.md) a [OP-09](../specs/on-premise/OP-09-situaciones-desarrollo.md) · [F25](../specs/comun/F25-success-metrics.md) · [plan de desarrollo](../PLAN-desarrollo.md).
+> Ejecución en paralelo: [cinco sesiones de desarrollo con goals](sesiones-goals.md).
 >
 > Las marcas **⚠️ SUPUESTO** son plazos, capacidades o métricas que no se deducen del repo. Hay que confirmarlas antes de
 > comprometer fechas; la lista completa está en la [§5](#5-supuestos-a-confirmar).
