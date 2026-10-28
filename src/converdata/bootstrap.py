@@ -30,7 +30,7 @@ class ConfiguracionInvalida(ValueError):
 ALMACENES = ("files", "sqlserver")
 ENTORNOS = ("dev", "qa", "prod")
 FUERA_DE_DEV = ("qa", "prod")
-PROVEEDORES_SOLO_DEV = ("ollama", "nvidia_nim")  # F16, OP-09: no se usan en qa ni prod
+PROVEEDORES_EN_SERVIDOR = ("bedrock",)  # F16, OP-09: en qa y prod solo Bedrock; Ollama y NIM son de desarrollo
 _VERDADERO = ("1", "true", "yes", "si", "sí")
 _CONTRASENA_EN_CADENA = re.compile(r"(^|;)\s*(pwd|password)\s*=", re.IGNORECASE)
 
@@ -43,13 +43,15 @@ class AdapterConfig:
 
     store: str = "files"
     audit: str = "files"
-    db: str | None = None
+    db: str | None = field(default=None, repr=False)  # puede llevar usuario y servidor: no va a logs
     models: Path | None = None
     env: str = "dev"
     demo: bool = field(default=False, repr=False)
 
     @classmethod
-    def from_env(cls, environ: Mapping[str, str], settings: Settings | None = None) -> AdapterConfig:
+    def from_env(cls, environ: Mapping[str, str], settings: Settings | None = None, *, require_env: bool = False) -> AdapterConfig:
+        if require_env and not (environ.get("CONVERDATA_ENV") or "").strip():
+            raise ConfiguracionInvalida("CONVERDATA_ENV: el servicio debe declarar su entorno (dev | qa | prod)")
         env = _elegir(environ, "CONVERDATA_ENV", ENTORNOS + ("local",), "dev")
         env = "dev" if env == "local" else env  # `local` es la máquina del desarrollador (F16): mismo régimen que dev
         store = _elegir(environ, "CONVERDATA_STORE", ALMACENES, "files")
@@ -73,13 +75,22 @@ class AdapterConfig:
                     raise ConfiguracionInvalida(f"{nombre}=files no se permite con CONVERDATA_ENV={env}; use sqlserver")
             if demo:
                 raise ConfiguracionInvalida(f"CONVERDATA_DEMO=1 no se permite con CONVERDATA_ENV={env}")
+            if environ.get("CONVERDATA_DB_PASSWORD"):
+                raise ConfiguracionInvalida(
+                    f"CONVERDATA_DB_PASSWORD no se permite con CONVERDATA_ENV={env}; use autenticación integrada (gMSA)"
+                )
+            if settings is None:
+                raise ConfiguracionInvalida(
+                    f"settings: con CONVERDATA_ENV={env} hay que pasar los ajustes cargados para comprobar audit.fail_open (F11)"
+                )
             if models:
-                prohibidos = sorted(_proveedores(Path(models)) & set(PROVEEDORES_SOLO_DEV))
-                if prohibidos:
+                no_permitidos = sorted(_proveedores(Path(models)) - set(PROVEEDORES_EN_SERVIDOR))
+                if no_permitidos:
                     raise ConfiguracionInvalida(
-                        f"CONVERDATA_MODELS usa {', '.join(prohibidos)}, que no se permite con CONVERDATA_ENV={env}; use bedrock"
+                        f"CONVERDATA_MODELS usa {', '.join(no_permitidos)}, que no se permite con CONVERDATA_ENV={env}; "
+                        f"use {' | '.join(PROVEEDORES_EN_SERVIDOR)}"
                     )
-            if settings is not None and settings.audit.fail_open:
+            if settings.audit.fail_open:
                 raise ConfiguracionInvalida(f"settings.yaml audit.fail_open: true no se permite con CONVERDATA_ENV={env} (F11)")
         return cls(store=store, audit=audit, db=db, models=Path(models) if models else None, env=env, demo=demo)
 
@@ -88,7 +99,8 @@ class AdapterConfig:
         if self.db is None:
             raise ConfiguracionInvalida("CONVERDATA_DB: no hay cadena de conexión configurada")
         password = environ.get("CONVERDATA_DB_PASSWORD")
-        return f"{self.db.rstrip(';')};PWD={password}" if password else self.db
+        # llaves ODBC: `}` se duplica y `;` o espacios dentro de la contraseña no añaden atributos
+        return f"{self.db.rstrip(';')};PWD={{{password.replace('}', '}}')}}}" if password else self.db
 
 
 def _elegir(environ: Mapping[str, str], variable: str, validos: tuple[str, ...], por_defecto: str) -> str:
@@ -100,11 +112,14 @@ def _elegir(environ: Mapping[str, str], variable: str, validos: tuple[str, ...],
 
 def _proveedores(models_path: Path) -> set[str]:
     data = yaml.safe_load(models_path.read_text(encoding="utf-8")) or {}
-    usados = {r.get("provider") for r in (data.get("roles") or {}).values() if isinstance(r, dict)}
+    roles = data.get("roles") or {}
+    if not isinstance(roles, dict):
+        raise ConfiguracionInvalida(f"CONVERDATA_MODELS: 'roles' debe ser un mapa rol → proveedor en {models_path}")
+    usados = {r.get("provider") for r in roles.values() if isinstance(r, dict)}
     respaldo = data.get("fallback")
     if isinstance(respaldo, dict):
         usados.add(respaldo.get("provider"))
-    return {p for p in usados if p}
+    return {str(p).strip().lower() for p in usados if p}
 
 
 def resolve_catalog_store(config: AdapterConfig, root: str | Path) -> CatalogStore:
@@ -122,15 +137,15 @@ def resolve_audit_sink(config: AdapterConfig, connect: Callable[[], object]) -> 
 
 def build_service(
     root: str | Path, *, models_path: str | Path | None = None, gateway=None, llm_nodes: bool = True,
-    embedder_override=None, store: CatalogStore | None = None, **overrides
+    embedder_override=None, catalog_store: CatalogStore | None = None, **overrides
 ) -> DiscoverService:
     """Sin `models_path` ni `gateway`, modo determinista. Con ellos, los nodos `intent`, `rerank` y `respond` y los
     embeddings pasan por el gateway de LLM (NVIDIA NIM o Bedrock según `config/models.yaml`)."""
     root = Path(root)
     inventory = load_inventory(root / "config" / "databases.yaml")
-    catalog_store = store or FileCatalogStore(root)
-    catalog = catalog_store.load_catalog(inventory)
-    knowledge = catalog_store.load_knowledge()
+    source = catalog_store or FileCatalogStore(root)
+    catalog = source.load_catalog(inventory)
+    knowledge = source.load_knowledge()
     owners = load_owners(root / "config" / "owners.yaml")
     settings = load_settings(root / "config" / "settings.yaml")
 

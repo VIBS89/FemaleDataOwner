@@ -31,7 +31,7 @@
 - Verificación: `pytest -q -rs` muestra cada test omitido con su motivo; un test centinela marcado `sqlserver` lo demuestra.
 
 ### A2 · Puerto `CatalogStore` y adaptador de archivos
-- `catalog/ports.py` (dominio): `CatalogStore` (`Protocol`) con `load_catalog(inventory) -> Catalog`, `load_knowledge() -> KnowledgeBase` y `save_catalog(...)` con la misma firma de `builder.catalog_builder.write_output`. Sin historial (ver hallazgo 9).
+- `catalog/ports.py` (dominio): `CatalogStore` (`Protocol`) con `load_catalog(inventory) -> Catalog`, `load_knowledge() -> KnowledgeBase`, `load_existing() -> dict[id, CatalogObject]` (para fusionar un refresco sin pisar ediciones humanas, F24-CA3) y `save_catalog(...) -> int` con la misma firma de `builder.catalog_builder.write_output`. Sin historial (ver hallazgo 9).
 - `catalog/files.py` (infraestructura): `FileCatalogStore(root)` mueve aquí la carga YAML de `store.py`; `Catalog` y `KnowledgeBase` se quedan en el dominio. Se actualizan todos los llamadores (sin alias de compatibilidad) y `LAYERS` + `capas-backend.md` (se retira el ítem de deuda).
 - `tests/test_catalog_store_contract.py`: batería parametrizada por adaptador `[files, sqlserver(omitido)]`: round-trip `save → load`, una edición `human` sobrevive a un refresco, ids de objetos inexistentes responden vacío, YAML inválido falla con la ruta del archivo (conducta actual de `load_catalog`), y ningún valor de datos se escribe (literal marcado).
 - Verificación: el round-trip sobre `tests/fixtures/bancos` devuelve un `Catalog` idéntico al de antes del cambio (test de caracterización escrito **antes** de mover el código).
@@ -83,3 +83,13 @@ No puede tocar: `api/converdata_api/`, `src/converdata/identity/`, `audit/`, `di
 2. **`STORE=sqlserver` del catálogo** falla explícitamente hasta S1-B (propuesto) frente a caer en `files` con aviso.
 3. **Historial en el puerto**: se difiere a S1-B (propuesto) frente a declararlo ya.
 4. **Línea base de tests**: el número exacto sale del paso 0, no del README.
+
+## 7. Resultado (2026-10-27)
+Hecho en SD-1 en cuatro commits (marcas, puerto, selección de adaptadores, DDL) con 262 tests en verde y 7 omitidos con motivo.
+Cambios sobre lo planeado, tras la revisión de los subagentes:
+- `build_service(..., catalog_store=...)` (no `store`, que choca con el almacén vectorial de `DiscoverDeps`).
+- `CONVERDATA_ENV=local` se acepta como alias de `dev` (F16 lo usa para Ollama); `from_env(..., require_env=True)` obliga a declarar el entorno en los puntos de entrada de servicio.
+- En qa/prod `settings` es obligatorio (para comprobar `audit.fail_open`), solo se permite `bedrock` (lista de permitidos), se rechaza `CONVERDATA_DB_PASSWORD` y la contraseña entra a la cadena ODBC entre llaves.
+- `estate.relation` es una sola tabla de aristas con `kind`.
+Pendiente y de otras sesiones: conectar `AdapterConfig` al arranque de la API (S2), adaptador `sqlserver` del catálogo (S1-B), validar el T-SQL en SQL Server 2025 y la revisión de la DBA.
+Observación fuera del alcance: `audit/sqlserver.py` inserta `audit_step.detail`, columna que `001_esquemas.sql` no define (tiene `prompt_tokens` y `completion_tokens`); fallaría contra SQL Server real. Para S3 antes de SD-3.

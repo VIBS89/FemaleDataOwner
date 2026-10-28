@@ -67,10 +67,10 @@ def test_la_cadena_de_conexion_no_puede_llevar_la_contrasena(cadena):
 
 def test_la_contrasena_solo_entra_a_la_conexion_desde_su_variable_y_no_se_ve_en_el_repr():
     entorno = {**EN_SERVIDOR, "CONVERDATA_DB": DB.replace("Trusted_Connection=yes", "UID=cd_app")}
-    cfg = AdapterConfig.from_env(entorno)
+    cfg = AdapterConfig.from_env(entorno, settings=Settings())
 
     assert "PWD" not in cfg.db
-    assert cfg.connection_string({"CONVERDATA_DB_PASSWORD": "prueba-123"}).endswith(";PWD=prueba-123")
+    assert cfg.connection_string({"CONVERDATA_DB_PASSWORD": "prueba-123"}).endswith(";PWD={prueba-123}")
     assert "prueba-123" not in repr(cfg)
 
 
@@ -80,12 +80,12 @@ def test_fuera_de_dev_no_se_permiten_archivos(env, variable):
     entorno = {**EN_SERVIDOR, "CONVERDATA_ENV": env, variable: "files"}
 
     with pytest.raises(ConfiguracionInvalida, match=variable):
-        AdapterConfig.from_env(entorno)
+        AdapterConfig.from_env(entorno, settings=Settings())
 
 
 @pytest.mark.parametrize("env", ["qa", "prod"])
 def test_con_sqlserver_completo_arranca_en_qa_y_prod(env):
-    cfg = AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": env})
+    cfg = AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": env}, settings=Settings())
 
     assert (cfg.store, cfg.audit, cfg.env) == ("sqlserver", "sqlserver", env)
 
@@ -93,7 +93,7 @@ def test_con_sqlserver_completo_arranca_en_qa_y_prod(env):
 @pytest.mark.parametrize("env", ["qa", "prod"])
 def test_fuera_de_dev_no_se_permite_el_modo_demo(env):
     with pytest.raises(ConfiguracionInvalida, match="CONVERDATA_DEMO"):
-        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": env, "CONVERDATA_DEMO": "1"})
+        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": env, "CONVERDATA_DEMO": "1"}, settings=Settings())
 
 
 def test_en_dev_el_modo_demo_sigue_permitido():
@@ -105,13 +105,13 @@ def test_fuera_de_dev_no_se_permiten_ollama_ni_nim(tmp_path, proveedor):
     entorno = {**EN_SERVIDOR, "CONVERDATA_ENV": "qa", "CONVERDATA_MODELS": _models(tmp_path, proveedor)}
 
     with pytest.raises(ConfiguracionInvalida, match=f"CONVERDATA_MODELS.*{proveedor}"):
-        AdapterConfig.from_env(entorno)
+        AdapterConfig.from_env(entorno, settings=Settings())
 
 
 def test_fuera_de_dev_bedrock_si_esta_permitido(tmp_path):
     entorno = {**EN_SERVIDOR, "CONVERDATA_ENV": "prod", "CONVERDATA_MODELS": _models(tmp_path, "bedrock")}
 
-    assert AdapterConfig.from_env(entorno).models is not None
+    assert AdapterConfig.from_env(entorno, settings=Settings()).models is not None
 
 
 def test_el_respaldo_tambien_cuenta_como_proveedor(tmp_path):
@@ -119,7 +119,7 @@ def test_el_respaldo_tambien_cuenta_como_proveedor(tmp_path):
     ruta.write_text("roles:\n  planner: {provider: bedrock, model: m}\nfallback: {provider: ollama}\n", encoding="utf-8")
 
     with pytest.raises(ConfiguracionInvalida, match="ollama"):
-        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": "qa", "CONVERDATA_MODELS": str(ruta)})
+        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": "qa", "CONVERDATA_MODELS": str(ruta)}, settings=Settings())
 
 
 def test_un_archivo_de_modelos_inexistente_falla_nombrando_la_variable(tmp_path):
@@ -163,6 +163,54 @@ def test_la_auditoria_en_archivos_la_resuelve_la_integracion():
 
 
 def test_build_service_conserva_su_firma_y_acepta_un_almacen():
-    service = build_service(FIXTURE, store=FileCatalogStore(FIXTURE))
+    service = build_service(FIXTURE, catalog_store=FileCatalogStore(FIXTURE))
 
     assert service.deps.catalog.objects
+
+
+# --- endurecimiento tras la revisión de seguridad ---------------------------------------------------------------
+SETTINGS = Settings()
+
+
+def test_un_punto_de_entrada_de_servicio_puede_exigir_que_el_entorno_este_declarado():
+    with pytest.raises(ConfiguracionInvalida, match="CONVERDATA_ENV"):
+        AdapterConfig.from_env({}, require_env=True)
+    assert AdapterConfig.from_env({"CONVERDATA_ENV": "dev"}, require_env=True).env == "dev"
+
+
+@pytest.mark.parametrize("env", ["qa", "prod"])
+def test_fuera_de_dev_los_ajustes_son_obligatorios_para_poder_comprobar_fail_open(env):
+    with pytest.raises(ConfiguracionInvalida, match="settings"):
+        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": env})
+
+
+@pytest.mark.parametrize("env", ["qa", "prod"])
+def test_fuera_de_dev_no_se_permite_login_sql_con_contrasena(env):
+    with pytest.raises(ConfiguracionInvalida, match="CONVERDATA_DB_PASSWORD"):
+        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": env, "CONVERDATA_DB_PASSWORD": "x"}, settings=SETTINGS)
+
+
+def test_la_contrasena_se_escapa_entre_llaves_para_no_inyectar_atributos_odbc():
+    cfg = AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_DB": DB.replace("Trusted_Connection=yes", "UID=cd_app")})
+
+    assert cfg.connection_string({"CONVERDATA_DB_PASSWORD": "a;Server=otro}b"}).endswith(";PWD={a;Server=otro}}b}")
+
+
+def test_la_cadena_de_conexion_no_aparece_en_el_repr():
+    assert DB not in repr(AdapterConfig.from_env(EN_SERVIDOR))
+
+
+@pytest.mark.parametrize("proveedor", ["Ollama", "NVIDIA_NIM", "otro_nuevo"])
+def test_fuera_de_dev_solo_se_permite_bedrock(tmp_path, proveedor):
+    entorno = {**EN_SERVIDOR, "CONVERDATA_ENV": "qa", "CONVERDATA_MODELS": _models(tmp_path, proveedor)}
+
+    with pytest.raises(ConfiguracionInvalida, match="CONVERDATA_MODELS"):
+        AdapterConfig.from_env(entorno, settings=SETTINGS)
+
+
+def test_un_models_yaml_con_roles_que_no_es_un_mapa_falla_con_mensaje_claro(tmp_path):
+    ruta = tmp_path / "models.yaml"
+    ruta.write_text("roles: [planner, fast]\n", encoding="utf-8")
+
+    with pytest.raises(ConfiguracionInvalida, match="CONVERDATA_MODELS"):
+        AdapterConfig.from_env({**EN_SERVIDOR, "CONVERDATA_ENV": "qa", "CONVERDATA_MODELS": str(ruta)}, settings=SETTINGS)

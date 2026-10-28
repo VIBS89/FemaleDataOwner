@@ -5,7 +5,7 @@
 > Backlog para terminar la versión on-premise (objetivos SMART e historias): [backlog/on-premise.md](backlog/on-premise.md).
 
 ## 1. Dónde estamos
-Fase 1a on-premise (descubrimiento), núcleo implementado y medido. **81 tests en verde.** Todo el código está **sin commit**
+Fase 1a on-premise (descubrimiento), núcleo implementado y medido. **262 tests en verde y 7 omitidos con motivo (SD-2 a SD-5)** (2026-10-27, `python -m pytest -q`; el conteo de 81 era anterior). Todo el código está **sin commit**
 en `main` (ver §6).
 
 | Pieza | Estado | Dónde |

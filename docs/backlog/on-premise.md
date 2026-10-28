@@ -139,6 +139,8 @@ instalar servicios de Windows y procesos de HttpPlatformHandler a la vez y evita
 - **Dado** el rol `converdata_app`, **cuando** intenta `UPDATE` o `DELETE` en `audit`, **entonces** SQL Server lo deniega.
 - **Dado** el rol `auditor`, **cuando** consulta `audit`, **entonces** tiene `SELECT` y nada más.
 
+> **Estado (2026-10-27):** parcial en SD-1. Hechos `002_estate.sql` (tablas de grafo, sin sketches), `003_semantic.sql` y `004_roles_y_version.sql` (`dbo.schema_version`, `converdata_builder`, `auditor`; el `DENY` de `converdata_app` sobre `audit` ya estaba en 001), con `tests/test_ddl.py` sobre su forma y permisos. **Falta** aplicarlos en SQL Server 2025 (HU-05, SD-3) y que la DBA revise los nombres de `estate` y `semantic`, que son una propuesta.
+
 #### HU-05 · Validar el DDL y `SqlServerVectorStore` en SQL Server 2025
 **Como** desarrollador **quiero** ejecutar los tests de contrato de `VectorStore` contra SQL Server 2025 **para** confirmar que `VECTOR`,
 Full-Text y RRF en T-SQL funcionan como en memoria.
@@ -164,6 +166,8 @@ Full-Text y RRF en T-SQL funcionan como en memoria.
 - **Dado** una descripción editada, **cuando** se consulta el historial temporal, **entonces** aparece la versión anterior y quién la cambió.
 - **Dado** un refresco posterior, **cuando** termina, **entonces** no sobrescribe ninguna edición `human` (F24 CA3).
 - **Dado** el test de literales marcados, **cuando** se ejecuta, **entonces** ninguna tabla fuera de `audit`, `golden` y `curation` contiene valores.
+
+> **Estado (2026-10-27):** parcial en SD-1. Existe el puerto `CatalogStore` (`catalog/ports.py`) con el adaptador de archivos `FileCatalogStore` y su batería de contrato (`tests/test_catalog_store_contract.py`). **Falta** el adaptador `sqlserver`, el historial temporal en el puerto y el job de escritura en la BD (SD-3).
 
 #### HU-07 · Grafo del patrimonio en tablas de grafo
 **Como** ingeniero de datos **quiero** que entidades, copias y caminos entre BDs se guarden en el esquema `estate` **para** que persistan entre
@@ -202,6 +206,8 @@ dependa de archivos YAML en el servidor.
 ---
 
 ### E2 · Identidad y permisos heredados (O3)
+
+> **Estado (2026-10-27):** parcial en SD-1. `AdapterConfig.from_env` valida `CONVERDATA_STORE/AUDIT/DB/MODELS/ENV` y la guarda de qa/prod (sin archivos, DEMO, Ollama/NIM, `fail_open` ni login SQL con contraseña); `build_service` acepta un `catalog_store`. **Falta** conectar `AdapterConfig` al arranque de la API (S2 debe llamarla con `require_env=True` y los ajustes cargados) y el almacén `sqlserver` del catálogo.
 
 #### HU-10 · Iniciar sesión con login SQL por servidor
 **Como** analista BI **quiero** iniciar sesión con mi login SQL en los servidores del piloto **para** descubrir solo lo que ya puedo consultar.
