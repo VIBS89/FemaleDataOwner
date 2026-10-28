@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from converdata.catalog.store import load_catalog, load_knowledge
+from converdata.catalog.files import FileCatalogStore
+from converdata.catalog.ports import CatalogStore
 from converdata.config import load_inventory, load_owners, load_settings
 from converdata.flows.discover import DiscoverDeps, DiscoverService
 from converdata.memory.memory_store import InMemoryVectorStore
@@ -17,14 +18,15 @@ from converdata.models.identity import UserContext
 
 def build_service(
     root: str | Path, *, models_path: str | Path | None = None, gateway=None, llm_nodes: bool = True,
-    embedder_override=None, **overrides
+    embedder_override=None, store: CatalogStore | None = None, **overrides
 ) -> DiscoverService:
     """Sin `models_path` ni `gateway`, modo determinista. Con ellos, los nodos `intent`, `rerank` y `respond` y los
     embeddings pasan por el gateway de LLM (NVIDIA NIM o Bedrock según `config/models.yaml`)."""
     root = Path(root)
     inventory = load_inventory(root / "config" / "databases.yaml")
-    catalog = load_catalog(root / "catalog", inventory)
-    knowledge = load_knowledge(root / "knowledge")
+    catalog_store = store or FileCatalogStore(root)
+    catalog = catalog_store.load_catalog(inventory)
+    knowledge = catalog_store.load_knowledge()
     owners = load_owners(root / "config" / "owners.yaml")
     settings = load_settings(root / "config" / "settings.yaml")
 
@@ -48,11 +50,11 @@ def build_service(
 
     if embedder_override is not None:  # tests y evaluaciones con un embedder propio
         embedder, embed_model = embedder_override, type(embedder_override).__name__
-    store = InMemoryVectorStore(embedder=embedder, embed_model=embed_model)
-    store.index_catalog(catalog)
-    store.index_knowledge(knowledge.all_items(), knowledge.golden)
+    vector_store = InMemoryVectorStore(embedder=embedder, embed_model=embed_model)
+    vector_store.index_catalog(catalog)
+    vector_store.index_knowledge(knowledge.all_items(), knowledge.golden)
     deps = DiscoverDeps(
-        catalog=catalog, knowledge=knowledge, store=store, owners=owners, settings=settings,
+        catalog=catalog, knowledge=knowledge, store=vector_store, owners=owners, settings=settings,
         model_names=model_names, **{**llm_ports, **overrides},
     )
     return DiscoverService(deps)

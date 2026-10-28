@@ -19,7 +19,7 @@ from pathlib import Path
 import yaml
 
 from converdata.builder.catalog_builder import object_path
-from converdata.catalog.store import load_catalog
+from converdata.catalog.files import FileCatalogStore
 from converdata.config import ServerConfig, load_inventory
 
 KNOWLEDGE_DIRS = ("rules", "golden", "items", "lineage")
@@ -82,7 +82,7 @@ def _merge_owners(src: Path, dest: Path) -> None:
 def _overlay_descriptions(fixture: Path, data_root: Path) -> int:
     inventory = load_inventory(fixture / "config" / "databases.yaml")
     count = 0
-    for obj in load_catalog(fixture / "catalog", inventory).objects:
+    for obj in FileCatalogStore(fixture).load_catalog(inventory).objects:
         path = object_path(data_root, obj)
         if not path.is_file():
             continue

@@ -1,16 +1,13 @@
 """Catálogo y base de conocimiento en memoria del proceso.
 
-On-premise la fuente es el esquema `catalog`/`knowledge` de la BD `ConverData` (OP-02); en desarrollo y tests,
-el formato lógico YAML de F1/F23. Ambos producen los mismos objetos Pydantic.
+Aquí solo viven los objetos de dominio. De dónde se cargan lo decide el puerto `catalog.ports.CatalogStore`: la BD `ConverData`
+(OP-02) on-premise y el formato lógico YAML de F1/F23 (`catalog.files.FileCatalogStore`) en desarrollo y tests.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from pathlib import Path
-
-import yaml
 
 from converdata.catalog.ids import is_column_key, short_name, table_key
 from converdata.config import Inventory
@@ -119,39 +116,3 @@ class KnowledgeBase:
 
     def rules_for(self, asset_key: str) -> list[BusinessRule]:
         return [r for r in self.rules if asset_key in r.applies_to or table_key(asset_key) in r.applies_to]
-
-
-# --- carga desde YAML (formato lógico de F1 y F23) ---------------------------------------------
-def _yaml_docs(root: Path):
-    for path in sorted(root.rglob("*.yaml")):
-        with path.open(encoding="utf-8") as fh:
-            yield path, yaml.safe_load(fh)
-
-
-def load_catalog(root: str | Path, inventory: Inventory) -> Catalog:
-    objects = []
-    for path, data in _yaml_docs(Path(root)):
-        if path.name.startswith("_"):  # _database.yaml: resumen por BD
-            continue
-        try:
-            objects.append(CatalogObject.model_validate(data))
-        except ValueError as exc:
-            raise ValueError(f"{path}: {exc}") from exc
-    return Catalog(objects, inventory)
-
-
-def load_knowledge(root: str | Path) -> KnowledgeBase:
-    root = Path(root)
-    kb = KnowledgeBase()
-    loaders = {
-        "rules": (kb.rules, BusinessRule),
-        "lineage": (kb.lineage, LineageEdge),
-        "golden": (kb.golden, GoldenDiscovery),
-        "items": (kb.items, KnowledgeItem),
-        "estate": (kb.entities, BusinessEntity),
-    }
-    for sub, (target, model) in loaders.items():
-        if (root / sub).exists():
-            for _, data in _yaml_docs(root / sub):
-                target.extend(model.model_validate(d) for d in (data or []))
-    return kb

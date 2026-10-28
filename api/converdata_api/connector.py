@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Protocol
 
-from converdata.catalog.store import load_catalog
+from converdata.catalog.files import FileCatalogStore
 from converdata.config import Inventory, ServerConfig, load_inventory
 from converdata.identity.visibility import ObjectLister, PyodbcObjectLister, VisibleObject
 from converdata.metadata.sqlserver import MetadataSource, RawColumn, RawObject, SqlServerMetadata, best_driver
@@ -118,7 +118,7 @@ class FixtureMetadata:
         objects = []
         for fixture in _as_list(fixtures):
             inventory = load_inventory(fixture / "config" / "databases.yaml")
-            objects += load_catalog(fixture / "catalog", inventory).objects
+            objects += FileCatalogStore(fixture).load_catalog(inventory).objects
         known = {o.server for o in objects}
         if server_id in known:
             objects = [o for o in objects if o.server == server_id]
