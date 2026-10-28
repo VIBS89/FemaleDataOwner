@@ -38,3 +38,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "api/tests"]
 pythonpath = ["src", "api"]
+addopts = "--strict-markers"
+markers = [
+    "llm_local: SD-2, requiere Ollama (OLLAMA_HOST) o NVIDIA NIM (NVIDIA_API_KEY)",
+    "sqlserver: SD-3, requiere SQL Server 2025 (CONVERDATA_TEST_DB)",
+    "bedrock: SD-4, requiere credenciales de AWS y un models.yaml con proveedor bedrock",
+    "windows_server: SD-5, requiere Windows Server con IIS (CONVERDATA_IIS=1)",
+]
