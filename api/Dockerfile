@@ -23,6 +23,7 @@ COPY api ./api
 COPY config ./config
 # Solo para CONVERDATA_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
 COPY tests/fixtures/bancos ./tests/fixtures/bancos
+COPY tests/fixtures/vbank ./tests/fixtures/vbank
 
 RUN useradd --create-home --uid 10001 converdata && mkdir -p /app/data && chown converdata /app/data
 USER converdata
