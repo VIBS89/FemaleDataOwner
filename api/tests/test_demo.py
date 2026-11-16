@@ -191,3 +191,14 @@ def test_historial_simulado_para_el_tablero(settings, tmp_path):
     # Lo simulado no entra al conocimiento: no hay golden de usuarios ficticios.
     golden = settings.data_root / "knowledge" / "golden" / "confirmaciones_usuarios.yaml"
     assert not golden.exists() or "analista0" not in golden.read_text(encoding="utf-8")
+
+
+def test_pregunta_compuesta_parte_de_un_candidato_que_alcanza_el_resto(demo, app):
+    """Con VBank y BancosSQL juntos, "los clientes con sus tarjetas" no debe partir de VBank_ING.dbo.Users (sin camino a
+    las tarjetas) y responder «No encontré…»: el candidato principal es uno desde el que se llega a TarjetasCredito."""
+    env = demo.post("/discover", json={"question": "¿Cómo relaciono los clientes con sus tarjetas de crédito?"}).json()
+    disc = env["discovery"]
+    assert disc["unresolved_parts"] == []
+    assert "No encontré" not in env["answer_text"]
+    assert any(p["tables"][-1] == "BancaTarjetasCredito.dbo.TarjetasCredito" for p in disc["join_paths"])
+    assert disc["join_paths"][0]["tables"][0] == ".".join(disc["candidates"][0]["asset_key"].split(".")[:3])
