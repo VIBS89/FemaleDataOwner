@@ -15,6 +15,7 @@ from converdata.config import Inventory, ServerConfig, load_inventory
 from converdata.identity.visibility import ObjectLister, PyodbcObjectLister, VisibleObject
 from converdata.metadata.sqlserver import MetadataSource, RawColumn, RawObject, SqlServerMetadata, best_driver
 
+from converdata_api.security import valid_host, valid_identifier, valid_login
 from converdata_api.vault import Credential
 
 Q_IDENTIFY = """
@@ -23,7 +24,13 @@ SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(NULL, NULL
 
 
 class LoginFailed(Exception):
-    """Mensaje apto para el usuario: nunca incluye la contraseña ni el host."""
+    """Mensaje apto para el usuario: nunca incluye la contraseña ni el host.
+
+    `credentials=False` cuando el fallo no es del usuario (servidor caído, sin driver): no cuenta para el bloqueo."""
+
+    def __init__(self, message: str, credentials: bool = True):
+        super().__init__(message)
+        self.credentials = credentials
 
 
 @dataclass(frozen=True)
@@ -38,12 +45,20 @@ class Connector(Protocol):
     def metadata_source(self, server: ServerConfig, cred: Credential) -> MetadataSource: ...
 
 
+def _braced(value: str) -> str:
+    return "{" + value.replace("}", "}}") + "}"
+
+
 class SqlConnector:
     def __init__(self, timeout_s: int = 10):
         self.timeout_s = timeout_s
 
     def connection_string(self, server: ServerConfig, cred: Credential, database: str = "master") -> str:
         host = server.read_replica or server.host or server.id
+        if not valid_host(host) or not valid_identifier(database):
+            raise LoginFailed("El servidor o la base de datos tienen un nombre no válido", credentials=False)
+        if cred.login is not None and not valid_login(cred.login):
+            raise LoginFailed("Usuario o contraseña incorrectos")
         parts = [f"DRIVER={{{best_driver()}}}", f"SERVER={host}", f"DATABASE={database}", "APP=ConverData", "Encrypt=yes"]
         if server.trust_server_certificate:
             parts.append("TrustServerCertificate=yes")
@@ -52,7 +67,8 @@ class SqlConnector:
         if cred.login is None:
             parts.append("Trusted_Connection=yes")
         else:
-            parts += [f"UID={cred.login}", "PWD={" + (cred.password or "").replace("}", "}}") + "}"]
+            # Entre llaves, el driver toma el valor literal: un `;` no puede añadir atributos a la cadena.
+            parts += ["UID=" + _braced(cred.login), "PWD=" + _braced(cred.password or "")]
         return ";".join(parts)
 
     def connect(self, server: ServerConfig, cred: Credential, database: str = "master"):
@@ -67,13 +83,15 @@ class SqlConnector:
 
         try:
             conn = self.connect(server, cred)
+        except LoginFailed:
+            raise
         except pyodbc.InterfaceError as exc:
-            raise LoginFailed("No hay un driver ODBC 17/18 para SQL Server") from exc
+            raise LoginFailed("No hay un driver ODBC 17/18 para SQL Server", credentials=False) from exc
         except pyodbc.Error as exc:
             state = exc.args[0] if exc.args else ""
             if state == "28000":
                 raise LoginFailed("Usuario o contraseña incorrectos") from None
-            raise LoginFailed("No se pudo conectar al servidor") from None
+            raise LoginFailed("No se pudo conectar al servidor", credentials=False) from None
         try:
             login, sysadmin, view_def = conn.cursor().execute(Q_IDENTIFY).fetchone()
             return LoginInfo(sql_login=login, can_build=bool(sysadmin) or bool(view_def))

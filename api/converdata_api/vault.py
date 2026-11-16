@@ -27,7 +27,7 @@ class Credential:
 
 @dataclass
 class Session:
-    id: str
+    id: str = field(repr=False)  # el token nunca sale en un repr ni en una traza
     user_id: str
     servers: list[str]
     roles: list[str]
@@ -42,9 +42,11 @@ class Session:
 
 
 class SessionVault:
-    def __init__(self, ttl_s: int = 8 * 3600, clock=time.time):
+    def __init__(self, ttl_s: int = 8 * 3600, clock=time.time, max_age_s: int = 12 * 3600, max_per_user: int = 5):
         self._fernet = Fernet(Fernet.generate_key())  # clave efímera por proceso
-        self._ttl = ttl_s
+        self._ttl = ttl_s  # inactividad (deslizante)
+        self._max_age = max_age_s  # vida total: una sesión activa también caduca (0 = sin tope)
+        self._max_per_user = max_per_user  # 0 = sin tope
         self._clock = clock
         self._sessions: dict[str, Session] = {}
         self._lock = threading.Lock()
@@ -56,8 +58,26 @@ class SessionVault:
         for c in credentials:
             self._store(session, c)
         with self._lock:
+            self._purge()
+            if self._max_per_user > 0:  # la más antigua cede su lugar: un token robado no convive indefinidamente
+                mine = sorted((s for s in self._sessions.values() if s.user_id.lower() == user_id.lower()),
+                              key=lambda s: s.created_at)
+                for old in mine[: max(0, len(mine) - self._max_per_user + 1)]:
+                    self._forget(old)
             self._sessions[token] = session
         return session
+
+    def _expired(self, session: Session, now: float) -> bool:
+        return now - session.last_seen > self._ttl or (self._max_age > 0 and now - session.created_at > self._max_age)
+
+    def _forget(self, session: Session) -> None:
+        self._sessions.pop(session.id, None)
+        session._secrets.clear()  # las credenciales cifradas no sobreviven a la sesión
+
+    def _purge(self) -> None:
+        now = self._clock()
+        for session in [s for s in self._sessions.values() if self._expired(s, now)]:
+            self._forget(session)
 
     def add_credential(self, session: Session, credential: Credential) -> None:
         self._store(session, credential)
@@ -76,11 +96,16 @@ class SessionVault:
             if session is None:
                 return None
             now = self._clock()
-            if now - session.last_seen > self._ttl:
-                del self._sessions[token]
+            if self._expired(session, now):
+                self._forget(session)
                 return None
             session.last_seen = now
             return session
+
+    def expires_at(self, session: Session) -> float:
+        """Momento (reloj del vault) en que caduca si no hay más actividad."""
+        idle = session.last_seen + self._ttl
+        return min(idle, session.created_at + self._max_age) if self._max_age > 0 else idle
 
     def credential(self, session: Session, server_id: str) -> Credential | None:
         """La contraseña solo vive descifrada mientras se abre la conexión."""
@@ -92,8 +117,19 @@ class SessionVault:
 
     def drop(self, token: str) -> None:
         with self._lock:
-            self._sessions.pop(token, None)
+            session = self._sessions.get(token)
+            if session is not None:
+                self._forget(session)
+
+    def drop_user(self, user_id: str) -> int:
+        """Revoca todas las sesiones de un usuario (baja, incidente). Devuelve cuántas cerró."""
+        with self._lock:
+            mine = [s for s in self._sessions.values() if s.user_id.lower() == user_id.lower()]
+            for session in mine:
+                self._forget(session)
+            return len(mine)
 
     def sessions(self) -> list[Session]:
         with self._lock:
+            self._purge()
             return list(self._sessions.values())

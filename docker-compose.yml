@@ -23,6 +23,13 @@ services:
       CONVERDATA_DEMO: ${CONVERDATA_DEMO:-0}
       CONVERDATA_ALLOW_WINDOWS_AUTH: "0"
       CONVERDATA_COOKIE_SECURE: ${CONVERDATA_COOKIE_SECURE:-0}  # 1 detrás de HTTPS
+      # qa | prod: la API no arranca con ajustes inseguros (docs/calidad-bancaria.md §4)
+      CONVERDATA_ENV: ${CONVERDATA_ENV:-dev}
+      CONVERDATA_ADMINS_ONLY: ${CONVERDATA_ADMINS_ONLY:-0}
+      CONVERDATA_SETUP_TOKEN: ${CONVERDATA_SETUP_TOKEN:-}
+      CONVERDATA_CORS_ORIGINS: ${CONVERDATA_CORS_ORIGINS:-http://localhost:3000}
+      CONVERDATA_PUBLIC_URL: ${CONVERDATA_PUBLIC_URL:-}
+      CONVERDATA_MCP_HOSTS: ${CONVERDATA_MCP_HOSTS:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
     volumes:
       - converdata-data:/app/data

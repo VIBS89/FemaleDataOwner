@@ -16,7 +16,7 @@ from converdata_api.vault import SessionVault
 MCP_PATH = "/mcp"
 
 
-def build_mcp_mount(runtime: AgentRuntime, vault: SessionVault, settings: ApiSettings):
+def build_mcp_mount(runtime: AgentRuntime, vault: SessionVault, settings: ApiSettings, guard=None):
     """(app ASGI para `app.mount("/")`, `lifespan` del gestor de sesiones MCP), o None si no hay SDK de MCP."""
     try:
         from converdata.integration.mcp.server import bearer_token, build_mcp_server, require_bearer
@@ -42,7 +42,7 @@ def build_mcp_mount(runtime: AgentRuntime, vault: SessionVault, settings: ApiSet
     security = (TransportSecuritySettings(allowed_hosts=settings.mcp_allowed_hosts,
                                           allowed_origins=settings.mcp_allowed_origins)
                 if settings.mcp_allowed_hosts else None)
-    mcp_app = build_mcp_server(tools, identify).streamable_http_app(
+    mcp_app = build_mcp_server(tools, identify, guard=guard).streamable_http_app(
         streamable_http_path=MCP_PATH, stateless_http=True, transport_security=security)
     guarded = require_bearer(mcp_app, lambda token: vault.get(token) is not None)
 

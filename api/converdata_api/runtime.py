@@ -87,7 +87,7 @@ class AgentRuntime:
         self._lock = threading.RLock()
         self._deterministic: tuple[int, DiscoverService] | None = None
         self.usage_listeners: list = []  # (rol, tokens_in, tokens_out): tope diario (HU-19) y /health/metrics (HU-22)
-        self._visibility: dict[str, tuple[int, frozenset[str]]] = {}
+        self._visibility: dict[str, tuple[int, float, frozenset[str]]] = {}  # sesión → (versión, leído_en, ids)
         self._traces: OrderedDict[str, ShownTrace] = OrderedDict()
         self.curation = None  # CurationStore; lo asigna create_app (historial simulado del modo demo)
         if settings.demo and settings.demo_preload_inventory and not self.inventory.servers:
@@ -147,8 +147,9 @@ class AgentRuntime:
                     llm_nodes=not self.settings.embeddings_only, audit=self.audit,
                 )
             except Exception as exc:
-                log.exception("no se pudo cargar el catálogo")
-                self.load_error = f"{type(exc).__name__}: {str(exc)[:200]}"
+                # Solo el tipo: el texto de la excepción puede llevar rutas o contenido del catálogo (D5).
+                log.error("catalog.load_failed", extra={"error_type": type(exc).__name__})
+                self.load_error = type(exc).__name__
                 return
             self.service, self.load_error = service, None
             self.version += 1
@@ -167,8 +168,10 @@ class AgentRuntime:
         if self.service is None:
             return frozenset()
         cached = self._visibility.get(session.id)
-        if cached and cached[0] == self.version:
-            return cached[1]
+        now = time.monotonic()
+        # F14: caduca a los 15 min, así una revocación en SQL Server deja de verse sin esperar a que cierre sesión.
+        if cached and cached[0] == self.version and now - cached[1] < self.settings.visibility_ttl_s:
+            return cached[2]
         catalog = self.service.deps.catalog
         ids: set[str] = set()
         for server_id in session.servers:
@@ -184,7 +187,11 @@ class AgentRuntime:
             except Exception as exc:  # servidor caído: el usuario no ve nada de ese servidor (fail-closed)
                 log.warning("visibilidad no disponible en %s: %s", server_id, type(exc).__name__)
         result = frozenset(ids)
-        self._visibility[session.id] = (self.version, result)
+        self._visibility[session.id] = (self.version, now, result)
+        if len(self._visibility) > 4 * MAX_TRACES:  # sesiones que ya caducaron
+            alive = {s.id for s in self.vault.sessions()}
+            for key in [k for k in self._visibility if k not in alive]:
+                del self._visibility[key]
         return result
 
     def user_context(self, session: Session) -> UserContext:
@@ -322,8 +329,8 @@ class AgentRuntime:
                                      **seeded)
             job.status = "error" if job.error else "ok"
         except Exception as exc:
-            log.exception("falló la construcción del catálogo")
-            job.status, job.error = "error", f"{type(exc).__name__}: {str(exc)[:300]}"
+            log.error("catalog.build_failed", extra={"error_type": type(exc).__name__})
+            job.status, job.error = "error", f"{type(exc).__name__}: {str(exc)[:300]}"  # solo lo ve el admin
         job.finished_at = _now()
         self.audit.event("catalog_build_finished", session.user_id, status=job.status, error=job.error,
                          objects=(job.report or {}).get("objects"))

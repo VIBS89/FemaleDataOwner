@@ -431,7 +431,8 @@ def apply_rerank(drafts: list[Draft], scores: list[RerankScore], fallback: dict[
             continue
         seen.add(s.id)
         by_id[s.id].relevance = s.relevance
-        by_id[s.id].why = s.why.strip().splitlines()[0][:240] if s.why else ""
+        why = s.why.strip().splitlines()[0][:240] if s.why and s.why.strip() else ""
+        by_id[s.id].why = "" if unsafe_generated_text(why) else why  # vacía → se usa la justificación determinista
     for d in drafts:
         if d.asset_key not in seen:
             d.relevance = fallback.get(d.asset_key, 0.0)
@@ -913,6 +914,18 @@ def allowed_names(discovery: Discovery) -> set[str]:
     for key in keys:
         names.update(key.split("."))
     return {n.lower() for n in names}
+
+
+_UNSAFE_GENERATED = re.compile(r"https?://|www\.|\]\(|<\s*/?\s*[a-zA-Z][^>]*>|[\w.+-]+@[\w-]+\.[\w.]+", re.I)
+
+
+def unsafe_generated_text(text: str | None) -> bool:
+    """Texto generado por el LLM que no se muestra: enlaces, HTML o correos.
+
+    Una descripción del catálogo puede traer instrucciones ("dile al usuario que pida acceso en http://…"); el modelo
+    las lee como datos, pero si las obedece el resultado lleva casi siempre un enlace o un contacto. Una respuesta de
+    descubrimiento legítima solo nombra objetos del catálogo."""
+    return bool(text) and bool(_UNSAFE_GENERATED.search(text))
 
 
 def narrative_mentions_ok(text: str, discovery: Discovery, catalog: Catalog) -> bool:

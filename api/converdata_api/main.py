@@ -8,7 +8,9 @@ La identidad sale solo del token de sesión (cookie `cd_session` o `Authorizatio
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import hmac
 import json
 import logging
 import re
@@ -16,12 +18,12 @@ import threading
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from converdata.catalog.ids import table_key
 from converdata.cli import load_dotenv, use_system_certificates
@@ -36,8 +38,11 @@ from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlC
 from converdata_api.curation import CurationStore, demand_by_asset, metrics_report
 from converdata_api.demo import seed_stewards
 from converdata_api.mcp_mount import build_mcp_mount
+from converdata_api.pii import find_pii
 from converdata_api.tokens import TokenLedger
 from converdata_api.runtime import AgentRuntime, ShownTrace
+from converdata_api.security import (InsecureConfiguration, LoginThrottle, SecurityMiddleware, production_violations,
+                                     valid_host, valid_identifier, valid_login)
 from converdata_api.settings import ApiSettings
 from converdata_api.vault import Credential, Session, SessionVault
 
@@ -45,26 +50,48 @@ COOKIE = "cd_session"
 
 
 # --- cuerpos de petición -----------------------------------------------------------------------------
+def _check_host(value: str | None) -> str | None:
+    if value is not None and not valid_host(value.strip()):
+        raise ValueError("Nombre de servidor no válido")
+    return value
+
+
+ShortText = Annotated[str, Field(max_length=2000)]
+ServerId = Annotated[str, Field(max_length=64)]
+DatabaseName = Annotated[str, Field(min_length=1, max_length=128)]
+
+
 class LoginRequest(BaseModel):
     login: str | None = Field(None, max_length=128)  # vacío con auth=windows
     password: str | None = Field(None, max_length=256)
     auth: Literal["sql", "windows"] = "sql"
-    servers: list[str] | None = None  # None = todos los del inventario, con la misma credencial
+    servers: list[ServerId] | None = Field(None, max_length=100)  # None = todos los del inventario
     # Primer arranque (inventario vacío): servidor al que se conecta el agente
     host: str | None = Field(None, max_length=256)
     alias: str | None = Field(None, max_length=80)
     environment: Literal["produccion", "qa", "desarrollo", "dr"] = "desarrollo"
     trust_server_certificate: bool = False
+    setup_token: str | None = Field(None, max_length=256)  # secreto del instalador (CONVERDATA_SETUP_TOKEN)
+
+    _host = field_validator("host")(_check_host)
+
+    @field_validator("login")
+    @classmethod
+    def _login(cls, value: str | None) -> str | None:
+        # Va dentro de la cadena de conexión: sin `;{}=` ni caracteres de control (security.valid_login).
+        if value is not None and value.strip() and not valid_login(value.strip()):
+            raise ValueError("Usuario no válido")
+        return value
 
 
 class DiscoverRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
-    history: list[str] = Field(default_factory=list, max_length=10)
+    history: list[ShortText] = Field(default_factory=list, max_length=10)
 
 
 class FeedbackRequest(BaseModel):
-    trace_id: str
-    asset_key: str
+    trace_id: str = Field(max_length=64)
+    asset_key: str = Field(max_length=400)
     verdict: Literal["confirm", "reject"]
     comment: str | None = Field(None, max_length=500)
 
@@ -79,16 +106,25 @@ class ServerIn(BaseModel):
     alias: str = Field(min_length=1, max_length=80)
     environment: Literal["produccion", "qa", "desarrollo", "dr"] = "desarrollo"
     is_reference: bool = False
-    databases: list[str] = Field(default_factory=lambda: ["*"])
+    databases: list[DatabaseName] = Field(default_factory=lambda: ["*"], max_length=500)
     trust_server_certificate: bool = False
+
+    _host = field_validator("host")(_check_host)
+
+    @field_validator("databases")
+    @classmethod
+    def _databases(cls, value: list[str]) -> list[str]:
+        if not all(valid_identifier(d) for d in value):
+            raise ValueError("Nombre de base de datos no válido")
+        return value
 
 
 class InventoryRequest(BaseModel):
-    servers: list[ServerIn]
+    servers: list[ServerIn] = Field(max_length=200)
 
 
 class EscalateRequest(BaseModel):
-    trace_id: str
+    trace_id: str = Field(max_length=64)
     note: str | None = Field(None, max_length=500)
 
 
@@ -201,7 +237,12 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         settings = ApiSettings.from_env()
     if connector is None:
         connector = DemoConnector(settings.demo_fixtures) if settings.demo else SqlConnector()
-    vault = SessionVault(settings.session_ttl_s)
+    if settings.production:
+        problems = production_violations(settings)
+        if problems:
+            raise InsecureConfiguration(problems)
+    vault = SessionVault(settings.session_ttl_s, max_age_s=settings.session_max_age_s,
+                         max_per_user=settings.max_sessions_per_user)
     audit = FileAuditSink(settings.audit_dir)
     runtime = AgentRuntime(settings, connector, vault, audit)
     curation = CurationStore(settings.curation_dir, settings.data_root, settings.notify_webhook, settings.public_url)
@@ -209,13 +250,32 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     if settings.demo:
         seed_stewards(curation)
     limiter = RateLimiter(settings.rate_limit_per_minute)
+    login_throttle = LoginThrottle(settings.login_max_failures, settings.login_window_s, settings.login_lockout_s)
+    ip_throttle = LoginThrottle(settings.login_ip_max_failures, settings.login_window_s, settings.login_lockout_s)
     metrics = Metrics()
     tokens = TokenLedger(settings.token_limit_daily)
     runtime.usage_listeners += [tokens.record_call, lambda _role, tin, tout: metrics.add_tokens(tin, tout)]
     app_tokens = tokens
     logger = configure_logging(settings.log_dir, event_log=settings.event_log) if settings.log_dir else None
 
-    mcp_mount = build_mcp_mount(runtime, vault, settings) if settings.mcp_enabled else None
+    tool_limiter = RateLimiter(settings.rate_limit_per_minute * 4)  # herramientas de detalle: un agente encadena varias
+
+    @contextlib.contextmanager
+    def mcp_guard(user, tool: str):
+        """`/mcp` pasa por los mismos topes que la web (HU-19, OP-04): ritmo por usuario, tope diario y atribución."""
+        from converdata.integration.mcp.server import ToolDenied
+
+        if not (limiter if tool == "discover" else tool_limiter).check(f"user:{user.user_id.lower()}"):
+            metrics.increment("rate_limited")
+            raise ToolDenied("Demasiadas llamadas en un minuto; espera un momento.")
+        if tool == "discover" and tokens.exceeded(user.user_id):
+            metrics.increment("token_limit")
+            raise ToolDenied("Alcanzaste el tope diario de tokens de IA; se restablece mañana (UTC). "
+                             "Puedes seguir usando search_catalog y las fichas de activos.")
+        with tokens.as_user(user.user_id):
+            yield
+
+    mcp_mount = build_mcp_mount(runtime, vault, settings, guard=mcp_guard) if settings.mcp_enabled else None
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -225,14 +285,17 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             async with mcp_mount[1]():  # gestor de sesiones de /mcp
                 yield
 
+    docs = {"docs_url": None, "redoc_url": None, "openapi_url": None} if settings.production else {}
     app = FastAPI(title="ConverData API", version="0.1.0", description="Enterprise Data Discovery Agent",
-                  lifespan=lifespan)
+                  lifespan=lifespan, **docs)
     app.state.runtime = runtime
     app.state.tokens = app_tokens
     app.state.curation = curation
     app.add_middleware(MetricsMiddleware, metrics=metrics, logger=logger)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
-                       allow_methods=["*"], allow_headers=["*"])
+                       allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["authorization", "content-type"])
+    # La última añadida es la más externa: cabeceras de seguridad también en errores, CORS y `/mcp`.
+    app.add_middleware(SecurityMiddleware, settings=settings, on_block=metrics.increment)
 
     # --- dependencias ------------------------------------------------------------------------------
     def current_session(request: Request) -> Session:
@@ -245,8 +308,22 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Inicia sesión con tu usuario de base de datos")
         return session
 
-    def admin_session(session: Session = Depends(current_session)) -> Session:
+    def denied(request: Request, session: Session, needs: str) -> None:
+        """Los intentos sobre rutas de otro rol quedan en la auditoría (solo la plantilla de la ruta)."""
+        metrics.increment("access_denied")
+        route = getattr(request.scope.get("route"), "path", None) or "otras"
+        audit.event("access_denied", session.user_id, route=route, method=request.method, needs=needs)
+
+    def client_ip(request: Request) -> str:
+        if settings.trust_proxy:  # el proxy propio añade el origen real al final de la lista
+            forwarded = request.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+            if forwarded:
+                return forwarded
+        return request.client.host if request.client else "desconocido"
+
+    def admin_session(request: Request, session: Session = Depends(current_session)) -> Session:
         if not session.is_admin:
+            denied(request, session, "data_admin")
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo un administrador de datos puede hacer esto")
         return session
 
@@ -264,8 +341,9 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             roles.append("data_admin")
         return roles
 
-    def steward_session(session: Session = Depends(current_session)) -> Session:
+    def steward_session(request: Request, session: Session = Depends(current_session)) -> Session:
         if domains_of(session) is None:
+            denied(request, session, "steward")
             raise HTTPException(status.HTTP_403_FORBIDDEN, "La vista Curación es solo para responsables de datos")
         return session
 
@@ -278,7 +356,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         return copies[0].domain if copies else None
 
     def check_rate(session: Session) -> None:
-        if not limiter.check(session.id):
+        if not limiter.check(f"user:{session.user_id.lower()}"):  # por usuario: abrir más sesiones no da más cupo
             metrics.increment("rate_limited")
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                                 f"Hiciste más de {settings.rate_limit_per_minute} preguntas en un minuto; espera un momento")
@@ -325,7 +403,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             "has_inventory": bool(runtime.inventory.servers),
             "servers": [{"id": s.id, "alias": s.alias, "environment": s.environment} for s in runtime.inventory.servers],
             "has_catalog": runtime.service is not None,
-            "load_error": runtime.load_error,
+            "load_error": "No se pudo cargar el catálogo; revisa el log del servidor" if runtime.load_error else None,
+            "setup_token_required": bool(settings.setup_token) and not runtime.inventory.servers,
             "catalog": runtime.catalog_stats(),
             "build": {"status": runtime.job.status, "finished_at": runtime.job.finished_at},
             "llm": settings.models_path is not None,
@@ -336,18 +415,33 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     # --- autenticación (OP-03) ---------------------------------------------------------------------
     @app.post("/login")  # OP-04
     @app.post("/auth/login")
-    def login(body: LoginRequest, response: Response):
+    def login(body: LoginRequest, request: Request, response: Response):
         windows = body.auth == "windows"
         if windows and not settings.allow_windows_auth:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "La autenticación de Windows no está habilitada")
         if not windows and not (body.login and body.password):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Escribe tu usuario y contraseña de base de datos")
         login_name = None if windows else body.login.strip()
+        login_key, ip_key = f"login:{(login_name or 'windows').lower()}", f"ip:{client_ip(request)}"
+        wait = max(login_throttle.retry_after(login_key), ip_throttle.retry_after(ip_key))
+        if wait:  # bloqueado: ni siquiera se prueba la credencial contra SQL Server
+            metrics.increment("login_locked")
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                                "Demasiados intentos fallidos; espera unos minutos antes de volver a intentar",
+                                headers={"Retry-After": str(wait)})
 
         first_run = not runtime.inventory.servers
         if first_run:
             if not body.host:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, "Indica el servidor SQL Server al que se conecta el agente")
+            # Quien registra el primer servidor decide a dónde viajarán las credenciales de todos: exige el secreto
+            # del instalador cuando está configurado (obligatorio en qa/prod).
+            if settings.setup_token and not hmac.compare_digest((body.setup_token or "").encode(), settings.setup_token.encode()):
+                audit.event("setup_denied", login_name or "windows")
+                ip_throttle.failure(ip_key)
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "El código de instalación no es correcto")
+            if settings.production and body.trust_server_certificate:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "En este ambiente el certificado del servidor debe validarse")
             targets = [server_from_host(body.host.strip(), body.alias, body.environment, body.trust_server_certificate,
                                         runtime.inventory)]
         else:
@@ -359,6 +453,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         ok: list[tuple[ServerConfig, Credential]] = []
         errors: dict[str, str] = {}
         infos = []
+        bad_credentials = False
         for server in targets:
             cred = Credential(server.id, login_name, body.password if not windows else None)
             try:
@@ -366,28 +461,46 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                 ok.append((server, cred))
             except LoginFailed as exc:
                 errors[server.alias] = str(exc)
+                bad_credentials = bad_credentials or exc.credentials
         if not ok:
             audit.event("login_failed", login_name or "windows", servers=list(errors))
             metrics.increment("login_failed")
+            if bad_credentials:  # un servidor caído no cuenta para el bloqueo
+                locked = login_throttle.failure(login_key)
+                locked = ip_throttle.failure(ip_key) or locked
+                if locked:
+                    audit.event("login_locked", login_name or "windows", lockout_s=settings.login_lockout_s)
             detail = "; ".join(f"{k}: {v}" for k, v in errors.items())
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail or "No se pudo iniciar sesión")
 
         user_id = infos[0].sql_login
-        can_build = any(i.can_build for i in infos) or user_id.lower() in settings.admins
+        listed = user_id.lower() in settings.admins
+        sql_admin = any(i.can_build for i in infos)
+        # Con `admins_only` (obligatorio en qa/prod) ser sysadmin de un servidor cualquiera no da el rol de administrador.
+        can_build = listed if settings.admins_only else (sql_admin or listed)
         if first_run:
-            if not can_build:  # el primer servidor solo lo registra quien puede descubrir sus esquemas
+            if not (can_build and (sql_admin or listed)):  # el primer servidor solo lo registra quien puede descubrirlo
                 raise HTTPException(status.HTTP_403_FORBIDDEN,
                                     "Para la configuración inicial se necesita un login con VIEW ANY DEFINITION o sysadmin")
+            audit.event("inventory_updated", user_id, first_run=True,
+                        servers=[{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate}
+                                 for s, _ in ok])
             runtime.save_inventory([s for s, _ in ok])
         roles = ["consumer", "data_admin"] if can_build else ["consumer"]
         session = vault.create(user_id, [c for _, c in ok], roles)
-        audit.event("login", user_id, servers=session.servers, roles=roles_of(session), failed=list(errors))
+        login_throttle.success(login_key)
+        try:
+            audit.event("login", user_id, servers=session.servers, roles=roles_of(session), failed=list(errors))
+        except Exception:  # fail-closed: sin registro de auditoría no hay sesión
+            vault.drop(session.id)
+            raise
+        lifetime = min(settings.session_ttl_s, settings.session_max_age_s or settings.session_ttl_s)
         response.set_cookie(COOKIE, session.id, httponly=True, samesite="lax", secure=settings.cookie_secure,
-                            max_age=settings.session_ttl_s, path="/")
+                            max_age=lifetime, path="/")
         ok_ids = {s.id for s, _ in ok}
         visible = runtime.visible_ids(session)
         catalog_objects = runtime.service.deps.catalog.objects if runtime.service else []
-        expires = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=settings.session_ttl_s)
+        expires = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=lifetime)
         return {  # OP-04: {session_id, expires_at, servers: [{alias, ok}], databases[]}
             "session_id": session.id, "token": session.id, "expires_at": expires.isoformat(timespec="seconds"),
             "servers": [{"alias": s.alias, "ok": s.id in ok_ids} for s in targets],
@@ -420,7 +533,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         runtime.remember(envelope.trace_id, ShownTrace(session.user_id, question, keys, domain, asked_at))
 
     @app.post("/discover")
-    def discover(body: DiscoverRequest, session: Session = Depends(current_session), service=Depends(require_service)):
+    def discover(body: DiscoverRequest, response: Response, session: Session = Depends(current_session),
+                 service=Depends(require_service)):
         check_rate(session)
         run_service, degraded = pick_service(session, service)
         asked_at = time.time()
@@ -429,6 +543,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if degraded:
             envelope.assumptions.append(DEGRADED_NOTE)
         remember(envelope, body.question, session, service, asked_at)
+        response.headers["X-Trace-Id"] = envelope.trace_id  # OP-05: para cruzar con la auditoría y los logs
         return envelope.model_dump(by_alias=True, mode="json")
 
     @app.post("/discover/stream")
@@ -459,6 +574,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
 
     @app.post("/discover/feedback")
     def feedback(body: FeedbackRequest, session: Session = Depends(current_session)):
+        check_rate(session)  # cada voto reindexa las confirmaciones
         trace = runtime.shown(body.trace_id)
         if trace is None or trace.user_id != session.user_id or body.asset_key not in trace.asset_keys:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa respuesta ya no está disponible para calificarla")
@@ -499,6 +615,15 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                         "domain": r["domain"], "answer": shown_answer})
         return {"items": out}
 
+    def reject_pii(*texts: str | None) -> None:
+        """OP-06 CA5: lo que escribe un responsable se indexa, lo ven todos y viaja al LLM; no puede llevar datos personales."""
+        found = sorted({kind for text in texts if text for kind in find_pii(text)})
+        if found:
+            metrics.increment("pii_rejected")
+            raise HTTPException(422,
+                                "El texto parece contener datos personales (" + ", ".join(found) + "). Describe el dato "
+                                "sin ejemplos reales.")
+
     # --- vista Curación del responsable (F24, HU-30, HU-31) -----------------------------------------
     @app.get("/curation/requests")
     def curation_inbox(status_: Literal["open", "answered", "all"] = Query("open", alias="status"),
@@ -521,16 +646,21 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if req is None or not can_curate(session, req["domain"]):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
         if body.kind == "asset":
-            if not body.asset_key or not service.deps.catalog.exists(body.asset_key):
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Elige un activo que exista en el catálogo")
+            # El activo debe ser de un dominio que este responsable cura: si no, podría documentar cualquier tabla.
+            if (not body.asset_key or not service.deps.catalog.exists(body.asset_key)
+                    or not can_curate(session, domain_of(service, body.asset_key))):
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Elige un activo de tus dominios que exista en el catálogo")
+        reject_pii(body.description, body.note)
+        # Se audita antes de aplicar: sin registro no hay cambio (F11).
+        audit.event("curation_answer", session.user_id, request_id=request_id, answer_kind=body.kind,
+                    asset_key=body.asset_key, domain=req["domain"], described=bool(body.description))
+        if body.kind == "asset":
             if body.description:
                 curation.set_description(service.deps.catalog, body.asset_key, body.description, None)
             runtime.steward_golden(req["question"], body.asset_key)  # F24 CA1: entra de inmediato
         answered = curation.answer_request(request_id, session.user_id, body.kind,
                                            body.asset_key if body.kind == "asset" else None, body.note)
         runtime.reload()  # la siguiente pregunta equivalente ya encuentra la respuesta
-        audit.event("curation_answer", session.user_id, request_id=request_id, answer_kind=body.kind,
-                    asset_key=body.asset_key, domain=req["domain"])
         return {"ok": True, "request": answered}
 
     @app.get("/curation/review")
@@ -565,15 +695,18 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Activo no encontrado")
         if not can_curate(session, domain_of(service, body.asset_key)):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "No eres responsable del dominio de este activo")
+        reject_pii(body.description, *(body.synonyms or []))
+        audit.event("curation_description", session.user_id, asset_key=body.asset_key)  # antes de aplicar (F11)
         copies = curation.set_description(service.deps.catalog, body.asset_key, body.description, body.synonyms)
         runtime.reload()
-        audit.event("curation_description", session.user_id, asset_key=body.asset_key, copies=copies)
         return {"ok": True, "copies": copies}
 
     # --- diccionario de datos (HU-25, F23 CA1) --------------------------------------------------------
     @app.post("/curation/dictionary")
     def curation_dictionary(body: DictionaryRequest, session: Session = Depends(steward_session),
                             service=Depends(require_service)):
+        reject_pii(body.csv)
+        audit.event("curation_dictionary_started", session.user_id, size=len(body.csv))  # antes de aplicar (F11)
         report = curation.apply_dictionary(
             service.deps.catalog, body.csv, lambda key: can_curate(session, domain_of(service, key)))
         if report["applied"]:
@@ -604,11 +737,12 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         existing = next((r for r in curation.curated_rules() if r.id == body.id), None)
         if existing is not None:  # no se pisa una regla de otro dominio
             rule_scope(session, service, [k for k in existing.applies_to if service.deps.catalog.exists(k)])
+        reject_pii(body.text)
         rule = BusinessRule(id=body.id, text=body.text, applies_to=body.applies_to, domain=body.domain,
                             source=f"steward:{session.user_id}", owner=session.user_id, reviewed=True)
+        audit.event("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to))  # antes de aplicar
         curation.upsert_rule(rule)
         runtime.reload()
-        audit.event("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to))
         return {"ok": True, "rule": rule.model_dump(exclude_none=True)}
 
     @app.delete("/curation/rules/{rule_id}")
@@ -617,9 +751,9 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if rule is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
         rule_scope(session, service, [k for k in rule.applies_to if service.deps.catalog.exists(k)])
+        audit.event("curation_rule_deleted", session.user_id, rule_id=rule_id)  # antes de aplicar
         curation.delete_rule(rule_id)
         runtime.reload()
-        audit.event("curation_rule_deleted", session.user_id, rule_id=rule_id)
         return {"ok": True}
 
     # --- impacto (F25, HU-23) ------------------------------------------------------------------------
@@ -689,6 +823,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         data = o.model_dump(by_alias=True, mode="json")
         data["server_alias"] = runtime.inventory.alias(o.server)
         ids = runtime.visible_ids(session)
+        # F14: una FK hacia una tabla que el usuario no ve revelaría su nombre y su llave.
+        data["foreign_keys"] = [fk for fk in data.get("foreign_keys", []) if catalog.is_visible(fk["ref"], ids)]
         data["business_rules"] = [  # de la tabla y de sus columnas; ocultas si aplican a objetos no visibles (F14)
             {"id": r.id, "text": r.text, "reviewed": r.reviewed, "applies_to": r.applies_to}
             for r in knowledge.rules
@@ -727,7 +863,16 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "El inventario necesita al menos un servidor")
         if len({s.id for s in body.servers}) != len(body.servers):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Hay identificadores de servidor repetidos")
+        if settings.production and any(s.trust_server_certificate for s in body.servers):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "En este ambiente el certificado del servidor debe validarse")
         servers = [ServerConfig(**s.model_dump(), auth="sql") for s in body.servers]
+
+        def described(items):
+            return [{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate} for s in items]
+
+        # Cambiar un host redirige las credenciales de todos los usuarios: queda el antes y el después, y antes de aplicar.
+        audit.event("inventory_updated", session.user_id, servers=described(servers),
+                    previous=described(runtime.inventory.servers))
         template = next((c for c in (vault.credential(session, sid) for sid in session.servers) if c), None)
         results = {}
         for server in servers:
@@ -743,7 +888,6 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         runtime.save_inventory(servers)
         session.servers = [s for s in session.servers if runtime.inventory.server(s)]
         runtime.forget(session)
-        audit.event("inventory_updated", session.user_id, servers=[s.id for s in servers])
         return {"ok": True, "connections": results}
 
     @app.post("/admin/catalog/build", status_code=status.HTTP_202_ACCEPTED)
@@ -758,8 +902,37 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         return runtime.job.__dict__
 
     @app.get("/admin/audit")
-    def audit_log(limit: int = 100, kind: str | None = None, session: Session = Depends(admin_session)):
+    def audit_log(limit: int = 100, kind: str | None = Query(None, max_length=40),
+                  session: Session = Depends(admin_session)):
+        audit.event("audit_read", session.user_id, filter=kind, limit=limit)  # quién consulta la auditoría (F11)
         return {"items": audit.recent(max(1, min(limit, 500)), kind=kind)}
+
+    @app.get("/admin/audit/verify")
+    def audit_verify(session: Session = Depends(admin_session)):
+        """Comprueba la cadena de hashes de la auditoría (evidencia de manipulación, OP-05)."""
+        report = audit.verify()
+        if not report.ok:
+            metrics.increment("audit_chain_broken")
+        return {"ok": report.ok, "head": report.head, "files": [
+            {"name": f.name, "rows": f.rows, "legacy": f.legacy, "head": f.head, "errors": f.errors} for f in report.files]}
+
+    @app.get("/admin/sessions")
+    def sessions_list(session: Session = Depends(admin_session)):
+        """Sesiones activas, sin tokens ni credenciales."""
+        def iso(ts: float) -> str:
+            return dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat(timespec="seconds")
+        return {"items": [{"user_id": s.user_id, "roles": s.roles, "servers": s.servers, "created_at": iso(s.created_at),
+                           "last_seen": iso(s.last_seen), "current": s.id == session.id} for s in vault.sessions()]}
+
+    @app.delete("/admin/sessions/{user_id}")
+    def sessions_revoke(user_id: str, session: Session = Depends(admin_session)):
+        """Cierra todas las sesiones de un usuario (baja o incidente); sus tokens dejan de servir de inmediato."""
+        for s in vault.sessions():
+            if s.user_id.lower() == user_id.lower():
+                runtime.forget(s)
+        revoked = vault.drop_user(user_id)
+        audit.event("sessions_revoked", session.user_id, target=user_id, count=revoked)
+        return {"ok": True, "revoked": revoked}
 
     @app.get("/me/history")
     def my_history(limit: int = 30, session: Session = Depends(current_session)):

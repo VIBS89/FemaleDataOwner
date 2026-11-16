@@ -31,6 +31,7 @@ export default function LoginPage() {
   const [alias, setAlias] = useState("");
   const [environment, setEnvironment] = useState("desarrollo");
   const [trustCert, setTrustCert] = useState(false);
+  const [setupToken, setSetupToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +50,7 @@ export default function LoginPage() {
     const body: LoginBody = windows
       ? { auth: "windows" }
       : { auth: "sql", login: login.trim(), password };
-    if (firstRun) Object.assign(body, { host: host.trim(), alias: alias.trim() || undefined, environment, trust_server_certificate: trustCert });
+    if (firstRun) Object.assign(body, { host: host.trim(), alias: alias.trim() || undefined, environment, trust_server_certificate: trustCert, setup_token: setupToken.trim() || undefined });
     else body.servers = chosen;
     try {
       const res = await api.login(body);
@@ -174,6 +175,21 @@ export default function LoginPage() {
                         <span className="text-muted-foreground">Confiar en certificado autofirmado (solo desarrollo)</span>
                         <Switch checked={trustCert} onCheckedChange={setTrustCert} />
                       </label>
+                      {status.setup_token_required && (
+                        <div className="space-y-2">
+                          <Label htmlFor="setup-token">Código de instalación</Label>
+                          <Input
+                            id="setup-token"
+                            type="password"
+                            autoComplete="off"
+                            className="bg-background"
+                            placeholder="Lo entrega quien instaló ConverData"
+                            value={setupToken}
+                            onChange={(e) => setSetupToken(e.target.value)}
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -55,6 +55,7 @@ export interface LoginBody {
   alias?: string;
   environment?: string;
   trust_server_certificate?: boolean;
+  setup_token?: string;
 }
 
 export const api = {

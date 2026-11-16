@@ -89,6 +89,7 @@ export interface SetupStatus {
   llm: boolean;
   demo: boolean;
   windows_auth: boolean;
+  setup_token_required?: boolean; // primer arranque: hay que escribir el código de instalación
 }
 
 export interface User {

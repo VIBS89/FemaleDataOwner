@@ -106,3 +106,32 @@ async def test_mcp_deja_de_funcionar_al_cerrar_sesion(live):
 def test_rutas_desconocidas_siguen_dando_404(ready):
     assert ready.get("/no-existe").status_code == 404
     assert ready.get("/health").status_code == 200
+
+
+@pytest.mark.anyio
+async def test_mcp_respeta_el_tope_de_tokens_y_el_tamano_de_la_pregunta(live):
+    """HU-19: el tope diario y los límites de la web también valen por `/mcp` (antes se podían saltar con el mismo Bearer)."""
+    token = token_of(live.app, "analista")
+    ledger = live.app.state.tokens
+    ledger.limit = 100
+    async with mcp_client(live.app, token) as client:
+        assert not (await client.call_tool("discover", {"question": "¿Dónde está el saldo del préstamo?"})).is_error
+        ledger.add("analista", 500)  # agotó su tope en la web
+        denied = await client.call_tool("discover", {"question": "¿Dónde está el saldo del préstamo?"})
+        assert denied.is_error and "tope diario" in str(denied.content)
+        # las herramientas sin LLM siguen disponibles
+        assert not (await client.call_tool("search_catalog", {"query": "saldo"})).is_error
+        ledger.limit = 0
+        long_question = await client.call_tool("discover", {"question": "x" * 2001})
+        assert long_question.is_error and "demasiado largo" in str(long_question.content)
+        long_key = await client.call_tool("get_asset", {"asset_key": "a" * 401})
+        assert long_key.is_error
+
+
+@pytest.mark.anyio
+async def test_mcp_comparte_el_limite_de_ritmo_por_usuario(live):
+    token = token_of(live.app, "analista")
+    async with mcp_client(live.app, token) as client:
+        results = [await client.call_tool("discover", {"question": "¿Dónde está el saldo?"}) for _ in range(31)]
+    assert [r.is_error for r in results] == [False] * 30 + [True]  # 30 por minuto, como en la web (OP-04)
+    assert "Demasiadas llamadas" in str(results[-1].content)
