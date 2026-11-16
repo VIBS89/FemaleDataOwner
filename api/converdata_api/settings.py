@@ -45,6 +45,25 @@ class ApiSettings:
     mcp_enabled: bool = True  # `/mcp` (F12): herramientas de descubrimiento para Claude Code y otros clientes MCP
     mcp_allowed_hosts: list[str] = field(default_factory=list)  # Host del servidor (p. ej. converdata.banco.local:443)
     mcp_allowed_origins: list[str] = field(default_factory=list)
+    # --- endurecimiento (security.py) ---
+    environment: str = "dev"  # CONVERDATA_ENV: local | dev | qa | prod (la misma variable del gateway de LLM)
+    # Primer arranque: con el inventario vacío, quien registre el primer servidor debe presentar este secreto.
+    setup_token: str | None = None
+    admins_only: bool = False  # `data_admin` solo para los logins de `admins`, no para cualquier sysadmin de un servidor
+    visibility_ttl_s: int = 900  # F14: los permisos del usuario se vuelven a leer de SQL Server cada 15 min
+    session_max_age_s: int = 12 * 3600  # vida máxima de una sesión aunque siga activa
+    max_sessions_per_user: int = 5  # al superarlo se cierra la sesión más antigua del usuario
+    login_max_failures: int = 5  # fallos por login en la ventana antes de bloquearlo; 0 = sin bloqueo
+    login_ip_max_failures: int = 30  # fallos por origen (cualquier login); mayor porque un proxy comparte IP
+    login_window_s: int = 600  # F14: 5 fallos en 10 minutos
+    login_lockout_s: int = 900
+    trust_proxy: bool = False  # tomar el origen de X-Forwarded-For (solo detrás de un proxy inverso propio)
+    max_body_bytes: int = 4 * 1024 * 1024  # el diccionario CSV admite 2 MB de texto
+
+    @property
+    def production(self) -> bool:
+        """qa y prod manejan datos reales: la API se niega a arrancar con ajustes inseguros (`production_violations`)."""
+        return self.environment.strip().lower() in ("qa", "prod")
 
     @classmethod
     def from_env(cls) -> "ApiSettings":
@@ -61,7 +80,8 @@ class ApiSettings:
             admins=frozenset(a.strip().lower() for a in os.environ.get("CONVERDATA_ADMINS", "").split(",") if a.strip()),
             session_ttl_s=int(os.environ.get("CONVERDATA_SESSION_TTL_S", 8 * 3600)),
             cookie_secure=_flag("CONVERDATA_COOKIE_SECURE"),
-            allow_windows_auth=_flag("CONVERDATA_ALLOW_WINDOWS_AUTH", os.name == "nt"),
+            # Apagado por defecto: usa la cuenta del proceso, no la de quien llama (solo para desarrollo local).
+            allow_windows_auth=_flag("CONVERDATA_ALLOW_WINDOWS_AUTH"),
             demo=_flag("CONVERDATA_DEMO"),
             demo_fixtures=[Path(p.strip()) for p in os.environ.get("CONVERDATA_DEMO_FIXTURE", ",".join(
                 str(f) for f in DEFAULT_DEMO_FIXTURES)).split(",") if p.strip()],
@@ -77,4 +97,16 @@ class ApiSettings:
             mcp_enabled=_flag("CONVERDATA_MCP", True),
             mcp_allowed_hosts=[h.strip() for h in os.environ.get("CONVERDATA_MCP_HOSTS", "").split(",") if h.strip()],
             mcp_allowed_origins=[o.strip() for o in os.environ.get("CONVERDATA_MCP_ORIGINS", "").split(",") if o.strip()],
+            environment=os.environ.get("CONVERDATA_ENV", "dev"),
+            setup_token=os.environ.get("CONVERDATA_SETUP_TOKEN") or None,
+            admins_only=_flag("CONVERDATA_ADMINS_ONLY"),
+            visibility_ttl_s=int(os.environ.get("CONVERDATA_VISIBILITY_TTL_S", 900)),
+            session_max_age_s=int(os.environ.get("CONVERDATA_SESSION_MAX_AGE_S", 12 * 3600)),
+            max_sessions_per_user=int(os.environ.get("CONVERDATA_MAX_SESSIONS", 5)),
+            login_max_failures=int(os.environ.get("CONVERDATA_LOGIN_MAX_FAILURES", 5)),
+            login_ip_max_failures=int(os.environ.get("CONVERDATA_LOGIN_IP_MAX_FAILURES", 30)),
+            login_window_s=int(os.environ.get("CONVERDATA_LOGIN_WINDOW_S", 600)),
+            login_lockout_s=int(os.environ.get("CONVERDATA_LOGIN_LOCKOUT_S", 900)),
+            trust_proxy=_flag("CONVERDATA_TRUST_PROXY"),
+            max_body_bytes=int(os.environ.get("CONVERDATA_MAX_BODY_BYTES", 4 * 1024 * 1024)),
         )

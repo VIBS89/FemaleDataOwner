@@ -75,6 +75,16 @@ def rule_synonyms(identifier: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+_UNSAFE_NAME = re.compile(r"[./\\:\x00-\x1f\x7f]")
+
+
+def unsafe_name(raw: RawObject) -> str | None:
+    """Nombre que no puede entrar al catálogo, o None. SQL Server admite casi cualquier carácter entre corchetes, pero
+    un `.` rompe el `asset_key` (`bd.esquema.objeto.columna`) y `/ \\ : ..` permitirían escribir fuera de `catalog/`."""
+    names = [raw.database, raw.schema, raw.name, *(c.name for c in raw.columns)]
+    return next((n for n in names if not n or not n.strip() or _UNSAFE_NAME.search(n)), None)
+
+
 def to_catalog_object(raw: RawObject, server: ServerConfig) -> CatalogObject:
     columns = [
         Column(
@@ -197,6 +207,10 @@ def view_lineage(objects: list[CatalogObject], raws: dict[str, RawObject]) -> li
 
 # --- persistencia en el formato lógico de F1 ------------------------------------------------------
 def object_path(root: Path, obj: CatalogObject) -> Path:
+    base = (root / "catalog").resolve()
+    path = (base / obj.environment / obj.server / obj.database / f"{obj.schema_}.{obj.name}.yaml").resolve()
+    if base not in path.parents:  # defensa en profundidad: `unsafe_name` ya descarta estos objetos al construir
+        raise ValueError(f"El objeto {obj.id!r} se escribiría fuera del catálogo")
     return root / "catalog" / obj.environment / obj.server / obj.database / f"{obj.schema_}.{obj.name}.yaml"
 
 

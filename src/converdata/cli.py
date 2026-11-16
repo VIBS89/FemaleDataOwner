@@ -10,6 +10,8 @@ from pathlib import Path
 
 from converdata.bootstrap import build_service, user_with_databases
 
+GATE_SUITES = ("calidad", "permisos", "inyeccion", "guardas", "robustez", "determinismo", "auditoria")
+DEFAULT_GATE_ROOTS = ("tests/fixtures/vbank", "tests/fixtures/bancos")
 ENV_LABEL = {"produccion": "Producción", "qa": "QA", "desarrollo": "Desarrollo", "dr": "DR"}
 SOURCE_LABEL = {
     "human": "revisada por un responsable",
@@ -110,6 +112,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     evd.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
     evd.add_argument("--min-hit3", type=float, help="Sale con código 1 si Hit@3 queda por debajo (alerta de regresión, OP-05)")
+    evg = ev_sub.add_parser("gate", help="Compuerta de calidad: calidad, permisos, inyección, robustez, determinismo y auditoría")
+    evg.add_argument("--root", action="append", help="Directorio de catálogo; se puede repetir. Por defecto los dos fixtures")
+    evg.add_argument("--cases", help="YAML de casos (solo con un --root); por defecto <root>/eval/discovery.yaml")
+    evg.add_argument("--models", help="config/models.yaml para correr la compuerta con el gateway de LLM")
+    evg.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
+    evg.add_argument("--suites", default="all", help="all o lista separada por comas: " + ",".join(GATE_SUITES))
+    evg.add_argument("--out", help="Directorio donde escribir la evidencia (gate-<catálogo>.json y .md)")
+    evg.add_argument("--write-baseline", action="store_true", help="Guarda el resultado de calidad como nueva línea base")
+    aud = sub.add_parser("audit", help="Auditoría (F11, OP-05)")
+    aud_sub = aud.add_subparsers(dest="audit_command", required=True)
+    av = aud_sub.add_parser("verify", help="Comprueba la cadena de hashes de la auditoría en archivos (evidencia de manipulación)")
+    av.add_argument("--dir", default="data/audit", help="Directorio con audit-AAAA-MM-DD.jsonl")
     cat = sub.add_parser("catalog", help="Catalog Builder (F1): descubre los esquemas con el login de metadatos")
     cat_sub = cat.add_subparsers(dest="catalog_command", required=True)
     cb = cat_sub.add_parser("build", help="Extrae metadatos, enriquece y escribe el catálogo (también refresca)")
@@ -137,7 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "llm":
         return llm_smoke(args.models)
     if args.command == "eval":
-        return eval_discovery(args)
+        return eval_gate(args) if args.eval_command == "gate" else eval_discovery(args)
+    if args.command == "audit":
+        return audit_verify(args)
     if args.command == "catalog":
         return catalog_build(args)
     service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
@@ -179,6 +195,42 @@ def eval_discovery(args) -> int:
     if args.min_hit3 is not None and report.metrics["hit@3"] < args.min_hit3:
         return 1
     return 0
+
+
+def eval_gate(args) -> int:
+    """Sale con 0 solo si todas las suites aprueban en todos los catálogos."""
+    from converdata.evaluation import gate
+    from converdata.evaluation.discovery_eval import load_cases
+
+    roots = args.root or list(DEFAULT_GATE_ROOTS)
+    if args.cases and len(roots) > 1:
+        raise SystemExit("--cases solo se puede usar con un único --root")
+    suites = GATE_SUITES if args.suites == "all" else tuple(x.strip() for x in args.suites.split(",") if x.strip())
+    approved = True
+    for root in roots:
+        root = Path(root)
+        service = build_service(root, models_path=args.models, llm_nodes=not args.embeddings_only)
+        cases = load_cases(args.cases or root / "eval" / "discovery.yaml")
+        llm = bool(args.models) and not args.embeddings_only
+        report, quality = gate.run_gate(service, cases, root=root, llm=llm, thresholds=gate.load_thresholds(root),
+                                        baseline=None if args.write_baseline else gate.load_baseline(root), suites=suites)
+        print(report.render())
+        if args.write_baseline and quality is not None:
+            print(f"Línea base escrita en {gate.write_baseline(root, gate.baseline_from(quality))}")
+        if args.out:
+            json_path, md_path = gate.write_reports(report, args.out)
+            print(f"Evidencia: {json_path} · {md_path}")
+        print()
+        approved = approved and report.ok
+    return 0 if approved else 1
+
+
+def audit_verify(args) -> int:
+    from converdata.audit.chain import verify_directory
+
+    report = verify_directory(args.dir)
+    print(report.render())
+    return 0 if report.ok else 1
 
 
 def apply_patterns(service, spec: str) -> None:

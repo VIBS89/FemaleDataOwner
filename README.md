@@ -45,6 +45,16 @@ CONVERDATA_DEMO=1 docker compose up --build  # servidor simulado: usuarios demo 
 npm --prefix web install && npm --prefix web run dev                                  # API_URL=http://localhost:8000 por defecto
 ```
 
+**Calidad y seguridad** ([docs/calidad-bancaria.md](docs/calidad-bancaria.md)): qué controla la solución, qué prueba fija cada
+control y qué falta para un banco.
+```bash
+.venv/Scripts/python -m pytest -q                                      # controles, capas y flujo de punta a punta
+.venv/Scripts/python -m converdata.cli eval gate --out reports         # compuerta: calidad, permisos, inyección, guardas, robustez, determinismo, auditoría
+.venv/Scripts/python -m converdata.cli audit verify --dir data/audit   # cadena de hashes de la auditoría
+```
+En qa y prod (`CONVERDATA_ENV`) la API no arranca con ajustes inseguros. La autenticación de Windows viene apagada: en
+desarrollo local se activa con `CONVERDATA_ALLOW_WINDOWS_AUTH=1`.
+
 | Capa | Paquete | Contenido |
 |---|---|---|
 | Orquestación (única con LangGraph) | `converdata.flows` | **CatalogBuildFlow** `extract → enrich → relate → write` y **DiscoverFlow** `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize`, ciclos acotados, sin checkpointer persistente |
@@ -54,7 +64,7 @@ npm --prefix web install && npm --prefix web run dev                            
 | LLM (única con LangChain) | `converdata.llm` | Gateway: Ollama (solo local), NVIDIA NIM, Bedrock por configuración; respaldo, circuit breaker y guarda de residencia |
 | Lógica determinista | `converdata.discovery` | Expansión y descomposición de la consulta, calificación, revisor, cascada, confianza de F22, guardas |
 | Memoria | `converdata.memory` | `VectorStore` híbrido (BM25 + embeddings, RRF); `InMemoryVectorStore` y `SqlServerVectorStore` (OP-02, pendiente de validar en SQL Server 2025) |
-| Evaluación | `converdata.evaluation` | Hit@k por tipo (A–G), calibración, caminos, duplicados, fugas, inventados, latencia |
+| Evaluación | `converdata.evaluation` | Hit@k por tipo (A–G), calibración, caminos, duplicados, fugas, inventados, latencia; compuerta de calidad `eval gate` con siete suites y línea base |
 | Identidad y auditoría | `converdata.identity`, `converdata.audit` | `visible_ids` con el login del usuario (F14); auditoría fail-closed (F11) |
 | BD `ConverData` | `db/converdata/001_esquemas.sql` | Esquemas `catalog`, `knowledge`, `golden`, `curation`, `audit` con `VECTOR`, Full-Text y tablas temporales |
 

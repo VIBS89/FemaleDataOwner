@@ -43,6 +43,7 @@ class BuildReport:
     lineage_edges: int = 0
     files_written: int = 0
     seconds: float = 0.0
+    skipped_unsafe: int = 0  # objetos con nombres no admitidos (`.`, `/`, `\\`, `:` o caracteres de control)
 
     def render(self) -> str:
         lines = [
@@ -54,6 +55,8 @@ class BuildReport:
             f"Entidades entre BDs: {', '.join(self.entities) or '—'} · aristas de linaje: {self.lineage_edges}",
             f"Archivos escritos: {self.files_written} · {self.seconds:.1f} s",
         ]
+        if self.skipped_unsafe:
+            lines.append(f"Objetos omitidos por tener nombres no admitidos: {self.skipped_unsafe}")
         if self.enrich_errors:
             lines.append(f"Avisos de enriquecimiento: {len(self.enrich_errors)} (primero: {self.enrich_errors[0]})")
         return "\n".join(lines)
@@ -90,6 +93,9 @@ def build_catalog_graph(
                     server.databases = dbs  # el inventario escrito refleja lo descubierto
                 for db in dbs:
                     for raw in source.extract_database(db):
+                        if cb.unsafe_name(raw) is not None:  # no entra al catálogo; se cuenta en el informe
+                            report.skipped_unsafe += 1
+                            continue
                         obj = cb.to_catalog_object(raw, server)
                         merged, needs = cb.merge_existing(obj, existing.get(obj.id))
                         raws[merged.id] = raw

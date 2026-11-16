@@ -316,6 +316,8 @@ def build_discover_graph(deps: DiscoverDeps):
                 error = f"fallback:{type(exc).__name__}"
             if text is not None and not engine.narrative_mentions_ok(text, discovery, deps.catalog):
                 error, text = "narrativa_rechazada:objeto_fuera_de_respuesta", None
+            elif text is not None and engine.unsafe_generated_text(text):
+                error, text = "narrativa_rechazada:contenido_no_permitido", None
         if text is None:
             text = fallback_narrator.narrate(state["question"], discovery)
         return {"answer_text": text}, error
