@@ -1,5 +1,7 @@
 # F1 — Catalog Builder (ingesta y mapeo) · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Infraestructura de ingesta por entorno: **cloud native** → [CN-02](../cloud-native/CN-02-catalogo-memoria.md) · **on-premise** → [OP-02](../on-premise/OP-02-catalogo-memoria.md)
 
 ## Historia de usuario
@@ -42,7 +44,7 @@ servers:
 2. **Muestras en memoria** (herramienta `get_sample_rows` de `converdata-discovery`, solo en modo biblioteca y contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad, sin columnas `pii` ni clasificadas como sensibles. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
 
 ## Enriquecimiento con LLM
-Lo hace el Catalog Builder (proceso batch en Python, separado del servicio interactivo, con llamadas directas por lotes al rol `planner` de F16). Para cada tabla y columna sin `MS_Description` genera:
+Lo hace el Catalog Builder (comando batch en Python que corre y termina, separado del servicio interactivo, con llamadas directas por lotes al rol `planner` de F16; on-premise lo lanza el Programador de tareas de Windows, OP-02). Para cada tabla y columna sin `MS_Description` genera:
 - `description` (español, una o dos frases)
 - `synonyms[]` (términos de negocio)
 - `domain` (por ejemplo ventas, inventario, RRHH)
@@ -54,9 +56,10 @@ Las fuentes de conocimiento no estructurales (diccionarios de datos, documentaci
 se ingieren con F23 y se vinculan a este catálogo por `asset_key`.
 
 ## Salida: `<catálogo>/<environment>/<server>/<db>/<schema>.<table>.yaml`
-Este es el **formato lógico** de un objeto del catálogo. Dónde se persiste depende del despliegue: on-premise en las tablas del esquema
-`catalog` de la BD `ConverData`, con exportación a YAML para revisión en git ([OP-02](../on-premise/OP-02-catalogo-memoria.md));
-cloud native como YAML versionado en S3 ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)). Las reglas sobre "el YAML" aplican a ambos formatos.
+Este es el **formato lógico** de un objeto del catálogo. Se persiste en las tablas del esquema `catalog` de la BD `ConverData`
+([OP-02](../on-premise/OP-02-catalogo-memoria.md)), que sigue on-premise también en el despliegue en AWS (PRD §13, decisión 14).
+El YAML es el formato de desarrollo, el área de trabajo del Builder y el de exportación (`converdata catalog export`); las reglas sobre
+"el YAML" aplican a ambos formatos.
 ```yaml
 id: produccion:SRV01.Ventas.dbo.Pedido
 asset_key: Ventas.dbo.Pedido
@@ -94,9 +97,14 @@ Para un procedimiento, la salida incluye `parameters[{name, type, direction, has
 Además se genera `_database.yaml` por BD con el resumen, los dominios detectados y el hash global.
 
 ## Comandos
-- `converdata catalog build [--db Ventas] [--no-llm]`: ingesta completa.
+- `converdata catalog build [--database Ventas] [--no-llm]`: ingesta completa.
 - `converdata catalog refresh`: compara `schema_hash` por objeto y procesa solo lo que cambió. Los objetos eliminados se marcan como `deprecated: true` y salen del índice.
 - `converdata catalog review --unreviewed`: lista los objetos pendientes de revisión humana.
+
+Estado: hoy existe `converdata catalog build --config <inventario> --out <dir> [--models <models.yaml>] [--db]`, que también sirve de
+refresco (con `--db` parte del catálogo publicado en la BD `ConverData` y publica el resultado), `converdata catalog publish` y
+`converdata catalog export`, y el mismo flujo bajo demanda desde Administración (`POST /admin/catalog/build`). `refresh` incremental, `review` y las opciones
+`--database` y `--no-llm` están pendientes; la revisión se hace en la vista Curación (F24).
 
 ## Reglas
 - Nunca sobrescribe campos con `description_source: human`.

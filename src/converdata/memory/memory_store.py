@@ -1,7 +1,8 @@
-"""`InMemoryVectorStore`: implementación de referencia de `VectorStore` para desarrollo, tests de contrato y evaluación.
+"""`InMemoryVectorStore`: el índice de búsqueda de ConverData-API (OP-02; PRD §13, decisión 9).
 
-Mismo algoritmo que `SqlServerVectorStore` (OP-02): top-k léxico (BM25) + top-k vectorial (coseno) fusionados con
-Reciprocal Rank Fusion, con el filtro de permisos aplicado **antes** del ranking. Sin `Embedder`, solo la parte léxica.
+Índice léxico BM25 en memoria, con el filtro de permisos aplicado **antes** del ranking. Se reconstruye al arrancar y
+cuando cambia el catálogo. Con un `Embedder` añade un canal vectorial (coseno) fusionado con Reciprocal Rank Fusion:
+queda solo para experimentar en desarrollo, porque la medición HU-34 no encontró mejora y no se despliega.
 """
 
 from __future__ import annotations

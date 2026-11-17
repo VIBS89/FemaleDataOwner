@@ -299,8 +299,13 @@ def test_con_admins_only_ser_sysadmin_de_un_servidor_no_da_el_rol(settings):
 
 # --- guarda de producción ------------------------------------------------------------------------------
 @pytest.fixture
-def prod(tmp_path):
+def prod(tmp_path, monkeypatch):
+    # La BD `ConverData` es obligatoria en producción; aquí la auditoría se queda en archivos para no exigir un
+    # SQL Server (api/tests/test_audit_db.py la prueba contra uno real).
+    monkeypatch.setattr("converdata_api.main.open_audit", lambda s: FileAuditSink(s.audit_dir))
+    monkeypatch.setattr("converdata_api.runtime.open_repository", lambda s: None)
     return ApiSettings(
+        db="SERVER=sql-converdata;DATABASE=ConverData;Trusted_Connection=yes",
         data_root=tmp_path / "catalog", inventory_path=tmp_path / "inventory.yaml", audit_dir=tmp_path / "audit",
         curation_dir=tmp_path / "curation", log_dir=tmp_path / "logs", event_log=False, environment="prod",
         cookie_secure=True, cors_origins=["https://converdata.banco.local"], public_url="https://converdata.banco.local",
@@ -331,6 +336,7 @@ def test_la_configuracion_de_produccion_valida_arranca(prod):
     ({"setup_token": None}, "CONVERDATA_SETUP_TOKEN"),
     ({"login_max_failures": 0}, "CONVERDATA_LOGIN_MAX_FAILURES"),
     ({"log_dir": None}, "CONVERDATA_LOG_DIR"),
+    ({"db": None}, "CONVERDATA_DB"),
     ({"session_ttl_s": 24 * 3600}, "sesión"),
     ({"notify_webhook": "http://teams.example/hook"}, "CONVERDATA_NOTIFY_WEBHOOK"),
 ])
@@ -355,6 +361,22 @@ def test_produccion_revisa_inventario_modelos_y_auditoria_del_catalogo(prod, tmp
     assert "trust_server_certificate" in text and "fail_open" in text and "data_mode: real" in text
     models.write_text("data_mode: real\n", encoding="utf-8")
     assert "data_mode" not in "\n".join(production_violations(prod))
+    models.write_text("data_mode: real\nroles: {planner: {provider: bedrock, model: m}, embed: {provider: bedrock, model: e}}\n",
+                      encoding="utf-8")
+    assert "rol embed" in "\n".join(production_violations(prod))  # PRD §13, decisión 9
+
+
+def test_produccion_no_arranca_si_la_cuenta_puede_modificar_la_auditoria(prod, monkeypatch):
+    """Con la auditoría en SQL Server, la cuenta del servicio solo inserta y lee (rol converdata_app)."""
+    from converdata.audit.chain import ChainReport, FileCheck
+
+    class Writable(FileAuditSink):
+        def verify(self):
+            return ChainReport([FileCheck("audit (SQL Server)", errors=["la cuenta del servicio puede borrar la auditoría"])])
+
+    monkeypatch.setattr("converdata_api.main.open_audit", lambda s: Writable(s.audit_dir))
+    with pytest.raises(InsecureConfiguration, match="borrar la auditoría"):
+        create_app(prod, DemoConnector(FIXTURE))
 
 
 def test_sin_ambiente_de_produccion_no_se_exige_nada(settings):

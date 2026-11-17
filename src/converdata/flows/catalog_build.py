@@ -43,6 +43,7 @@ class BuildReport:
     lineage_edges: int = 0
     files_written: int = 0
     seconds: float = 0.0
+    kept_from_failed: int = 0  # objetos conservados de servidores que no respondieron en este refresco
     skipped_unsafe: int = 0  # objetos con nombres no admitidos (`.`, `/`, `\\`, `:` o caracteres de control)
 
     def render(self) -> str:
@@ -55,6 +56,8 @@ class BuildReport:
             f"Entidades entre BDs: {', '.join(self.entities) or '—'} · aristas de linaje: {self.lineage_edges}",
             f"Archivos escritos: {self.files_written} · {self.seconds:.1f} s",
         ]
+        if self.kept_from_failed:
+            lines.append(f"Objetos conservados de servidores que no respondieron: {self.kept_from_failed}")
         if self.skipped_unsafe:
             lines.append(f"Objetos omitidos por tener nombres no admitidos: {self.skipped_unsafe}")
         if self.enrich_errors:
@@ -71,13 +74,19 @@ class BuildState(TypedDict, total=False):
     report: BuildReport
 
 
+# La BD de trabajo de ConverData no forma parte del patrimonio de datos: no se cataloga a sí misma.
+OWN_DATABASES = frozenset({"converdata"})
+
+
 def build_catalog_graph(
     inventory: Inventory,
     out_dir: Path,
     source_factory: Callable[[ServerConfig], MetadataSource],
     enricher=None,
+    exclude_databases: frozenset[str] = OWN_DATABASES,
 ):
     out_dir = Path(out_dir)
+    excluded = {name.lower() for name in exclude_databases}
 
     def extract(state: BuildState):
         report = state["report"]
@@ -88,7 +97,7 @@ def build_catalog_graph(
         for server in inventory.servers:
             try:
                 source = source_factory(server)
-                dbs = source.list_databases()
+                dbs = [db for db in source.list_databases() if db.lower() not in excluded]
                 if server.all_databases:
                     server.databases = dbs  # el inventario escrito refleja lo descubierto
                 for db in dbs:
@@ -109,6 +118,15 @@ def build_catalog_graph(
             except Exception as exc:  # F1-CA5: se sigue con los demás servidores
                 log.warning("servidor %s no disponible: %s", server.id, type(exc).__name__)
                 report.servers_failed[server.id] = f"{type(exc).__name__}: {str(exc)[:120]}"
+                # Un servidor caído no vacía su parte del catálogo: se conserva lo último conocido de ese servidor.
+                partial = {o.id for o in objects if o.server == server.id}
+                objects = [o for o in objects if o.id not in partial]
+                pending = [i for i in pending if i not in partial]
+                for known in existing.values():
+                    if known.server == server.id:
+                        raws.pop(known.id, None)
+                        objects.append(known)
+                        report.kept_from_failed += 1
         report.objects = len(objects)
         report.columns = sum(len(o.columns) for o in objects)
         return {"raws": raws, "objects": objects, "pending_enrich": pending}
@@ -156,6 +174,12 @@ def build_catalog_graph(
     def relate(state: BuildState):
         entities = cb.detect_entities(state["objects"])
         lineage = cb.view_lineage(state["objects"], state["raws"])
+        if state["report"].servers_failed:  # las vistas de un servidor caído no se releyeron: se conserva su linaje
+            from converdata.catalog.store import load_knowledge
+
+            kept = {o.asset_key for o in state["objects"] if o.id not in state["raws"]}
+            lineage += [e for e in load_knowledge(out_dir / "knowledge").lineage
+                        if e.via.kind == "view" and e.to in kept]
         state["report"].entities = [f"{e.name} ({len(e.tables)} BDs)" for e in entities]
         state["report"].lineage_edges = len(lineage)
         return {"entities": entities, "lineage": lineage}
@@ -179,12 +203,15 @@ def build_catalog_graph(
 
 
 def build_catalog(
-    inventory: Inventory, out_dir: Path, source_factory: Callable[[ServerConfig], MetadataSource], enricher=None
+    inventory: Inventory, out_dir: Path, source_factory: Callable[[ServerConfig], MetadataSource], enricher=None,
+    exclude_databases: frozenset[str] = OWN_DATABASES,
 ) -> BuildReport:
-    """`source_factory` lo inyecta la raíz de composición: `SqlServerMetadata` en producción, fuentes falsas en tests."""
+    """`source_factory` lo inyecta la raíz de composición: `SqlServerMetadata` en producción, fuentes falsas en tests.
+
+    `exclude_databases`: BDs que no se catalogan aunque el inventario diga `"*"` (por defecto, la BD `ConverData`)."""
     t0 = time.perf_counter()
     report = BuildReport()
-    graph = build_catalog_graph(inventory, out_dir, source_factory, enricher)
+    graph = build_catalog_graph(inventory, out_dir, source_factory, enricher, exclude_databases)
     graph.invoke({"report": report})
     report.seconds = time.perf_counter() - t0
     return report

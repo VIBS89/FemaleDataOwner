@@ -1,5 +1,7 @@
 # F9 — Result Verifier
 
+> Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
+
 ## Historia de usuario
 Como **usuario**, quiero saber si el resultado realmente responde a mi pregunta y cuánta confianza merece,
 antes de usarlo para tomar decisiones.

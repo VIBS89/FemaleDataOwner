@@ -1,8 +1,9 @@
 # F18 — `converdata-discovery`: MCP propio de descubrimiento (Apache-2.0) · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Sustituye a sql-to-mcp / AnythingMCP (AGPL-3.0). Es código propio bajo **Apache-2.0**, sin dependencias copyleft.
-> Despliegue (igual en ambos entornos): **biblioteca dentro del Catalog Builder** → tarea ECS en **cloud native** ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)) ·
-> servicio de Windows `ConverData-Builder` en **on-premise** ([OP-02](../on-premise/OP-02-catalogo-memoria.md)). El transporte MCP es opcional (herramientas de administración en red privada).
+> Despliegue (igual en ambos entornos): **biblioteca dentro del Catalog Builder**, que es un comando que corre y termina (`converdata catalog build`): lo lanza el Programador de tareas de Windows en **on-premise** ([OP-02](../on-premise/OP-02-catalogo-memoria.md)) y EventBridge Scheduler en **cloud native** ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)). El transporte MCP es opcional (herramientas de administración en red privada).
 
 ## Por qué un MCP propio
 | Motivo | Detalle |

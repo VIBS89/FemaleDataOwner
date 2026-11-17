@@ -1,5 +1,7 @@
 # F19 — Descubrimiento entre múltiples BDs: mapa del patrimonio de datos · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Se apoya en [F18](F18-discovery-mcp.md) (metadatos) y alimenta [F2](F02-semantic-memory.md) (memoria) y [F4](F04-schema-linking.md) (schema linking).
 
 ## Problema
@@ -8,7 +10,8 @@ entre BDs casi nunca están declaradas como FKs. El agente necesita saber **dón
 cómo se cruzan las BDs** antes de escribir SQL.
 
 ## Salida: grafo del patrimonio de datos (`catalog/_estate/`)
-Un grafo versionado en YAML, revisable por humanos, cargado en memoria con `networkx`:
+Un grafo revisable por humanos que se **construye en memoria** al cargar el catálogo. Sus nodos y aristas se guardan como filas de
+tablas normales del esquema `catalog` de la BD `ConverData` (hoy, YAML); no se usan tablas de grafo de SQL Server (PRD §13, decisión 10):
 
 | Nodo | Atributos |
 |---|---|
@@ -32,12 +35,15 @@ Cada arista guarda `evidence[]` y `reviewed`. Las inferidas (`confidence < 0.8`)
 2. **Relaciones declaradas**: FKs, dependencias de vistas y SPs, referencias entre BDs, sinónimos y linked servers.
 3. **Relaciones observadas**: joins de Query Store (lo que la gente realmente cruza), ponderados por frecuencia y recencia.
 4. **Relaciones inferidas** (solo si 2 y 3 no conectan dos dominios relevantes):
-   - candidatos por nombre y tipo (`ClienteID` ↔ `CustomerId`, embeddings de nombres + reglas);
+   - candidatos por nombre y tipo (`ClienteID` ↔ `CustomerId`, similitud léxica de nombres + reglas; sin embeddings en la fase 1a);
    - verificación con **sketches MinHash** calculados en memoria por F18 (estimación de contención tipo LSH Ensemble). Los sketches viven solo durante el proceso; se guarda la arista resultante y su confianza, nunca el sketch.
 5. **Tipos semánticos de columna**: reglas (RFC, CURP, email, teléfono, código postal, ISO de moneda o país) + LLM sobre nombre, descripción y estadísticas (sin valores de texto). Sirven para encontrar joins y para marcar PII.
 6. **Entidades de negocio**: el LLM agrupa tablas equivalentes en `entity` y propone la **tabla canónica**, priorizando: declarada por un humano → con más FKs entrantes → más usada en Query Store → más fresca (`last_user_update`).
 7. **Dominios y popularidad**: clustering por grafo (comunidades) para dominios; puntuación de popularidad (Query Store + `index_usage_stats`) para el ranking del schema linking.
-8. **Revisión humana**: `converdata estate review` muestra entidades, tablas canónicas y aristas inferidas pendientes.
+8. **Revisión humana**: `converdata estate review` muestra entidades, tablas canónicas y aristas inferidas pendientes (comando pendiente).
+
+Estado: el build ya produce entidades entre BDs y aristas de linaje de vistas, y `where_is`, `estate_overview` y `find_join_path` están
+publicadas en `/mcp` (F12). Query Store, sketches MinHash y el plan federado (fase 1b) están pendientes.
 
 ## Uso en tiempo de pregunta
 - **Router (F3)**: decide BD(s) a partir de las entidades mencionadas, no solo por similitud de texto.

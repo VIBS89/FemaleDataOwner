@@ -1,7 +1,10 @@
 # F23 — Fuentes de conocimiento: diccionarios, documentación, ETL y reglas de negocio · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Origen: Propuesta, secciones 1, 6 y "¿Por qué es innovador?": el agente debe razonar sobre **metadatos, documentación técnica,
 > procesos ETL, diccionarios y glosarios de datos y conocimiento institucional**, no solo sobre la estructura de las bases.
+> Estado: construido, el diccionario de datos en CSV (HU-25, también desde Curación) y las reglas de negocio; pendiente, los documentos con redacción de PII (HU-26) y el linaje de SSIS y de jobs de SQL Server (HU-27).
 > Infraestructura por entorno: **on-premise** → [OP-02](../on-premise/OP-02-catalogo-memoria.md) · **cloud native** → [CN-02](../cloud-native/CN-02-catalogo-memoria.md)
 
 ## Historia de usuario
@@ -32,7 +35,7 @@ class KnowledgeConnector(Protocol):
 ## Vinculación con el catálogo (`linked_assets`)
 Para cada `KnowledgeItem`:
 1. **Coincidencia determinista** de nombres calificados (`db.schema.tabla`, `tabla.columna`) y alias conocidos (sinónimos de F1).
-2. **Coincidencia semántica**: embeddings del fragmento contra `tables`/`columns`, con umbral 0.8.
+2. **Coincidencia por similitud**: búsqueda léxica (BM25, F2) del fragmento contra `tables`/`columns`, con umbral 0.8. Sin embeddings en la fase 1a (PRD §13, decisión 9).
 3. **Confirmación con LLM** (rol `fast`) solo para los casos entre 0.65 y 0.8.
 El resultado guarda `{asset_key, method, score}`; los vínculos con `score < 0.8` quedan `reviewed: false`.
 
@@ -65,6 +68,7 @@ el nivel de tabla; el linaje completo de extremo a extremo es la visión futura 
 ## Residencia y seguridad (F17)
 - Los documentos y diccionarios **pueden contener datos de clientes** (ejemplos, capturas, extractos). Antes de indexar, cada fragmento pasa por
   un detector de PII (Microsoft Presidio con reconocedores en español y patrones locales: DUI, NIT, número de cuenta, tarjeta, teléfono, correo).
+  Presidio está pendiente (HU-26); hoy existe un detector de cinco patrones que se aplica a las ediciones de curación.
   - Si hay PII, el fragmento se indexa **redactado** (`<DUI>`, `<CUENTA>`) y se marca `redacted: true`.
   - Si más del 20 % de los tokens son PII, el fragmento se descarta y se registra en el reporte de ingesta.
 - El índice guarda fragmentos redactados (clase D3 de F17); el documento original no se copia y permanece en su repositorio de origen.
@@ -77,6 +81,9 @@ el nivel de tabla; el linaje completo de extremo a extremo es la visión futura 
 ## Comandos
 - `converdata knowledge ingest [--source <nombre>]`: procesa solo lo que cambió (por hash).
 - `converdata knowledge report`: fragmentos indexados, redactados y descartados; vínculos sin revisar; conflictos.
+
+Estado: estos dos comandos están pendientes (HU-26). Hoy el conocimiento entra con `converdata catalog build` y con la carga del
+diccionario desde Curación (`POST /curation/dictionary`).
 
 ## Conflictos
 Si dos fuentes describen el mismo activo de forma contradictoria (por ejemplo, el diccionario y `MS_Description`), el activo se marca

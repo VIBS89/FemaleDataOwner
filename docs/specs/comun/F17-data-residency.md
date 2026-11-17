@@ -1,5 +1,7 @@
 # F17 — Residencia de datos · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Inventario de controles por entorno: **cloud native** → [CN-06](../cloud-native/CN-06-residencia-datos.md) · **on-premise** → [OP-06](../on-premise/OP-06-residencia-datos.md)
 
 ## Principio
@@ -23,7 +25,7 @@ persistir y puede contener datos vive **on-premise**.
 - El sandbox de análisis (F20) no tiene red ni almacenamiento persistente.
 - El historial de conversación vive solo en la memoria de la sesión.
 - El estado de los grafos de LangGraph (checkpointer) vive **solo en memoria** durante la petición; no se usa un checkpointer persistente.
-- Chainlit sin data layer; las descargas se generan en streaming al navegador.
+- La web (Next.js) no persiste chats, credenciales ni archivos; las descargas se generan en streaming al navegador.
 - Logs y spans con lista blanca de atributos D5; un filtro descarta `question`, `sql`, `rows`, `prompt` y `completion`.
 - **Bedrock**: procesa sin almacenar; *model invocation logging* desactivado en la cuenta usada.
 - **NVIDIA NIM (fallback)**: envía D1/D2 a un tercero. Desactivado por defecto con datos reales; solo se activa con un acuerdo de procesamiento de datos o con NIM autoalojado.

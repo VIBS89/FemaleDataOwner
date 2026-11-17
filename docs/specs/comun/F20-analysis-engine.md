@@ -1,5 +1,7 @@
 # F20 — Motor de análisis: de "responder una consulta" a "analizar" · común
 
+> Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
+>
 > Amplía [F10](F10-analyst.md). Inspirado en InsightPilot (Microsoft Research), Data Interpreter (MetaGPT), TaskWeaver (Microsoft), PandasAI, ThoughtSpot Spotter y Power BI *key influencers*.
 
 ## Problema

@@ -1,6 +1,9 @@
 # F14 — Identidad y permisos heredados · común
 
-> Dónde vive la credencial por entorno: **cloud native** → Cognito + Secrets Manager/KMS ([CN-03](../cloud-native/CN-03-identidad.md)) · **on-premise** → SessionVault en memoria ([OP-03](../on-premise/OP-03-identidad.md))
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
+> Dónde vive la credencial: SessionVault en memoria de `ConverData-API` ([OP-03](../on-premise/OP-03-identidad.md)). El despliegue en AWS, posterior al piloto, no usa un IdP gestionado (PRD §13, decisión 14; [CN-03](../cloud-native/CN-03-identidad.md)).
+> Controles implementados y su prueba: [calidad bancaria §3](../../calidad-bancaria.md).
 > Diagrama: `docs/architecture/permisos-heredados.html`
 
 ## Historia de usuario
@@ -36,8 +39,11 @@ Los fragmentos de documentos con ACL de origen (`allowed_groups`, F23), los role
 métricas (`user_group`, F25) necesitan saber a qué grupos corporativos pertenece el usuario:
 | Entorno | Fuente de los grupos |
 |---|---|
-| Cloud native | Claim `cognito:groups` del JWT, sincronizado desde el IdP corporativo federado (CN-03) |
+| Cloud native | La misma que on-premise (PRD §13, decisión 14) |
 | On-premise | Tabla `curation.user_directory` (login SQL → cuenta de AD), mantenida por `data_admin`; al iniciar sesión, el servicio consulta AD por LDAP (solo lectura, con su gMSA) los grupos de esa cuenta (OP-03) |
+
+Estado: la consulta LDAP está pendiente (HU-13). Hoy `data_admin` sale de una lista explícita de logins y `steward` de los responsables
+por dominio de `owners.yaml`, asignados por login SQL.
 
 Si no hay grupos resueltos (login sin cuenta de AD asociada o directorio no disponible), `groups = []`: el usuario no ve fragmentos con ACL
 ni tiene roles de curación (fail-closed). Los grupos se cachean con la visibilidad.
@@ -69,11 +75,12 @@ un usuario solo descubre los objetos que están en sus `visible_ids`, aunque se 
 - **Login de metadatos**: solo lo usan `converdata-discovery` (F18) y el Catalog Builder (F1); nunca se usa para responder preguntas de usuarios.
 - **Consultas entre BDs y servidores** (F19): cada rama se ejecuta con el login del usuario en su servidor; si no tiene permisos en una de ellas, esa parte se omite y se indica.
 - TLS en todas las conexiones (`Encrypt=yes; TrustServerCertificate=no` en producción).
-- Bloqueo tras 5 logins fallidos en 10 min por login.
+- Bloqueo tras 5 logins fallidos en 10 min por login (y 30 por origen).
+- Sesión: 8 h de inactividad, 12 h de vida total y 5 sesiones por usuario; la visibilidad se vuelve a leer de SQL Server cada 15 min.
 - Las contraseñas se excluyen de logs, trazas, auditoría y mensajes de error.
 
 ## Criterios de aceptación
-1. El usuario A (solo esquema `Ventas`) no obtiene tablas de `RRHH` en `/catalog/search` ni en el contexto del planner.
+1. El usuario A (solo esquema `Ventas`) no obtiene tablas de `RRHH` en `/catalog/objects`, en `search_catalog` (MCP) ni en el contexto del LLM.
 2. Si el usuario A pregunta por salarios de RRHH, recibe "no encontré datos disponibles" sin mención a tablas de RRHH.
 3. Si el usuario A fuerza `run_select` sobre `RRHH.Empleado` vía MCP, el validador lo rechaza y, sin el validador, SQL Server devuelve el error 229.
 4. Al cerrar la sesión, la credencial deja de ser utilizable (401).

@@ -4,7 +4,7 @@ Asistente de IA para la **Gerencia de Datos de Banco Atlántida El Salvador** qu
 qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece la recomendación*. Su objetivo es reducir la dependencia
 del conocimiento tribal y convertir la experiencia de los expertos en conocimiento reutilizable por toda la organización.
 
-> **Estado:** especificación y arquitectura terminadas; fase 1a on-premise en desarrollo (DiscoverFlow, agente de esquemas, GraphRAG y gateway de LLM). Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
+> **Estado:** fase 1a on-premise en desarrollo. Agente, API, web y MCP construidos y medidos; catálogo y auditoría en la BD `ConverData` (SQL Server). Faltan Bedrock, la instalación en el servidor del piloto y el trabajo con el banco. Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
 > Todo el detalle está en el **[PRD](docs/PRD.md)**.
 
 ## Desarrollo
@@ -17,8 +17,9 @@ python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim
 #    con descripciones y sinónimos generados por el LLM (marcados "sugeridos por IA, sin revisar")
 .venv/Scripts/python -m converdata.cli catalog build --out data/catalog_bancos_enriched --models config/models.yaml
 
-# 2. Preguntar (GraphRAG híbrido: léxico + vectorial + grafo del patrimonio)
+# 2. Preguntar (búsqueda léxica + grafo del patrimonio; con --models, el LLM entiende la intención y ordena)
 .venv/Scripts/python -m converdata.cli discover "¿Dónde está el DUI del cliente?" --root data/catalog_bancos
+#    canal de embeddings, solo para experimentar: no mejoró el acierto y no se despliega (PRD §13, decisión 9)
 .venv/Scripts/python -m converdata.cli discover "<pregunta>" --root data/catalog_bancos_enriched --models config/models.embed.yaml --embeddings-only
 
 # 3. Medir: set de evaluación por tipo de pregunta y ablación de patrones
@@ -29,12 +30,30 @@ python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim
 cp config/models.local.example.yaml config/models.yaml  # Ollama local (o models.example.yaml para NVIDIA NIM)
 .venv/Scripts/python -m converdata.cli llm smoke
 ```
+### BD `ConverData` (SQL Server 2016 o posterior)
+Con `CONVERDATA_DB` definida (cadena ODBC; obligatoria en qa y prod), el catálogo, el conocimiento y la auditoría viven en SQL Server;
+sin ella, en archivos bajo `data/` (solo desarrollo).
+```bash
+sqlcmd -S "localhost\SQLEXPRESS" -E -C -Q "CREATE DATABASE ConverData"
+export CONVERDATA_DB='SERVER=localhost\SQLEXPRESS;DATABASE=ConverData;Trusted_Connection=yes;TrustServerCertificate=yes'
+.venv/Scripts/python -m converdata.cli db migrate                                   # aplica db/converdata/*.sql (una transacción por script)
+.venv/Scripts/python -m converdata.cli catalog publish --root tests/fixtures/bancos # importa un catálogo en archivos
+.venv/Scripts/python -m converdata.cli catalog build --config config/databases.local.yaml --out data/trabajo --db  # refresco: parte de la BD y publica en ella
+.venv/Scripts/python -m converdata.cli discover "¿Dónde está el DUI del cliente?" --db
+.venv/Scripts/python -m converdata.cli eval gate --db --root tests/fixtures/bancos  # la compuerta, con el catálogo de la BD
+.venv/Scripts/python -m converdata.cli catalog export --out data/export             # YAML para revisar en git
+.venv/Scripts/python -m converdata.cli audit purge                                  # retención de 180 días (rol converdata_maintenance)
+
+# Pruebas contra un SQL Server real (crean y eliminan su propia BD); sin la variable se omiten
+CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes' .venv/Scripts/python -m pytest -q
+```
 ### Web (Next.js + shadcn) y ConverData-API (FastAPI)
 `web/` es el chat y el explorador del catálogo; `api/` expone el agente (`/discover`, `/discover/feedback`, `/assets/{asset_key}`,
 `/catalog/*`, `/auth/login`, `/admin/*`). El login es el **usuario de base de datos** de cada persona (OP-03): la API calcula con él lo que
 puede ver (F14) y guarda la contraseña cifrada solo en memoria. **Primer arranque**: sin inventario ni catálogo, el primer login (con
 `VIEW ANY DEFINITION` o `sysadmin`) registra el servidor y, desde *Administración → Descubrir esquemas*, el agente extrae los esquemas
-con ese acceso. La auditoría base queda en `data/audit/*.jsonl` y las confirmaciones "Es este" en `knowledge/golden` (F24).
+con ese acceso. Sin `CONVERDATA_DB`, la auditoría queda en `data/audit/*.jsonl` y las confirmaciones "Es este" en `knowledge/golden` (F24);
+con ella, en la BD `ConverData`.
 ```bash
 docker compose up --build                    # http://localhost:3000
 CONVERDATA_DEMO=1 docker compose up --build  # servidor simulado: usuarios demo (admin) / analista, contraseña demo
@@ -50,7 +69,7 @@ control y qué falta para un banco.
 ```bash
 .venv/Scripts/python -m pytest -q                                      # controles, capas y flujo de punta a punta
 .venv/Scripts/python -m converdata.cli eval gate --out reports         # compuerta: calidad, permisos, inyección, guardas, robustez, determinismo, auditoría
-.venv/Scripts/python -m converdata.cli audit verify --dir data/audit   # cadena de hashes de la auditoría
+.venv/Scripts/python -m converdata.cli audit verify --db               # la cuenta de la API no puede modificar la auditoría (--dir data/audit sin BD)
 ```
 En qa y prod (`CONVERDATA_ENV`) la API no arranca con ajustes inseguros. La autenticación de Windows viene apagada: en
 desarrollo local se activa con `CONVERDATA_ALLOW_WINDOWS_AUTH=1`.
@@ -63,10 +82,10 @@ desarrollo local se activa con `CONVERDATA_ALLOW_WINDOWS_AUTH=1`.
 | Grafo del patrimonio | `converdata.graph` | Entidades y copias canónicas, caminos de unión entre tablas y BDs filtrados por permisos |
 | LLM (única con LangChain) | `converdata.llm` | Gateway: Ollama (solo local), NVIDIA NIM, Bedrock por configuración; respaldo, circuit breaker y guarda de residencia |
 | Lógica determinista | `converdata.discovery` | Expansión y descomposición de la consulta, calificación, revisor, cascada, confianza de F22, guardas |
-| Memoria | `converdata.memory` | `VectorStore` híbrido (BM25 + embeddings, RRF); `InMemoryVectorStore` y `SqlServerVectorStore` (OP-02, pendiente de validar en SQL Server 2025) |
+| Memoria | `converdata.memory` | Puerto `VectorStore` e `InMemoryVectorStore`: índice léxico BM25 en memoria (el canal de embeddings queda como experimento) |
 | Evaluación | `converdata.evaluation` | Hit@k por tipo (A–G), calibración, caminos, duplicados, fugas, inventados, latencia; compuerta de calidad `eval gate` con siete suites y línea base |
-| Identidad y auditoría | `converdata.identity`, `converdata.audit` | `visible_ids` con el login del usuario (F14); auditoría fail-closed (F11) |
-| BD `ConverData` | `db/converdata/001_esquemas.sql` | Esquemas `catalog`, `knowledge`, `golden`, `curation`, `audit` con `VECTOR`, Full-Text y tablas temporales |
+| Identidad y auditoría | `converdata.identity`, `converdata.audit` | `visible_ids` con el login del usuario (F14); auditoría fail-closed (F11) en SQL Server o, en desarrollo, en archivos con cadena de hashes |
+| BD `ConverData` | `db/converdata/`, `converdata.storage` | Migraciones numeradas (esquemas `catalog`, `knowledge`, `golden`, `curation` y `audit` en tablas normales y temporales, SQL Server 2016+), repositorio del catálogo con historial y roles de mínimo privilegio |
 
 Fixtures: `tests/fixtures/vbank` (ejemplo de la propuesta) y `tests/fixtures/bancos` (catálogo que el agente descubrió de BancosSQL, solo metadatos).
 
@@ -101,7 +120,7 @@ Fuentes de conocimiento:
 - **Cada recomendación muestra su evidencia**: fuente de la descripción y por qué se recomienda.
 - **El éxito se mide contra una línea base** ([F25](docs/specs/comun/F25-success-metrics.md)).
 
-Los 11 principios completos están en la §8.1 del PRD.
+Los 12 principios completos están en la §8.1 del PRD.
 
 ## Metas (sujetas a validación en el piloto)
 | Métrica | Objetivo |
@@ -112,16 +131,16 @@ Los 11 principios completos están en la §8.1 del PRD.
 | Reprocesos por selección incorrecta de fuentes | −20 % |
 
 ## Tecnología y despliegues
-**FastAPI** + **LangGraph** + **Amazon Bedrock** (LLM y embeddings vía `langchain-aws`), MCPs propios bajo Apache-2.0 con FastMCP
-(`converdata-mcp`, `converdata-discovery`), **Chainlit** para el chat y **SQL Server**. Stack completo en la §8 del PRD.
+**FastAPI** + **LangGraph** + **Amazon Bedrock** (un modelo, vía `langchain-aws`), `converdata-mcp` bajo Apache-2.0 con el SDK oficial de MCP,
+web en **Next.js** y **SQL Server**. Stack completo en la §8 del PRD y decisiones en su §13.
 La lógica es la misma en los dos despliegues:
 
 | Despliegue | Cuándo | Base | Spec · diagrama |
 |---|---|---|---|
-| **On-premise** (MVP) | Primero: piloto de descubrimiento de 8 semanas en el dominio clientes / onboarding digital | Windows Server + IIS, SQL Server 2025 (`VECTOR`, Full-Text, grafo), SQL Server Agent; Bedrock como único servicio externo | [OP-01](docs/specs/on-premise/OP-01-despliegue-local.md) · [diagrama](docs/architecture/onpremise-architecture.html) |
-| **Cloud native** | Si se decide escalar en AWS | Bedrock AgentCore, OpenSearch Serverless, ECS, Cognito; datos y auditoría siguen on-prem | [CN-01](docs/specs/cloud-native/CN-01-despliegue-aws.md) · [diagrama](docs/architecture/cloud-native-architecture.html) |
+| **On-premise** (piloto) | Primero: piloto de descubrimiento de 8 semanas en el dominio clientes / onboarding digital | Windows Server + IIS con dos procesos (web y API), BD `ConverData` en SQL Server 2016+, Programador de tareas; Bedrock como único servicio externo | [OP-01](docs/specs/on-premise/OP-01-despliegue-local.md) · [diagrama](docs/architecture/onpremise-architecture.html) |
+| **AWS (despliegue mínimo)** | Después del piloto, si se decide invertir en AWS | ALB interno, una tarea de ECS Fargate con las mismas dos imágenes, Bedrock por VPC endpoint; la BD `ConverData` y los datos siguen en el banco | [CN-01](docs/specs/cloud-native/CN-01-despliegue-aws.md) · [diagrama](docs/architecture/cloud-native-architecture.html) |
 
-Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredados.html).
+Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredados.html). Controles de una petición y compuerta de calidad: [diagrama](docs/architecture/controles-calidad-bancaria.html).
 
 ## Documentación
 | Documento | Contenido |
@@ -130,7 +149,10 @@ Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredado
 | [docs/specs/comun/](docs/specs/comun/) | F1–F25: lógica de la solución, idéntica en ambos despliegues |
 | [docs/specs/on-premise/](docs/specs/on-premise/) | OP-01 a OP-07: despliegue sobre el stack Microsoft (OP-07: instalación, entornos y operación) |
 | [docs/backlog/on-premise.md](docs/backlog/on-premise.md) | Objetivos SMART, épicas e historias de usuario para terminar la versión on-premise |
-| [docs/specs/cloud-native/](docs/specs/cloud-native/) | CN-01 a CN-06: despliegue en AWS |
+| [docs/PLAN-desarrollo.md](docs/PLAN-desarrollo.md) | Estado, resultados medidos, próximos pasos y cómo retomar |
+| [docs/calidad-bancaria.md](docs/calidad-bancaria.md) | Controles de seguridad, compuerta de calidad y lo que falta para operar en un banco |
+| [docs/specs/cloud-native/](docs/specs/cloud-native/) | CN-01 a CN-06: despliegue mínimo en AWS, posterior al piloto |
+| [docs/architecture/capas-backend.md](docs/architecture/capas-backend.md) | Capas del backend y regla de dependencias |
 | [docs/architecture/](docs/architecture/) | Diagramas interactivos (HTML) y sus fuentes `*.archify.json` |
 
 Los diagramas se regeneran con el fork de Archify incluido en `tools/archify` ([F13](docs/specs/comun/F13-architecture-docs.md)):
@@ -139,6 +161,7 @@ node tools/archify/bin/archify.mjs finalize <architecture|sequence> docs/archite
 ```
 
 ## Próximos pasos
-1. Medir la línea base (semanas 0–1) y confirmar el acceso a diccionarios, documentación, SSISDB y msdb.
-2. Implementar la fase 1a (descubrimiento) on-premise y correr el piloto con 10–15 usuarios.
-3. Evaluar contra los criterios D1–D7 de OP-01 y decidir la fase 1b (consulta de datos).
+El orden vigente está en el [plan de desarrollo §3](docs/PLAN-desarrollo.md#3-próximos-pasos-en-orden):
+1. Terminar de llevar la curación a la BD `ConverData` (responsables, solicitudes, votos) y preparar la instalación en Windows Server.
+2. Con el banco: probar Bedrock, reunir 50–80 preguntas reales, ingerir diccionarios y documentos del dominio y medir la línea base.
+3. Correr el piloto con 10–15 usuarios, evaluar contra los criterios D1–D7 de OP-01 y decidir la fase 1b (consulta de datos).

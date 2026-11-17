@@ -1,36 +1,50 @@
-# F12 — Interfaces: API, chat y MCP · común
+# F12 — Interfaces: API, web y MCP · común
 
-> Publicación y autenticación por entorno: **cloud native** → ALB + Cognito + AgentCore Gateway ([CN-04](../cloud-native/CN-04-interfaces.md)) · **on-premise** → Chainlit + FastAPI + `/mcp` local ([OP-04](../on-premise/OP-04-interfaces.md))
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
+> Publicación y autenticación: **on-premise** → IIS + web Next.js + `ConverData-API` + `/mcp` ([OP-04](../on-premise/OP-04-interfaces.md)) · **cloud native** → los mismos dos contenedores detrás de un ALB interno ([CN-04](../cloud-native/CN-04-interfaces.md))
 
-## Contrato de la API (igual en ambos entornos)
+## Contrato de la API (igual en ambos despliegues)
+Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15). La API no se publica directamente: la web le reenvía
+`/api/*`, así que el navegador las ve con el prefijo `/api`. Solo `/mcp` se publica desde la API.
+
+**Fase 1a (construidas)**
 | Método | Ruta | Cuerpo / respuesta |
 |---|---|---|
-| POST | `/ask` | `{question, conversation_id?, database?, confirm_procedure?}` → `AnswerEnvelope` |
-| POST | `/ask/stream` | Lo mismo por SSE, con eventos `step` (progreso de cada nodo) y `answer` |
-| POST | `/feedback` | `{trace_id, rating, comment?}` |
-| POST | `/discover` | `{question, conversation_id?, environment?}` → `AnswerEnvelope` con `flow=discover` (F22). `/ask` también enruta a descubrimiento según F3 |
+| POST | `/auth/login` (alias `/login`) | `{credentials: [{server, login, password}]}` → sesión, servidores y roles; deja la cookie de sesión y devuelve el token para clientes API y MCP (F14) |
+| POST · GET | `/auth/logout` (alias `/logout`) · `/auth/me` | Cierra la sesión · usuario, roles, dominios y servidores de la sesión |
+| POST | `/discover` | `{question, history?}` → `AnswerEnvelope` con `flow=discover` (F22) |
+| POST | `/discover/stream` | Lo mismo por SSE, con eventos `step` (progreso de cada nodo) y `answer` |
+| POST | `/discover/feedback` | `{trace_id, asset_key, verdict, comment?}` con `verdict` = `confirm` o `reject` (F24) |
 | GET | `/assets/{asset_key}` | Ficha del activo: ubicaciones por ambiente, descripción y fuente, reglas, responsables, relaciones, linaje, documentos vinculados |
-| POST | `/discover/feedback` | `{trace_id, asset_key, verdict, correct_asset_key?}` (F24) |
-| POST | `/curation/requests` · GET/PATCH `/curation/*` | Escalamiento a responsables y vista de curación; solo `steward`/`data_admin` para responder (F24) |
-| GET | `/metrics` | Métricas de F25 (solo `data_admin`) |
-| GET | `/catalog/search?q=` | Búsqueda en el catálogo filtrada por la visibilidad del usuario |
-| GET | `/audit` | Solo administradores (F11) |
-| GET | `/health` | Estado de Bedrock, memoria semántica, `converdata-discovery` y SQL Server |
-| POST/DELETE | `/credentials` | Registra o retira el login SQL del usuario por servidor (F14). On-premise se expone como `POST /login` y `POST /logout` (OP-04) |
+| GET | `/catalog/databases` · `/catalog/objects` · `/catalog/object` | Exploración del catálogo filtrada por la visibilidad del usuario |
+| POST | `/curation/requests` | Escalamiento de una duda al responsable (cualquier usuario, F24) |
+| GET/POST/PUT/DELETE | `/curation/*` | Vista de curación: solicitudes y su respuesta, cola de revisión, descripciones, diccionario CSV y reglas; solo `steward`/`data_admin` (F24) |
+| GET | `/me/requests` · `/me/history` | Solicitudes y preguntas propias |
+| GET/PUT/POST/DELETE | `/admin/*` | Inventario de servidores, build del catálogo, auditoría y su verificación (F11), sesiones y métricas de F25; solo `data_admin` |
+| GET | `/health` · `/setup/status` | Públicas: proceso vivo · estado del inventario, del catálogo, del último build y del LLM, sin hosts |
+| GET | `/health/metrics` | Contadores para el monitoreo, sin contenido (OP-05) |
 
-Las preguntas viajan siempre en el cuerpo, nunca en la URL, para que no queden en logs de acceso.
+**Fase 1b (pendientes)**
+| Método | Ruta | Cuerpo / respuesta |
+|---|---|---|
+| POST | `/ask` | `{question, conversation_id?, database?, confirm_procedure?}` → `AnswerEnvelope`. También enruta a descubrimiento según F3 |
+| POST | `/ask/stream` | Lo mismo por SSE |
+| POST | `/feedback` | `{trace_id, rating, comment?}` |
 
-## Chat web (Chainlit)
-- Cada respuesta muestra:
-  - texto;
-  - tabla interactiva (las primeras 200 filas, descarga CSV/XLSX completa generada en streaming al navegador);
-  - gráfico Plotly;
-  - "🔎 Cómo lo obtuve" plegable con SQL o SP, tablas, supuestos, validaciones y confidence;
-  - botones 👍/👎.
-- Los pasos del flow se muestran en vivo como `cl.Step`, a partir de los eventos por nodo del grafo de LangGraph (`stream_mode="updates"`).
-- Las aclaraciones se muestran como botones (`cl.Action`) con las opciones de F3.
-- Los SPs con `side_effects` piden confirmación explícita.
-- **Data layer de Chainlit desactivado**: no se persisten chats (F17).
+- Las preguntas viajan siempre en el cuerpo, nunca en la URL, para que no queden en logs de acceso.
+- Toda ruta no pública exige sesión, y la identidad sale solo de la cookie de sesión o del `Authorization: Bearer` (F14).
+- Los controles de cada petición (límite de ritmo, tope de tokens, cabeceras, CSRF, tamaño del cuerpo) están en [calidad bancaria §3](../../calidad-bancaria.md).
+
+## Web (Next.js, `web/`)
+Sustituye al chat de Chainlit de la versión anterior de esta spec (PRD §13, decisión 11). No guarda credenciales ni conversaciones (F17).
+- Vistas: **chat** de descubrimiento, **Catálogo**, **Solicitudes** (dudas propias escaladas), **Curación** (solo `steward`/`data_admin`), **Métricas** y **Administración** (solo `data_admin`).
+- Los pasos del flow se muestran en vivo a partir de los eventos SSE de `/discover/stream`.
+- Las tarjetas de candidatos llegan antes que la narrativa.
+
+Fase 1b (pendiente): tabla interactiva de resultados (primeras 200 filas, descarga CSV/XLSX generada en streaming), gráfico,
+"🔎 Cómo lo obtuve" plegable con SQL o SP, tablas, supuestos, validaciones y confidence, botones 👍/👎, aclaraciones de F3 como botones y
+confirmación explícita de los SPs con `side_effects`.
 
 ### Respuestas de descubrimiento (F22)
 Cada candidato se muestra como una tarjeta con el formato de la propuesta:
@@ -46,23 +60,24 @@ Alternativas: LegalClientId (71 %) · UserId (64 %)
 - La fuente de la descripción siempre es visible; las `generated` se marcan "sugerida por IA, sin revisar".
 - Solo se muestran activos, ubicaciones y relaciones que el usuario puede leer (F14); lo que no puede ver no aparece en la tarjeta.
 - Con `knowledge_gap`, se muestra el botón "Preguntar al responsable" (F24).
-- Vista **Curación** (solo `steward`/`data_admin`) y vista **Métricas** (solo `data_admin`).
 
 ## Herramientas MCP de `converdata-mcp`
-`ask`, `search_catalog`, `where_is`, `estate_overview`, `describe_table`, `find_join_path`, `lookup_values`, `validate_sql`, `run_select`, `list_procedures`, `exec_procedure`, `list_metrics`, `analyze`.
-- `where_is`, `estate_overview` y `find_join_path` entre BDs vienen de F19; `list_metrics` de F21; `analyze` ejecuta los modos de F20.
-- Descubrimiento (F22–F24): `discover`, `get_asset`, `get_related`, `get_lineage`, `list_business_rules`, `find_alternatives`.
-  `discover` devuelve el `AnswerEnvelope` con `flow=discover` y usa `where_is` (F19) para las entidades entre BDs.
+Montado en `/mcp` de `ConverData-API` (`src/converdata/integration/mcp/`); también por stdio para desarrollo (`converdata mcp serve`).
+- **Fase 1a (construidas, todas de solo lectura)**: `discover`, `get_asset`, `get_related`, `get_lineage`, `list_business_rules`,
+  `find_alternatives` (F22–F24), `search_catalog`, `where_is`, `estate_overview` y `find_join_path` entre BDs (F19).
+  `discover` devuelve el `AnswerEnvelope` con `flow=discover`.
+- **Fase 1b (pendientes)**: `ask`, `describe_table`, `lookup_values`, `validate_sql`, `run_select`, `list_procedures`, `exec_procedure`,
+  `list_metrics` (F21) y `analyze` (F20). `run_select` siempre llama primero a `validate_sql`; no hay forma de ejecutar sin validar.
 - Para un cliente externo (Claude Desktop o Claude Code), basta normalmente con `discover` (fase 1a) o `ask` (fase 1b).
-- **Herramientas internas** (las usa la API, no se publican a clientes externos): `record_discovery_feedback` y `curation_*`
-  (crear, responder y cerrar solicitudes; editar descripciones, reglas y vínculos). Comprueban el rol (`steward`/`data_admin`) y son el único
-  camino de escritura del conocimiento curado y de los golden, de modo que ambos despliegues escriben por el mismo código.
-- `run_select` siempre llama primero a `validate_sql`; no hay forma de ejecutar sin validar.
+- **Escrituras**: el feedback y la curación (crear, responder y cerrar solicitudes; editar descripciones, reglas y vínculos) no se
+  publican como herramientas MCP. Hoy su único camino son las rutas `/discover/feedback` y `/curation/*` de la API, que comprueban el rol
+  (`steward`/`data_admin`) y auditan antes de aplicar el cambio; así ambos despliegues escriben por el mismo código.
 - La identidad del usuario llega por el contexto autenticado de la petición, **nunca como argumento** que el LLM pueda modificar (F14).
+- `/mcp` respeta el mismo límite de ritmo y el mismo tope de tokens que la API.
 
 ## Criterios de aceptación
-1. Flujo E2E en el chat: pregunta → tabla, gráfico y SQL → 👍 → el registro aparece en auditoría y en golden.
-2. `/ask` sin autenticación devuelve 401.
-3. Desde Claude Code, la herramienta `ask` devuelve un `AnswerEnvelope`.
+1. Flujo E2E en la web: pregunta → tarjetas de candidatos → "✔ Es este" → el registro aparece en auditoría y en golden discovery. En la fase 1b: pregunta → tabla, gráfico y SQL → 👍 → auditoría y golden.
+2. `/discover` (y `/ask` en la fase 1b) sin autenticación devuelve 401.
+3. Desde Claude Code, la herramienta `discover` (y `ask` en la fase 1b) devuelve un `AnswerEnvelope`.
 4. Flujo E2E de descubrimiento: pregunta de la propuesta (onboarding digital) → tarjetas de candidatos → "✔ Es este" → registro en
    `audit_discovery_feedback` y aumento del contador de `golden_discovery`.

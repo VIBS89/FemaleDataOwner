@@ -43,7 +43,7 @@ class RoleConfig(BaseModel):
     model: str
     temperature: float | None = None
     max_tokens: int | None = None
-    dimensions: int | None = None  # solo `embed`: debe coincidir con VECTOR(n) de la BD ConverData
+    dimensions: int | None = None  # solo `embed` (canal experimental de desarrollo; no se despliega)
     reasoning: bool = False  # F16: modelos con razonamiento extendido se usan con él desactivado
     num_ctx: int | None = None  # Ollama: ventana de contexto
 

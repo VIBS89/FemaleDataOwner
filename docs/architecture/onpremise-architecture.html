@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.1.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>ConverData — Arquitectura on-premise sobre stack Microsoft · Diagrama</title>
+  <title>ConverData — Arquitectura on-premise (fase 1a, descubrimiento) · Diagrama</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5161,7 +5161,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="PLANO / REV 01"
            data-preset-badge-editorial="EDITORIAL / NOTA DE CAMPO">
         <div class="pulse-dot"></div>
-        <h1>ConverData — Arquitectura on-premise sobre stack Microsoft</h1>
+        <h1>ConverData — Arquitectura on-premise (fase 1a, descubrimiento)</h1>
       </div>
     </div>
 
@@ -5170,8 +5170,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 1440 672" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
-        <title id="archify-diagram-title">ConverData — Arquitectura on-premise sobre stack Microsoft</title>
+      <svg viewBox="0 0 1440 652" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
+        <title id="archify-diagram-title">ConverData — Arquitectura on-premise (fase 1a, descubrimiento)</title>
         <desc id="archify-diagram-description">Un diagrama de arquitectura generado por Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5217,7 +5217,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="SQL Server 2025 · ConverData" x="490" y="330" width="220" height="274" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Windows Server · aplicación" x="250" y="170" width="700" height="114" rx="12" class="c-region" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
@@ -5230,56 +5230,44 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
         <g data-graph-role="automatic-crossover" style="--step:2">
           <path data-graph-role="automatic-crossover-underlay" d="M 440 232 L 520 232" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="iis" data-edge-to="app" data-edge-label="proxy" data-edge-key="2" data-edge-id="iis-app" data-composition-points="440,232;520,232" data-composition-crossover="halo" data-composition-independent="true" d="M 440 232 L 520 232" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-edge-from="iis" data-edge-to="web" data-edge-label="/" data-edge-key="2" data-edge-id="iis-web" data-composition-points="440,232;520,232" data-composition-crossover="halo" data-composition-independent="true" d="M 440 232 L 520 232" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:3">
-          <path data-graph-role="automatic-crossover-underlay" d="M 593 200 L 593 104" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="app" data-edge-to="bedrock" data-edge-label="LLM" data-edge-key="3" data-edge-id="app-llm" data-composition-points="593,200;593,104" data-composition-crossover="halo" data-composition-independent="true" d="M 593 200 L 593 104" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 680 232 L 760 232" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="web" data-edge-to="api" data-edge-label="/api" data-edge-key="3" data-edge-id="web-api" data-composition-points="680,232;760,232" data-composition-crossover="halo" data-composition-independent="true" d="M 680 232 L 760 232" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:4">
-          <path data-graph-role="automatic-crossover-underlay" d="M 600 264 L 600 360" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="app" data-edge-to="convdb" data-edge-label="vectores · audit" data-edge-key="4" data-edge-id="app-db" data-composition-points="600,264;600,360" data-composition-crossover="halo" data-composition-independent="true" d="M 600 264 L 600 360" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 840 200 L 840 104" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="bedrock" data-edge-label="intención · orden" data-edge-key="4" data-edge-id="api-llm" data-composition-points="840,200;840,104" data-composition-crossover="halo" data-composition-independent="true" d="M 840 200 L 840 104" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
-          <path data-graph-role="automatic-crossover-underlay" d="M 680 239 L 1000 239" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="app" data-edge-to="sqldata" data-edge-label="login del usuario" data-edge-key="5" data-edge-id="app-data" data-composition-points="680,239;1000,239" data-composition-crossover="halo" data-composition-independent="true" d="M 680 239 L 1000 239" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 840 264 L 840 360" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="convdb" data-edge-label="catálogo · auditoría" data-edge-key="5" data-edge-id="api-db" data-composition-points="840,264;840,360" data-composition-crossover="halo" data-composition-independent="true" d="M 840 264 L 840 360" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:6">
-          <path data-graph-role="automatic-crossover-underlay" d="M 920 385 L 1000 385" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="builder" data-edge-to="discovery" data-edge-label="metadatos" data-edge-key="6" data-edge-id="builder-discovery" data-composition-points="920,385;1000,385" data-composition-crossover="halo" data-composition-independent="true" d="M 920 385 L 1000 385" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 854 264 L 854 280 Q 854 288 862 288 L 1058 288 Q 1066 288 1066 280 L 1066 264" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="sqldata" data-edge-label="visibilidad del usuario" data-edge-key="6" data-edge-id="api-data" data-composition-points="854,264;854,288;1066,288;1066,264" data-composition-crossover="halo" data-composition-independent="true" d="M 854 264 L 854 280 Q 854 288 862 288 L 1058 288 Q 1066 288 1066 280 L 1066 264" class="a-security" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:7">
-          <path data-graph-role="automatic-crossover-underlay" d="M 760 385 L 680 385" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="builder" data-edge-to="convdb" data-edge-label="catálogo" data-edge-key="7" data-edge-id="builder-db" data-composition-points="760,385;680,385" data-composition-crossover="halo" data-composition-independent="true" d="M 760 385 L 680 385" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1080 360 L 1080 264" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="builder" data-edge-to="sqldata" data-edge-label="sys.* metadatos" data-edge-key="7" data-edge-id="builder-data" data-composition-points="1080,360;1080,264" data-composition-crossover="halo" data-composition-independent="true" d="M 1080 360 L 1080 264" class="a-dashed" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:8">
-          <path data-graph-role="automatic-crossover-underlay" d="M 680 536 L 768 536 Q 776 536 776 528 L 776 424" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="agent" data-edge-to="builder" data-edge-label="HTTPS refresh" data-edge-key="8" data-edge-id="agent-builder" data-composition-points="680,536;776,536;776,424" data-composition-crossover="halo" data-composition-independent="true" d="M 680 536 L 768 536 Q 776 536 776 528 L 776 424" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1066 360 L 1066 344 Q 1066 336 1058 336 L 862 336 Q 854 336 854 344 L 854 360" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="builder" data-edge-to="convdb" data-edge-label="escribe catálogo" data-edge-key="8" data-edge-id="builder-db" data-composition-points="1066,360;1066,336;854,336;854,360" data-composition-crossover="halo" data-composition-independent="true" d="M 1066 360 L 1066 344 Q 1066 336 1058 336 L 862 336 Q 854 336 854 344 L 854 360" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:9">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1080 360 L 1080 264" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="discovery" data-edge-to="sqldata" data-edge-label="sys.* · QS" data-edge-key="9" data-edge-id="discovery-data" data-composition-points="1080,360;1080,264" data-composition-crossover="halo" data-composition-independent="true" d="M 1080 360 L 1080 264" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1160 392 L 1240 392" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="builder" data-edge-to="sources" data-edge-label="ingesta" data-edge-key="9" data-edge-id="builder-sources" data-composition-points="1160,392;1240,392" data-composition-crossover="halo" data-composition-independent="true" d="M 1160 392 L 1240 392" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:10">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1160 399 L 1240 399" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="discovery" data-edge-to="sources" data-edge-label="SSISDB · msdb" data-edge-key="10" data-edge-id="discovery-sources" data-composition-points="1160,399;1240,399" data-composition-crossover="halo" data-composition-independent="true" d="M 1160 399 L 1240 399" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:11">
-          <path data-graph-role="automatic-crossover-underlay" d="M 680 216 L 768 216 Q 776 216 776 208 L 776 104" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="app" data-edge-to="ad" data-edge-label="LDAP grupos" data-edge-key="11" data-edge-id="app-ad" data-composition-points="680,216;776,216;776,104" data-composition-crossover="halo" data-composition-independent="true" d="M 680 216 L 768 216 Q 776 216 776 208 L 776 104" class="a-security" data-animate="edge" style="--step:11" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:12">
-          <path data-graph-role="automatic-crossover-underlay" d="M 840 360 L 840 275 Q 840 267 832 267 L 757.1999999999999 267 Q 749.1999999999999 267 749.1999999999999 259 L 749.1999999999999 136 Q 749.1999999999999 128 741.1999999999999 128 L 615 128 Q 607 128 607 120 L 607 104" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="builder" data-edge-to="bedrock" data-edge-label="descripciones" data-edge-key="12" data-edge-id="builder-llm" data-composition-points="840,360;840,267;749.1999999999999,267;749.1999999999999,128;607,128;607,104" data-composition-crossover="halo" data-composition-independent="true" d="M 840 360 L 840 275 Q 840 267 832 267 L 757.1999999999999 267 Q 749.1999999999999 267 749.1999999999999 259 L 749.1999999999999 136 Q 749.1999999999999 128 741.1999999999999 128 L 615 128 Q 607 128 607 120 L 607 104" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:13">
-          <path data-graph-role="automatic-crossover-underlay" d="M 920 399 L 936 399 Q 944 399 944 407 L 944 440 Q 944 448 952 448 L 1312 448 Q 1320 448 1320 440 L 1320 424" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="builder" data-edge-to="sources" data-edge-label="docs · diccionarios" data-edge-key="13" data-edge-id="builder-sources" data-composition-points="920,399;944,399;944,448;1320,448;1320,424" data-composition-crossover="halo" data-composition-independent="true" d="M 920 399 L 936 399 Q 944 399 944 407 L 944 440 Q 944 448 952 448 L 1312 448 Q 1320 448 1320 440 L 1320 424" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1080 520 L 1080 424" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="scheduler" data-edge-to="builder" data-edge-label="cada noche" data-edge-key="10" data-edge-id="sched-builder" data-composition-points="1080,520;1080,424" data-composition-crossover="halo" data-composition-independent="true" d="M 1080 520 L 1080 424" class="a-dashed" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
 
         <!-- Components -->
-        <g id="node-mcpclient" data-node-id="mcpclient" data-node-label="Cliente MCP" tabindex="0" role="button" aria-label="Enfocar Cliente MCP, Claude Code / Desktop, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="Claude Code / Desktop" data-node-description="Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (normalmente &#39;ask&#39; o &#39;discover&#39;) a través de https://&lt;servidor&gt;/mcp, con el session_id obtenido en /login. Heredan los mismos permisos SQL que en el chat. (F12, OP-04)" data-node-context="Componente de arquitectura">
-          <title>Cliente MCP · Claude Code / Desktop · Componente de arquitectura · Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (normalmente &#39;ask&#39; o &#39;discover&#39;) a través de https://&lt;servidor&gt;/mcp, con el session_id obtenido en /login. Heredan los mismos permisos SQL que en el chat. (F12, OP-04)</title>
+        <g id="node-mcpclient" data-node-id="mcpclient" data-node-label="Cliente MCP" tabindex="0" role="button" aria-label="Enfocar Cliente MCP, Claude Code / Desktop, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="Claude Code / Desktop" data-node-description="Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (discover, where_is, get_asset, get_lineage y otras) en https://&lt;servidor&gt;/mcp, con el token de sesión obtenido en /login como Bearer. Heredan los mismos permisos SQL que en el chat. Implementado: integration.mcp montado en ConverData-API. (F12, OP-04, HU-16, HU-42)" data-node-context="Componente de arquitectura">
+          <title>Cliente MCP · Claude Code / Desktop · Componente de arquitectura · Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (discover, where_is, get_asset, get_lineage y otras) en https://&lt;servidor&gt;/mcp, con el token de sesión obtenido en /login como Bearer. Heredan los mismos permisos SQL que en el chat. Implementado: integration.mcp montado en ConverData-API. (F12, OP-04, HU-16, HU-42)</title>
           <rect x="280" y="40" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="280" y="40" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(286 46) scale(0.6875)">
@@ -5290,20 +5278,20 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="360" y="86" class="t-muted" font-size="9" text-anchor="middle">Claude Code / Desktop</text>
         </g>
 
-        <g id="node-bedrock" data-node-id="bedrock" data-node-label="Amazon Bedrock" tabindex="0" role="button" aria-label="Enfocar Amazon Bedrock, LLM por rol + embeddings, Componente de arquitectura" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="LLM por rol + embeddings" data-node-tag="único servicio externo" data-node-description="Único servicio fuera de la red. Sirve un modelo por rol (Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez y Cohere multilingüe para embeddings). Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere y un certificado de la PKI corporativa, sin claves de larga duración. Invocation logging desactivado: procesa sin guardar. (F16, OP-06)" data-node-context="Componente de arquitectura">
-          <title>Amazon Bedrock · LLM por rol + embeddings · Componente de arquitectura · único servicio externo · Único servicio fuera de la red. Sirve un modelo por rol (Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez y Cohere multilingüe para embeddings). Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere y un certificado de la PKI corporativa, sin claves de larga duración. Invocation logging desactivado: procesa sin guardar. (F16, OP-06)</title>
-          <rect x="520" y="40" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="520" y="40" width="160" height="64" rx="8" class="c-cloud" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(526 46) scale(0.6875)">
+        <g id="node-bedrock" data-node-id="bedrock" data-node-label="Amazon Bedrock" tabindex="0" role="button" aria-label="Enfocar Amazon Bedrock, un modelo: intención y orden, Componente de arquitectura" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="un modelo: intención y orden" data-node-tag="único servicio externo" data-node-description="Único servicio fuera de la red. Un solo modelo en el piloto, para dos pasos del DiscoverFlow: entender qué dato pide una pregunta larga (intent) y ordenar los candidatos (rerank). Sin embeddings: la medición HU-34 mostró que no mejoran el acierto y suben la latencia. Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere, sin claves de larga duración, y con invocation logging desactivado. Pendiente de probar de punta a punta (HU-35); hoy se desarrolla con Ollama o NIM. (F16, OP-06)" data-node-context="Componente de arquitectura">
+          <title>Amazon Bedrock · un modelo: intención y orden · Componente de arquitectura · único servicio externo · Único servicio fuera de la red. Un solo modelo en el piloto, para dos pasos del DiscoverFlow: entender qué dato pide una pregunta larga (intent) y ordenar los candidatos (rerank). Sin embeddings: la medición HU-34 mostró que no mejoran el acierto y suben la latencia. Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere, sin claves de larga duración, y con invocation logging desactivado. Pendiente de probar de punta a punta (HU-35); hoy se desarrolla con Ollama o NIM. (F16, OP-06)</title>
+          <rect x="760" y="40" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="760" y="40" width="160" height="64" rx="8" class="c-cloud" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(766 46) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="600" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Amazon Bedrock</text>
-        <text data-detail="context" x="600" y="86" class="t-muted" font-size="9" text-anchor="middle">LLM por rol + embeddings</text>
-        <text data-detail="fine" x="600" y="96" class="t-cloud" font-size="7" text-anchor="middle">único servicio externo</text>
+          <text data-node-label="" data-detail-anchor="" x="840" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Amazon Bedrock</text>
+        <text data-detail="context" x="840" y="86" class="t-muted" font-size="9" text-anchor="middle">un modelo: intención y orden</text>
+        <text data-detail="fine" x="840" y="96" class="t-cloud" font-size="7" text-anchor="middle">único servicio externo</text>
         </g>
 
-        <g id="node-users" data-node-id="users" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, navegador · login SQL, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="navegador · login SQL" data-node-description="Ingenieros de datos, analistas y Product Owners que preguntan en lenguaje natural dónde están los datos (descubrimiento) o piden los datos (consulta). Entran con su propio login SQL, uno por servidor (o el mismo en todos los que marquen), que define lo que pueden ver y consultar en cada ambiente. (F14, F22, OP-03)" data-node-context="Componente de arquitectura">
-          <title>Usuario · navegador · login SQL · Componente de arquitectura · Ingenieros de datos, analistas y Product Owners que preguntan en lenguaje natural dónde están los datos (descubrimiento) o piden los datos (consulta). Entran con su propio login SQL, uno por servidor (o el mismo en todos los que marquen), que define lo que pueden ver y consultar en cada ambiente. (F14, F22, OP-03)</title>
+        <g id="node-users" data-node-id="users" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, navegador · login SQL, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="navegador · login SQL" data-node-description="Ingenieros de datos, analistas y Product Owners que describen en lenguaje natural el dato que necesitan para un estudio, un reporte normativo o un tablero, y reciben campos y tablas candidatas. Entran con su propio login SQL, uno por servidor, que define lo que pueden descubrir en cada ambiente. (F14, F22, OP-03)" data-node-context="Componente de arquitectura">
+          <title>Usuario · navegador · login SQL · Componente de arquitectura · Ingenieros de datos, analistas y Product Owners que describen en lenguaje natural el dato que necesitan para un estudio, un reporte normativo o un tablero, y reciben campos y tablas candidatas. Entran con su propio login SQL, uno por servidor, que define lo que pueden descubrir en cada ambiente. (F14, F22, OP-03)</title>
           <rect x="40" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="40" y="200" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 206) scale(0.6875)">
@@ -5314,8 +5302,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="120" y="246" class="t-muted" font-size="9" text-anchor="middle">navegador · login SQL</text>
         </g>
 
-        <g id="node-iis" data-node-id="iis" data-node-label="IIS" tabindex="0" role="button" aria-label="Enfocar IIS, HTTPS 443 · proxy inverso, Componente de arquitectura" aria-pressed="false" data-node-kind="security" data-node-sublabel="HTTPS 443 · proxy inverso" data-node-tag="PKI corporativa" data-node-description="Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, publica / (chat), /api y /mcp hacia ConverData-API y /api/admin/* hacia ConverData-Builder (solo desde las IPs de los SQL Server y de administración). Con HttpPlatformHandler lanza, supervisa y reinicia los procesos Python. Request Filtering activado; sus logs no registran cuerpos ni la cabecera Authorization. (OP-04)" data-node-context="Componente de arquitectura">
-          <title>IIS · HTTPS 443 · proxy inverso · Componente de arquitectura · PKI corporativa · Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, publica / (chat), /api y /mcp hacia ConverData-API y /api/admin/* hacia ConverData-Builder (solo desde las IPs de los SQL Server y de administración). Con HttpPlatformHandler lanza, supervisa y reinicia los procesos Python. Request Filtering activado; sus logs no registran cuerpos ni la cabecera Authorization. (OP-04)</title>
+        <g id="node-iis" data-node-id="iis" data-node-label="IIS" tabindex="0" role="button" aria-label="Enfocar IIS, HTTPS 443 · proxy inverso, Windows Server · aplicación" aria-pressed="false" data-node-kind="security" data-node-sublabel="HTTPS 443 · proxy inverso" data-node-tag="PKI corporativa" data-node-description="Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, envía / al frontend web y /mcp a ConverData-API. Con HttpPlatformHandler lanza, supervisa y reinicia los dos procesos, sin servicios de Windows propios. Sus logs no registran cuerpos ni la cabecera Authorization. Pendiente: scripts de instalación (HU-37); hoy el desarrollo corre con docker compose. (OP-04)" data-node-context="Windows Server · aplicación">
+          <title>IIS · HTTPS 443 · proxy inverso · Windows Server · aplicación · PKI corporativa · Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, envía / al frontend web y /mcp a ConverData-API. Con HttpPlatformHandler lanza, supervisa y reinicia los dos procesos, sin servicios de Windows propios. Sus logs no registran cuerpos ni la cabecera Authorization. Pendiente: scripts de instalación (HU-37); hoy el desarrollo corre con docker compose. (OP-04)</title>
           <rect x="280" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="280" y="200" width="160" height="64" rx="8" class="c-security" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(286 206) scale(0.6875)">
@@ -5327,102 +5315,95 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="360" y="256" class="t-security" font-size="7" text-anchor="middle">PKI corporativa</text>
         </g>
 
-        <g id="node-app" data-node-id="app" data-node-label="Servicios ConverData" tabindex="0" role="button" aria-label="Enfocar Servicios ConverData, Chainlit · Discover + Ask, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Chainlit · Discover + Ask" data-node-tag="SessionVault en memoria" data-node-description="Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + grafos de LangGraph DiscoverFlow y AskFlow + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan en memoria, cifrado, un login SQL por servidor para cada sesión y resuelven los grupos del usuario en AD por LDAP. Incluyen la vista de curación y el envío de notificaciones sin el texto de la pregunta. (F3–F10, F12, F14, F20, F22, F24, OP-01, OP-03, OP-04)" data-node-context="Componente de arquitectura">
-          <title>Servicios ConverData · Chainlit · Discover + Ask · Componente de arquitectura · SessionVault en memoria · Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + grafos de LangGraph DiscoverFlow y AskFlow + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan en memoria, cifrado, un login SQL por servidor para cada sesión y resuelven los grupos del usuario en AD por LDAP. Incluyen la vista de curación y el envío de notificaciones sin el texto de la pregunta. (F3–F10, F12, F14, F20, F22, F24, OP-01, OP-03, OP-04)</title>
+        <g id="node-web" data-node-id="web" data-node-label="Web" tabindex="0" role="button" aria-label="Enfocar Web, Next.js · chat y curación, Windows Server · aplicación" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Next.js · chat y curación" data-node-description="Frontend Next.js (web/): chat con tarjetas de candidatos, confirmación ✔/✖, vista de Curación para responsables, historial y Administración. Es un proceso Node porque su ruta /api/[...path] reenvía las llamadas a ConverData-API, que no se publica directamente. No guarda credenciales ni conversaciones. Sustituye al Chainlit de las specs. (F12, F24, OP-04)" data-node-context="Windows Server · aplicación">
+          <title>Web · Next.js · chat y curación · Windows Server · aplicación · Frontend Next.js (web/): chat con tarjetas de candidatos, confirmación ✔/✖, vista de Curación para responsables, historial y Administración. Es un proceso Node porque su ruta /api/[...path] reenvía las llamadas a ConverData-API, que no se publica directamente. No guarda credenciales ni conversaciones. Sustituye al Chainlit de las specs. (F12, F24, OP-04)</title>
           <rect x="520" y="200" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="520" y="200" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(526 206) scale(0.6875)">
+          <rect x="520" y="200" width="160" height="64" rx="8" class="c-frontend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(526 206) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="600" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Web</text>
+        <text data-detail="context" x="600" y="246" class="t-muted" font-size="9" text-anchor="middle">Next.js · chat y curación</text>
+        </g>
+
+        <g id="node-api" data-node-id="api" data-node-label="ConverData-API" tabindex="0" role="button" aria-label="Enfocar ConverData-API, FastAPI · DiscoverFlow · MCP, Windows Server · aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="FastAPI · DiscoverFlow · MCP" data-node-tag="SessionVault en memoria" data-node-description="Un solo proceso Python: API REST, servidor MCP en /mcp y el DiscoverFlow de LangGraph (intención, recuperar, evaluar, ordenar, expandir relaciones, responder). Al arrancar carga el catálogo y el conocimiento de la BD ConverData en un índice léxico en memoria (BM25, respuesta en decenas de ms), lo recarga cuando el Builder publica una versión nueva y busca solo entre los objetos que el usuario puede ver. Guarda el login SQL de cada sesión cifrado solo en memoria. No ejecuta SQL sobre datos de clientes en la fase 1a. (F12, F14, F22, OP-01, OP-03)" data-node-context="Windows Server · aplicación">
+          <title>ConverData-API · FastAPI · DiscoverFlow · MCP · Windows Server · aplicación · SessionVault en memoria · Un solo proceso Python: API REST, servidor MCP en /mcp y el DiscoverFlow de LangGraph (intención, recuperar, evaluar, ordenar, expandir relaciones, responder). Al arrancar carga el catálogo y el conocimiento de la BD ConverData en un índice léxico en memoria (BM25, respuesta en decenas de ms), lo recarga cuando el Builder publica una versión nueva y busca solo entre los objetos que el usuario puede ver. Guarda el login SQL de cada sesión cifrado solo en memoria. No ejecuta SQL sobre datos de clientes en la fase 1a. (F12, F14, F22, OP-01, OP-03)</title>
+          <rect x="760" y="200" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="760" y="200" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 206) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="600" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Servicios ConverData</text>
-        <text data-detail="context" x="600" y="246" class="t-muted" font-size="9" text-anchor="middle">Chainlit · Discover + Ask</text>
-        <text data-detail="fine" x="600" y="256" class="t-backend" font-size="7" text-anchor="middle">SessionVault en memoria</text>
+          <text data-node-label="" data-detail-anchor="" x="840" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData-API</text>
+        <text data-detail="context" x="840" y="246" class="t-muted" font-size="9" text-anchor="middle">FastAPI · DiscoverFlow · MCP</text>
+        <text data-detail="fine" x="840" y="256" class="t-backend" font-size="7" text-anchor="middle">SessionVault en memoria</text>
         </g>
 
-        <g id="node-builder" data-node-id="builder" data-node-label="ConverData-Builder" tabindex="0" role="button" aria-label="Enfocar ConverData-Builder, Catalog Builder · F1 F19 F23, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Catalog Builder · F1 F19 F23" data-node-description="Servicio de Windows propio (gMSA), separado de ConverData-API para que la ingesta no compita con las preguntas. Mapea todas las BDs y ambientes con converdata-discovery (biblioteca), lee diccionarios y documentos con cuenta de solo lectura, redacta los datos personales con Presidio en memoria, construye el grafo de entidades y linaje, propone métricas y genera descripciones con Bedrock. Escribe todo en la BD ConverData, sin valores de datos. Lo dispara un job de SQL Server Agent. (F1, F19, F21, F23, OP-02)" data-node-context="Componente de arquitectura">
-          <title>ConverData-Builder · Catalog Builder · F1 F19 F23 · Componente de arquitectura · Servicio de Windows propio (gMSA), separado de ConverData-API para que la ingesta no compita con las preguntas. Mapea todas las BDs y ambientes con converdata-discovery (biblioteca), lee diccionarios y documentos con cuenta de solo lectura, redacta los datos personales con Presidio en memoria, construye el grafo de entidades y linaje, propone métricas y genera descripciones con Bedrock. Escribe todo en la BD ConverData, sin valores de datos. Lo dispara un job de SQL Server Agent. (F1, F19, F21, F23, OP-02)</title>
-          <rect x="760" y="360" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="760" y="360" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 366) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="840" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData-Builder</text>
-        <text data-detail="context" x="840" y="406" class="t-muted" font-size="9" text-anchor="middle">Catalog Builder · F1 F19 F23</text>
-        </g>
-
-        <g id="node-discovery" data-node-id="discovery" data-node-label="converdata-discovery" tabindex="0" role="button" aria-label="Enfocar converdata-discovery, MCP propio Apache-2.0, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="MCP propio Apache-2.0" data-node-tag="biblioteca del Builder" data-node-description="MCP propio de descubrimiento (Apache-2.0), usado como biblioteca dentro de ConverData-Builder: el login de metadatos, guardado con DPAPI, solo existe en ese proceso. Lee inventario, columnas, FKs, dependencias entre BDs, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas. Las muestras para describir columnas y los sketches MinHash salados viven solo en memoria. (F18, F19, F23, OP-02)" data-node-context="Componente de arquitectura">
-          <title>converdata-discovery · MCP propio Apache-2.0 · Componente de arquitectura · biblioteca del Builder · MCP propio de descubrimiento (Apache-2.0), usado como biblioteca dentro de ConverData-Builder: el login de metadatos, guardado con DPAPI, solo existe en ese proceso. Lee inventario, columnas, FKs, dependencias entre BDs, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas. Las muestras para describir columnas y los sketches MinHash salados viven solo en memoria. (F18, F19, F23, OP-02)</title>
-          <rect x="1000" y="360" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="1000" y="360" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1006 366) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1080" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">converdata-discovery</text>
-        <text data-detail="context" x="1080" y="406" class="t-muted" font-size="9" text-anchor="middle">MCP propio Apache-2.0</text>
-        <text data-detail="fine" x="1080" y="416" class="t-backend" font-size="7" text-anchor="middle">biblioteca del Builder</text>
-        </g>
-
-        <g id="node-convdb" data-node-id="convdb" data-node-label="BD ConverData" tabindex="0" role="button" aria-label="Enfocar BD ConverData, SQL Server 2025, SQL Server 2025 · ConverData" aria-pressed="false" data-node-kind="database" data-node-sublabel="SQL Server 2025" data-node-tag="VECTOR · Full-Text · grafo" data-node-description="Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (tablas temporales para el historial y columnas VECTOR para la búsqueda semántica, más Full-Text), estate (tablas de grafo NODE/EDGE para relaciones entre BDs y linaje ETL), knowledge (documentos redactados, reglas, anotaciones y golden discovery), curation (responsables, directorio login SQL → AD y dudas escaladas), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y YAML como almacén de trabajo. (F2, F11, F19, F21, F23, F24, OP-02, OP-05)" data-node-context="SQL Server 2025 · ConverData">
-          <title>BD ConverData · SQL Server 2025 · SQL Server 2025 · ConverData · VECTOR · Full-Text · grafo · Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (tablas temporales para el historial y columnas VECTOR para la búsqueda semántica, más Full-Text), estate (tablas de grafo NODE/EDGE para relaciones entre BDs y linaje ETL), knowledge (documentos redactados, reglas, anotaciones y golden discovery), curation (responsables, directorio login SQL → AD y dudas escaladas), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y YAML como almacén de trabajo. (F2, F11, F19, F21, F23, F24, OP-02, OP-05)</title>
-          <rect x="520" y="360" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="520" y="360" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(526 366) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="600" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BD ConverData</text>
-        <text data-detail="context" x="600" y="406" class="t-muted" font-size="9" text-anchor="middle">SQL Server 2025</text>
-        <text data-detail="fine" x="600" y="416" class="t-database" font-size="7" text-anchor="middle">VECTOR · Full-Text · grafo</text>
-        </g>
-
-        <g id="node-agent" data-node-id="agent" data-node-label="SQL Server Agent" tabindex="0" role="button" aria-label="Enfocar SQL Server Agent, job nocturno de refresco, SQL Server 2025 · ConverData" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="job nocturno de refresco" data-node-description="Job nocturno (y bajo demanda) con pasos PowerShell que llaman a /api/admin/catalog/refresh y /api/admin/knowledge/ingest en ConverData-Builder, para que el catálogo, el grafo, el conocimiento y los vectores reflejen los cambios. También ejecuta la purga de auditoría por retención y la evaluación semanal del descubrimiento, y avisa por Database Mail si algo falla o si baja la calidad. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)" data-node-context="SQL Server 2025 · ConverData">
-          <title>SQL Server Agent · job nocturno de refresco · SQL Server 2025 · ConverData · Job nocturno (y bajo demanda) con pasos PowerShell que llaman a /api/admin/catalog/refresh y /api/admin/knowledge/ingest en ConverData-Builder, para que el catálogo, el grafo, el conocimiento y los vectores reflejen los cambios. También ejecuta la purga de auditoría por retención y la evaluación semanal del descubrimiento, y avisa por Database Mail si algo falla o si baja la calidad. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)</title>
-          <rect x="520" y="520" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="520" y="520" width="160" height="64" rx="8" class="c-messagebus" data-animate="node" style="--step:8" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(526 526) scale(0.6875)">
-            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
-            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
-            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
-            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="600" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SQL Server Agent</text>
-        <text data-detail="context" x="600" y="566" class="t-muted" font-size="9" text-anchor="middle">job nocturno de refresco</text>
-        </g>
-
-        <g id="node-sqldata" data-node-id="sqldata" data-node-label="SQL Server de datos" tabindex="0" role="button" aria-label="Enfocar SQL Server de datos, BDs de negocio · réplica AG, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="BDs de negocio · réplica AG" data-node-description="Las BDs de negocio, en sus versiones actuales. Cada consulta llega con el login del propio usuario y ApplicationName=ConverData, así que SQL Server aplica sus permisos reales, RLS, enmascaramiento dinámico y clasificación de datos, y el DBA puede auditarlas con SQL Server Audit. Se consulta la secundaria legible de Always On cuando existe. Es la barrera de seguridad final. (F8, F14, OP-03, OP-05)" data-node-context="Componente de arquitectura">
-          <title>SQL Server de datos · BDs de negocio · réplica AG · Componente de arquitectura · Las BDs de negocio, en sus versiones actuales. Cada consulta llega con el login del propio usuario y ApplicationName=ConverData, así que SQL Server aplica sus permisos reales, RLS, enmascaramiento dinámico y clasificación de datos, y el DBA puede auditarlas con SQL Server Audit. Se consulta la secundaria legible de Always On cuando existe. Es la barrera de seguridad final. (F8, F14, OP-03, OP-05)</title>
+        <g id="node-sqldata" data-node-id="sqldata" data-node-label="SQL Server de datos" tabindex="0" role="button" aria-label="Enfocar SQL Server de datos, BDs de negocio, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="BDs de negocio" data-node-description="Las BDs de negocio, en sus versiones actuales. En la fase 1a ConverData solo lee metadatos: al iniciar sesión pregunta con el login del propio usuario qué objetos puede ver, y el Builder lee la estructura con un login de solo metadatos. Sigue siendo la fuente de verdad de los permisos. La consulta de datos queda para la fase 1b. (F8, F14, OP-03)" data-node-context="Componente de arquitectura">
+          <title>SQL Server de datos · BDs de negocio · Componente de arquitectura · Las BDs de negocio, en sus versiones actuales. En la fase 1a ConverData solo lee metadatos: al iniciar sesión pregunta con el login del propio usuario qué objetos puede ver, y el Builder lee la estructura con un login de solo metadatos. Sigue siendo la fuente de verdad de los permisos. La consulta de datos queda para la fase 1b. (F8, F14, OP-03)</title>
           <rect x="1000" y="200" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="1000" y="200" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <rect x="1000" y="200" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:7" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1006 206) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1080" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SQL Server de datos</text>
-        <text data-detail="context" x="1080" y="246" class="t-muted" font-size="9" text-anchor="middle">BDs de negocio · réplica AG</text>
+        <text data-detail="context" x="1080" y="246" class="t-muted" font-size="9" text-anchor="middle">BDs de negocio</text>
         </g>
 
-        <g id="node-sources" data-node-id="sources" data-node-label="Fuentes de conocimiento" tabindex="0" role="button" aria-label="Enfocar Fuentes de conocimiento, diccionarios · docs · SSIS, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="diccionarios · docs · SSIS" data-node-description="Conocimiento que hoy está disperso: diccionarios de datos y documentación funcional y técnica (carpetas compartidas o SharePoint), que leen los conectores de ConverData-Builder, y paquetes SSIS (SSISDB) y jobs de SQL Agent (msdb), que lee converdata-discovery. Los datos personales se redactan con Presidio antes de escribir en la BD ConverData; el original no se copia. (F23, OP-02)" data-node-context="Componente de arquitectura">
-          <title>Fuentes de conocimiento · diccionarios · docs · SSIS · Componente de arquitectura · Conocimiento que hoy está disperso: diccionarios de datos y documentación funcional y técnica (carpetas compartidas o SharePoint), que leen los conectores de ConverData-Builder, y paquetes SSIS (SSISDB) y jobs de SQL Agent (msdb), que lee converdata-discovery. Los datos personales se redactan con Presidio antes de escribir en la BD ConverData; el original no se copia. (F23, OP-02)</title>
+        <g id="node-convdb" data-node-id="convdb" data-node-label="BD ConverData" tabindex="0" role="button" aria-label="Enfocar BD ConverData, tablas normales · SQL Server 2016+, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="tablas normales · SQL Server 2016+" data-node-tag="catálogo y auditoría" data-node-description="Única BD de trabajo, gestionada por el DBA. Esquemas catalog (tablas temporales: historial y autor de cada cambio), knowledge (diccionarios, documentos redactados, reglas, linaje), curation y audit. Solo tablas normales: sin VECTOR, Full-Text ni tablas de grafo, así que no exige SQL Server 2025. Se crea con converdata db migrate. La cuenta de la API inserta y lee la auditoría, pero no puede modificarla ni borrarla. Construido: catálogo, conocimiento y auditoría. Pendiente: dudas escaladas, votos e inventario, hoy en archivos. (F2, F11, F23, F24, OP-02, OP-05)" data-node-context="Componente de arquitectura">
+          <title>BD ConverData · tablas normales · SQL Server 2016+ · Componente de arquitectura · catálogo y auditoría · Única BD de trabajo, gestionada por el DBA. Esquemas catalog (tablas temporales: historial y autor de cada cambio), knowledge (diccionarios, documentos redactados, reglas, linaje), curation y audit. Solo tablas normales: sin VECTOR, Full-Text ni tablas de grafo, así que no exige SQL Server 2025. Se crea con converdata db migrate. La cuenta de la API inserta y lee la auditoría, pero no puede modificarla ni borrarla. Construido: catálogo, conocimiento y auditoría. Pendiente: dudas escaladas, votos e inventario, hoy en archivos. (F2, F11, F23, F24, OP-02, OP-05)</title>
+          <rect x="760" y="360" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="760" y="360" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(766 366) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="840" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BD ConverData</text>
+        <text data-detail="context" x="840" y="406" class="t-muted" font-size="7.4" text-anchor="middle">tablas normales · SQL Server 2016+</text>
+        <text data-detail="fine" x="840" y="416" class="t-database" font-size="7" text-anchor="middle">catálogo y auditoría</text>
+        </g>
+
+        <g id="node-builder" data-node-id="builder" data-node-label="Builder" tabindex="0" role="button" aria-label="Enfocar Builder, CLI · catálogo y conocimiento, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="CLI · catálogo y conocimiento" data-node-tag="mismo código, otro proceso" data-node-description="Comando de línea (converdata catalog build --db) que mapea BDs y ambientes con consultas fijas a sys.*, construye las relaciones entre BDs y el linaje, y puede generar descripciones con el LLM. Parte del catálogo publicado y publica el resultado sin pisar lo que editaron las personas. No es un servicio de Windows ni tiene API propia: corre y termina. Hoy también se lanza desde Administración (POST /admin/catalog/build). El login de metadatos solo existe en este proceso. (F1, F19, F23, OP-02)" data-node-context="Componente de arquitectura">
+          <title>Builder · CLI · catálogo y conocimiento · Componente de arquitectura · mismo código, otro proceso · Comando de línea (converdata catalog build --db) que mapea BDs y ambientes con consultas fijas a sys.*, construye las relaciones entre BDs y el linaje, y puede generar descripciones con el LLM. Parte del catálogo publicado y publica el resultado sin pisar lo que editaron las personas. No es un servicio de Windows ni tiene API propia: corre y termina. Hoy también se lanza desde Administración (POST /admin/catalog/build). El login de metadatos solo existe en este proceso. (F1, F19, F23, OP-02)</title>
+          <rect x="1000" y="360" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="1000" y="360" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1006 366) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1080" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Builder</text>
+        <text data-detail="context" x="1080" y="406" class="t-muted" font-size="8.7" text-anchor="middle">CLI · catálogo y conocimiento</text>
+        <text data-detail="fine" x="1080" y="416" class="t-backend" font-size="7" text-anchor="middle">mismo código, otro proceso</text>
+        </g>
+
+        <g id="node-sources" data-node-id="sources" data-node-label="Fuentes de conocimiento" tabindex="0" role="button" aria-label="Enfocar Fuentes de conocimiento, diccionarios · docs · reglas, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="diccionarios · docs · reglas" data-node-tag="palanca principal" data-node-description="Diccionarios de datos, manuales de reportes, políticas, glosarios y reglas de negocio que hoy están dispersos. Son lo que más mejora las respuestas a preguntas de reporte: en la prueba con 25 preguntas normativas, de tablero y de estudio, el acierto pasó de 4 % a 40 % al añadirlas. Implementado: diccionario en CSV (HU-25) y reglas. Pendiente: documentos con redacción de datos personales (HU-26) y linaje SSIS (HU-27). (F23, OP-02)" data-node-context="Componente de arquitectura">
+          <title>Fuentes de conocimiento · diccionarios · docs · reglas · Componente de arquitectura · palanca principal · Diccionarios de datos, manuales de reportes, políticas, glosarios y reglas de negocio que hoy están dispersos. Son lo que más mejora las respuestas a preguntas de reporte: en la prueba con 25 preguntas normativas, de tablero y de estudio, el acierto pasó de 4 % a 40 % al añadirlas. Implementado: diccionario en CSV (HU-25) y reglas. Pendiente: documentos con redacción de datos personales (HU-26) y linaje SSIS (HU-27). (F23, OP-02)</title>
           <rect x="1240" y="360" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="1240" y="360" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:11" stroke-width="1.5"/>
+          <rect x="1240" y="360" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:10" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1246 366) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1320" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Fuentes de conocimiento</text>
-        <text data-detail="context" x="1320" y="406" class="t-muted" font-size="9" text-anchor="middle">diccionarios · docs · SSIS</text>
+        <text data-detail="context" x="1320" y="406" class="t-muted" font-size="9" text-anchor="middle">diccionarios · docs · reglas</text>
+        <text data-detail="fine" x="1320" y="416" class="t-external" font-size="7" text-anchor="middle">palanca principal</text>
         </g>
 
-        <g id="node-ad" data-node-id="ad" data-node-label="Active Directory" tabindex="0" role="button" aria-label="Enfocar Active Directory, grupos por LDAP, Componente de arquitectura" aria-pressed="false" data-node-kind="security" data-node-sublabel="grupos por LDAP" data-node-description="Directorio corporativo. ConverData-API lo consulta por LDAP (solo lectura, con su gMSA) al iniciar sesión para obtener los grupos de la cuenta de AD asociada al login SQL (tabla curation.user_directory). Los grupos filtran los documentos con ACL de origen y dan los roles steward y data_admin; sin asociación, el usuario no tiene grupos (fail-closed). (F14, F24, OP-03)" data-node-context="Componente de arquitectura">
-          <title>Active Directory · grupos por LDAP · Componente de arquitectura · Directorio corporativo. ConverData-API lo consulta por LDAP (solo lectura, con su gMSA) al iniciar sesión para obtener los grupos de la cuenta de AD asociada al login SQL (tabla curation.user_directory). Los grupos filtran los documentos con ACL de origen y dan los roles steward y data_admin; sin asociación, el usuario no tiene grupos (fail-closed). (F14, F24, OP-03)</title>
-          <rect x="760" y="40" width="160" height="64" rx="8" class="c-mask"/>
-          <rect x="760" y="40" width="160" height="64" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(766 46) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
+        <g id="node-scheduler" data-node-id="scheduler" data-node-label="Programador de tareas" tabindex="0" role="button" aria-label="Enfocar Programador de tareas, refresco nocturno, Componente de arquitectura" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="refresco nocturno" data-node-tag="pendiente" data-node-description="Tarea programada de Windows que ejecuta el Builder cada noche para que el catálogo refleje los cambios de esquema, y después la evaluación de regresión del descubrimiento. Sustituye al servicio ConverData-Builder con API de administración y al job de SQL Server Agent de las specs: menos piezas que instalar y vigilar. (OP-02, HU-24)" data-node-context="Componente de arquitectura">
+          <title>Programador de tareas · refresco nocturno · Componente de arquitectura · pendiente · Tarea programada de Windows que ejecuta el Builder cada noche para que el catálogo refleje los cambios de esquema, y después la evaluación de regresión del descubrimiento. Sustituye al servicio ConverData-Builder con API de administración y al job de SQL Server Agent de las specs: menos piezas que instalar y vigilar. (OP-02, HU-24)</title>
+          <rect x="1000" y="520" width="160" height="64" rx="8" class="c-mask"/>
+          <rect x="1000" y="520" width="160" height="64" rx="8" class="c-messagebus" data-animate="node" style="--step:10" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(1006 526) scale(0.6875)">
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
+            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
+            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
+            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="840" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Active Directory</text>
-        <text data-detail="context" x="840" y="86" class="t-muted" font-size="9" text-anchor="middle">grupos por LDAP</text>
+          <text data-node-label="" data-detail-anchor="" x="1080" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Programador de tareas</text>
+        <text data-detail="context" x="1080" y="566" class="t-muted" font-size="9" text-anchor="middle">refresco nocturno</text>
+        <text data-detail="fine" x="1080" y="576" class="t-messagebus" font-size="7" text-anchor="middle">pendiente</text>
         </g>
 
         <!-- Connection labels -->
@@ -5434,87 +5415,79 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="324" y="145" width="30" height="14" rx="3" class="c-mask"/>
           <text x="339" y="155" class="t-edge-default" font-size="8" text-anchor="middle">MCP</text>
         </g>
-        <g data-detail="context" data-edge-from="iis" data-edge-to="app" data-edge-label="proxy" data-edge-key="2" data-edge-id="iis-app">
-          <rect x="463" y="212" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="480" y="222" class="t-edge-emphasis" font-size="8" text-anchor="middle">proxy</text>
+        <g data-detail="context" data-edge-from="iis" data-edge-to="web" data-edge-label="/" data-edge-key="2" data-edge-id="iis-web">
+          <rect x="465" y="212" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="480" y="222" class="t-edge-emphasis" font-size="8" text-anchor="middle">/</text>
         </g>
-        <g data-detail="context" data-edge-from="app" data-edge-to="bedrock" data-edge-label="LLM" data-edge-key="3" data-edge-id="app-llm">
-          <rect x="578" y="180" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="593" y="190" class="t-edge-default" font-size="8" text-anchor="middle">LLM</text>
+        <g data-detail="context" data-edge-from="web" data-edge-to="api" data-edge-label="/api" data-edge-key="3" data-edge-id="web-api">
+          <rect x="705" y="212" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="720" y="222" class="t-edge-emphasis" font-size="8" text-anchor="middle">/api</text>
         </g>
-        <g data-detail="context" data-edge-from="app" data-edge-to="convdb" data-edge-label="vectores · audit" data-edge-key="4" data-edge-id="app-db">
-          <rect x="507.20000000000005" y="305" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="550.6" y="315" class="t-edge-default" font-size="8" text-anchor="middle">vectores · audit</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="bedrock" data-edge-label="intención · orden" data-edge-key="4" data-edge-id="api-llm">
+          <rect x="794.2" y="180" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="840" y="190" class="t-edge-default" font-size="8" text-anchor="middle">intención · orden</text>
         </g>
-        <g data-detail="context" data-edge-from="app" data-edge-to="sqldata" data-edge-label="login del usuario" data-edge-key="5" data-edge-id="app-data">
-          <rect x="794.2" y="219" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="840" y="229" class="t-edge-emphasis" font-size="8" text-anchor="middle">login del usuario</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="convdb" data-edge-label="catálogo · auditoría" data-edge-key="5" data-edge-id="api-db">
+          <rect x="728" y="305" width="106" height="14" rx="3" class="c-mask"/>
+          <text x="781" y="315" class="t-edge-default" font-size="8" text-anchor="middle">catálogo · auditoría</text>
         </g>
-        <g data-detail="context" data-edge-from="builder" data-edge-to="discovery" data-edge-label="metadatos" data-edge-key="6" data-edge-id="builder-discovery">
-          <rect x="933.4" y="365" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="960" y="375" class="t-edge-default" font-size="8" text-anchor="middle">metadatos</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="sqldata" data-edge-label="visibilidad del usuario" data-edge-key="6" data-edge-id="api-data">
+          <rect x="899.8" y="268" width="120.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="960" y="278" class="t-edge-security" font-size="8" text-anchor="middle">visibilidad del usuario</text>
         </g>
-        <g data-detail="context" data-edge-from="builder" data-edge-to="convdb" data-edge-label="catálogo" data-edge-key="7" data-edge-id="builder-db">
-          <rect x="695.8" y="365" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="720" y="375" class="t-edge-default" font-size="8" text-anchor="middle">catálogo</text>
+        <g data-detail="context" data-edge-from="builder" data-edge-to="sqldata" data-edge-label="sys.* metadatos" data-edge-key="7" data-edge-id="builder-data">
+          <rect x="1086" y="305" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="1127" y="315" class="t-edge-dashed" font-size="8" text-anchor="middle">sys.* metadatos</text>
         </g>
-        <g data-detail="context" data-edge-from="agent" data-edge-to="builder" data-edge-label="HTTPS refresh" data-edge-key="8" data-edge-id="agent-builder">
-          <rect x="739.8" y="460" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="776" y="470" class="t-edge-dashed" font-size="8" text-anchor="middle">HTTPS refresh</text>
+        <g data-detail="context" data-edge-from="builder" data-edge-to="convdb" data-edge-label="escribe catálogo" data-edge-key="8" data-edge-id="builder-db">
+          <rect x="916.6" y="316" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="960" y="326" class="t-edge-default" font-size="8" text-anchor="middle">escribe catálogo</text>
         </g>
-        <g data-detail="context" data-edge-from="discovery" data-edge-to="sqldata" data-edge-label="sys.* · QS" data-edge-key="9" data-edge-id="discovery-data">
-          <rect x="1051" y="340" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="1080" y="350" class="t-edge-dashed" font-size="8" text-anchor="middle">sys.* · QS</text>
+        <g data-detail="context" data-edge-from="builder" data-edge-to="sources" data-edge-label="ingesta" data-edge-key="9" data-edge-id="builder-sources">
+          <rect x="1178.2" y="372" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="1200" y="382" class="t-edge-default" font-size="8" text-anchor="middle">ingesta</text>
         </g>
-        <g data-detail="context" data-edge-from="discovery" data-edge-to="sources" data-edge-label="SSISDB · msdb" data-edge-key="10" data-edge-id="discovery-sources">
-          <rect x="1163.8" y="379" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="1200" y="389" class="t-edge-default" font-size="8" text-anchor="middle">SSISDB · msdb</text>
-        </g>
-        <g data-detail="context" data-edge-from="app" data-edge-to="ad" data-edge-label="LDAP grupos" data-edge-key="11" data-edge-id="app-ad">
-          <rect x="782" y="153" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="813.4" y="163" class="t-edge-security" font-size="8" text-anchor="middle">LDAP grupos</text>
-        </g>
-        <g data-detail="context" data-edge-from="builder" data-edge-to="bedrock" data-edge-label="descripciones" data-edge-key="12" data-edge-id="builder-llm">
-          <rect x="758.3999999999999" y="247" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="794.5999999999999" y="257" class="t-edge-dashed" font-size="8" text-anchor="middle">descripciones</text>
-        </g>
-        <g data-detail="context" data-edge-from="builder" data-edge-to="sources" data-edge-label="docs · diccionarios" data-edge-key="13" data-edge-id="builder-sources">
-          <rect x="836.8" y="428.75" width="101.2" height="14" rx="3" class="c-mask"/>
-          <text x="887.4" y="438.75" class="t-edge-default" font-size="8" text-anchor="middle">docs · diccionarios</text>
+        <g data-detail="context" data-edge-from="scheduler" data-edge-to="builder" data-edge-label="cada noche" data-edge-key="10" data-edge-id="sched-builder">
+          <rect x="1051" y="500" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="1080" y="510" class="t-edge-dashed" font-size="8" text-anchor="middle">cada noche</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="SQL Server 2025 · ConverData">
-          <rect data-graph-role="structural-frame-label-mask" x="494" y="339" width="166.07743615483867" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="498" y="352.2903235806452" class="t-cloud" font-size="9.29032358064516" font-weight="600">SQL Server 2025 · ConverData</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Windows Server · aplicación">
+          <rect data-graph-role="structural-frame-label-mask" x="368" y="179" width="160.50324200645156" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="372" y="192.29032358064515" class="t-cloud" font-size="9.29032358064516" font-weight="600">Windows Server · aplicación</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="40" y="636" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="40" data-legend-baseline="656" data-legend-width="87">
-            <rect x="40" y="647" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
-            <text x="62" y="656" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          <text x="40" y="616" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="636" data-legend-width="93">
+            <rect x="40" y="627" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="636" class="t-muted" font-size="10" font-weight="500">Frontend</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Base de datos" data-legend-x="149" data-legend-baseline="656" data-legend-width="124">
-            <rect x="149" y="647" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
-            <text x="171" y="656" class="t-muted" font-size="10" font-weight="500">Base de datos</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="155" data-legend-baseline="636" data-legend-width="87">
+            <rect x="155" y="627" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="177" y="636" class="t-muted" font-size="10" font-weight="500">Backend</text>
           </g>
-          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Nube" data-legend-x="295" data-legend-baseline="656" data-legend-width="68">
-            <rect x="295" y="647" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
-            <text x="317" y="656" class="t-muted" font-size="10" font-weight="500">Nube</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Base de datos" data-legend-x="264" data-legend-baseline="636" data-legend-width="124">
+            <rect x="264" y="627" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="286" y="636" class="t-muted" font-size="10" font-weight="500">Base de datos</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Seguridad" data-legend-x="385" data-legend-baseline="656" data-legend-width="99">
-            <rect x="385" y="647" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
-            <text x="407" y="656" class="t-muted" font-size="10" font-weight="500">Seguridad</text>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Nube" data-legend-x="410" data-legend-baseline="636" data-legend-width="68">
+            <rect x="410" y="627" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="432" y="636" class="t-muted" font-size="10" font-weight="500">Nube</text>
           </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Bus de mensajes" data-legend-x="506" data-legend-baseline="656" data-legend-width="136">
-            <rect x="506" y="647" width="16" height="10" rx="2.5" class="c-messagebus" stroke-width="1"/>
-            <text x="528" y="656" class="t-muted" font-size="10" font-weight="500">Bus de mensajes</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Seguridad" data-legend-x="500" data-legend-baseline="636" data-legend-width="99">
+            <rect x="500" y="627" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="522" y="636" class="t-muted" font-size="10" font-weight="500">Seguridad</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="Externo" data-legend-x="664" data-legend-baseline="656" data-legend-width="87">
-            <rect x="664" y="647" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
-            <text x="686" y="656" class="t-muted" font-size="10" font-weight="500">Externo</text>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Bus de mensajes" data-legend-x="621" data-legend-baseline="636" data-legend-width="136">
+            <rect x="621" y="627" width="16" height="10" rx="2.5" class="c-messagebus" stroke-width="1"/>
+            <text x="643" y="636" class="t-muted" font-size="10" font-weight="500">Bus de mensajes</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="Externo" data-legend-x="779" data-legend-baseline="636" data-legend-width="87">
+            <rect x="779" y="627" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="801" y="636" class="t-muted" font-size="10" font-weight="500">Externo</text>
           </g>
         </g>
       </svg>
@@ -5698,12 +5671,24 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Stack Microsoft</h3>
+          <h3>Qué se simplificó</h3>
         </div>
         <ul>
-          <li>Windows Server + IIS: servicios ConverData-UI, ConverData-API y ConverData-Builder (gMSA), sin Docker; converdata-discovery como biblioteca del Builder</li>
-          <li>SQL Server 2025: VECTOR, Full-Text, grafo y tablas temporales en la BD ConverData</li>
-          <li>SQL Server Agent para el refresco; Always On para leer sin cargar producción</li>
+          <li>Sin vectores, Full-Text ni tablas de grafo: búsqueda léxica en memoria y relaciones en tablas normales</li>
+          <li>Sin SQL Server 2025 como requisito; sin servicio Builder ni job de SQL Server Agent</li>
+          <li>Dos procesos detrás de IIS (web y API); Next.js en lugar de Chainlit</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>De qué depende el acierto</h3>
+        </div>
+        <ul>
+          <li>Preguntas cortas «¿dónde está X?»: 93 % sin LLM</li>
+          <li>Preguntas de reporte, tablero o estudio: 4 % solo con catálogo, 40 % con fuentes de conocimiento; con LLM aún sin medir</li>
+          <li>Por eso el LLM (intención y orden) y la ingesta de conocimiento van primero</li>
         </ul>
       </div>
 
@@ -5713,33 +5698,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Permisos y datos</h3>
         </div>
         <ul>
-          <li>Cada consulta y cada descubrimiento usan el login SQL del usuario en cada servidor</li>
-          <li>RLS, enmascaramiento y clasificación de SQL Server se aplican solos</li>
+          <li>Cada usuario descubre solo lo que su login SQL puede leer</li>
+          <li>Credenciales cifradas solo en memoria; auditoría fail-closed</li>
           <li>Nada sale de la red salvo el contexto enviado a Bedrock</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot violet"></div>
-          <h3>Descubrimiento y análisis</h3>
-        </div>
-        <ul>
-          <li>Dónde está cada dato: candidatos con ambiente, servidor, reglas, relaciones y confianza (F22)</li>
-          <li>Diccionarios, documentos, ETL y conocimiento de responsables (F23, F24)</li>
-          <li>Análisis con biblioteca determinista y métricas certificadas (F20, F21)</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
           <div class="card-dot amber"></div>
-          <h3>Evolución</h3>
+          <h3>Estado y evolución</h3>
         </div>
         <ul>
-          <li>SSO con Windows/AD y delegación Kerberos (requiere prueba de concepto)</li>
-          <li>Sandbox de Python con contenedor aislado por Hyper-V</li>
-          <li>Migración a cloud native sin rehacer la lógica</li>
+          <li>Hoy: catálogo y auditoría en la BD ConverData; LLM local; docker compose</li>
+          <li>Piloto: Bedrock, IIS, tareas programadas, resto de la curación en la BD</li>
+          <li>Después: grupos de Active Directory (HU-13), consulta de datos (fase 1b), despliegue en AWS</li>
         </ul>
       </div>
     </div>

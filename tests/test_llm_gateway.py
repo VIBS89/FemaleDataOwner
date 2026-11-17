@@ -230,7 +230,8 @@ def test_ejemplo_de_configuracion_es_valido():
     cfg = load_models(Path(__file__).parents[1] / "config" / "models.example.yaml")
     gw = LLMGateway(cfg, builders={})
     assert {r.provider for r in cfg.roles.values()} == {"nvidia_nim"}
-    assert cfg.roles["embed"].dimensions == 1024
+    assert set(cfg.roles) == {"planner", "fast"}  # fase 1a: sin `embed` ni `judge` (PRD §13, decisiones 9 y 13)
+    assert gw.embeddings() is None
     assert gw.labels["planner"].startswith("nvidia_nim:")
 
 

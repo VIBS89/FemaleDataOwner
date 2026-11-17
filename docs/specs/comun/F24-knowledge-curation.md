@@ -1,5 +1,7 @@
 # F24 — Curación y captura del conocimiento institucional · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Origen: Propuesta — "reducir la dependencia del conocimiento tribal", "preservación del conocimiento institucional",
 > "conocimiento institucional obtenido de interacciones históricas y aportes de expertos".
 
@@ -21,7 +23,7 @@ quede disponible para todos, en lugar de contestar la misma pregunta a cada equi
   business_owner: {name: "Producto Banca Digital", group: "GG-Datos-BancaDigital"}
   technical_owner: {name: "Ingeniería de Datos — Canales", group: "GG-IngDatos-Canales"}
 ```
-Los grupos se resuelven como indica F14 (§Grupos y roles): claims de Cognito en cloud native, AD por LDAP on-premise. Las personas no se
+Los grupos se resuelven como indica F14 (§Grupos y roles): AD por LDAP (pendiente, HU-13; hoy los responsables se asignan por login SQL). Las personas no se
 guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga en la tabla `curation.owners` (OP-02).
 
 ## Captura desde el uso
@@ -32,8 +34,8 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
    - Un "✖" de un `steward` retira el par del índice.
 3. **Escalamiento al responsable**: con `knowledge_gap = true` o a petición del usuario, "Preguntar al responsable" crea una
    `curation_request` (pregunta reescrita, candidatos mostrados y dominio probable) asignada al grupo `steward` del dominio.
-   - La crea la herramienta interna `curation_request_create` de `converdata-mcp` (F12) y se guarda solo on-premise (F17).
-  - Se notifica por correo o Teams (webhook configurable). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
+   - La crea la ruta `POST /curation/requests` de la API (F12) y se guarda solo on-premise (F17).
+  - Se notifica por un webhook de Teams (`CONVERDATA_NOTIFY_WEBHOOK`). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
    - La respuesta del steward puede: elegir un activo, escribir o corregir una descripción, crear una regla de negocio o marcar el dato como
      "no existe en las fuentes catalogadas" (registrado como brecha).
    - La respuesta se convierte en conocimiento revisado (`description_source: human`, `reviewed: true`) y en golden discovery, y se notifica al
@@ -48,12 +50,12 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
   - reglas sugeridas y vínculos documento→activo sin revisar;
   - solicitudes escaladas pendientes, con antigüedad.
 - Las ediciones humanas se guardan separadas de lo generado (`description_source: human`) y **nunca se sobrescriben en un `refresh`**;
-  quedan versionadas con el autor (grupo) y la fecha: on-premise en las *temporal tables* de la BD `ConverData` (OP-02), cloud native
-  como `*.human.yaml` en S3 versionado (CN-02). El indexador reindexa solo el activo editado.
-- `converdata catalog review --unreviewed --domain <d>` sigue disponible por CLI.
+  quedan versionadas con el autor (grupo) y la fecha en las *temporal tables* de la BD `ConverData` (OP-02). Hoy se guardan en archivos
+  y cada edición queda en la auditoría; tras cada una se recarga el índice en memoria.
+- `converdata catalog review --unreviewed --domain <d>` por CLI: pendiente.
 
 ## Reporte de brechas de conocimiento
-`converdata knowledge gaps` (y la pestaña "Brechas" de Curación) lista:
+`converdata knowledge gaps` (pendiente como comando; hoy, la cola de revisión de Curación, `GET /curation/review`) lista:
 - preguntas sin candidato ≥ 0.6, agrupadas por similitud (temas que nadie ha documentado);
 - activos más buscados con descripción `generated` o sin descripción;
 - activos con conflictos entre fuentes;

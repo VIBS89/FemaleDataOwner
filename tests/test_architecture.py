@@ -36,6 +36,7 @@ LAYERS = {
     "converdata.metadata": "infrastructure",
     "converdata.llm": "infrastructure",
     "converdata.observability": "infrastructure",
+    "converdata.storage": "infrastructure",
     "converdata.integration": "integration",
     "converdata.bootstrap": "integration",
     "converdata.cli": "integration",

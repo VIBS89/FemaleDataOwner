@@ -1,30 +1,34 @@
-# CN-02 — Catálogo e ingesta + memoria semántica · cloud native
+# CN-02 — Catálogo e ingesta + memoria · despliegue en AWS
 
-> Implementa en AWS: [F1](../comun/F01-catalog-builder.md) y [F2](../comun/F02-semantic-memory.md)
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Despliegue posterior al piloto on-premise; nada está desplegado.
+>
+> Implementa en AWS: [F1](../comun/F01-catalog-builder.md), [F2](../comun/F02-semantic-memory.md) y [F23](../comun/F23-knowledge-sources.md) · equivalente on-premise: [OP-02](../on-premise/OP-02-catalogo-memoria.md)
 
 ## Ingesta
-| Pieza | Servicio |
-|---|---|
-| Disparo | **EventBridge Scheduler** (nocturno) y **Step Functions** (bajo demanda) |
-| Catalog Builder | Tarea **ECS Fargate** en subred privada; LLM vía Bedrock (VPC endpoint) |
-| `converdata-discovery` (F18) | Biblioteca dentro de la tarea del Catalog Builder; login de metadatos y sal MinHash en Secrets Manager |
-| Descubrimiento entre BDs (F19) | Misma tarea ECS, tras F1; el grafo `_estate/` y la capa semántica `_semantic/` (F21) se guardan en S3 junto al catálogo |
-| Catálogo fuente | **S3 versionado** (`s3://converdata-catalog/`), cifrado KMS, **solo metadatos estructurales** |
-| Indexación | El evento `s3:ObjectCreated` dispara el indexador (**Lambda** en la VPC), que rechaza YAML con valores y escribe en OpenSearch; reindexa solo el activo cambiado |
-| Fuentes de conocimiento (F23) | Misma tarea ECS: diccionarios y documentos desde la carpeta compartida on-prem (SMB por la VPN) o SharePoint (Microsoft Graph, por el egress filtrado de CN-01); SSISDB y msdb vía `converdata-discovery` |
-| Curación (F24) | Las herramientas internas de `converdata-mcp` escriben las ediciones humanas (`*.human.yaml`) y las plantillas de `golden_discovery` en `s3://converdata-catalog/_curation/` (el mismo indexador las lleva a OpenSearch) y los originales y solicitudes en `ConverData_Audit` on-prem |
-| Redacción de PII (F23) | **Presidio** dentro de la tarea ECS, en memoria, antes de escribir; a S3 (`s3://converdata-catalog/_knowledge/`) solo llegan fragmentos redactados, reglas, linaje y anotaciones. Alternativa más estricta: ejecutar la redacción en un agente on-prem y enviar solo el resultado |
-| Responsables (F24) | `owners.yaml` en S3, con grupos del IdP federado en Cognito (claim `cognito:groups`, F14) |
-| Red hacia SQL Server | Transit Gateway + VPN/DX (CN-01); el firewall on-prem abre el 1433 solo a la subred del Catalog Builder |
+| Pieza | En AWS | Equivalente on-premise |
+|---|---|---|
+| Disparo | **EventBridge Scheduler**, cada noche, con `RunTask`; no hay nada encendido entre ejecuciones (PRD §13, decisión 12) | Programador de tareas de Windows |
+| Builder | Tarea ECS Fargate con **la misma imagen de la API** y el comando `converdata catalog build`; corre y termina | El mismo comando en el servidor |
+| Login de metadatos | Secrets Manager, inyectado como las variables de entorno que nombra el inventario (`metadata_user_env`, `metadata_password_env`); solo en la tarea del Builder ([CN-03](CN-03-identidad.md)) | DPAPI |
+| Lectura de metadatos | Consultas fijas a `sys.*` por la VPN (TDS 1433); nunca valores de columnas | Igual, sin VPN |
+| Destino | **BD `ConverData` en el SQL Server del banco**, por la VPN: esquemas `catalog` (con historial), `knowledge` y `curation`. Nada se escribe en AWS (PRD §13, decisión 10) | La misma BD |
+| Fuentes de conocimiento (F23) | Diccionarios, documentos y reglas de la red del banco, leídos por la VPN. Implementado: diccionario en CSV (HU-25) y reglas; documentos (HU-26) y linaje SSIS (HU-27) pendientes. Cómo lee la tarea una carpeta compartida (SMB): por confirmar | Las mismas fuentes |
+| Redacción de datos personales | En la memoria del Builder, antes de escribir; el original no se copia ni pasa a disco. Hoy el detector cubre cinco patrones (DUI, NIT, correo, teléfono, tarjeta) | Igual |
+| Descripciones con LLM (opcional) | `--models`: el mismo modelo de Bedrock por el VPC endpoint | Bedrock por el proxy corporativo |
 
-## Memoria semántica: `OpenSearchStore`
-- Colección **OpenSearch Serverless** de tipo *vector search*, con endpoint VPC y cifrado KMS.
-- Un índice por colección lógica (`tables`, `columns`, `glossary`, `golden_sql`, `documents`, `business_rules`, `etl`, `annotations`, `golden_discovery`) con un campo `knn_vector` (dimensión según el rol `embed`) y los metadatos como `keyword` (`asset_key`, `environments`, `linked_assets`, `allowed_groups`).
-- Búsqueda **híbrida**: k-NN y BM25 combinados con un `search_pipeline` de normalización. El filtro de permisos es un `terms` sobre `id` (pre-filtro).
-- `golden_sql` contiene solo plantillas anonimizadas; el original vive en `ConverData_Audit` on-prem (CN-05).
+Pendiente en el código (dependencia de [CN-01](CN-01-despliegue-aws.md)): hoy `catalog build` escribe archivos en un directorio (`--out`);
+escribir en la BD `ConverData` es HU-04 y HU-06. Sin eso este despliegue no es viable, porque la tarea no tiene disco persistente.
+
+## Memoria: índice léxico en la tarea
+- Al arrancar, `ConverData-API` carga el catálogo y el conocimiento de la BD `ConverData` en un **índice BM25 en memoria** y busca solo entre los objetos que el usuario puede ver (PRD §13, decisión 9).
+- Sin embeddings ni índice vectorial: no hay ningún almacén de búsqueda que desplegar, respaldar o proteger en AWS.
+- El índice se pierde al parar la tarea y se reconstruye al arrancar.
+- **Refresco tras el Builder**: on-premise la API recarga el catálogo cuando ella lanza la construcción (`POST /admin/catalog/build`). Con el Builder en otra tarea, la API debe recargar o reiniciarse al terminar: mecanismo por confirmar.
 
 ## Criterios de aceptación
-1. Un cambio de esquema on-prem aparece en OpenSearch tras el siguiente ciclo nocturno sin intervención manual.
-2. Un YAML con valores subido a S3 es rechazado por el indexador y genera una alarma.
-3. Los tests de contrato de `VectorStore` pasan contra `OpenSearchStore`, incluidos `search_knowledge` y `search_golden_discovery`.
-4. Un documento con un DUI y un número de cuenta de prueba no deja esos literales en S3 ni en OpenSearch.
+1. Un cambio de esquema on-premise aparece en las respuestas tras el siguiente ciclo nocturno, sin intervención manual.
+2. La tarea del Builder termina sola; su código de salida es distinto de 0 si falla y eso dispara una alarma ([CN-05](CN-05-auditoria-observabilidad.md)).
+3. Después de una ejecución del Builder no queda en AWS ningún archivo ni objeto con catálogo o conocimiento.
+4. Un documento con un DUI y un número de cuenta de prueba no deja esos literales en la BD `ConverData` ni en los logs.
+5. El login de metadatos no está disponible en la tarea de la API.
+6. `converdata eval gate` aprueba contra el catálogo cargado en qa.

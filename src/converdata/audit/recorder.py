@@ -105,3 +105,29 @@ def discovery_rows(envelope: AnswerEnvelope) -> list[dict]:
         for r in disc.related
     ]
     return rows
+
+
+def question_row(record: TraceRecord, when: dt.datetime | None = None) -> dict:
+    """Forma común de una pregunta auditada: la escriben igual el destino en archivos y el de SQL Server, y es lo que
+    leen Administración, el historial propio y las métricas."""
+    env = record.envelope
+    moment = when or dt.datetime.now(dt.timezone.utc)
+    return {
+        "ts": moment.isoformat(timespec="milliseconds"),
+        "type": "question",
+        "trace_id": record.trace_id,
+        "user_id": record.user_id,
+        "client": record.client,
+        "question": record.question,
+        "intent": record.intent,
+        "status": env.status,
+        "confidence": env.confidence,
+        "databases": env.databases,
+        "duration_ms": env.timings_ms.get("total"),
+        "steps": [
+            {"step": s.step, "attempt": s.attempt, "started_at": s.started_at.isoformat(timespec="milliseconds"),
+             "duration_ms": s.duration_ms, "model": s.model, "ok": s.ok, "error": s.error, "detail": s.detail}
+            for s in record.steps
+        ],
+        "discovery": discovery_rows(env),
+    }

@@ -18,6 +18,7 @@ El orden y los ciclos los define el grafo, nunca el modelo (PRD §8.1). Sin chec
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import operator
 import time
 import uuid
@@ -52,6 +53,8 @@ STEP_LABELS = {
     "respond": "Redactando la respuesta",
     "finalize": "Registrando la auditoría",
 }
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -353,7 +356,9 @@ def build_discover_graph(deps: DiscoverDeps):
         )
         try:
             deps.audit.write(record)
-        except Exception:  # F11: fail-closed
+        except Exception as exc:  # F11: fail-closed
+            # Solo el tipo del error (D5): el monitoreo lo convierte en la alerta "Fallo de escritura de auditoría" (OP-05).
+            log.error("audit.write_failed", extra={"error_type": type(exc).__name__, "trace_id": state["trace_id"]})
             if not deps.settings.audit.fail_open:
                 env = AnswerEnvelope(
                     trace_id=state["trace_id"], status="error",

@@ -1,5 +1,7 @@
 # F25 — Métricas de éxito y piloto · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Origen: Propuesta, sección 4 ("Evidencia cuantificable propuesta") y "Métricas propuestas de éxito". La propuesta reconoce que hoy
 > **no hay línea base**; esta spec define cómo medirla antes del piloto y cómo instrumentar la solución para medir el después.
 
@@ -39,9 +41,13 @@ validados por un experto, más 5 preguntas sin respuesta en las fuentes (para me
 
 ## Instrumentación
 - Todo se calcula desde la auditoría (F11) y el catálogo; **sin contenido** fuera de la auditoría on-prem (F17).
-- `converdata metrics report --from --to [--team]` genera un CSV y un HTML con las métricas de esta spec.
+- `converdata metrics report --from --to [--team]` genera un CSV y un HTML con las métricas de esta spec (comando pendiente; hoy las métricas se consultan en `GET /admin/metrics` y en la vista Métricas de la web, solo `data_admin`).
 - `converdata eval discovery` corre el set de evaluación y publica Hit@k, MRR, calibración y latencia; se ejecuta en cada cambio de prompt,
-  modelo o índice (regresión).
+  modelo o catálogo (regresión), con `--min-hit3` como umbral de alerta.
+- `converdata eval gate` es la **compuerta de calidad** previa a cada despliegue: 7 suites (`calidad`, `permisos`, `inyeccion`, `guardas`,
+  `robustez`, `determinismo`, `auditoria`) contra los umbrales de esta spec y la línea base `eval/baseline.yaml`
+  ([calidad bancaria §2](../../calidad-bancaria.md)). Toda mejora se acepta solo si no baja ningún tipo de pregunta (A–G).
+- Hoy el set de evaluación son 56 preguntas escritas por el equipo sobre dos catálogos de prueba; el set de 50–80 preguntas reales del piloto está pendiente.
 
 ## Plan del piloto (8 semanas)
 | Semana | Actividad | Entregable |
@@ -54,5 +60,5 @@ validados por un experto, más 5 preguntas sin respuesta en las fuentes (para me
 
 ## Criterios de aceptación
 1. Antes del piloto existe una línea base registrada para las 4 métricas de negocio.
-2. `converdata metrics report` produce todas las métricas de esta spec a partir de la auditoría, sin leer preguntas ni SQL.
-3. `converdata eval discovery` falla (exit code ≠ 0) si Hit@3 baja más de 5 puntos respecto a la última ejecución aprobada.
+2. `converdata metrics report` (hoy, `GET /admin/metrics`) produce todas las métricas de esta spec a partir de la auditoría, sin leer preguntas ni SQL.
+3. `converdata eval discovery` falla (exit code ≠ 0) si Hit@3 baja más de 5 puntos respecto a la última ejecución aprobada (`--min-hit3`; la suite `calidad` de `converdata eval gate` lo comprueba además contra la línea base).

@@ -1,5 +1,7 @@
 # F22 — Discovery Flow (descubrimiento de activos de datos) · común
 
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+>
 > Origen: Propuesta "Enterprise Data Discovery Agent" (Banco Atlántida), secciones 3 y 5. Es el **caso de uso principal** de la propuesta;
 > el AskFlow de texto a SQL (F4–F10) corresponde a la visión futura "Recomendación y generación de SQL".
 
@@ -21,7 +23,7 @@ para no depender de expertos ni de documentación dispersa.
 ## Pasos (grafo de LangGraph determinista)
 1. **Intent** (F3): `intent = discovery`. Extrae `entities`, `business_context` (p. ej. "onboarding digital"), `asset_kind_hint`
    (columna, tabla, indicador, regla) y `environment_hint` ("producción" por defecto).
-2. **Recuperación híbrida** (F2), filtrada por visibilidad (F14):
+2. **Recuperación léxica** (BM25 en memoria, F2; sin embeddings en la fase 1a), filtrada por visibilidad (F14):
    - `search_columns(k=50)` y `search_tables(k=30)`;
    - `search_knowledge(kinds=[glossary, business_rule, document, annotation, etl], k=30)` (F23, F24);
    - `search_golden_discovery(k=5)`: preguntas parecidas ya confirmadas por usuarios o expertos (F24).
@@ -30,7 +32,7 @@ para no depender de expertos ni de documentación dispersa.
    se añaden su tabla canónica y sus copias en otras BDs (aristas `same_entity`).
 3. **Agrupación por activo lógico**: los objetos físicos con el mismo `asset_key` en varios ambientes (F1) se agrupan en un candidato con
    `locations[]`. Si los `schema_hash` difieren entre ambientes, se añade el aviso "QA difiere de producción".
-4. **Reranking con LLM**: el nodo `rerank` (rol `planner` de F16, temperatura 0, salida estructurada) recibe hasta 25 candidatos en formato compacto
+4. **Reranking con LLM**: el nodo `rerank` (rol `planner` de F16, el mismo modelo que `intent`; temperatura 0, salida estructurada) recibe hasta 25 candidatos en formato compacto
    (id, descripción, fuente de la descripción, reglas, evidencias) y devuelve un orden con `relevance` (0..1) y una justificación de una línea
    por candidato. **No puede añadir candidatos que no estén en la lista** (se valida el id).
 5. **Expansión de contexto** para los 5 primeros:
@@ -38,13 +40,16 @@ para no depender de expertos ni de documentación dispersa.
    - linaje ETL de entrada y salida a un salto (F23);
    - reglas de negocio vinculadas (F23);
    - responsable funcional y técnico (F24);
-   - indicadores certificados de la capa semántica que usan el activo ([F21](F21-semantic-layer.md), `list_metrics`);
+   - indicadores certificados de la capa semántica que usan el activo ([F21](F21-semantic-layer.md), `list_metrics`; fase 1b);
    - **alternativas**: columnas con la misma semántica (sinónimos, mismo término de glosario o mismo nombre normalizado) en otras tablas.
 6. **Cálculo de confianza** (abajo).
-7. **Respuesta**: el nodo `respond` (rol `fast` de F16, en streaming) redacta 1 a 4 frases que recomiendan el candidato principal y explican
+7. **Respuesta**: el nodo `respond` (rol `fast` de F16, que puede apuntar al mismo modelo; en streaming) redacta 1 a 4 frases que recomiendan el candidato principal y explican
    por qué; **no puede mencionar objetos que no estén en `candidates`, `alternatives` o `related`** (validación por id). Las tarjetas se
    envían antes que la narrativa, así que el usuario ve los candidatos sin esperar al texto.
 8. **Brecha de conocimiento**: si ningún candidato llega a 0.6, `knowledge_gap = true` y se ofrece "Preguntar al responsable del dominio" (F24).
+
+Sin `config/models.yaml`, o con el tope diario de tokens agotado, los pasos 1, 4 y 7 corren en **modo determinista** (sin LLM) y el
+flow sigue respondiendo. Las guardas sobre el texto generado y la compuerta `converdata eval gate` están en [calidad bancaria](../../calidad-bancaria.md).
 
 ## Resumen de dominio (intent `exploration`)
 Para "¿qué datos tenemos de X?" (F3, RF-11) el flow usa el mismo grafo con otro paso 2: `estate_overview(domain)` (F19) y `search_tables`
@@ -104,7 +109,7 @@ confidence = 0.35*relevance_llm + 0.25*retrieval_score_norm + 0.15*evidence_stre
 | Factor | Cálculo |
 |---|---|
 | `relevance_llm` | Puntuación del reranker (paso 4) |
-| `retrieval_score_norm` | Score híbrido normalizado al mejor hit de la consulta |
+| `retrieval_score_norm` | Score de recuperación (BM25) normalizado al mejor hit de la consulta |
 | `evidence_strength` | `human` 1.0 · `data_dictionary` 0.9 · `ms_description` 0.8 · `document` 0.6 · `generated` 0.3 |
 | `confirmation_score` | 1.0 si un experto confirmó este activo para una pregunta similar (≥ 0.85); 0.7 si lo confirmaron ≥ 2 usuarios; 0 en otro caso |
 | `source_agreement` | Fuentes independientes que apuntan al activo (catálogo, diccionario, documento, ETL, golden), normalizado a 3 |

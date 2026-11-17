@@ -1,7 +1,8 @@
 """Catálogo y base de conocimiento en memoria del proceso.
 
 On-premise la fuente es el esquema `catalog`/`knowledge` de la BD `ConverData` (OP-02); en desarrollo y tests,
-el formato lógico YAML de F1/F23. Ambos producen los mismos objetos Pydantic.
+el formato lógico YAML de F1/F23. Ambos producen los mismos objetos Pydantic, reunidos en un `CatalogSnapshot`.
+El puerto `CatalogRepository` lo implementa `converdata.storage.catalog_repository` (SQL Server).
 """
 
 from __future__ import annotations
@@ -9,11 +10,12 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 import yaml
 
 from converdata.catalog.ids import is_column_key, short_name, table_key
-from converdata.config import Inventory
+from converdata.config import Inventory, OwnersDirectory, load_inventory, load_owners
 from converdata.models.catalog import CatalogObject, Column
 from converdata.models.knowledge import BusinessEntity, BusinessRule, GoldenDiscovery, KnowledgeItem, LineageEdge
 
@@ -128,7 +130,7 @@ def _yaml_docs(root: Path):
             yield path, yaml.safe_load(fh)
 
 
-def load_catalog(root: str | Path, inventory: Inventory) -> Catalog:
+def load_objects(root: str | Path) -> list[CatalogObject]:
     objects = []
     for path, data in _yaml_docs(Path(root)):
         if path.name.startswith("_"):  # _database.yaml: resumen por BD
@@ -137,7 +139,11 @@ def load_catalog(root: str | Path, inventory: Inventory) -> Catalog:
             objects.append(CatalogObject.model_validate(data))
         except ValueError as exc:
             raise ValueError(f"{path}: {exc}") from exc
-    return Catalog(objects, inventory)
+    return objects
+
+
+def load_catalog(root: str | Path, inventory: Inventory) -> Catalog:
+    return Catalog(load_objects(root), inventory)
 
 
 def load_knowledge(root: str | Path) -> KnowledgeBase:
@@ -155,3 +161,52 @@ def load_knowledge(root: str | Path) -> KnowledgeBase:
             for _, data in _yaml_docs(root / sub):
                 target.extend(model.model_validate(d) for d in (data or []))
     return kb
+
+
+# --- foto completa: lo que se publica en la BD `ConverData` y lo que carga el DiscoverFlow ---------------
+@dataclass
+class CatalogSnapshot:
+    """Todo lo que el DiscoverFlow necesita de un catálogo: inventario, objetos, conocimiento y responsables."""
+
+    inventory: Inventory
+    objects: list[CatalogObject]
+    knowledge: KnowledgeBase
+    owners: OwnersDirectory
+
+    def catalog(self) -> Catalog:
+        return Catalog(self.objects, self.inventory)
+
+
+def load_snapshot(root: str | Path) -> CatalogSnapshot:
+    """Lee un directorio con `config/`, `catalog/` y `knowledge/` (formato de desarrollo y de trabajo del Builder)."""
+    root = Path(root)
+    return CatalogSnapshot(
+        inventory=load_inventory(root / "config" / "databases.yaml"),
+        objects=load_objects(root / "catalog"),
+        knowledge=load_knowledge(root / "knowledge"),
+        owners=load_owners(root / "config" / "owners.yaml"),
+    )
+
+
+class StaleCatalog(RuntimeError):
+    """Otro proceso publicó una versión más nueva: hay que volver a cargar antes de escribir."""
+
+
+@dataclass(frozen=True)
+class PublishResult:
+    version: int | None  # versión vigente tras publicar (None solo si nunca hubo catálogo y no había nada que escribir)
+    changed: bool
+    counts: dict[str, int] = field(default_factory=dict)  # tabla.acción → filas (insertadas, actualizadas, borradas)
+
+
+class CatalogRepository(Protocol):
+    """Almacén durable del catálogo (OP-02). Publicar es dejar el almacén igual a la foto, conservando el historial."""
+
+    def version(self) -> int | None: ...
+
+    def load(self, scope: str = "all") -> tuple[CatalogSnapshot, int] | None: ...
+
+    def upsert_golden(self, golden: GoldenDiscovery, *, published_by: str) -> int: ...
+
+    def publish(self, snapshot: CatalogSnapshot, *, published_by: str, reason: str, scope: str = "all",
+                expected_version: int | None = None) -> PublishResult: ...

@@ -2,547 +2,204 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — Arquitectura cloud native en AWS",
+    "title": "ConverData — Despliegue mínimo en AWS (posterior al piloto)",
     "output": "docs/architecture/cloud-native-architecture.html",
     "locale": "es",
     "quality_profile": "showcase"
   },
   "components": [
     {
-      "id": "cognito",
-      "type": "security",
-      "label": "Amazon Cognito",
-      "sublabel": "SSO con IdP corporativo",
-      "pos": [
-        280,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Identidad de aplicación. Federa el SSO corporativo y emite el JWT que validan el ALB, AgentCore Runtime y AgentCore Gateway. Su 'sub' identifica al usuario en todo el sistema y es la clave para recuperar sus logins SQL, y el claim cognito:groups da sus grupos (ACL de documentos, roles de curación), de modo que nunca se usa una identidad que el LLM pueda inventar. (F14, CN-01, CN-03)"
-    },
-    {
-      "id": "bedrock",
-      "type": "cloud",
-      "label": "Amazon Bedrock",
-      "sublabel": "Claude · Nova · Cohere",
-      "pos": [
-        760,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "sin invocation logging",
-      "description": "Cerebro de los agentes. Sirve un modelo por rol: Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez independiente y Cohere multilingüe para embeddings. Guardrails filtra la inyección de prompt en la entrada y la salida. Invocation logging desactivado: procesa sin guardar. NIM queda como fallback controlado. (F16, CN-06)"
-    },
-    {
       "id": "mcpclient",
       "type": "external",
       "label": "Cliente MCP",
       "sublabel": "Claude / IDE",
-      "pos": [
-        1000,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Clientes externos como Claude Desktop, Claude Code o un IDE, que consumen ConverData como herramienta MCP (normalmente 'discover' o 'ask'). Entran por AgentCore Gateway con OAuth de Cognito y heredan los mismos permisos SQL que en el chat. (F12, CN-04)"
-    },
-    {
-      "id": "opensearch",
-      "type": "database",
-      "label": "OpenSearch Serverless",
-      "sublabel": "solo metadatos",
-      "pos": [
-        1240,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Memoria semántica: búsqueda híbrida k-NN + BM25 sobre tablas, columnas, glosario, plantillas de golden SQL y de golden discovery, fragmentos redactados de documentos, reglas de negocio, linaje ETL y anotaciones de responsables. Filtra siempre por los objetos que el usuario puede ver. Solo guarda metadatos, conocimiento redactado y plantillas anonimizadas, nunca valores de clientes. (F2, F4, F22, F23, CN-02, CN-06)"
-    },
-    {
-      "id": "users",
-      "type": "external",
-      "label": "Usuario",
-      "sublabel": "navegador",
-      "pos": [
-        40,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Ingenieros de datos, analistas, científicos de datos y Product Owners que preguntan en lenguaje natural dónde está un dato (descubrimiento) o piden los datos (consulta). En descubrimiento reciben campos y tablas candidatas con ambiente, servidor, descripción, reglas, relaciones y confianza, y confirman con ✔/✖; en consulta, tabla, gráfico, SQL usado y supuestos. Solo ven lo que su login SQL puede leer. (F12, F14, F22)"
-    },
-    {
-      "id": "edge",
-      "type": "security",
-      "label": "WAF + ALB",
-      "sublabel": "auth Cognito",
-      "pos": [
-        280,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Puerta de entrada. AWS WAF bloquea abuso y aplica rate limiting; el ALB termina TLS y obliga a autenticarse con Cognito antes de llegar a la aplicación. No registra cuerpos de petición, así que las preguntas no quedan en logs. (CN-01, CN-06, CN-04)"
-    },
-    {
-      "id": "ecs",
-      "type": "frontend",
-      "label": "Chainlit + BFF",
-      "sublabel": "ECS Fargate",
-      "pos": [
-        520,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Interfaz web Chainlit y API REST (FastAPI BFF) en ECS Fargate. Muestra los pasos del flow en vivo, las tarjetas de candidatos, las tablas y los gráficos; reenvía el JWT del usuario a AgentCore Runtime y transmite la respuesta en streaming. El feedback, la curación y el alta de credenciales van a las herramientas internas de converdata-mcp. Data layer de Chainlit desactivado: no persiste chats; las descargas CSV/XLSX van directas al navegador. (F12, CN-04, CN-06)"
-    },
-    {
-      "id": "runtime",
-      "type": "backend",
-      "label": "AgentCore Runtime",
-      "sublabel": "DiscoverFlow + AskFlow",
-      "pos": [
-        760,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "historial solo en sesión",
-      "description": "Ejecuta los grafos de LangGraph con pasos fijos y salida estructurada. DiscoverFlow (caso principal): recupera candidatos del catálogo y del conocimiento, los reordena, calcula la confianza y añade relaciones, reglas y responsables, sin consultar datos. AskFlow: intención, schema linking, valores, planificación T-SQL o SP, validación con autocorrección, ejecución, verificación y análisis. Cada sesión corre en una microVM aislada; el historial vive solo ahí. Envía telemetría sin contenido a CloudWatch. (F3–F10, F22, CN-01)"
-    },
-    {
-      "id": "gateway",
-      "type": "backend",
-      "label": "AgentCore Gateway",
-      "sublabel": "endpoint MCP",
-      "pos": [
-        1000,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Punto único MCP. Publica las herramientas de converdata-mcp (discover, get_asset, get_lineage, where_is, search_catalog, describe_table, validate_sql, run_select, exec_procedure, ask, entre otras) con OAuth, y propaga la identidad del usuario al target para que los permisos se hereden. Las herramientas internas de feedback y curación solo se exponen con el scope converdata/internal del BFF, nunca a clientes MCP externos. (F12, F22, CN-01, CN-04)"
-    },
-    {
-      "id": "mcp",
-      "type": "backend",
-      "label": "converdata-mcp",
-      "sublabel": "Runtime modo VPC",
-      "pos": [
-        1240,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Servidor MCP propio, en AgentCore Runtime en modo VPC. Busca en el catálogo, valida el SQL (AST, objetos visibles, NOEXEC, SHOWPLAN) y ejecuta SELECT y SPs de la lista blanca con el login SQL del propio usuario en cada servidor. Es el único camino de escritura: auditoría, golden y solicitudes de curación en ConverData_Audit on-prem, y ediciones humanas y plantillas de golden discovery en S3. Es el único componente que toca SQL Server en tiempo de consulta. (F7, F8, F12, F14, F24, CN-03, CN-05)"
+      "pos": [280, 40],
+      "size": [160, 64],
+      "description": "Clientes como Claude Desktop, Claude Code o un IDE que consumen ConverData como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de ConverData-API. (F12, CN-04)"
     },
     {
       "id": "secrets",
       "type": "security",
       "label": "Secrets Manager",
-      "sublabel": "login SQL por usuario",
-      "pos": [
-        1480,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "CMK KMS",
-      "description": "Guarda el login SQL de cada usuario por servidor (converdata/sql-logins/<sub>/<server>), cifrado con una CMK de KMS dedicada. Solo el rol de converdata-mcp puede leerlo, y solo para el usuario del JWT. Permite que cada consulta corra con los permisos reales de SQL Server. CloudTrail audita cada lectura. Son credenciales, no datos de clientes. (F14, CN-03)"
+      "sublabel": "secretos de servicio",
+      "pos": [520, 40],
+      "size": [160, 64],
+      "description": "Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD ConverData. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de ConverData-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)"
     },
     {
-      "id": "tgw",
+      "id": "bedrock",
       "type": "cloud",
-      "label": "Transit Gateway",
-      "sublabel": "Site-to-Site VPN / DX",
-      "pos": [
-        1240,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Conectividad privada entre la VPC y la red on-prem por Site-to-Site VPN o Direct Connect. Todo el tráfico TDS (puerto 1433) hacia SQL Server pasa por aquí, sin internet. El firewall on-prem solo abre el 1433 a las subredes de AgentCore y del Catalog Builder. (CN-01)"
+      "label": "Amazon Bedrock",
+      "sublabel": "un modelo: intención y orden",
+      "pos": [760, 40],
+      "size": [160, 64],
+      "tag": "sin invocation logging",
+      "description": "El mismo uso que on-premise: un modelo para entender qué dato pide la pregunta y para ordenar los candidatos, sin embeddings. Se llama por un VPC endpoint con el rol de la tarea, sin claves ni salida a internet, y con invocation logging desactivado. Guardrails en la fase 1a es una decisión de Seguridad pendiente. (F16, CN-06)"
+    },
+    {
+      "id": "logs",
+      "type": "cloud",
+      "label": "CloudWatch Logs",
+      "sublabel": "logs sin contenido",
+      "pos": [1000, 40],
+      "size": [160, 64],
+      "description": "Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD ConverData on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)"
+    },
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Usuario",
+      "sublabel": "navegador · red corporativa",
+      "pos": [40, 200],
+      "size": [160, 64],
+      "description": "Las mismas personas y el mismo inicio de sesión que on-premise: su propio login SQL por servidor. Llegan al balanceador interno desde la red corporativa por la VPN; la aplicación no se publica en internet, así que no necesita WAF ni un proveedor de identidad adicional. (F14, CN-03)"
+    },
+    {
+      "id": "alb",
+      "type": "security",
+      "label": "ALB interno",
+      "sublabel": "HTTPS · certificado ACM",
+      "pos": [280, 200],
+      "size": [160, 64],
+      "description": "Balanceador interno que termina TLS con un certificado de ACM y reparte / al frontend y /mcp a la API. No registra cuerpos de petición. Equivalente on-premise: IIS con el certificado de la PKI corporativa. (CN-01, CN-04)"
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web",
+      "sublabel": "contenedor Next.js",
+      "pos": [520, 200],
+      "size": [160, 64],
+      "description": "La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a ConverData-API dentro de la misma tarea. (F12, CN-04)"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "ConverData-API",
+      "sublabel": "contenedor FastAPI · MCP",
+      "pos": [760, 200],
+      "size": [160, 64],
+      "tag": "SessionVault en memoria",
+      "description": "La misma imagen de la API (api/Dockerfile): REST, MCP y DiscoverFlow, con el catálogo cargado en un índice léxico en memoria. Sin AgentCore Runtime, OpenSearch ni Lambda: el flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea, porque las sesiones viven en memoria; si se reinicia, los usuarios vuelven a iniciar sesión. Escalar a varias tareas exigiría sesiones compartidas y no es necesario para 10–15 usuarios. (F12, F14, F22, CN-01)"
+    },
+    {
+      "id": "vpn",
+      "type": "cloud",
+      "label": "Site-to-Site VPN",
+      "sublabel": "TDS 1433 · SMB",
+      "pos": [1000, 200],
+      "size": [160, 64],
+      "description": "Conexión privada entre la VPC y la red del banco. Por aquí pasa todo: los usuarios hacia el balanceador, la API y el Builder hacia SQL Server, y la lectura de documentos. Una sola VPC no necesita Transit Gateway. El firewall on-premise solo abre el 1433 a las subredes de la tarea. (CN-01)"
     },
     {
       "id": "sqlserver",
       "type": "database",
-      "label": "SQL Server",
-      "sublabel": "varias BDs on-prem",
-      "pos": [
-        1480,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Fuente de verdad de los datos, que permanece on-premise. Aplica los permisos reales de cada login: es la barrera de seguridad final aunque fallen los controles de la aplicación. Los resultados viajan a AWS solo para procesarse en memoria y mostrarse. (F8, F14, CN-06)"
+      "label": "SQL Server de datos",
+      "sublabel": "BDs de negocio",
+      "pos": [1240, 200],
+      "size": [160, 64],
+      "description": "Las BDs de negocio, que permanecen en el banco. En la fase 1a solo se leen metadatos: qué puede ver cada login y la estructura de las BDs. Sigue siendo la fuente de verdad de los permisos. (F8, F14, CN-06)"
     },
     {
       "id": "scheduler",
       "type": "messagebus",
       "label": "EventBridge Scheduler",
-      "sublabel": "nocturno / bajo demanda",
-      "pos": [
-        760,
-        520
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Dispara el Catalog Builder cada noche y bajo demanda (Step Functions), para que el catálogo refleje los cambios de esquema sin intervención manual. (F1, CN-01, CN-02)"
+      "sublabel": "refresco nocturno",
+      "pos": [520, 360],
+      "size": [160, 64],
+      "description": "Lanza cada noche el Builder como tarea de ECS (RunTask) y no mantiene nada encendido entre ejecuciones. Sin Step Functions. Equivalente on-premise: Programador de tareas de Windows. (F1, CN-02)"
     },
     {
-      "id": "catalog",
+      "id": "builder",
       "type": "backend",
-      "label": "Catalog Builder",
-      "sublabel": "ECS task · F1 + F19 + F23",
-      "pos": [
-        1000,
-        520
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Tarea ECS que mapea todas las BDs y ambientes: lee la estructura con converdata-discovery (biblioteca), construye el grafo del patrimonio de datos entre BDs, ingiere diccionarios y documentos (SMB por la VPN o SharePoint por Graph con egress filtrado), paquetes SSIS, jobs de SQL Agent y reglas de negocio, redacta los datos personales con Presidio en memoria antes de escribir, propone métricas y genera descripciones con Bedrock. Escribe YAML revisable en S3, sin valores de datos. Es incremental. (F1, F19, F21, F23, CN-02)"
+      "label": "Builder",
+      "sublabel": "tarea ECS · corre y termina",
+      "pos": [760, 360],
+      "size": [160, 64],
+      "description": "La misma imagen de la API ejecutando el comando converdata catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD ConverData. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)"
     },
     {
-      "id": "discovery",
-      "type": "backend",
-      "label": "converdata-discovery",
-      "sublabel": "MCP propio Apache-2.0",
-      "pos": [
-        1240,
-        520
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "MCP propio de descubrimiento (Apache-2.0, sin licencias copyleft), usado como biblioteca dentro de la tarea ECS del Catalog Builder: el login de metadatos solo existe ahí. Lee inventario, columnas, FKs, dependencias entre BDs y servidores, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas, sin SQL libre. Muestras y sketches MinHash salados viven solo en memoria. Nunca responde a usuarios. (F18, F19, F23, CN-02)"
-    },
-    {
-      "id": "s3",
+      "id": "convdb",
       "type": "database",
-      "label": "S3 catálogo",
-      "sublabel": "catálogo + conocimiento",
-      "pos": [
-        1000,
-        680
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Catálogo y conocimiento versionados (YAML), solo con metadatos estructurales, conocimiento ya redactado, reglas, linaje, responsables (owners.yaml), ediciones humanas (_curation/*.human.yaml) y plantillas de golden discovery. Permite la revisión humana y el historial de cambios; cada objeto nuevo dispara un indexador Lambda que rechaza YAML con valores y actualiza OpenSearch. (F1, F2, F23, F24, CN-02, CN-06)"
-    },
-    {
-      "id": "auditdb",
-      "type": "database",
-      "label": "ConverData_Audit",
-      "sublabel": "auditoría · golden · curación",
-      "pos": [
-        1480,
-        520
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "on-prem",
-      "description": "Base ConverData_Audit en el SQL Server on-prem. Guarda la trazabilidad completa (pregunta, SQL, candidatos de descubrimiento, confirmaciones, validaciones, confianza, feedback), el golden SQL y golden discovery originales, y las dudas escaladas a responsables. Sus vistas calculan las métricas de la propuesta. Está on-prem para cumplir el principio de cero datos de clientes en la nube. Si no se puede auditar, no se responde (fail-closed). (F11, F24, F25, CN-05, CN-06)"
-    },
-    {
-      "id": "codeint",
-      "type": "security",
-      "label": "Code Interpreter",
-      "sublabel": "AgentCore · sin red",
-      "pos": [
-        760,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "último recurso",
-      "description": "Sandbox gestionado de AgentCore donde el motor de análisis ejecuta código Python de último recurso, cuando ninguna función de la biblioteca determinista (comparar, descomponer variaciones, detectar anomalías, tendencias, pronóstico) sirve. Recibe DataFrames ya obtenidos con el login del usuario, no tiene acceso a SQL Server y no persiste nada al cerrar la sesión. (F20, CN-06)"
+      "label": "BD ConverData",
+      "sublabel": "catálogo · curación · auditoría",
+      "pos": [1240, 360],
+      "size": [160, 64],
+      "tag": "on-premise",
+      "description": "La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)"
     },
     {
       "id": "sources",
       "type": "external",
       "label": "Fuentes de conocimiento",
-      "sublabel": "diccionarios · docs · SSIS",
-      "pos": [
-        1480,
-        680
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Conocimiento que hoy está disperso en la red del banco: diccionarios de datos y documentación funcional y técnica (carpetas compartidas o SharePoint), que lee el Catalog Builder, y paquetes SSIS (SSISDB) y jobs de SQL Agent (msdb), que lee converdata-discovery por la VPN. Los datos personales se redactan en memoria antes de que nada se escriba en AWS. (F23, CN-02, CN-06)"
+      "sublabel": "diccionarios · docs · reglas",
+      "pos": [1240, 520],
+      "size": [160, 64],
+      "description": "Diccionarios de datos, manuales, políticas, glosarios y reglas de negocio en la red del banco, que el Builder lee por la VPN. Son la palanca principal para responder preguntas de reporte. Los datos personales se redactan en memoria antes de escribir. (F23, CN-02, CN-06)"
     }
   ],
   "boundaries": [
     {
       "kind": "region",
-      "label": "Ingesta de catálogo",
-      "wraps": [
-        "scheduler",
-        "catalog",
-        "discovery",
-        "s3"
-      ]
+      "label": "Tarea ECS Fargate",
+      "wraps": ["web", "api"]
     },
     {
       "kind": "security-group",
-      "label": "On-premise",
-      "wraps": [
-        "sqlserver",
-        "auditdb",
-        "sources"
-      ]
+      "label": "Red del banco (on-premise)",
+      "wraps": ["sqlserver", "convdb", "sources"]
     }
   ],
   "connections": [
-    {
-      "id": "user-edge",
-      "from": "users",
-      "to": "edge",
-      "label": "HTTPS",
-      "variant": "emphasis"
-    },
-    {
-      "id": "edge-cognito",
-      "from": "edge",
-      "to": "cognito",
-      "label": "OIDC",
-      "variant": "security"
-    },
-    {
-      "id": "edge-ecs",
-      "from": "edge",
-      "to": "ecs",
-      "label": "JWT",
-      "variant": "emphasis"
-    },
-    {
-      "id": "ecs-runtime",
-      "from": "ecs",
-      "to": "runtime",
-      "label": "invoke",
-      "variant": "emphasis"
-    },
-    {
-      "id": "runtime-llm",
-      "from": "runtime",
-      "to": "bedrock",
-      "label": "LLM"
-    },
-    {
-      "id": "runtime-gateway",
-      "from": "runtime",
-      "to": "gateway",
-      "label": "MCP",
-      "variant": "emphasis"
-    },
-    {
-      "id": "client-gateway",
-      "from": "mcpclient",
-      "to": "gateway",
-      "label": "OAuth MCP"
-    },
-    {
-      "id": "gateway-mcp",
-      "from": "gateway",
-      "to": "mcp",
-      "label": "tools",
-      "variant": "emphasis"
-    },
-    {
-      "id": "mcp-rag",
-      "from": "mcp",
-      "to": "opensearch",
-      "label": "RAG"
-    },
-    {
-      "id": "mcp-secret",
-      "from": "mcp",
-      "to": "secrets",
-      "label": "cred SQL",
-      "variant": "security"
-    },
-    {
-      "id": "mcp-tgw",
-      "from": "mcp",
-      "to": "tgw",
-      "label": "TDS 1433",
-      "variant": "emphasis"
-    },
-    {
-      "id": "tgw-sql",
-      "from": "tgw",
-      "to": "sqlserver",
-      "label": "VPN / DX",
-      "variant": "emphasis"
-    },
-    {
-      "id": "sched-catalog",
-      "from": "scheduler",
-      "to": "catalog",
-      "label": "cron",
-      "variant": "dashed"
-    },
-    {
-      "id": "catalog-discover",
-      "from": "catalog",
-      "to": "discovery",
-      "label": "describe"
-    },
-    {
-      "id": "discover-tgw",
-      "from": "discovery",
-      "to": "tgw",
-      "label": "metadatos",
-      "variant": "dashed"
-    },
-    {
-      "id": "catalog-s3",
-      "from": "catalog",
-      "to": "s3",
-      "label": "YAML"
-    },
-    {
-      "id": "tgw-audit",
-      "from": "tgw",
-      "to": "auditdb",
-      "label": "auditoría",
-      "variant": "security"
-    },
-    {
-      "id": "runtime-sandbox",
-      "from": "runtime",
-      "to": "codeint",
-      "label": "código",
-      "variant": "security"
-    },
-    {
-      "id": "discovery-sources",
-      "from": "discovery",
-      "to": "sources",
-      "label": "SSISDB · msdb",
-      "variant": "dashed"
-    },
-    {
-      "id": "s3-index",
-      "from": "s3",
-      "to": "opensearch",
-      "label": "indexa (Lambda)",
-      "variant": "dashed"
-    },
-    {
-      "id": "mcp-s3",
-      "from": "mcp",
-      "to": "s3",
-      "label": "curación",
-      "variant": "dashed"
-    },
-    {
-      "id": "catalog-llm",
-      "from": "catalog",
-      "to": "bedrock",
-      "label": "descripciones",
-      "variant": "dashed"
-    },
-    {
-      "id": "catalog-sources",
-      "from": "catalog",
-      "to": "sources",
-      "label": "docs · SMB / Graph",
-      "variant": "dashed"
-    }
+    { "id": "user-alb", "from": "users", "to": "alb", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "client-alb", "from": "mcpclient", "to": "alb", "label": "MCP" },
+    { "id": "alb-web", "from": "alb", "to": "web", "label": "/", "variant": "emphasis" },
+    { "id": "web-api", "from": "web", "to": "api", "label": "/api", "variant": "emphasis" },
+    { "id": "api-secrets", "from": "api", "to": "secrets", "label": "secretos", "variant": "security" },
+    { "id": "api-llm", "from": "api", "to": "bedrock", "label": "VPC endpoint" },
+    { "id": "api-logs", "from": "api", "to": "logs", "label": "logs", "variant": "dashed" },
+    { "id": "api-vpn", "from": "api", "to": "vpn", "label": "TDS 1433", "variant": "emphasis" },
+    { "id": "vpn-sql", "from": "vpn", "to": "sqlserver", "label": "visibilidad · metadatos", "variant": "emphasis" },
+    { "id": "vpn-db", "from": "vpn", "to": "convdb", "label": "catálogo · auditoría", "variant": "security" },
+    { "id": "sched-builder", "from": "scheduler", "to": "builder", "label": "RunTask", "variant": "dashed" },
+    { "id": "builder-vpn", "from": "builder", "to": "vpn", "label": "ingesta", "variant": "dashed" },
+    { "id": "vpn-sources", "from": "vpn", "to": "sources", "label": "docs", "variant": "dashed" }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "Descubrimiento (caso principal)",
+      "title": "Qué se quitó de las specs CN",
       "items": [
-        "Candidatos con BD, ambiente, servidor, descripción, reglas, relaciones y confianza (F22)",
-        "Diccionarios, documentos redactados, ETL y reglas (F23)",
-        "Confirmaciones y respuestas de responsables como conocimiento (F24)"
+        "AgentCore Runtime y Gateway, Code Interpreter: el flujo cabe en un contenedor",
+        "OpenSearch Serverless, S3 + Lambda indexador: búsqueda en memoria y catálogo en la BD",
+        "Cognito, WAF, Transit Gateway, Step Functions: acceso solo interno, una VPC"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Mismo código que on-premise",
+      "items": [
+        "Las dos imágenes que ya construye docker compose",
+        "Misma BD ConverData, mismo login SQL, mismo SessionVault",
+        "Cambia solo dónde corren los procesos y quién los programa"
       ]
     },
     {
       "dot": "rose",
       "title": "Residencia de datos",
       "items": [
-        "AWS procesa y muestra: no persiste datos, preguntas ni SQL",
-        "Auditoría y golden SQL en SQL Server on-prem",
-        "Historial solo en la sesión; sandbox y sketches sin persistencia",
-        "Egress a internet solo por Network Firewall con lista blanca (Graph / SharePoint)"
-      ]
-    },
-    {
-      "dot": "cyan",
-      "title": "Descubrimiento entre BDs",
-      "items": [
-        "Grafo del patrimonio: entidades, tabla canónica, joins declarados / Query Store / inferidos",
-        "Consultas entre servidores con plan federado y el login del usuario (F19)"
-      ]
-    },
-    {
-      "dot": "violet",
-      "title": "Análisis",
-      "items": [
-        "Modos comparar, explicar (causa raíz), explorar insights, pronóstico e informe (F20)",
-        "Métricas certificadas y consultas verificadas (F21)"
+        "AWS procesa y muestra; no persiste catálogo, preguntas ni auditoría",
+        "Todo lo persistente queda en el SQL Server del banco",
+        "Sin salida a internet: Bedrock por VPC endpoint"
       ]
     },
     {
       "dot": "amber",
-      "title": "Identidad",
+      "title": "Estado",
       "items": [
-        "Cognito = identidad de app; login SQL por usuario = identidad de datos",
-        "La credencial se toma del JWT propagado, nunca del LLM"
-      ]
-    },
-    {
-      "dot": "emerald",
-      "title": "Licencias",
-      "items": [
-        "converdata-discovery y converdata-mcp propios bajo Apache-2.0",
-        "Sin componentes AGPL"
+        "Nada de esto está desplegado: es el destino después del piloto on-premise",
+        "Especificado en CN-01 a CN-06; no hay infraestructura como código en el repo",
+        "Por confirmar con Seguridad: Guardrails y si la VPN puede llevar tráfico de usuarios"
       ]
     }
   ]

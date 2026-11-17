@@ -1,5 +1,7 @@
 # F4 — Schema Linking
 
+> Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
+
 ## Historia de usuario
 Como **agente SQL**, necesito un contexto pequeño y preciso (5 a 15 tablas con sus columnas relevantes y rutas de join)
 para generar SQL correcto en una BD de más de 300 tablas.

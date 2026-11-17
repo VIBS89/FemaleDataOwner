@@ -1,5 +1,7 @@
 # F6 — Planner T-SQL / Stored Procedure
 
+> Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
+
 ## Historia de usuario
 Como **usuario**, quiero que el sistema genere la consulta correcta en T-SQL o use el stored procedure oficial cuando exista,
 para obtener datos consistentes con los reportes de la empresa.

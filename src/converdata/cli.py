@@ -1,4 +1,4 @@
-"""CLI `converdata`. Por ahora: `converdata discover "<pregunta>"` contra un directorio de catálogo y conocimiento."""
+"""CLI `converdata`: descubrimiento, evaluación y compuerta, Builder del catálogo, BD `ConverData` y auditoría."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from converdata.bootstrap import build_service, user_with_databases
+from converdata.bootstrap import build_service, build_service_from_db, user_with_databases
 
 GATE_SUITES = ("calidad", "permisos", "inyeccion", "guardas", "robustez", "determinismo", "auditoria")
 DEFAULT_GATE_ROOTS = ("tests/fixtures/vbank", "tests/fixtures/bancos")
@@ -91,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     d = sub.add_parser("discover", help="DiscoverFlow (F22) sobre un catálogo local")
     d.add_argument("question")
     d.add_argument("--root", default="tests/fixtures/vbank", help="Directorio con config/, catalog/ y knowledge/")
+    d.add_argument("--db", action="store_true", help=DB_HELP + " en lugar de --root")
     d.add_argument("--databases", help="BDs visibles para el usuario de desarrollo (coma); por defecto todas")
     d.add_argument("--groups", default="", help="Grupos de AD del usuario de desarrollo (coma)")
     d.add_argument("--models", help="config/models.yaml para usar el gateway de LLM (NIM o Bedrock); sin él, modo determinista")
@@ -104,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
     ev_sub = ev.add_subparsers(dest="eval_command", required=True)
     evd = ev_sub.add_parser("discovery", help="Set de evaluación del DiscoverFlow: Hit@k, calibración, brechas, fugas, latencia")
     evd.add_argument("--root", default="tests/fixtures/vbank")
+    evd.add_argument("--db", action="store_true", help=DB_HELP + "; `--root` aporta los casos y los ajustes")
     evd.add_argument("--cases", help="YAML de casos; por defecto <root>/eval/discovery.yaml")
     evd.add_argument("--models", help="config/models.yaml para evaluar con el gateway de LLM")
     evd.add_argument(
@@ -114,6 +116,8 @@ def main(argv: list[str] | None = None) -> int:
     evd.add_argument("--min-hit3", type=float, help="Sale con código 1 si Hit@3 queda por debajo (alerta de regresión, OP-05)")
     evg = ev_sub.add_parser("gate", help="Compuerta de calidad: calidad, permisos, inyección, robustez, determinismo y auditoría")
     evg.add_argument("--root", action="append", help="Directorio de catálogo; se puede repetir. Por defecto los dos fixtures")
+    evg.add_argument("--db", action="store_true",
+                     help=DB_HELP + "; `--root` (uno solo) aporta los casos, la línea base y los umbrales")
     evg.add_argument("--cases", help="YAML de casos (solo con un --root); por defecto <root>/eval/discovery.yaml")
     evg.add_argument("--models", help="config/models.yaml para correr la compuerta con el gateway de LLM")
     evg.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
@@ -122,14 +126,34 @@ def main(argv: list[str] | None = None) -> int:
     evg.add_argument("--write-baseline", action="store_true", help="Guarda el resultado de calidad como nueva línea base")
     aud = sub.add_parser("audit", help="Auditoría (F11, OP-05)")
     aud_sub = aud.add_subparsers(dest="audit_command", required=True)
-    av = aud_sub.add_parser("verify", help="Comprueba la cadena de hashes de la auditoría en archivos (evidencia de manipulación)")
+    av = aud_sub.add_parser("verify", help="Comprueba la integridad de la auditoría: cadena de hashes (archivos) o permisos (BD)")
     av.add_argument("--dir", default="data/audit", help="Directorio con audit-AAAA-MM-DD.jsonl")
+    av.add_argument("--db", action="store_true", help="Auditoría en la BD ConverData (CONVERDATA_DB): la cuenta no puede modificarla")
+    ap = aud_sub.add_parser("purge", help="Purga por retención de la auditoría en la BD ConverData (rol converdata_maintenance)")
+    ap.add_argument("--keep-days", type=int, default=180, help="Días que se conservan; el mínimo es 180 (OP-05)")
+    dbp = sub.add_parser("db", help="BD ConverData (OP-02): migraciones")
+    db_sub = dbp.add_subparsers(dest="db_command", required=True)
+    dm = db_sub.add_parser("migrate", help="Aplica las migraciones pendientes de db/converdata (cada una en una transacción)")
+    dm.add_argument("--dir", default="db/converdata", help="Directorio con NNN_descripcion.sql")
+    dm.add_argument("--status", action="store_true", help="Solo muestra lo pendiente, sin aplicar")
     cat = sub.add_parser("catalog", help="Catalog Builder (F1): descubre los esquemas con el login de metadatos")
     cat_sub = cat.add_subparsers(dest="catalog_command", required=True)
     cb = cat_sub.add_parser("build", help="Extrae metadatos, enriquece y escribe el catálogo (también refresca)")
     cb.add_argument("--config", default="config/databases.local.yaml", help="Inventario de servidores")
     cb.add_argument("--out", default="data/catalog_local", help="Directorio de salida (raíz para `discover --root`)")
     cb.add_argument("--models", help="config/models.yaml: enriquece descripciones con el rol planner del gateway")
+    cb.add_argument("--db", action="store_true",
+                    help="Parte del catálogo publicado en la BD ConverData (CONVERDATA_DB) y publica el resultado en ella")
+    cp = cat_sub.add_parser("publish", help="Publica un directorio de catálogo en la BD ConverData (importación inicial)")
+    cp.add_argument("--root", required=True, help="Directorio con config/, catalog/ y knowledge/")
+    cp.add_argument("--by", default="cli", help="Quién publica (queda en modified_by, en catalog_version y en la auditoría)")
+    cp.add_argument("--force", action="store_true",
+                    help="Reemplaza un catálogo ya publicado: borra de la BD lo que no esté en el directorio, "
+                         "incluidas reglas, confirmaciones y responsables")
+    ce = cat_sub.add_parser("export", help="Exporta el catálogo de la BD ConverData a un directorio YAML (revisión en git)")
+    ce.add_argument("--out", required=True, help="Directorio de salida")
+    ce.add_argument("--with-questions", action="store_true",
+                    help="Incluye las confirmaciones, que llevan el texto de las preguntas (no apto para git)")
     mcp = sub.add_parser("mcp", help="converdata-mcp (F12) para Claude y otros agentes")
     mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
     ms = mcp_sub.add_parser("serve", help="Servidor MCP por stdio sobre un catálogo local (solo local/dev)")
@@ -153,15 +177,106 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "eval":
         return eval_gate(args) if args.eval_command == "gate" else eval_discovery(args)
     if args.command == "audit":
-        return audit_verify(args)
+        return audit_purge(args) if args.audit_command == "purge" else audit_verify(args)
+    if args.command == "db":
+        return db_migrate(args)
     if args.command == "catalog":
-        return catalog_build(args)
-    service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
+        return {"build": catalog_build, "publish": catalog_publish, "export": catalog_export}[args.catalog_command](args)
+    if args.db:
+        service = build_service_from_db(db_connect(), models_path=args.models, llm_nodes=not args.embeddings_only)
+    else:
+        service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
     dbs = args.databases.split(",") if args.databases else None
     user = user_with_databases(service, "dev", dbs, [g for g in args.groups.split(",") if g])
     envelope = service.run(args.question, user, client="cli")
     print(json.dumps(envelope.model_dump(by_alias=True), ensure_ascii=False, indent=2) if args.json else render(envelope))
     return 0
+
+
+DB_HELP = "Usa el catálogo publicado en la BD ConverData (variable CONVERDATA_DB)"
+
+
+def db_connect():
+    """Conexión a la BD `ConverData` según `CONVERDATA_DB`; termina con un mensaje claro si no está definida."""
+    from converdata.storage.connection import ENV_VAR, connection_string, connector
+
+    conn_str = connection_string()
+    if conn_str is None:
+        raise SystemExit(f"Define {ENV_VAR} con la cadena ODBC de la BD ConverData "
+                         "(p. ej. SERVER=<servidor>;DATABASE=ConverData;Trusted_Connection=yes;Encrypt=yes)")
+    return connector(conn_str)
+
+
+def db_migrate(args) -> int:
+    from converdata.storage.migrations import MigrationError, migrate, pending
+
+    connect = db_connect()
+    try:
+        todo = pending(connect, args.dir) if args.status else migrate(connect, args.dir)
+    except MigrationError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    verb = "Pendientes" if args.status else "Aplicadas"
+    print(f"{verb}: {', '.join(m.path.name for m in todo) or 'ninguna (la BD está al día)'}")
+    return 0
+
+
+def audit_event(connect, kind: str, user_id: str, **data) -> None:
+    """Deja constancia en `audit.audit_event` de lo que la CLI escribe en la BD (misma auditoría que la API)."""
+    from converdata.audit.sqlserver import SqlServerAuditSink
+
+    SqlServerAuditSink(connect).event(kind, user_id, client="cli", **data)
+
+
+def catalog_publish(args) -> int:
+    from converdata.catalog.store import load_snapshot
+    from converdata.storage.catalog_repository import SqlServerCatalogRepository
+
+    connect = db_connect()
+    repository = SqlServerCatalogRepository(connect)
+    current = repository.version()
+    if current is not None and not args.force:
+        print(f"La BD ConverData ya tiene un catálogo publicado (versión {current}). Publicar un directorio lo reemplaza "
+              "entero: borra lo que no esté en él, incluidas reglas, confirmaciones y responsables. Para un refresco usa "
+              "`catalog build --db`; si de verdad quieres reemplazarlo, repite con --force.")
+        return 1
+    snapshot = load_snapshot(args.root)
+    audit_event(connect, "catalog_publish_started", args.by, objects=len(snapshot.objects), replaced_version=current)
+    result = repository.publish(snapshot, published_by=args.by, reason="import")
+    print(f"Versión {result.version} · " + (", ".join(f"{k}={v}" for k, v in sorted(result.counts.items()))
+                                            if result.changed else "sin cambios"))
+    return 0
+
+
+def catalog_export(args) -> int:
+    from pathlib import Path
+
+    from converdata.builder.catalog_builder import write_snapshot
+    from converdata.storage.catalog_repository import SqlServerCatalogRepository
+
+    loaded = SqlServerCatalogRepository(db_connect()).load()
+    if loaded is None:
+        print("La BD ConverData no tiene ningún catálogo publicado")
+        return 1
+    snapshot, version = loaded
+    write_snapshot(Path(args.out), snapshot, include_questions=args.with_questions)
+    print(f"Versión {version}: {len(snapshot.objects)} objetos exportados a {args.out}"
+          + ("" if args.with_questions else " (sin las confirmaciones, que llevan preguntas)"))
+    return 0
+
+
+def audit_purge(args) -> int:
+    conn = db_connect()()
+    try:
+        conn.autocommit = True
+        row = conn.cursor().execute("EXEC audit.usp_purge @keep_days = ?", args.keep_days).fetchone()
+        print(f"Purgadas {row[0]} preguntas y {row[1]} eventos anteriores a {row[2]:%Y-%m-%d %H:%M} UTC")
+        return 0
+    except Exception as exc:
+        print(f"ERROR: {str(exc)[:300]}")
+        return 1
+    finally:
+        conn.close()
 
 
 def catalog_build(args) -> int:
@@ -178,9 +293,38 @@ def catalog_build(args) -> int:
         enricher = LlmEnricher(LLMGateway.from_file(args.models).chat("planner"))
     from converdata.metadata.sqlserver import SqlServerMetadata
 
-    report = build_catalog(load_inventory(args.config), Path(args.out), source_factory=SqlServerMetadata, enricher=enricher)
+    from converdata.flows.catalog_build import OWN_DATABASES
+
+    repository = version = None
+    exclude = OWN_DATABASES
+    if args.db:  # el directorio es solo el área de trabajo: se parte de la BD y se publica en ella
+        from converdata.builder.catalog_builder import write_snapshot
+        from converdata.storage.catalog_repository import SqlServerCatalogRepository
+        from converdata.storage.connection import connection_string, describe
+
+        connect = db_connect()
+        repository = SqlServerCatalogRepository(connect)
+        exclude = OWN_DATABASES | {describe(connection_string()).split("/")[-1].lower()}
+        audit_event(connect, "catalog_build_started", "builder", enrich=enricher is not None)
+        loaded = repository.load("build")  # el Builder no lee lo curado (las confirmaciones llevan preguntas)
+        if loaded is not None:
+            write_snapshot(Path(args.out), loaded[0])
+            version = loaded[1]
+    report = build_catalog(load_inventory(args.config), Path(args.out), source_factory=SqlServerMetadata,
+                           enricher=enricher, exclude_databases=exclude)
     print(report.render())
-    return 1 if not report.servers_ok else 0
+    if repository is not None:
+        from converdata.catalog.store import load_snapshot
+
+        result = None
+        if report.servers_ok:
+            result = repository.publish(load_snapshot(args.out), published_by="builder", reason="build", scope="build")
+            print(f"BD ConverData: versión {result.version}" + ("" if result.changed else " (sin cambios)")
+                  + (f", antes {version}" if version and result.changed else ""))
+        audit_event(connect, "catalog_build_finished", "builder", status="ok" if report.servers_ok else "error",
+                    objects=report.objects, servers_failed=sorted(report.servers_failed),
+                    version=result.version if result else version)
+    return 0 if report.servers_ok else 1
 
 
 def eval_discovery(args) -> int:
@@ -188,7 +332,11 @@ def eval_discovery(args) -> int:
 
     from converdata.evaluation.discovery_eval import evaluate, load_cases
 
-    service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
+    if args.db:
+        service = build_service_from_db(db_connect(), settings_path=Path(args.root) / "config" / "settings.yaml",
+                                        models_path=args.models, llm_nodes=not args.embeddings_only)
+    else:
+        service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
     apply_patterns(service, args.patterns)
     report = evaluate(service, load_cases(args.cases or Path(args.root) / "eval" / "discovery.yaml"))
     print(report.render())
@@ -205,11 +353,19 @@ def eval_gate(args) -> int:
     roots = args.root or list(DEFAULT_GATE_ROOTS)
     if args.cases and len(roots) > 1:
         raise SystemExit("--cases solo se puede usar con un único --root")
+    if args.db and (not args.root or len(roots) > 1):
+        raise SystemExit("--db necesita un único --root, que aporta los casos, la línea base y los umbrales")
+    if args.db and args.write_baseline:
+        raise SystemExit("La línea base se escribe con el catálogo del directorio, sin --db")
     suites = GATE_SUITES if args.suites == "all" else tuple(x.strip() for x in args.suites.split(",") if x.strip())
     approved = True
     for root in roots:
         root = Path(root)
-        service = build_service(root, models_path=args.models, llm_nodes=not args.embeddings_only)
+        if args.db:
+            service = build_service_from_db(db_connect(), settings_path=root / "config" / "settings.yaml",
+                                            models_path=args.models, llm_nodes=not args.embeddings_only)
+        else:
+            service = build_service(root, models_path=args.models, llm_nodes=not args.embeddings_only)
         cases = load_cases(args.cases or root / "eval" / "discovery.yaml")
         llm = bool(args.models) and not args.embeddings_only
         report, quality = gate.run_gate(service, cases, root=root, llm=llm, thresholds=gate.load_thresholds(root),
@@ -228,6 +384,16 @@ def eval_gate(args) -> int:
 def audit_verify(args) -> int:
     from converdata.audit.chain import verify_directory
 
+    if args.db:
+        from converdata.audit.sqlserver import SqlServerAuditSink
+
+        report = SqlServerAuditSink(db_connect()).verify()
+        check = report.files[0]
+        print(f"Auditoría en la BD ConverData: {check.rows} registros")
+        for error in check.errors:
+            print(f"  ERROR: {error}")
+        print("La cuenta solo puede insertar y leer: íntegra" if report.ok else "NO APTA PARA PRODUCCIÓN")
+        return 0 if report.ok else 1
     report = verify_directory(args.dir)
     print(report.render())
     return 0 if report.ok else 1

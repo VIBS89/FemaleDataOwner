@@ -1,74 +1,90 @@
-# CN-01 — Despliegue cloud native en AWS (Bedrock AgentCore)
+# CN-01 — Despliegue mínimo en AWS (posterior al piloto)
 
-> Diagrama: `docs/architecture/cloud-native-architecture.html` · Specs relacionadas: [CN-02](CN-02-catalogo-memoria.md) catálogo y memoria · [CN-03](CN-03-identidad.md) identidad · [CN-04](CN-04-interfaces.md) interfaces · [CN-05](CN-05-auditoria-observabilidad.md) auditoría · [CN-06](CN-06-residencia-datos.md) residencia de datos
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Despliegue posterior al piloto on-premise; nada está desplegado.
+>
+> Diagrama: `docs/architecture/cloud-native-architecture.html` · Specs relacionadas: [CN-02](CN-02-catalogo-memoria.md) catálogo y memoria · [CN-03](CN-03-identidad.md) identidad · [CN-04](CN-04-interfaces.md) interfaces · [CN-05](CN-05-auditoria-observabilidad.md) auditoría · [CN-06](CN-06-residencia-datos.md) residencia de datos · equivalente on-premise: [OP-01](../on-premise/OP-01-despliegue-local.md)
 
 ## Objetivo
-Llevar ConverData a AWS como servicio gestionado y seguro:
-- los grafos de **LangGraph** (DiscoverFlow y AskFlow) corren en **Amazon Bedrock AgentCore Runtime**;
-- las herramientas se publican como MCP mediante **AgentCore Gateway**;
-- el LLM principal es **Amazon Bedrock** (ver [F16](../comun/F16-llm-providers.md));
-- la memoria semántica vive en **OpenSearch Serverless**;
-- **SQL Server permanece on-premise**, accesible por Site-to-Site VPN o Direct Connect.
+Ejecutar en AWS **el mismo código del piloto on-premise** (fase 1a, descubrimiento) cambiando solo dónde corren los procesos y quién
+los programa: las dos imágenes que ya construye `docker compose` (`web/Dockerfile`, `api/Dockerfile`) en una tarea de ECS Fargate.
+**Todo lo persistente se queda en el SQL Server del banco**; AWS procesa y muestra. Dimensionado para 10–15 usuarios.
 
 ## Decisiones
-| Tema | Decisión | Motivo |
-|---|---|---|
-| Runtime de agentes | AgentCore Runtime (contenedor ARM64 en ECR con los grafos de LangGraph: **DiscoverFlow (F22)** y AskFlow) | Aislamiento por sesión en microVM, sesiones largas, escalado gestionado, soporte para cualquier framework |
-| Servidor MCP propio | `converdata-mcp` desplegado como **MCP server en AgentCore Runtime** y registrado como target de **AgentCore Gateway** | Un único endpoint MCP, con autenticación OAuth, para los agentes internos y los clientes externos |
-| `converdata-discovery` (F18, propio, Apache-2.0) | **Biblioteca dentro de la tarea ECS del Catalog Builder** (igual que on-premise) | Solo ingesta (F1, F19, F23); el login de metadatos solo existe en esa tarea |
-| Sandbox de análisis (F20) | **AgentCore Code Interpreter** | Ejecución aislada por sesión de código Python de último recurso |
-| Catalog Builder | Tarea ECS Fargate lanzada por **EventBridge Scheduler** (nocturna) y bajo demanda mediante Step Functions | Proceso batch largo, fuera del camino interactivo |
-| Catálogo fuente (YAML) | **S3** versionado (`s3://converdata-catalog/`), **solo metadatos estructurales, sin `sample_values`** | Revisión humana, historial y fuente para reindexar |
-| Memoria semántica | **OpenSearch Serverless** (colección *vector search*, endpoint VPC) | k-NN + BM25 híbrido con filtros por metadatos (`visible_ids`) |
-| Memoria conversacional | **Solo en la memoria de la sesión** de AgentCore Runtime (microVM); **no se usa AgentCore Memory** | Residencia de datos (F17): el historial contiene datos |
-| Auditoría y golden SQL (F11) | **BD `ConverData_Audit` en SQL Server on-prem** (vía VPN/DX) | Residencia de datos (F17): preguntas y SQL con literales no se guardan en AWS |
-| Conocimiento y curación (F23, F24) | Ingesta de documentos, diccionarios y ETL en la tarea ECS del Catalog Builder, con redacción de PII en memoria **antes** de escribir nada en AWS; reglas, anotaciones, ediciones humanas (`*.human.yaml`) y `golden_discovery` (plantillas) en S3 + OpenSearch, escritas por las herramientas internas de `converdata-mcp` (F12); solicitudes de curación y golden originales (contienen la pregunta) en `ConverData_Audit` on-prem | Residencia de datos (F17), conocimiento revisable y un único camino de escritura |
-| UI y API REST | **Chainlit + FastAPI BFF** en ECS Fargate detrás de **ALB** con autenticación Cognito (OIDC) y **AWS WAF** | Sesiones WebSocket/SSE de Chainlit; el BFF invoca `InvokeAgentRuntime` |
-| Usuarios | **Amazon Cognito** (federable con el IdP corporativo, por ejemplo Entra ID o Google) | JWT de entrada para el ALB, AgentCore Runtime y Gateway |
-| Credenciales SQL por usuario | Secrets Manager + KMS (CN-03) | Herencia de permisos (F14) |
-| Red | VPC con subredes privadas, **Transit Gateway** hacia VPN o Direct Connect on-prem, VPC endpoints (Bedrock, S3, Secrets Manager, OpenSearch, ECR, CloudWatch, KMS). Salida a internet solo por NAT + **AWS Network Firewall** con lista blanca de dominios: Microsoft Graph / SharePoint Online desde la subred del Catalog Builder (si los documentos están en SharePoint Online) y el fallback a NIM (desactivado en prod) | Sin tráfico de datos de clientes por internet; egress auditado |
-| Observabilidad | **AgentCore Observability** (OTel) → CloudWatch / X-Ray, más dashboards de CloudWatch | Trazas por paso del flow, tokens y latencias |
-| Seguridad del LLM | **Bedrock Guardrails** (prompt-attack, PII, temas denegados) en las entradas y salidas del usuario | Defensa contra inyección de prompt sobre datos |
-| IaC | AWS CDK (Python) o Terraform; un stack por entorno (dev/stg/prod) | Reproducible |
+| Tema | Qué se usa | Motivo | PRD §13 |
+|---|---|---|---|
+| Cómputo | **Una tarea ECS Fargate** con dos contenedores: Web (Next.js, 3000) y `ConverData-API` (FastAPI + DiscoverFlow de LangGraph + MCP en `/mcp`, 8000, un worker) | El flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea porque el SessionVault vive en memoria | decisión 11 |
+| Entrada | **ALB interno** con certificado de ACM; `/` → Web, `/mcp` → API | No se publica en internet. Equivale a IIS con la PKI corporativa | decisión 11 |
+| Búsqueda | Índice léxico **BM25 en memoria** de la API, sin embeddings | HU-34: los embeddings no mejoran el acierto y suben la latencia | decisión 9 |
+| Persistencia | **BD `ConverData` en el SQL Server del banco** (catálogo con historial, conocimiento, curación, esquema `audit`; tablas normales, SQL Server 2016+) | AWS no persiste catálogo, preguntas ni auditoría; migrar entre despliegues es mover contenedores | decisión 10 |
+| Builder | La imagen de la API ejecutando `converdata catalog build`, lanzada por **EventBridge Scheduler** (`RunTask`); corre y termina | Equivale al Programador de tareas de Windows | decisión 12 |
+| LLM | **Bedrock, un modelo** (intención y orden) por **VPC endpoint** con el rol de la tarea; invocation logging desactivado | Mismo uso que on-premise, sin claves ni salida a internet | decisión 13 |
+| Identidad | El mismo login SQL por servidor y el SessionVault en memoria ([CN-03](CN-03-identidad.md)) | Los permisos los define SQL Server | decisión 11 |
+| Secretos | **Secrets Manager**, solo secretos de servicio | Equivale a DPAPI | decisión 14 |
+| Logs | **CloudWatch Logs**, JSON sin contenido | Equivale a logs rotados + Visor de eventos | decisión 14 |
+| Red | Una VPC con subredes privadas y **Site-to-Site VPN** al banco; VPC endpoints (Bedrock, Secrets Manager, CloudWatch Logs, ECR); sin NAT | Sin tráfico por internet | decisión 11 |
 
-## Topología de red
-```
-Usuarios ──HTTPS──► CloudFront? (opcional) ─► WAF ─► ALB (Cognito auth)
-                                                     └─► ECS Fargate: Chainlit + FastAPI BFF
-                                                            └─► AgentCore Runtime: DiscoverFlow + AskFlow (LangGraph)
-                                                                   ├─► Bedrock (VPC endpoint)
-                                                                   └─► AgentCore Gateway (MCP)
-Clientes MCP (Claude, IDE) ──OAuth──────────────────────────────────────┘    └─► converdata-mcp (AgentCore Runtime, modo VPC)
-                                                                                    ├─► OpenSearch Serverless (VPC endpoint)
-                                                                                    ├─► Secrets Manager (credenciales por usuario)
-                                                                                    ├─► S3 (ediciones de curación, plantillas golden discovery)
-                                                                                    └─► Transit GW ─► VPN/DX ─► SQL Server on-prem (datos + ConverData_Audit)
-EventBridge Scheduler ─► ECS task Catalog Builder (+ converdata-discovery, Presidio) ─► SQL Server on-prem (metadatos, Query Store, SSISDB, msdb)
-                                         ├─► carpeta compartida on-prem (SMB por VPN) / SharePoint (Graph)
-                                         ├─► Bedrock (descripciones)
-                                         └─► S3 catálogo + conocimiento ─► Lambda indexador ─► OpenSearch
-```
+### Qué se quitó frente a la versión anterior
+| Se quitó | Motivo |
+|---|---|
+| AgentCore Runtime y Gateway | El DiscoverFlow y el servidor MCP ya viven en `ConverData-API` (decisión 11) |
+| AgentCore Code Interpreter | Era el sandbox de F20, que es de la fase 1b; se decidirá con la fase 1b (decisión 16) |
+| OpenSearch Serverless | Búsqueda léxica en memoria (decisión 9) |
+| S3 para catálogo y conocimiento, Lambda indexador | El catálogo se escribe en la BD `ConverData` (decisión 10) |
+| BD `ConverData_Audit` separada | La auditoría es el esquema `audit` de la BD `ConverData` (decisión 10) |
+| Cognito | El inicio de sesión es el login SQL por servidor (decisión 11) |
+| WAF | El ALB es interno; los límites los aplica la API ([CN-04](CN-04-interfaces.md)) |
+| Transit Gateway | Una sola VPC con Site-to-Site VPN (decisión 11) |
+| Step Functions | El Builder es un `RunTask` programado (decisión 12) |
+| Chainlit + BFF, embeddings, juez, NIM de respaldo, Guardrails como requisito | Web Next.js y un solo modelo en la fase 1a (decisión 13); Guardrails queda por confirmar |
 
-## Requisitos no funcionales
-- **Latencia**: descubrimiento (F22) p50 < 5 s y p95 < 10 s; consulta de datos p50 menor de 12 s y p95 menor de 30 s, con streaming de pasos al UI.
-- **Disponibilidad**: 99,5 %; ECS en 2 AZ. AgentCore y Bedrock son servicios gestionados. La disponibilidad también depende de la VPN/DX y del SQL Server on-prem (datos y auditoría).
-- **Coste**: se etiqueta todo con `app=converdata` y `env`; presupuesto con AWS Budgets y alertas; límite de tokens por usuario y día en el BFF.
-- **Cumplimiento**: **cero persistencia de datos de clientes en AWS** (ver [F17](../comun/F17-data-residency.md) y CN-06). Model invocation logging de Bedrock **desactivado**. Cifrado KMS en reposo en todo lo que sí persiste (metadatos, plantillas y credenciales).
-- **Red on-prem**: el firewall solo abre el puerto 1433 hacia los CIDR de las subredes de AgentCore (modo VPC) y del Catalog Builder, y el 445 (SMB) del servidor de archivos solo a la subred del Catalog Builder.
+## Topología
+```
+Red corporativa ──Site-to-Site VPN──► VPC (subredes privadas, sin internet)
+  Usuario (navegador) ─HTTPS─► ALB interno (ACM) ─ /    ─► Web (Next.js) ─ /api → localhost:8000 ─┐
+  Cliente MCP (Bearer) ─────►                     └ /mcp ─────────────────────────────────────────► ConverData-API
+                                                          [ una tarea ECS Fargate: Web + ConverData-API ]
+  ConverData-API ─► Bedrock (VPC endpoint) · Secrets Manager · CloudWatch Logs
+  ConverData-API ─► VPN ─ TDS 1433 ─► SQL Server de datos (visibilidad del usuario) y BD ConverData (catálogo, auditoría)
+  EventBridge Scheduler ─RunTask─► Builder ─► VPN ─► SQL Server (metadatos), fuentes de conocimiento, BD ConverData
+```
+El firewall on-premise solo abre el 1433 a las subredes de la tarea.
 
 ## Entornos
-| Entorno | Diferencias |
-|---|---|
-| dev | Despliegue on-premise (ver `docs/specs/on-premise/`) |
-| stg | Stack completo de AWS, contra una copia o réplica de SQL Server |
-| prod | Stack completo; WAF con rate limiting; alarmas en PagerDuty o correo; fallback a NIM desactivado (F17) |
+| Entorno | Dónde | Diferencias |
+|---|---|---|
+| dev | `docker compose` local u on-premise | `CONVERDATA_ENV=dev`; admite modo demo |
+| qa | AWS | `CONVERDATA_ENV=qa`; contra SQL Server de QA |
+| prod | AWS | `CONVERDATA_ENV=prod`; alarmas activas ([CN-05](CN-05-auditoria-observabilidad.md)) |
 
-La capa `VectorStore` (F2) tiene dos implementaciones (`OpenSearchStore` aquí, `SqlServerVectorStore` on-premise) y se elige por configuración.
+Con `qa` o `prod` la API no arranca si falta algo de `docs/calidad-bancaria.md` §4 (`CONVERDATA_COOKIE_SECURE=1`, CORS y
+`CONVERDATA_PUBLIC_URL` con la URL `https://` del ALB, `CONVERDATA_MCP_HOSTS`, `CONVERDATA_ADMINS_ONLY=1` + `CONVERDATA_ADMINS`,
+`CONVERDATA_SETUP_TOKEN`, `CONVERDATA_LOG_DIR`, `data_mode: real`, sin modo demo ni `trust_server_certificate`).
+
+## Requisitos no funcionales
+- **Latencia** del descubrimiento: p50 < 5 s y p95 < 10 s (F22), incluida la VPN.
+- **Disponibilidad**: una sola tarea, sin alta disponibilidad. Si se reinicia, los usuarios vuelven a iniciar sesión y se pierden los contadores de ritmo y de tokens. Depende de la VPN y del SQL Server on-premise. Escalar a varias tareas exigiría sesiones compartidas.
+- **Tamaño de la tarea**: por confirmar (referencia on-premise: 4 vCPU, 16 GB).
+- **Coste**: etiquetas `app=converdata` y `env`; tope diario de tokens por usuario en la API.
+
+## Dependencias del código (pendientes)
+1. Persistir catálogo, curación y auditoría en la BD `ConverData` (HU-04, HU-06, HU-09, HU-20). Hoy viven en archivos bajo `/app/data`, y Fargate no tiene disco persistente.
+2. Logs JSON a la salida estándar: hoy se escriben en un archivo rotado (`CONVERDATA_LOG_DIR`) y en el Visor de eventos.
+3. Recarga del catálogo en la API cuando el Builder corre en otra tarea, y dónde vive el inventario de servidores (`CONVERDATA_INVENTORY`): por confirmar.
+4. Probar el gateway de LLM con Bedrock (HU-35).
+
+## IaC
+**Nada de esto está desplegado ni existe IaC en el repo.** Lo mínimo, con CDK o Terraform (por confirmar), un stack por entorno:
+VPC y endpoints, VPN, ALB + ACM, repositorio ECR, definición de tarea y servicio ECS (1 tarea), definición de tarea del Builder +
+EventBridge Scheduler, secretos, grupos de logs y alarmas, roles IAM (`bedrock:InvokeModel` sobre el modelo elegido y lectura de sus secretos).
+
+## Por confirmar con Seguridad de la Información
+- **Guardrails** de Bedrock en la fase 1a: decisión pendiente, no es requisito (decisión 13).
+- Si la **VPN** puede llevar tráfico de usuarios hacia el ALB, además del tráfico hacia SQL Server.
 
 ## Criterios de aceptación
-1. `cdk deploy` (o `terraform apply`) crea el entorno stg completo sin pasos manuales, salvo la VPN o DX y el alta de la app en el IdP.
-2. Ningún componente con datos tiene IP pública; la prueba de Security Hub o Config no muestra hallazgos críticos.
-3. Desde AgentCore Runtime (modo VPC) se completa una consulta a SQL Server on-prem con el login del usuario.
-4. Un cliente MCP externo autenticado con Cognito invoca `ask` a través de AgentCore Gateway.
-5. Las trazas de una pregunta se ven de punta a punta en CloudWatch (BFF → Runtime → Gateway → MCP → SQL).
-6. Los criterios de aceptación de F22–F25 se cumplen en stg con el mismo set de evaluación de descubrimiento que on-premise.
+1. El IaC crea el entorno qa completo sin pasos manuales, salvo la VPN y las reglas del firewall on-premise.
+2. Ningún recurso tiene IP pública ni ruta a internet; el ALB es interno.
+3. Un usuario de la red corporativa inicia sesión con su login SQL y recibe candidatos de `/discover` filtrados por sus permisos.
+4. Con `CONVERDATA_ENV=qa`, la tarea no arranca si falta alguna variable obligatoria.
+5. Tras detener la tarea, no queda en AWS ningún catálogo, pregunta ni registro de auditoría ([CN-06](CN-06-residencia-datos.md)).
+6. El set de evaluación de descubrimiento da en qa los mismos resultados que on-premise (`converdata eval gate`).

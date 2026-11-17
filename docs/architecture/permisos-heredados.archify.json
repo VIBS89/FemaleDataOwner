@@ -19,36 +19,36 @@
       "id": "app",
       "type": "backend",
       "label": "ConverData",
-      "sublabel": "FastAPI + LangGraph",
-      "description": "Aplicación FastAPI con los grafos de LangGraph (DiscoverFlow y AskFlow) y converdata-mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión, filtra el catálogo con esa respuesta y ejecuta cada consulta con el login del usuario. El validador rechaza además cualquier objeto fuera de su visibilidad, como defensa en profundidad. (F14, F7)"
+      "sublabel": "API + DiscoverFlow + MCP",
+      "description": "ConverData-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)"
     },
     {
       "id": "vault",
       "type": "security",
       "label": "Credencial de sesión",
-      "sublabel": "cifrada, fuera del LLM",
-      "description": "Dónde vive el login SQL del usuario mientras usa la aplicación. On-premise: SessionVault cifrado (Fernet) solo en memoria, que se borra al cerrar la sesión. Cloud native: Secrets Manager con una clave KMS dedicada, legible solo por converdata-mcp y para el usuario del token. En ambos casos el LLM nunca la ve. (OP-03, CN-03)"
+      "sublabel": "cifrada, solo en memoria",
+      "description": "Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de ConverData-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)"
     },
     {
       "id": "catalog",
       "type": "database",
       "label": "Catálogo",
       "sublabel": "filtrado por usuario",
-      "description": "Descripción de tablas, columnas, relaciones, reglas y documentos vinculados que usan los agentes para descubrir y para escribir SQL. En cada búsqueda se filtra por los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco al descubrir. (F2, F4, F14, F22)"
+      "description": "Tablas, columnas, relaciones, reglas, diccionarios y documentos vinculados, cargados en un índice léxico en memoria. Cada búsqueda se limita a los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco a través de un documento o una regla que las mencione. (F2, F4, F14, F22)"
     },
     {
       "id": "llm",
       "type": "cloud",
       "label": "Amazon Bedrock",
-      "sublabel": "candidatos y SQL",
-      "description": "Modelo que ordena los candidatos del descubrimiento y redacta el SQL de la consulta. Solo recibe la pregunta y los metadatos ya filtrados del usuario: no recibe credenciales ni puede elegir con qué login se ejecuta. Aunque se le intentara engañar (inyección de prompt), lo que ve y ejecuta sigue atado a los permisos reales del usuario. (F16, F22)"
+      "sublabel": "intención y orden",
+      "description": "Modelo que interpreta qué dato pide la pregunta y ordena los candidatos del descubrimiento; en la fase 1b también redactará el SQL. Solo recibe la pregunta y los metadatos ya filtrados del usuario: no recibe credenciales ni puede elegir con qué login se actúa. Aunque se le intentara engañar (inyección de prompt), lo que ve sigue atado a los permisos reales del usuario. (F16, F22)"
     },
     {
       "id": "sqlserver",
       "type": "database",
       "label": "SQL Server",
       "sublabel": "aplica los permisos reales",
-      "description": "Barrera de seguridad final y fuente de verdad de los permisos: GRANT, DENY, roles, esquemas y seguridad a nivel de fila que ya existen. Como cada consulta llega con el login del usuario, SQL Server aplica exactamente las mismas reglas que si el usuario consultara con SSMS. Un acceso no permitido devuelve el error 229. (F8, F14)"
+      "description": "Barrera de seguridad final y fuente de verdad de los permisos: GRANT, DENY, roles, esquemas y seguridad a nivel de fila que ya existen. En la fase 1a responde qué objetos puede ver cada login; en la fase 1b cada consulta llegará con el login del usuario y SQL Server aplicará las mismas reglas que en SSMS. Un acceso no permitido devuelve el error 229. (F8, F14)"
     }
   ],
   "segments": [
@@ -65,7 +65,7 @@
     {
       "from": 610,
       "to": 910,
-      "label": "3 · Pregunta de datos dentro de sus permisos"
+      "label": "3 · Fase 1b (planificada): pregunta de datos"
     },
     {
       "from": 920,
@@ -135,7 +135,7 @@
       "from": "user",
       "to": "app",
       "y": 404,
-      "label": "¿dónde está el ID del cliente de onboarding?",
+      "label": "¿de dónde saco los días de atraso de cada crédito?",
       "variant": "emphasis"
     },
     {
@@ -158,7 +158,7 @@
       "from": "app",
       "to": "llm",
       "y": 488,
-      "label": "ordena candidatos",
+      "label": "interpreta y ordena candidatos",
       "note": "solo metadatos permitidos, sin datos"
     },
     {
@@ -176,7 +176,7 @@
       "y": 576,
       "label": "candidatos con ambiente, servidor y confianza",
       "variant": "return",
-      "note": "no consulta datos"
+      "note": "no consulta datos de clientes"
     },
     {
       "id": "m-ask",
@@ -270,7 +270,7 @@
       "from": "app",
       "to": "catalog",
       "y": 962,
-      "label": "busca tablas"
+      "label": "busca columnas y conocimiento"
     },
     {
       "id": "m-none",
@@ -285,9 +285,9 @@
       "from": "app",
       "to": "user",
       "y": 1018,
-      "label": "no hay datos disponibles para ti",
+      "label": "sin candidatos para ti",
       "variant": "security",
-      "note": "no revela que RRHH existe; si se forzara: error 229"
+      "note": "no revela que RRHH existe; en fase 1b, si se forzara: error 229"
     }
   ],
   "cards": [
@@ -302,19 +302,20 @@
     },
     {
       "dot": "amber",
-      "title": "Tres capas de defensa",
+      "title": "Capas de defensa",
       "items": [
-        "1 · Catálogo filtrado: el agente no conoce tablas ajenas",
-        "2 · Validador: rechaza objetos no visibles antes de ejecutar",
-        "3 · SQL Server: aplica GRANT / DENY / RLS reales (error 229)"
+        "1 · Catálogo filtrado: el agente no conoce tablas ajenas (hoy)",
+        "2 · Validador: rechaza objetos no visibles antes de ejecutar (fase 1b)",
+        "3 · SQL Server: aplica GRANT / DENY / RLS reales, error 229 (fase 1b)"
       ]
     },
     {
       "dot": "slate",
-      "title": "Igual on-premise y en cloud",
+      "title": "Igual on-premise y en AWS",
       "items": [
-        "On-premise: credencial en SessionVault en memoria",
-        "Cloud native: Secrets Manager + KMS, leída solo para el usuario del token"
+        "Credencial en SessionVault, cifrada y solo en memoria, en los dos despliegues",
+        "Chat, API y MCP usan la misma sesión y el mismo filtro",
+        "Hoy está construido el descubrimiento (segmentos 1, 2 y 4)"
       ]
     }
   ]

@@ -22,7 +22,7 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from converdata.catalog.ids import table_key
@@ -33,7 +33,8 @@ from converdata.models.knowledge import BusinessRule
 from converdata.observability.logging import configure_logging, log_event
 from converdata.observability.metrics import Metrics
 
-from converdata_api.audit import FileAuditSink
+from converdata.catalog.store import StaleCatalog
+from converdata_api.audit import open_audit
 from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlConnector, server_from_host
 from converdata_api.curation import CurationStore, demand_by_asset, metrics_report
 from converdata_api.demo import seed_stewards
@@ -243,7 +244,11 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise InsecureConfiguration(problems)
     vault = SessionVault(settings.session_ttl_s, max_age_s=settings.session_max_age_s,
                          max_per_user=settings.max_sessions_per_user)
-    audit = FileAuditSink(settings.audit_dir)
+    audit = open_audit(settings)
+    if settings.production:
+        integrity = audit.verify()  # en SQL Server: la cuenta del servicio no puede modificar ni borrar la auditoría
+        if not integrity.ok:
+            raise InsecureConfiguration([e for f in integrity.files for e in f.errors])
     runtime = AgentRuntime(settings, connector, vault, audit)
     curation = CurationStore(settings.curation_dir, settings.data_root, settings.notify_webhook, settings.public_url)
     runtime.curation = curation
@@ -279,11 +284,14 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        if mcp_mount is None:
-            yield
-        else:
-            async with mcp_mount[1]():  # gestor de sesiones de /mcp
+        try:
+            if mcp_mount is None:
                 yield
+            else:
+                async with mcp_mount[1]():  # gestor de sesiones de /mcp
+                    yield
+        finally:
+            runtime.drain(10.0)  # las confirmaciones pendientes de publicar en la BD terminan antes de apagar
 
     docs = {"docs_url": None, "redoc_url": None, "openapi_url": None} if settings.production else {}
     app = FastAPI(title="ConverData API", version="0.1.0", description="Enterprise Data Discovery Agent",
@@ -296,6 +304,13 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                        allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["authorization", "content-type"])
     # La última añadida es la más externa: cabeceras de seguridad también en errores, CORS y `/mcp`.
     app.add_middleware(SecurityMiddleware, settings=settings, on_block=metrics.increment)
+
+    @app.exception_handler(StaleCatalog)
+    async def stale_catalog(_request: Request, _exc: StaleCatalog):
+        """Otro proceso publicó el catálogo mientras se editaba: el cambio no se aplicó y hay que repetirlo."""
+        metrics.increment("catalog_stale")
+        return JSONResponse({"detail": "El catálogo se actualizó mientras editabas; vuelve a intentarlo."},
+                            status_code=status.HTTP_409_CONFLICT)
 
     # --- dependencias ------------------------------------------------------------------------------
     def current_session(request: Request) -> Session:
@@ -376,6 +391,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                             "Puedes seguir explorando el catálogo.")
 
     def require_service():
+        runtime.refresh()  # si el Builder publicó un catálogo nuevo en la BD, se carga aquí (como mucho cada 15 s)
         if runtime.service is None:
             detail = runtime.load_error or "Aún no hay catálogo: un administrador debe descubrir los esquemas"
             raise HTTPException(status.HTTP_409_CONFLICT, detail)
@@ -588,9 +604,10 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         trace = runtime.shown(body.trace_id)
         if trace is None or trace.user_id != session.user_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa respuesta ya no está disponible para escalarla")
-        req = curation.create_request(session.user_id, body.trace_id, trace.question, trace.domain or "sin_dominio",
+        domain = trace.domain or "sin_dominio"
+        audit.event("curation_request", session.user_id, domain=domain, trace_id=body.trace_id)  # antes de aplicar (F11)
+        req = curation.create_request(session.user_id, body.trace_id, trace.question, domain,
                                       sorted(trace.asset_keys), body.note)
-        audit.event("curation_request", session.user_id, request_id=req["id"], domain=req["domain"], trace_id=body.trace_id)
         return {"id": req["id"], "domain": req["domain"], "status": req["status"]}
 
     @app.get("/me/requests")
@@ -639,28 +656,40 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                                                  "note", "answer")})
         return {"items": items}
 
+    @contextlib.contextmanager
+    def curating():
+        """Una edición de curación de principio a fin: las comprobaciones, el cambio y su publicación corren bajo el
+        candado de la copia de trabajo y sobre el catálogo vigente, así nadie publica el cambio a medias de otro."""
+        with runtime.editing() as service:
+            if service is None:
+                raise HTTPException(status.HTTP_409_CONFLICT, "Aún no hay catálogo: un administrador debe descubrir los esquemas")
+            yield service
+
     @app.post("/curation/requests/{request_id}/answer")
     def curation_answer(request_id: str, body: AnswerRequest, session: Session = Depends(steward_session),
-                        service=Depends(require_service)):
-        req = next((r for r in curation.requests() if r["id"] == request_id), None)
-        if req is None or not can_curate(session, req["domain"]):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
-        if body.kind == "asset":
-            # El activo debe ser de un dominio que este responsable cura: si no, podría documentar cualquier tabla.
-            if (not body.asset_key or not service.deps.catalog.exists(body.asset_key)
-                    or not can_curate(session, domain_of(service, body.asset_key))):
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Elige un activo de tus dominios que exista en el catálogo")
-        reject_pii(body.description, body.note)
-        # Se audita antes de aplicar: sin registro no hay cambio (F11).
-        audit.event("curation_answer", session.user_id, request_id=request_id, answer_kind=body.kind,
-                    asset_key=body.asset_key, domain=req["domain"], described=bool(body.description))
-        if body.kind == "asset":
-            if body.description:
-                curation.set_description(service.deps.catalog, body.asset_key, body.description, None)
-            runtime.steward_golden(req["question"], body.asset_key)  # F24 CA1: entra de inmediato
-        answered = curation.answer_request(request_id, session.user_id, body.kind,
-                                           body.asset_key if body.kind == "asset" else None, body.note)
-        runtime.reload()  # la siguiente pregunta equivalente ya encuentra la respuesta
+                        _service=Depends(require_service)):
+        with curating() as service:
+            req = next((r for r in curation.requests() if r["id"] == request_id), None)
+            if req is None or not can_curate(session, req["domain"]):
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
+            if body.kind == "asset":
+                # El activo debe ser de un dominio que este responsable cura: si no, podría documentar cualquier tabla.
+                if (not body.asset_key or not service.deps.catalog.exists(body.asset_key)
+                        or not can_curate(session, domain_of(service, body.asset_key))):
+                    raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                                        "Elige un activo de tus dominios que exista en el catálogo")
+            reject_pii(body.description, body.note)
+            # Se audita antes de aplicar: sin registro no hay cambio (F11).
+            audit.event("curation_answer", session.user_id, request_id=request_id, answer_kind=body.kind,
+                        asset_key=body.asset_key, domain=req["domain"], described=bool(body.description))
+            if body.kind == "asset":
+                if body.description:
+                    curation.set_description(service.deps.catalog, body.asset_key, body.description, None)
+                runtime.steward_golden(req["question"], body.asset_key)  # F24 CA1: entra de inmediato
+            runtime.commit(session.user_id, "curation")  # la siguiente pregunta equivalente ya encuentra la respuesta
+            # Solo si se publicó: una solicitud no queda "respondida" con un cambio que se descartó.
+            answered = curation.answer_request(request_id, session.user_id, body.kind,
+                                               body.asset_key if body.kind == "asset" else None, body.note)
         return {"ok": True, "request": answered}
 
     @app.get("/curation/review")
@@ -690,27 +719,32 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
 
     @app.put("/curation/description")
     def curation_description(body: DescriptionRequest, session: Session = Depends(steward_session),
-                             service=Depends(require_service)):
-        if not service.deps.catalog.exists(body.asset_key):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Activo no encontrado")
-        if not can_curate(session, domain_of(service, body.asset_key)):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "No eres responsable del dominio de este activo")
-        reject_pii(body.description, *(body.synonyms or []))
-        audit.event("curation_description", session.user_id, asset_key=body.asset_key)  # antes de aplicar (F11)
-        copies = curation.set_description(service.deps.catalog, body.asset_key, body.description, body.synonyms)
-        runtime.reload()
+                             _service=Depends(require_service)):
+        with curating() as service:
+            if not service.deps.catalog.exists(body.asset_key):
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Activo no encontrado")
+            if not can_curate(session, domain_of(service, body.asset_key)):
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "No eres responsable del dominio de este activo")
+            reject_pii(body.description, *(body.synonyms or []))
+            audit.event("curation_description", session.user_id, asset_key=body.asset_key)  # antes de aplicar (F11)
+            copies = curation.set_description(service.deps.catalog, body.asset_key, body.description, body.synonyms)
+            runtime.commit(session.user_id, "curation")
         return {"ok": True, "copies": copies}
 
     # --- diccionario de datos (HU-25, F23 CA1) --------------------------------------------------------
     @app.post("/curation/dictionary")
     def curation_dictionary(body: DictionaryRequest, session: Session = Depends(steward_session),
-                            service=Depends(require_service)):
+                            _service=Depends(require_service)):
         reject_pii(body.csv)
-        audit.event("curation_dictionary_started", session.user_id, size=len(body.csv))  # antes de aplicar (F11)
-        report = curation.apply_dictionary(
-            service.deps.catalog, body.csv, lambda key: can_curate(session, domain_of(service, key)))
-        if report["applied"]:
-            runtime.reload()
+        with curating() as service:
+            audit.event("curation_dictionary_started", session.user_id, size=len(body.csv))  # antes de aplicar (F11)
+            report = curation.apply_dictionary(
+                service.deps.catalog, body.csv, lambda key: can_curate(session, domain_of(service, key)))
+            if report["applied"]:
+                runtime.commit(session.user_id, "dictionary")
+            digest = report.pop("digest", None)
+            if digest:  # solo tras publicar: si el cambio se descartó, el mismo archivo se puede volver a aplicar
+                curation.remember_dictionary(digest)
         audit.event("curation_dictionary", session.user_id, applied=report["applied"], skipped_human=report["skipped_human"],
                     unknown=len(report["unknown"]), unchanged=report["unchanged"])
         report["unknown"], report["forbidden"] = report["unknown"][:50], report["forbidden"][:50]
@@ -732,28 +766,30 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
 
     @app.put("/curation/rules")
     def curation_rule_upsert(body: RuleRequest, session: Session = Depends(steward_session),
-                             service=Depends(require_service)):
-        rule_scope(session, service, body.applies_to)
-        existing = next((r for r in curation.curated_rules() if r.id == body.id), None)
-        if existing is not None:  # no se pisa una regla de otro dominio
-            rule_scope(session, service, [k for k in existing.applies_to if service.deps.catalog.exists(k)])
+                             _service=Depends(require_service)):
         reject_pii(body.text)
-        rule = BusinessRule(id=body.id, text=body.text, applies_to=body.applies_to, domain=body.domain,
-                            source=f"steward:{session.user_id}", owner=session.user_id, reviewed=True)
-        audit.event("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to))  # antes de aplicar
-        curation.upsert_rule(rule)
-        runtime.reload()
+        with curating() as service:
+            rule_scope(session, service, body.applies_to)
+            existing = next((r for r in curation.curated_rules() if r.id == body.id), None)
+            if existing is not None:  # no se pisa una regla de otro dominio
+                rule_scope(session, service, [k for k in existing.applies_to if service.deps.catalog.exists(k)])
+            rule = BusinessRule(id=body.id, text=body.text, applies_to=body.applies_to, domain=body.domain,
+                                source=f"steward:{session.user_id}", owner=session.user_id, reviewed=True)
+            audit.event("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to))  # antes de aplicar
+            curation.upsert_rule(rule)
+            runtime.commit(session.user_id, "curation")
         return {"ok": True, "rule": rule.model_dump(exclude_none=True)}
 
     @app.delete("/curation/rules/{rule_id}")
-    def curation_rule_delete(rule_id: str, session: Session = Depends(steward_session), service=Depends(require_service)):
-        rule = next((r for r in curation.curated_rules() if r.id == rule_id), None)
-        if rule is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
-        rule_scope(session, service, [k for k in rule.applies_to if service.deps.catalog.exists(k)])
-        audit.event("curation_rule_deleted", session.user_id, rule_id=rule_id)  # antes de aplicar
-        curation.delete_rule(rule_id)
-        runtime.reload()
+    def curation_rule_delete(rule_id: str, session: Session = Depends(steward_session), _service=Depends(require_service)):
+        with curating() as service:
+            rule = next((r for r in curation.curated_rules() if r.id == rule_id), None)
+            if rule is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
+            rule_scope(session, service, [k for k in rule.applies_to if service.deps.catalog.exists(k)])
+            audit.event("curation_rule_deleted", session.user_id, rule_id=rule_id)  # antes de aplicar
+            curation.delete_rule(rule_id)
+            runtime.commit(session.user_id, "curation")
         return {"ok": True}
 
     # --- impacto (F25, HU-23) ------------------------------------------------------------------------

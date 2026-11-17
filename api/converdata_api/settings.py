@@ -23,6 +23,8 @@ class ApiSettings:
     # Inventario de servidores con hosts (no se copia al catálogo). Si no existe, el primer login lo crea.
     inventory_path: Path = Path("data/inventory.yaml")
     audit_dir: Path = Path("data/audit")
+    # Cadena ODBC de la BD `ConverData` (OP-02). Con ella la auditoría va al esquema `audit`; sin ella, a archivos (solo dev).
+    db: str | None = field(default=None, repr=False)  # puede llevar credenciales en desarrollo: nunca en un repr
     curation_dir: Path = Path("data/curation")
     log_dir: Path | None = None  # logs JSON rotados sin contenido (HU-21, OP-05); None = sin archivo
     event_log: bool = True  # además, errores al Visor de eventos de Windows (origen ConverData)
@@ -37,7 +39,7 @@ class ApiSettings:
     demo_preload_inventory: bool = True  # demo: el inventario arranca con los servidores de los fixtures
     demo_history: bool = False  # demo: siembra 30 días de actividad simulada (marcada) tras el primer build
     cors_origins: list[str] = field(default_factory=lambda: ["http://localhost:3000"])
-    rate_limit_per_minute: int = 30  # OP-04: preguntas por minuto y sesión
+    rate_limit_per_minute: int = 30  # OP-04: preguntas por minuto y usuario
     notify_webhook: str | None = None  # F24: webhook de Teams para dudas escaladas (solo dominio y enlace)
     token_limit_mode: Literal["reject", "deterministic"] = "reject"  # al agotar el tope: rechazar o responder sin LLM
     token_limit_daily: int = 0  # tope diario de tokens de LLM por usuario (HU-19); 0 = sin tope
@@ -72,6 +74,7 @@ class ApiSettings:
             data_root=Path(os.environ.get("CONVERDATA_DATA_ROOT", "data/catalog")),
             inventory_path=Path(os.environ.get("CONVERDATA_INVENTORY", "data/inventory.yaml")),
             audit_dir=Path(os.environ.get("CONVERDATA_AUDIT_DIR", "data/audit")),
+            db=os.environ.get("CONVERDATA_DB", "").strip() or None,
             curation_dir=Path(os.environ.get("CONVERDATA_CURATION_DIR", "data/curation")),
             log_dir=Path(os.environ.get("CONVERDATA_LOG_DIR", "data/logs")),
             event_log=_flag("CONVERDATA_EVENT_LOG", True),

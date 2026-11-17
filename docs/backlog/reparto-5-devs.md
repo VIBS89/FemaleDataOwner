@@ -1,6 +1,12 @@
 # Reparto del backlog on-premise entre 5 desarrolladores
 
-> 2026-10-27. Parte del [backlog on-premise](on-premise.md) (42 historias, 194 puntos) y del [orden de desarrollo](../PLAN-desarrollo.md#7-orden-de-desarrollo-del-agente-y-su-mcp).
+> 2026-10-27. Parte del [backlog on-premise](on-premise.md) (42 historias, 194 puntos) y del [orden de desarrollo](../PLAN-desarrollo.md#3-próximos-pasos-en-orden).
+>
+> **Aviso (2026-11-16):** este reparto es anterior a la arquitectura simplificada ([PRD §13](../PRD.md#13-decisiones-y-preguntas-abiertas), decisiones 9–16). Los carriles y
+> la regla de dueños por archivo siguen sirviendo, pero cambia el contenido: HU-04 y HU-05 ya no necesitan SQL Server 2025 ni
+> `SqlServerVectorStore`; HU-07 (tablas de grafo) se retiró; HU-17 es la web Next.js ya construida; HU-18 es una tarea programada, no un
+> servicio `ConverData-Builder`; las rutas quedan como en el código. El estado al día de cada historia está en el
+> [backlog §1](on-premise.md#estado-al-2026-11-16) y el orden vigente en su [§3](on-premise.md#3-plan-de-entregas).
 > Criterio: las historias que dependen una de otra las lleva **la misma persona**; los carriles se tocan entre sí solo por **interfaces ya existentes**
 > (puertos en `src/converdata/`), no por archivos compartidos.
 

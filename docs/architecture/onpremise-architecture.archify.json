@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — Arquitectura on-premise sobre stack Microsoft",
+    "title": "ConverData — Arquitectura on-premise (fase 1a, descubrimiento)",
     "output": "docs/architecture/onpremise-architecture.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -13,325 +13,163 @@
       "type": "external",
       "label": "Cliente MCP",
       "sublabel": "Claude Code / Desktop",
-      "pos": [
-        280,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (normalmente 'ask' o 'discover') a través de https://<servidor>/mcp, con el session_id obtenido en /login. Heredan los mismos permisos SQL que en el chat. (F12, OP-04)"
+      "pos": [280, 40],
+      "size": [160, 64],
+      "description": "Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (discover, where_is, get_asset, get_lineage y otras) en https://<servidor>/mcp, con el token de sesión obtenido en /login como Bearer. Heredan los mismos permisos SQL que en el chat. Implementado: integration.mcp montado en ConverData-API. (F12, OP-04, HU-16, HU-42)"
     },
     {
       "id": "bedrock",
       "type": "cloud",
       "label": "Amazon Bedrock",
-      "sublabel": "LLM por rol + embeddings",
-      "pos": [
-        520,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
+      "sublabel": "un modelo: intención y orden",
+      "pos": [760, 40],
+      "size": [160, 64],
       "tag": "único servicio externo",
-      "description": "Único servicio fuera de la red. Sirve un modelo por rol (Claude Sonnet para planificar y escribir T-SQL, Haiku para tareas rápidas, Nova o Llama como juez y Cohere multilingüe para embeddings). Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere y un certificado de la PKI corporativa, sin claves de larga duración. Invocation logging desactivado: procesa sin guardar. (F16, OP-06)"
+      "description": "Único servicio fuera de la red. Un solo modelo en el piloto, para dos pasos del DiscoverFlow: entender qué dato pide una pregunta larga (intent) y ordenar los candidatos (rerank). Sin embeddings: la medición HU-34 mostró que no mejoran el acierto y suben la latencia. Se accede por HTTPS a través del proxy corporativo con IAM Roles Anywhere, sin claves de larga duración, y con invocation logging desactivado. Pendiente de probar de punta a punta (HU-35); hoy se desarrolla con Ollama o NIM. (F16, OP-06)"
     },
     {
       "id": "users",
       "type": "external",
       "label": "Usuario",
       "sublabel": "navegador · login SQL",
-      "pos": [
-        40,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Ingenieros de datos, analistas y Product Owners que preguntan en lenguaje natural dónde están los datos (descubrimiento) o piden los datos (consulta). Entran con su propio login SQL, uno por servidor (o el mismo en todos los que marquen), que define lo que pueden ver y consultar en cada ambiente. (F14, F22, OP-03)"
+      "pos": [40, 200],
+      "size": [160, 64],
+      "description": "Ingenieros de datos, analistas y Product Owners que describen en lenguaje natural el dato que necesitan para un estudio, un reporte normativo o un tablero, y reciben campos y tablas candidatas. Entran con su propio login SQL, uno por servidor, que define lo que pueden descubrir en cada ambiente. (F14, F22, OP-03)"
     },
     {
       "id": "iis",
       "type": "security",
       "label": "IIS",
       "sublabel": "HTTPS 443 · proxy inverso",
-      "pos": [
-        280,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
+      "pos": [280, 200],
+      "size": [160, 64],
       "tag": "PKI corporativa",
-      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, publica / (chat), /api y /mcp hacia ConverData-API y /api/admin/* hacia ConverData-Builder (solo desde las IPs de los SQL Server y de administración). Con HttpPlatformHandler lanza, supervisa y reinicia los procesos Python. Request Filtering activado; sus logs no registran cuerpos ni la cabecera Authorization. (OP-04)"
+      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, envía / al frontend web y /mcp a ConverData-API. Con HttpPlatformHandler lanza, supervisa y reinicia los dos procesos, sin servicios de Windows propios. Sus logs no registran cuerpos ni la cabecera Authorization. Pendiente: scripts de instalación (HU-37); hoy el desarrollo corre con docker compose. (OP-04)"
     },
     {
-      "id": "app",
+      "id": "web",
+      "type": "frontend",
+      "label": "Web",
+      "sublabel": "Next.js · chat y curación",
+      "pos": [520, 200],
+      "size": [160, 64],
+      "description": "Frontend Next.js (web/): chat con tarjetas de candidatos, confirmación ✔/✖, vista de Curación para responsables, historial y Administración. Es un proceso Node porque su ruta /api/[...path] reenvía las llamadas a ConverData-API, que no se publica directamente. No guarda credenciales ni conversaciones. Sustituye al Chainlit de las specs. (F12, F24, OP-04)"
+    },
+    {
+      "id": "api",
       "type": "backend",
-      "label": "Servicios ConverData",
-      "sublabel": "Chainlit · Discover + Ask",
-      "pos": [
-        520,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
+      "label": "ConverData-API",
+      "sublabel": "FastAPI · DiscoverFlow · MCP",
+      "pos": [760, 200],
+      "size": [160, 64],
       "tag": "SessionVault en memoria",
-      "description": "Servicios de Windows con cuentas gMSA: ConverData-UI (Chainlit) y ConverData-API (FastAPI + grafos de LangGraph DiscoverFlow y AskFlow + converdata-mcp en /mcp). Ejecutan el descubrimiento y la consulta con pasos deterministas, la biblioteca de análisis (sin código libre en la v1) y la capa semántica. Guardan en memoria, cifrado, un login SQL por servidor para cada sesión y resuelven los grupos del usuario en AD por LDAP. Incluyen la vista de curación y el envío de notificaciones sin el texto de la pregunta. (F3–F10, F12, F14, F20, F22, F24, OP-01, OP-03, OP-04)"
-    },
-    {
-      "id": "builder",
-      "type": "backend",
-      "label": "ConverData-Builder",
-      "sublabel": "Catalog Builder · F1 F19 F23",
-      "pos": [
-        760,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Servicio de Windows propio (gMSA), separado de ConverData-API para que la ingesta no compita con las preguntas. Mapea todas las BDs y ambientes con converdata-discovery (biblioteca), lee diccionarios y documentos con cuenta de solo lectura, redacta los datos personales con Presidio en memoria, construye el grafo de entidades y linaje, propone métricas y genera descripciones con Bedrock. Escribe todo en la BD ConverData, sin valores de datos. Lo dispara un job de SQL Server Agent. (F1, F19, F21, F23, OP-02)"
-    },
-    {
-      "id": "discovery",
-      "type": "backend",
-      "label": "converdata-discovery",
-      "sublabel": "MCP propio Apache-2.0",
-      "pos": [
-        1000,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "biblioteca del Builder",
-      "description": "MCP propio de descubrimiento (Apache-2.0), usado como biblioteca dentro de ConverData-Builder: el login de metadatos, guardado con DPAPI, solo existe en ese proceso. Lee inventario, columnas, FKs, dependencias entre BDs, firmas de SPs, estadísticas, joins frecuentes de Query Store, clasificación de sensibilidad, SSISDB y msdb, siempre con consultas fijas. Las muestras para describir columnas y los sketches MinHash salados viven solo en memoria. (F18, F19, F23, OP-02)"
-    },
-    {
-      "id": "convdb",
-      "type": "database",
-      "label": "BD ConverData",
-      "sublabel": "SQL Server 2025",
-      "pos": [
-        520,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "VECTOR · Full-Text · grafo",
-      "description": "Única BD de trabajo de ConverData, gestionada por el DBA. Esquemas: catalog (tablas temporales para el historial y columnas VECTOR para la búsqueda semántica, más Full-Text), estate (tablas de grafo NODE/EDGE para relaciones entre BDs y linaje ETL), knowledge (documentos redactados, reglas, anotaciones y golden discovery), curation (responsables, directorio login SQL → AD y dudas escaladas), semantic (métricas certificadas), golden y audit. Sustituye a Chroma, SQLite y YAML como almacén de trabajo. (F2, F11, F19, F21, F23, F24, OP-02, OP-05)"
-    },
-    {
-      "id": "agent",
-      "type": "messagebus",
-      "label": "SQL Server Agent",
-      "sublabel": "job nocturno de refresco",
-      "pos": [
-        520,
-        520
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Job nocturno (y bajo demanda) con pasos PowerShell que llaman a /api/admin/catalog/refresh y /api/admin/knowledge/ingest en ConverData-Builder, para que el catálogo, el grafo, el conocimiento y los vectores reflejen los cambios. También ejecuta la purga de auditoría por retención y la evaluación semanal del descubrimiento, y avisa por Database Mail si algo falla o si baja la calidad. Lo operan los DBAs con herramientas que ya conocen. (OP-02, OP-05)"
+      "description": "Un solo proceso Python: API REST, servidor MCP en /mcp y el DiscoverFlow de LangGraph (intención, recuperar, evaluar, ordenar, expandir relaciones, responder). Al arrancar carga el catálogo y el conocimiento de la BD ConverData en un índice léxico en memoria (BM25, respuesta en decenas de ms), lo recarga cuando el Builder publica una versión nueva y busca solo entre los objetos que el usuario puede ver. Guarda el login SQL de cada sesión cifrado solo en memoria. No ejecuta SQL sobre datos de clientes en la fase 1a. (F12, F14, F22, OP-01, OP-03)"
     },
     {
       "id": "sqldata",
       "type": "database",
       "label": "SQL Server de datos",
-      "sublabel": "BDs de negocio · réplica AG",
-      "pos": [
-        1000,
-        200
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Las BDs de negocio, en sus versiones actuales. Cada consulta llega con el login del propio usuario y ApplicationName=ConverData, así que SQL Server aplica sus permisos reales, RLS, enmascaramiento dinámico y clasificación de datos, y el DBA puede auditarlas con SQL Server Audit. Se consulta la secundaria legible de Always On cuando existe. Es la barrera de seguridad final. (F8, F14, OP-03, OP-05)"
+      "sublabel": "BDs de negocio",
+      "pos": [1000, 200],
+      "size": [160, 64],
+      "description": "Las BDs de negocio, en sus versiones actuales. En la fase 1a ConverData solo lee metadatos: al iniciar sesión pregunta con el login del propio usuario qué objetos puede ver, y el Builder lee la estructura con un login de solo metadatos. Sigue siendo la fuente de verdad de los permisos. La consulta de datos queda para la fase 1b. (F8, F14, OP-03)"
+    },
+    {
+      "id": "convdb",
+      "type": "database",
+      "label": "BD ConverData",
+      "sublabel": "tablas normales · SQL Server 2016+",
+      "pos": [760, 360],
+      "size": [160, 64],
+      "tag": "catálogo y auditoría",
+      "description": "Única BD de trabajo, gestionada por el DBA. Esquemas catalog (tablas temporales: historial y autor de cada cambio), knowledge (diccionarios, documentos redactados, reglas, linaje), curation y audit. Solo tablas normales: sin VECTOR, Full-Text ni tablas de grafo, así que no exige SQL Server 2025. Se crea con converdata db migrate. La cuenta de la API inserta y lee la auditoría, pero no puede modificarla ni borrarla. Construido: catálogo, conocimiento y auditoría. Pendiente: dudas escaladas, votos e inventario, hoy en archivos. (F2, F11, F23, F24, OP-02, OP-05)"
+    },
+    {
+      "id": "builder",
+      "type": "backend",
+      "label": "Builder",
+      "sublabel": "CLI · catálogo y conocimiento",
+      "pos": [1000, 360],
+      "size": [160, 64],
+      "tag": "mismo código, otro proceso",
+      "description": "Comando de línea (converdata catalog build --db) que mapea BDs y ambientes con consultas fijas a sys.*, construye las relaciones entre BDs y el linaje, y puede generar descripciones con el LLM. Parte del catálogo publicado y publica el resultado sin pisar lo que editaron las personas. No es un servicio de Windows ni tiene API propia: corre y termina. Hoy también se lanza desde Administración (POST /admin/catalog/build). El login de metadatos solo existe en este proceso. (F1, F19, F23, OP-02)"
     },
     {
       "id": "sources",
       "type": "external",
       "label": "Fuentes de conocimiento",
-      "sublabel": "diccionarios · docs · SSIS",
-      "pos": [
-        1240,
-        360
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Conocimiento que hoy está disperso: diccionarios de datos y documentación funcional y técnica (carpetas compartidas o SharePoint), que leen los conectores de ConverData-Builder, y paquetes SSIS (SSISDB) y jobs de SQL Agent (msdb), que lee converdata-discovery. Los datos personales se redactan con Presidio antes de escribir en la BD ConverData; el original no se copia. (F23, OP-02)"
+      "sublabel": "diccionarios · docs · reglas",
+      "pos": [1240, 360],
+      "size": [160, 64],
+      "tag": "palanca principal",
+      "description": "Diccionarios de datos, manuales de reportes, políticas, glosarios y reglas de negocio que hoy están dispersos. Son lo que más mejora las respuestas a preguntas de reporte: en la prueba con 25 preguntas normativas, de tablero y de estudio, el acierto pasó de 4 % a 40 % al añadirlas. Implementado: diccionario en CSV (HU-25) y reglas. Pendiente: documentos con redacción de datos personales (HU-26) y linaje SSIS (HU-27). (F23, OP-02)"
     },
     {
-      "id": "ad",
-      "type": "security",
-      "label": "Active Directory",
-      "sublabel": "grupos por LDAP",
-      "pos": [
-        760,
-        40
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "description": "Directorio corporativo. ConverData-API lo consulta por LDAP (solo lectura, con su gMSA) al iniciar sesión para obtener los grupos de la cuenta de AD asociada al login SQL (tabla curation.user_directory). Los grupos filtran los documentos con ACL de origen y dan los roles steward y data_admin; sin asociación, el usuario no tiene grupos (fail-closed). (F14, F24, OP-03)"
+      "id": "scheduler",
+      "type": "messagebus",
+      "label": "Programador de tareas",
+      "sublabel": "refresco nocturno",
+      "pos": [1000, 520],
+      "size": [160, 64],
+      "tag": "pendiente",
+      "description": "Tarea programada de Windows que ejecuta el Builder cada noche para que el catálogo refleje los cambios de esquema, y después la evaluación de regresión del descubrimiento. Sustituye al servicio ConverData-Builder con API de administración y al job de SQL Server Agent de las specs: menos piezas que instalar y vigilar. (OP-02, HU-24)"
     }
   ],
   "boundaries": [
     {
       "kind": "region",
-      "label": "SQL Server 2025 · ConverData",
-      "wraps": [
-        "convdb",
-        "agent"
-      ]
+      "label": "Windows Server · aplicación",
+      "wraps": ["iis", "web", "api"]
     }
   ],
   "connections": [
-    {
-      "id": "user-iis",
-      "from": "users",
-      "to": "iis",
-      "label": "HTTPS",
-      "variant": "emphasis"
-    },
-    {
-      "id": "client-iis",
-      "from": "mcpclient",
-      "to": "iis",
-      "label": "MCP"
-    },
-    {
-      "id": "iis-app",
-      "from": "iis",
-      "to": "app",
-      "label": "proxy",
-      "variant": "emphasis"
-    },
-    {
-      "id": "app-llm",
-      "from": "app",
-      "to": "bedrock",
-      "label": "LLM"
-    },
-    {
-      "id": "app-db",
-      "from": "app",
-      "to": "convdb",
-      "label": "vectores · audit"
-    },
-    {
-      "id": "app-data",
-      "from": "app",
-      "to": "sqldata",
-      "label": "login del usuario",
-      "variant": "emphasis"
-    },
-    {
-      "id": "builder-discovery",
-      "from": "builder",
-      "to": "discovery",
-      "label": "metadatos"
-    },
-    {
-      "id": "builder-db",
-      "from": "builder",
-      "to": "convdb",
-      "label": "catálogo"
-    },
-    {
-      "id": "agent-builder",
-      "from": "agent",
-      "to": "builder",
-      "label": "HTTPS refresh",
-      "variant": "dashed"
-    },
-    {
-      "id": "discovery-data",
-      "from": "discovery",
-      "to": "sqldata",
-      "label": "sys.* · QS",
-      "variant": "dashed"
-    },
-    {
-      "id": "discovery-sources",
-      "from": "discovery",
-      "to": "sources",
-      "label": "SSISDB · msdb"
-    },
-    {
-      "id": "app-ad",
-      "from": "app",
-      "to": "ad",
-      "label": "LDAP grupos",
-      "variant": "security"
-    },
-    {
-      "id": "builder-llm",
-      "from": "builder",
-      "to": "bedrock",
-      "label": "descripciones",
-      "variant": "dashed"
-    },
-    {
-      "id": "builder-sources",
-      "from": "builder",
-      "to": "sources",
-      "label": "docs · diccionarios"
-    }
+    { "id": "user-iis", "from": "users", "to": "iis", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "client-iis", "from": "mcpclient", "to": "iis", "label": "MCP" },
+    { "id": "iis-web", "from": "iis", "to": "web", "label": "/", "variant": "emphasis" },
+    { "id": "web-api", "from": "web", "to": "api", "label": "/api", "variant": "emphasis" },
+    { "id": "api-llm", "from": "api", "to": "bedrock", "label": "intención · orden" },
+    { "id": "api-db", "from": "api", "to": "convdb", "label": "catálogo · auditoría" },
+    { "id": "api-data", "from": "api", "to": "sqldata", "label": "visibilidad del usuario", "variant": "security" },
+    { "id": "builder-data", "from": "builder", "to": "sqldata", "label": "sys.* metadatos", "variant": "dashed" },
+    { "id": "builder-db", "from": "builder", "to": "convdb", "label": "escribe catálogo" },
+    { "id": "builder-sources", "from": "builder", "to": "sources", "label": "ingesta" },
+    { "id": "sched-builder", "from": "scheduler", "to": "builder", "label": "cada noche", "variant": "dashed" }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "Stack Microsoft",
+      "title": "Qué se simplificó",
       "items": [
-        "Windows Server + IIS: servicios ConverData-UI, ConverData-API y ConverData-Builder (gMSA), sin Docker; converdata-discovery como biblioteca del Builder",
-        "SQL Server 2025: VECTOR, Full-Text, grafo y tablas temporales en la BD ConverData",
-        "SQL Server Agent para el refresco; Always On para leer sin cargar producción"
+        "Sin vectores, Full-Text ni tablas de grafo: búsqueda léxica en memoria y relaciones en tablas normales",
+        "Sin SQL Server 2025 como requisito; sin servicio Builder ni job de SQL Server Agent",
+        "Dos procesos detrás de IIS (web y API); Next.js en lugar de Chainlit"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "De qué depende el acierto",
+      "items": [
+        "Preguntas cortas «¿dónde está X?»: 93 % sin LLM",
+        "Preguntas de reporte, tablero o estudio: 4 % solo con catálogo, 40 % con fuentes de conocimiento; con LLM aún sin medir",
+        "Por eso el LLM (intención y orden) y la ingesta de conocimiento van primero"
       ]
     },
     {
       "dot": "rose",
       "title": "Permisos y datos",
       "items": [
-        "Cada consulta y cada descubrimiento usan el login SQL del usuario en cada servidor",
-        "RLS, enmascaramiento y clasificación de SQL Server se aplican solos",
+        "Cada usuario descubre solo lo que su login SQL puede leer",
+        "Credenciales cifradas solo en memoria; auditoría fail-closed",
         "Nada sale de la red salvo el contexto enviado a Bedrock"
       ]
     },
     {
-      "dot": "violet",
-      "title": "Descubrimiento y análisis",
-      "items": [
-        "Dónde está cada dato: candidatos con ambiente, servidor, reglas, relaciones y confianza (F22)",
-        "Diccionarios, documentos, ETL y conocimiento de responsables (F23, F24)",
-        "Análisis con biblioteca determinista y métricas certificadas (F20, F21)"
-      ]
-    },
-    {
       "dot": "amber",
-      "title": "Evolución",
+      "title": "Estado y evolución",
       "items": [
-        "SSO con Windows/AD y delegación Kerberos (requiere prueba de concepto)",
-        "Sandbox de Python con contenedor aislado por Hyper-V",
-        "Migración a cloud native sin rehacer la lógica"
+        "Hoy: catálogo y auditoría en la BD ConverData; LLM local; docker compose",
+        "Piloto: Bedrock, IIS, tareas programadas, resto de la curación en la BD",
+        "Después: grupos de Active Directory (HU-13), consulta de datos (fase 1b), despliegue en AWS"
       ]
     }
   ]

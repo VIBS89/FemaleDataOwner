@@ -1,25 +1,47 @@
-# CN-03 — Identidad y custodia de credenciales · cloud native
+# CN-03 — Identidad y custodia de credenciales · despliegue en AWS
 
-> Implementa en AWS: [F14](../comun/F14-identity.md). El principio y el flujo de herencia de permisos son los de F14.
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Despliegue posterior al piloto on-premise; nada está desplegado.
+>
+> Implementa en AWS: [F14](../comun/F14-identity.md) · equivalente on-premise: [OP-03](../on-premise/OP-03-identidad.md). El principio y el flujo de herencia de permisos son los de F14.
 
-## Identidad en dos capas
-1. **Identidad de aplicación: Amazon Cognito**, federado con el IdP corporativo (por ejemplo Entra ID o Google). Su JWT autentica en el ALB, AgentCore Runtime y AgentCore Gateway. El `sub` de Cognito es el `user_id` y el claim `cognito:groups` (grupos sincronizados del IdP) da los grupos y roles del usuario (F14, F24).
-2. **Identidad de datos: login SQL por usuario**, que determina los permisos.
+## Una sola identidad: el login SQL del usuario
+- El inicio de sesión es **el mismo que on-premise**: el usuario entra con su propio login SQL, uno por servidor (`POST /auth/login`), y `ConverData-API` lo valida con una conexión de prueba por la VPN. No hay proveedor de identidad adicional (PRD §13, decisión 11).
+- SQL Server sigue siendo la fuente de verdad de los permisos: la API pregunta con el login del propio usuario qué objetos puede ver y lo vuelve a leer cada 15 minutos (`CONVERDATA_VISIBILITY_TTL_S`).
+- La autenticación de Windows no existe dentro del contenedor y `CONVERDATA_ALLOW_WINDOWS_AUTH` debe estar apagada en qa y prod.
 
-## Custodia del login SQL
-- En el primer uso, el BFF pide el login SQL **por servidor** (`POST /credentials`, F12; con la opción de usar el mismo en los servidores marcados) y `converdata-mcp` lo valida con una conexión de prueba por la VPN (F14).
-- Lo guarda en **AWS Secrets Manager** como `converdata/sql-logins/<cognito_sub>/<server>`, cifrado con una **CMK de KMS dedicada**. La política del secreto y de la clave solo permite `GetSecretValue` al rol de ejecución de `converdata-mcp`, con la condición de tag `user_sub`.
-- Expira por política (por defecto 30 días; tag `expires_at` y una Lambda de limpieza) o cuando SQL Server rechaza el login (error 18456): se borra y se vuelve a pedir.
-- `converdata-mcp` obtiene el `user_sub` del **JWT propagado por AgentCore Gateway o Runtime** (nunca de un argumento que el LLM pueda modificar) y recupera la credencial. La credencial queda en memoria solo dentro de la **microVM de la sesión** de AgentCore Runtime, aislada por sesión.
-- CloudTrail registra cada `GetSecretValue`.
+## Custodia: SessionVault en memoria
+- Los logins SQL de los usuarios **no se guardan en ningún almacén**: viven cifrados en la memoria de `ConverData-API` mientras dura la sesión (PRD §13, decisión 14). La clave de cifrado se genera al arrancar el proceso y no sale de él.
+- Sesión: 8 h de inactividad, 12 h de vida total, 5 por usuario, revocable por el administrador (`/admin/sessions`). Cookie `cd_session` con `Secure`; el mismo token sirve como Bearer para `/mcp`.
+- Bloqueo del login: 5 fallos en 10 minutos por usuario y 30 por origen, 15 minutos de bloqueo.
+- Por eso el servicio corre con **una sola tarea y un worker**: un reinicio cierra las sesiones y los usuarios vuelven a entrar.
 
-## Pendiente de verificar en stg
-Que AgentCore Gateway propaga la identidad del usuario al target `converdata-mcp`. La herencia de permisos depende de ello.
+## Secretos de servicio: Secrets Manager
+Equivale a DPAPI on-premise. Solo secretos del servicio, inyectados como variables de entorno de la tarea:
 
-## Evolución recomendada
-Si SQL Server se integra con AD, usar Windows/Kerberos con delegación restringida, o migrar a Entra ID, y eliminar el almacenamiento de contraseñas.
+| Secreto | Quién lo lee |
+|---|---|
+| Login de metadatos del Builder | Solo el rol de la tarea del Builder |
+| Código de instalación (`CONVERDATA_SETUP_TOKEN`), mientras no exista inventario | Tarea de la API |
+| Login con el que la API escribe en la BD `ConverData` (catálogo, curación, auditoría) | Tarea de la API (y del Builder para `catalog`); por confirmar con HU-04 y HU-20 |
+| Webhook de notificaciones (`CONVERDATA_NOTIFY_WEBHOOK`), si se usa | Tarea de la API |
+
+## Roles de IAM
+| Rol | Permisos |
+|---|---|
+| Tarea de la API | `bedrock:InvokeModel` sobre el modelo elegido; lectura de sus secretos; escritura en su grupo de logs |
+| Tarea del Builder | Lectura del secreto del login de metadatos; Bedrock solo si genera descripciones; escritura en su grupo de logs |
+| EventBridge Scheduler | `ecs:RunTask` sobre la definición del Builder |
+
+Bedrock se llama con el rol de la tarea, sin claves (on-premise: IAM Roles Anywhere).
+
+## Roles y grupos de la aplicación
+Igual que on-premise: `data_admin` por lista explícita (`CONVERDATA_ADMINS_ONLY=1` + `CONVERDATA_ADMINS`), `steward` por los responsables
+de dominio de Curación (F24) y `consumer` para el resto. El uso de grupos de Active Directory (HU-13) está **por confirmar** en ambos despliegues.
 
 ## Criterios de aceptación
-1. Los criterios de F14 se cumplen en stg.
-2. El rol de cualquier otro componente recibe `AccessDenied` al leer un secreto de `converdata/sql-logins/*`.
-3. Un usuario A no puede obtener la credencial de un usuario B aunque manipule los argumentos de las herramientas.
+1. Los criterios de F14 se cumplen en qa.
+2. Ningún secreto de Secrets Manager contiene un login de usuario; tras una sesión de prueba, la búsqueda del login y su contraseña en secretos, logs y variables de la tarea devuelve 0 coincidencias.
+3. El rol de la tarea de la API recibe `AccessDenied` al leer el secreto del login de metadatos.
+4. Dos usuarios con permisos distintos hacen la misma pregunta y cada uno ve solo sus objetos.
+5. Al reiniciar la tarea, las sesiones anteriores devuelven 401.
+6. Ser `sysadmin` de un servidor no da el rol `data_admin` si el login no está en `CONVERDATA_ADMINS`.

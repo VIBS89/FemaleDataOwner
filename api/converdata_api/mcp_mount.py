@@ -28,6 +28,7 @@ def build_mcp_mount(runtime: AgentRuntime, vault: SessionVault, settings: ApiSet
     cached: dict = {}
 
     def tools() -> DiscoveryTools | None:
+        runtime.refresh()  # si el Builder publicó un catálogo nuevo en la BD, se carga aquí (como mucho cada 15 s)
         service = runtime.service  # se reemplaza tras cada build del catálogo
         if service is None:
             return None

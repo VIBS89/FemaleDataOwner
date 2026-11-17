@@ -1,135 +1,161 @@
 # Plan de desarrollo — estado y cómo retomar
 
-> Última actualización: 2026-10-25. Documento vivo: se actualiza al cerrar cada sesión de trabajo.
-> Specs: [PRD](PRD.md), [comun/](specs/comun/), [on-premise/](specs/on-premise/). Uso diario: [README](../README.md#desarrollo).
-> Backlog para terminar la versión on-premise (objetivos SMART e historias): [backlog/on-premise.md](backlog/on-premise.md).
+> Última actualización: 2026-11-16. Documento vivo: se actualiza al cerrar cada sesión de trabajo.
+> Specs: [PRD](PRD.md) (decisiones vigentes en §13), [comun/](specs/comun/), [on-premise/](specs/on-premise/). Uso diario: [README](../README.md#desarrollo).
+> Backlog con el estado de cada historia: [backlog/on-premise.md](backlog/on-premise.md). Controles y pendientes de seguridad: [calidad-bancaria.md](calidad-bancaria.md).
 
 ## 1. Dónde estamos
-Fase 1a on-premise (descubrimiento), núcleo implementado y medido. **81 tests en verde.** Todo el código está **sin commit**
-en `main` (ver §6).
+Fase 1a on-premise (descubrimiento). El agente, la API, la web y el MCP están construidos y medidos, y desde el 2026-11-16 el
+catálogo, el conocimiento y la auditoría viven en la **BD `ConverData`** (SQL Server) cuando `CONVERDATA_DB` está definida. Lo que
+falta para el piloto es terminar de llevar la curación a la BD, el LLM real, la instalación en Windows Server y el trabajo con el banco.
+
+El 2026-11-16 se alinearon PRD, specs, backlog y diagramas con la **arquitectura simplificada** (PRD §13, decisiones 9–16): búsqueda
+léxica en memoria sin embeddings, BD `ConverData` en tablas normales (SQL Server 2016+), web Next.js en lugar de Chainlit, Builder como
+comando programado, un solo modelo de Bedrock y AWS como despliegue mínimo posterior al piloto.
 
 | Pieza | Estado | Dónde |
 |---|---|---|
 | DiscoverFlow (F22) en LangGraph: `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize` | ✅ | `src/converdata/flows/discover.py` |
-| Lógica determinista (recuperación, confianza F22, guardas, respaldos sin LLM) | ✅ | `src/converdata/discovery/` |
-| Patrones de agentes medidos: expansión (D), descomposición, calificación/CRAG (C), revisor (B), cascada (E), grafo | ✅ | `discovery/expansion.py`, `discovery/engine.py`, `config.py: Patterns` |
-| Agente de esquemas: CatalogBuildFlow `extract → enrich → relate → write` (F1, F18, F19) | ✅ probado contra SQL Server real | `flows/catalog_build.py`, `builder/`, `metadata/sqlserver.py` |
-| Grafo del patrimonio (entidades, copias canónicas, caminos de unión con permisos) | ✅ en memoria | `src/converdata/graph/estate.py` |
-| Gateway de LLM: Ollama (solo `environment: local`), NVIDIA NIM, Bedrock; respaldo, circuit breaker, guarda de residencia | ✅ Ollama probado; NIM y Bedrock sin probar con credenciales | `src/converdata/llm/` |
-| Evaluación offline por tipo de pregunta (A–G) y ablación de patrones | ✅ | `src/converdata/evaluation/`, `tests/fixtures/*/eval/` |
-| Auditoría fail-closed (F11), visibilidad por login (F14) | ✅ en memoria / lógica | `audit/`, `identity/` |
-| DDL BD `ConverData` y `SqlServerVectorStore` | ⚠️ escrito, **sin validar** contra SQL Server 2025 | `db/converdata/001_esquemas.sql`, `memory/sqlserver_store.py` |
+| Lógica determinista (recuperación léxica, confianza F22, guardas, respaldos sin LLM) y patrones medidos | ✅ | `src/converdata/discovery/` |
+| Agente de esquemas: CatalogBuildFlow `extract → enrich → relate → write` (F1, F18, F19) | ✅ probado contra SQL Server real; escribe YAML | `flows/catalog_build.py`, `builder/`, `metadata/sqlserver.py` |
+| Grafo del patrimonio (entidades, copias canónicas, caminos de unión con permisos) | ✅ en memoria (así se queda) | `src/converdata/graph/estate.py` |
+| Gateway de LLM: Ollama (solo local), NVIDIA NIM, Bedrock; respaldo, circuit breaker, guarda de residencia | ✅ Ollama y NIM probados; **Bedrock sin probar** (HU-35) | `src/converdata/llm/` |
+| Capa de herramientas compartida y `converdata-mcp` (stdio y `/mcp` con `Bearer`) | ✅ | `application/discovery.py`, `integration/mcp/` |
+| `ConverData-API`: login SQL por servidor, SessionVault, visibilidad, descubrimiento, feedback, curación, administración, métricas | ✅ sobre archivos | `api/converdata_api/` |
+| Endurecimiento bancario y compuerta `converdata eval gate` (7 suites, línea base, CI) | ✅ | `api/converdata_api/security.py`, `evaluation/gate.py`, `.github/workflows/calidad.yml` |
+| Web Next.js: chat, ficha, Catálogo, Curación, Solicitudes, Métricas, Administración | ✅ falta recompilar tras el endurecimiento | `web/` |
+| BD `ConverData`: migraciones (`converdata db migrate`), roles de mínimo privilegio y pruebas contra SQL Server real | ✅ bloque A | `db/converdata/`, `storage/migrations.py`, `conftest.py` |
+| Auditoría fail-closed en SQL Server (preguntas, pasos, candidatos, votos, eventos; purga con su propio rol) | ✅ bloque B | `audit/sqlserver.py`, `api/converdata_api/audit.py` |
+| Catálogo y conocimiento en la BD con historial y autor; la API arranca desde ella y carga lo que publica el Builder | ✅ bloque C1 | `storage/catalog_repository.py`, `catalog/store.py`, `api/converdata_api/runtime.py` |
+| Responsables, solicitudes escaladas, votos e inventario de la API en la BD | ⏳ bloque C2: hoy archivos | `api/converdata_api/curation.py` |
+| Instalación en Windows Server (IIS, tareas programadas) | ⏳ bloque F: hoy `docker compose` | — |
 
 ## 2. Resultados medidos
-`converdata eval discovery` — Hit@1 sobre preguntas con respuesta.
+`converdata eval discovery` — Hit@1 sobre preguntas con respuesta. Siempre 0 fugas de permisos y 0 objetos inventados.
 
-| Catálogo | Hit@1 | Hit@3 | A directa | B vocabulario | C varios saltos (caminos) | D entidad | E exploración | G brechas |
-|---|---|---|---|---|---|---|---|---|
-| Fixture VBank (propuesta), 25 casos | 100 % | 100 % | — | — | — | — | — | 100 % |
-| BancosSQL crudo, sin patrones/grafo (línea base) | 44,8 % | 69 % | 87,5 % | 25 % | 20 % (40 %) | 0 % | 75 % | 100 % |
-| **BancosSQL crudo, todos los patrones + grafo** | **72,4 %** | **82,8 %** | 100 % | 25 % | 80 % (100 %) | 100 % | 75 % | 100 % |
-| BancosSQL enriquecido por Qwen local, léxico | 72,4 % | 82,8 % | 100 % | 37,5 % | 60 % (100 %) | 100 % | 75 % | 100 % |
+| Catálogo | Hit@1 | Hit@3 | A directa | B vocabulario | C varios saltos (caminos) | D entidad | E exploración | G brechas | p50 / p95 |
+|---|---|---|---|---|---|---|---|---|---|
+| Fixture VBank (propuesta), 25 casos | 100 % | 100 % | — | — | — | — | — | 100 % | — |
+| **BancosSQL crudo, léxico (línea base vigente, 31 casos)** | **93,1 %** | **93,1 %** | 100 % | 87,5 % | 80 % (100 %) | 100 % | 100 % | 100 % | 41 / 73 ms |
+| BancosSQL crudo + embeddings `bge-m3` | 93,1 % | 93,1 % | 100 % | 87,5 % | 80 % (100 %) | 100 % | 100 % | 100 % | 524 / 4592 ms |
+| BancosSQL enriquecido por Qwen, léxico | 82,8 % | 93,1 % | 100 % | 75 % | 60 % (100 %) | 100 % | 75 % | 100 % | 71 / 111 ms |
+| BancosSQL enriquecido + embeddings | 82,8 % | 89,7 % | 87,5 % | 87,5 % | 60 % (100 %) | 100 % | 75 % | 100 % | 407 / 508 ms |
 
-Siempre 0 fugas de permisos y 0 objetos inventados. Latencia determinista 20–45 ms por pregunta.
+Historia de la línea base en BancosSQL crudo: 44,8 % / 69 % sin patrones ni grafo → 72,4 % / 82,8 % con patrones y grafo → 93,1 % / 93,1 %
+tras las mejoras de descubrimiento del commit `9c700ec` (medición HU-34 del 2026-10-29).
+
+Compuerta `converdata eval gate` (2026-11-15, modo determinista): aprobada en `tests/fixtures/vbank` y `tests/fixtures/bancos`, con
+0 fugas en 714 preguntas × usuario y 4 862 llamadas a herramientas.
+
+Lo que estas cifras **no** dicen:
+- Los 56 casos los escribió el equipo de desarrollo (sesgo de ajuste). Faltan 50–80 preguntas reales (HU-33).
+- Todo se midió sin LLM. Falta repetir con Bedrock (HU-35), también las suites `inyeccion` y `guardas`.
+- Fallos que quedan en crudo: **B4** ("arrendamientos financieros de vehículos": devuelve `ContratosLeasing.MontoFinanciado` en vez de la
+  tabla) y **C2** (transacciones TC ↔ DUI: `Clientes.DUI` no entra en el top 3). Son de orden, no de recuperación.
+- El diagrama on-premise cita una prueba con 25 preguntas normativas, de tablero y de estudio (4 % de acierto solo con catálogo, 40 % con
+  fuentes de conocimiento). **Ese set no está en el repo**: hay que versionarlo en `tests/fixtures/*/eval/` o repetir la prueba antes de
+  usar la cifra.
 
 Lecciones que guían lo que sigue:
-- El grafo resolvió D (copias de Clientes en 4 BDs) y C (caminos de unión); la **descomposición** de preguntas compuestas fue clave para C.
-- Las descripciones generadas por LLM **empeoraban** la búsqueda léxica (62 %) hasta tratarlas como evidencia débil (×0.5).
-  Su lugar natural es el **canal semántico (embeddings)**, que aún no se ha medido.
-- Lo que falla hoy es casi todo **vocabulario**: "billetera" ↔ `Wallets`, "TC" = tarjeta de crédito, "tokenización" ↔ `Tokens`,
-  "tasa de interés" ↔ `TasaAnual`.
+- El grafo resolvió D (copias de Clientes en 4 BDs) y C (caminos de unión); la descomposición de preguntas compuestas fue clave para C.
+- Las descripciones generadas por LLM empeoran la búsqueda léxica si pesan como las humanas: son evidencia débil (×0.5).
+- Los embeddings no mejoran el acierto y multiplican la latencia: no se despliegan (PRD §13, decisión 9).
+- Lo que más mueve las preguntas de reporte es el conocimiento ingerido (diccionarios, documentos, reglas), no el modelo.
 
 ## 3. Próximos pasos (en orden)
-Orden por historias del backlog para el agente y su MCP: [§7](#7-orden-de-desarrollo-del-agente-y-su-mcp).
+Bloques del [backlog §3](backlog/on-premise.md#3-plan-de-entregas). A, B, C, D y los scripts de F no dependen de nadie externo.
 
-1. **Medir embeddings** (paso pendiente de esta sesión). Requiere `bge-m3` en Ollama (`ollama pull bge-m3`; la descarga
-   quedó en curso, verificar con `ollama list`). Medir 4 combinaciones y quedarse con la mejor:
-   ```bash
-   # crudo / enriquecido × léxico / +embeddings
-   converdata eval discovery --root tests/fixtures/bancos
-   converdata eval discovery --root tests/fixtures/bancos --models config/models.embed.yaml --embeddings-only
-   converdata eval discovery --root data/catalog_bancos_enriched --cases tests/fixtures/bancos/eval/discovery.yaml
-   converdata eval discovery --root data/catalog_bancos_enriched --cases tests/fixtures/bancos/eval/discovery.yaml --models config/models.embed.yaml --embeddings-only
-   ```
-   Objetivo: subir B (vocabulario) sin bajar A/C/D/G. Si los embeddings suben B, ajustar el peso del canal semántico en RRF.
-2. **Cobertura semántica**: hoy la cobertura (que decide la relevancia determinista) es solo léxica; con embeddings,
-   agregar similitud concepto↔activo para que el ranking también se beneficie (no solo la recuperación).
-3. **Explorador agéntico acotado (Agentic GraphRAG)**: solo si tras 1–2 el tipo E sigue < 85 %. Nodo con herramientas
-   `vecinos`, `camino_entre`, `entidad`, `columnas_de`, máx. 3–4 pasos, filtrado por permisos, auditado (ver §5).
-4. **Set de evaluación ampliado**: hoy 31 casos sobre BancosSQL armados por el equipo de desarrollo (sesgo de ajuste).
-   Escribir 50–80 preguntas reales con usuarios del piloto (F25, OP-01 D1) antes de declarar resultados.
-5. **Persistencia on-premise**: validar el DDL y `SqlServerVectorStore` en SQL Server 2025; mover el grafo a tablas de grafo
-   (`NODE`/`EDGE`); escribir el catálogo en la BD `ConverData` además de YAML (OP-02).
-6. **Interfaces**: API FastAPI (`/discover`, `/login` con SessionVault, `/assets`, `/discover/feedback`), Chainlit, MCP (F12, OP-03, OP-04).
-7. **Curación y aprendizaje (F24)**: ✔/✖ → golden discovery, "Preguntar al responsable", vista Curación.
-8. **Conectores de conocimiento (F23)**: diccionarios Excel/CSV, documentos con Presidio, SSIS/SQL Agent.
+| Bloque | Qué | Historias | Estado |
+|---|---|---|---|
+| **A** | BD `ConverData`: DDL en migraciones con `dbo.schema_version`, roles (API, Builder, auditor, mantenimiento), sin `VECTOR`, Full-Text ni grafo; `converdata db migrate`; pruebas contra SQL Server real, también con la cuenta de cada rol | HU-04, HU-05 | ✅ 2026-11-16 (probado en SQL Server 2022, no en 2016) |
+| **B** | Auditoría fail-closed en SQL Server: preguntas, pasos, candidatos, votos y eventos de la API y de la CLI; lectura para Administración, historial y métricas; purga `audit.usp_purge` | HU-20 | ✅ 2026-11-16 (falta la alerta en el monitoreo, HU-37) |
+| **C1** | Catálogo y conocimiento en la BD con historial; publicar, cargar y exportar; el Builder publica (`catalog build --db`); la API arranca desde la BD, edita bajo un solo candado y recarga cuando cambia la versión | HU-06, HU-08, HU-09 | ✅ 2026-11-16, con las salvedades de abajo |
+| **C2** | Terminar HU-06 y HU-09. (1) Migración `002` y `CurationStore` sobre la BD: responsables por login, solicitudes escaladas, votos, registro de diccionarios e inventario de la API, hoy en archivos. (2) Que la curación escriba filas concretas, para no necesitar la copia de trabajo en disco. (3) Anonimizar la plantilla de las confirmaciones y guardar el original en `golden`. (4) Regla de votos. (5) Historial de descripciones en la vista Curación. (6) Un caso de uso común para el build, hoy repetido en la CLI y en la API | HU-06, HU-09, HU-15, HU-25, HU-28 a HU-32 | ⏳ **siguiente** |
+| **D** | `converdata metrics report` y vistas SQL del scorecard; reporte de brechas por dominio | HU-23, HU-32 | ⏳ |
+| **E** | Conocimiento del dominio piloto: diccionario en Excel, documentos con redacción de datos personales, linaje SSIS | HU-25, HU-26, HU-27 | ⏳ E necesita documentos y SSISDB (S6); el conector y la redacción se pueden hacer ya |
+| **F** | `deploy/windows/`: IIS con HttpPlatformHandler para web y API, tareas programadas (refresco, purga, evaluación), firewall, verificación; respaldo y restauración | HU-37, HU-38, HU-39, HU-18, HU-24 | ⏳ los scripts se pueden escribir ya; validarlos necesita un Windows Server |
+| **G** | Bedrock de punta a punta y set de preguntas reales | HU-35, HU-36, HU-33 | ⛔ cuenta AWS y steward |
+| **H** | Línea base, piloto de 8 semanas e informe | HU-40, HU-41, HU-13 | ⛔ banco |
+
+Salvedades de A, B y C1, para no darlas por cerradas de más (detalle en los bloques **Estado** del backlog):
+- Las pruebas contra SQL Server no corren en la CI (no tiene SQL Server): hay que ejecutarlas a mano con `CONVERDATA_TEST_DB`.
+- Los comandos nuevos de la CLI (`db migrate`, `catalog publish|export|build --db`, `eval gate --db`, `audit purge`) se probaron a mano
+  contra la BD local, pero no tienen pruebas automáticas; sí las tienen las funciones que llaman.
+- La prueba de literales marcados de punta a punta (HU-06, OP-02 CA5) no existe, y `knowledge.golden_discovery` guarda la pregunta
+  normalizada, no anonimizada (mitigado: el Builder no la lee, no se exporta y no se guarda si parece llevar datos personales).
+- El servidor todavía guarda estado propio: la copia de trabajo del catálogo y los archivos de curación.
+
+Hallazgos del 2026-11-16 ya corregidos:
+- El refresco borraba del catálogo los objetos de un servidor que no respondía.
+- Con `databases: "*"` el Builder catalogaba la propia BD `ConverData`.
+- El DDL anterior no tenía la columna `detail` que el escritor de auditoría insertaba.
+- De la revisión de seguridad: la copia de trabajo no tenía un candado común entre editar, traer y publicar (una edición podía
+  perderse con respuesta de éxito, o publicarse a nombre de otro); el voto se aplicaba antes de auditarse y publicaba el catálogo
+  entero; el rol del Builder podía leer las preguntas confirmadas y borrar lo curado; las pruebas podían correr contra una BD real
+  si `CONVERDATA_TEST_DB` nombraba una; `verify` no veía permisos concedidos tabla por tabla.
+
+Pendientes que no son historias (de [calidad-bancaria §5](calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)), a resolver junto al bloque que toque:
+- Con C2: que un solo "✖" de un consumidor no retire una confirmación de usuarios; no publicar ni recargar todo en cada voto.
+- Con C2: decidir si el responsable ve en Curación activos que su login no puede leer (PRD §13, pregunta abierta 7).
+- Con D: decidir qué lecturas se auditan además de las preguntas (pregunta abierta 8).
+- Con F: dependencias fijadas con hashes, imagen por digest, SBOM; SQL Server en la CI para que las pruebas de la BD corran en cada PR;
+  probar el DDL en la versión de SQL Server del piloto (se probó en 2022).
+
+Mejoras de calidad del agente, solo si la medición las pide (regla: se acepta lo que mejora el set sin bajar otros tipos ni crear fugas):
+- Orden de B4 y C2 (hoy los únicos fallos del set de BancosSQL).
+- Explorador acotado sobre el grafo si el tipo E baja de 85 % con el set real.
 
 ## 4. Cómo retomar (checklist)
 ```bash
 cd converdata
-.venv/Scripts/python -m pytest -q                       # debe dar 81 passed
-ollama list                                              # ¿está bge-m3? si no: ollama pull bge-m3
-sqlcmd -S "localhost\SQLEXPRESS" -E -C -Q "SELECT name FROM sys.databases WHERE database_id>4"   # 5 BDs Banca*
-.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos   # 72,4 % / 82,8 %
+.venv/Scripts/python -m pip install -e ".[api,mcp,dev,ollama,sqlserver]"   # sin esto api/tests no carga
+.venv/Scripts/python -m pytest -q                                          # 297 passed, 63 skipped (las de SQL Server)
+export CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes'
+.venv/Scripts/python -m pytest -q                                          # 360 passed: incluye migraciones, roles, auditoría y catálogo en una BD real y desechable
+.venv/Scripts/python -m converdata.cli eval gate --out reports             # compuerta: debe aprobar en vbank y bancos
+sqlcmd -S "localhost\SQLEXPRESS" -E -C -Q "SELECT name FROM sys.databases WHERE database_id>4"   # 5 BDs Banca* y ConverData
+export CONVERDATA_DB='SERVER=localhost\SQLEXPRESS;DATABASE=ConverData;Trusted_Connection=yes;TrustServerCertificate=yes'
+.venv/Scripts/python -m converdata.cli db migrate --status                 # "ninguna (la BD está al día)"
+.venv/Scripts/python -m converdata.cli eval gate --db --root tests/fixtures/bancos   # la compuerta con el catálogo de la BD
 ```
-Luego seguir con el paso 1 de §3.
+En local, la autenticación de Windows de la API viene apagada: añadir `CONVERDATA_ALLOW_WINDOWS_AUTH=1` a `.env`.
+La web necesita `npm --prefix web ci` (no hay `node_modules`).
+Luego seguir con el bloque C2 de §3.
 
 ## 5. Decisiones de arquitectura vigentes
-- **GraphRAG híbrido local orquestado como workflow** (no agente autónomo): búsqueda léxica + vectorial encuentra semillas,
-  el grafo del patrimonio expande (FK, misma entidad, linaje) y une sub-preguntas; el LLM opina dentro de nodos y nunca
-  decide el orden (PRD §8.1). Ciclos acotados: reformular (máx. 1), corregir (máx. 1).
-- **Tres almacenes**: catálogo estructurado (fuente de verdad, historial), índice vectorial + Full-Text (fichas por columna con
-  contexto de tabla; nunca DDL crudo ni valores), grafo (de metadatos, determinista; el LLM solo propone inferencias a revisar).
+El registro completo está en [PRD §13](PRD.md#13-decisiones-y-preguntas-abiertas). Las que más pesan al programar:
+- **Workflow, no agente autónomo**: el grafo fija el orden; el LLM opina dentro de nodos (intención, orden, narrativa) y nunca decide
+  los pasos. Ciclos acotados: reformular (máx. 1), corregir (máx. 1).
+- **Búsqueda léxica + grafo, todo en memoria** de `ConverData-API`; la BD `ConverData` es la fuente de verdad y el índice se reconstruye
+  al arrancar o cuando cambia `catalog.catalog_version`. El directorio de datos de la API es una copia de trabajo desechable.
+- **Publicar es dejar la BD igual a la foto escribiendo solo lo que cambió**, bajo un bloqueo y con la versión esperada. El Builder
+  (`scope="build"`) solo toca lo que deriva de los metadatos: nunca pisa lo humano ni lo curado.
+- **La cuenta de la API no puede modificar ni borrar la auditoría**; en qa y prod la API lo comprueba al arrancar.
 - **Texto generado por IA = evidencia débil** (cobertura ×0.5, confianza máx. 0.6 sin otra evidencia) hasta curación humana.
 - **Una sola respuesta por dato replicado**: la copia canónica (más referenciada) con las demás en `copies`.
 - **Ollama solo en local** (regla de código + `CONVERDATA_ENV`); NIM alojado solo con datos de prueba; Bedrock para datos reales.
-- **Todo cambio de lógica se acepta solo si mejora el set de evaluación** sin bajar otros tipos ni crear fugas.
+- **Capas** ([capas-backend](architecture/capas-backend.md)): dominio y aplicación no importan `pyodbc`, LangChain ni FastAPI; los
+  adaptadores de SQL Server van en infraestructura detrás de un puerto (`tests/test_architecture.py`).
+- **Todo cambio de lógica se acepta solo si la compuerta no baja** de su línea base ni crea fugas.
 
 ## 6. Estado del entorno local (no está en git)
 | Elemento | Detalle |
 |---|---|
-| Código | Sin commit: `src/`, `tests/`, `config/` (salvo `models.yaml`), `db/`, `pyproject.toml`, `README.md`, `.gitignore`, este archivo |
-| `.venv/` | Python 3.12 con langgraph, langchain-core/aws/ollama/nvidia, pyodbc, pytest |
-| SQL Server Express local | `localhost\SQLEXPRESS` con 5 BDs de prueba cargadas desde `BancosSQL.zip` (BancaTarjetasCredito, BancaCuentasDebito, BancaTokenizacion, BancaLeasing, BancaPrestamos). Se eliminan con `DROP DATABASE` si hace falta |
-| `data/` (ignorado) | `bancos_sql/` (scripts extraídos), `catalog_bancos/` (catálogo crudo), `catalog_bancos_enriched/` (enriquecido por Qwen, 8,6 min) |
-| `config/models.yaml` (ignorado) | Ollama `qwen3.6:35b-a3b` para planner/fast/judge |
-| `config/models.embed.yaml` | Solo embeddings `bge-m3` en Ollama |
-| Ollama | `qwen3.6:35b-a3b` instalado; `bge-m3` en descarga |
-| `BancosSQL.zip` (13 MB) | Versionado en git desde `main`; conviene sacarlo del repo o usar Git LFS |
+| `.venv/` | Python 3.12 con langgraph, langchain-core/aws/ollama/nvidia, fastapi, mcp, pyodbc, pytest |
+| SQL Server local | `localhost\SQLEXPRESS`, **SQL Server 2022 Express**, con 5 BDs de prueba cargadas desde `BancosSQL.zip` (BancaTarjetasCredito, BancaCuentasDebito, BancaTokenizacion, BancaLeasing, BancaPrestamos) y la BD **`ConverData`** de desarrollo, creada el 2026-11-16 con las migraciones aplicadas y el catálogo de BancosSQL publicado. Se elimina con `DROP DATABASE ConverData` si hace falta. Solo está el ODBC Driver 17 (el código usa el 18 si existe) |
+| `data/` (ignorado) | `bancos_sql/` (scripts extraídos), `catalog_bancos/` (catálogo crudo), `catalog_bancos_enriched/` (enriquecido por Qwen), `logs/` |
+| `config/models.yaml` (ignorado) | Ollama `qwen3.6:35b-a3b` para planner y fast |
+| Ollama | `qwen3.6:35b-a3b` y `bge-m3` instalados (`bge-m3` solo para repetir la medición de embeddings) |
+| `web/node_modules` | Sin instalar |
+| `BancosSQL.zip` (13 MB) | Versionado en git; conviene sacarlo del repo o usar Git LFS |
 
-## 7. Orden de desarrollo del agente y su MCP
-> Añadido el 2026-10-27. Ordena las historias del [backlog on-premise](backlog/on-premise.md) para construir el DiscoverFlow y
-> `converdata-mcp` (F12) sobre la misma capa de herramientas. Cada paso se apoya en el anterior.
-
-**Antes de empezar:** en `api/converdata_api/` ya hay una API en desarrollo (login, vault, auditoría, `/discover`, `/feedback`, admin)
-con rutas `/auth/login`, `/discover` y `/feedback`, mientras que [OP-04](specs/on-premise/OP-04-interfaces.md) pide `POST /login`,
-`/api/discover` y `/api/discover/feedback`. Hay que acordar cuáles quedan antes del paso 5, porque el MCP y Chainlit dependen de ellas.
-
-| Paso | Qué | Historias | Por qué en este orden |
-|---|---|---|---|
-| 1 | Afinar el agente: medir embeddings (las 4 combinaciones de §3) y probar los roles de Bedrock con latencia y coste reales | [HU-34](backlog/on-premise.md#hu-34--medir-y-ajustar-el-canal-semántico), [HU-35](backlog/on-premise.md#hu-35--bedrock-probado-de-punta-a-punta) | El MCP se construye sobre un agente con calidad ya medida |
-| 2 | Persistencia en la BD `ConverData`: DDL con `estate` y `semantic`, validar `SqlServerVectorStore` en SQL Server 2025, escribir el catálogo y arrancar el agente desde la BD (YAML solo en desarrollo) | [HU-04](backlog/on-premise.md#hu-04--completar-el-ddl-de-la-bd-converdata), [HU-05](backlog/on-premise.md#hu-05--validar-el-ddl-y-sqlservervectorstore-en-sql-server-2025), [HU-06](backlog/on-premise.md#hu-06--escribir-el-catálogo-en-la-bd-converdata-con-historial), [HU-09](backlog/on-premise.md#hu-09--ensamblar-el-discoverflow-desde-la-bd-converdata) | Requiere una instancia SQL Server 2025 |
-| 3 | Identidad: SessionVault, `ConnectionFactory.for_session` y login por servidor | [HU-11](backlog/on-premise.md#hu-11--custodia-de-credenciales-en-sessionvault), [HU-12](backlog/on-premise.md#hu-12--conexiones-con-la-credencial-del-usuario), [HU-10](backlog/on-premise.md#hu-10--iniciar-sesión-con-login-sql-por-servidor) | Cada herramienta toma la identidad de la sesión, nunca de un argumento (F14). Revisar `api/converdata_api/vault.py` contra OP-03 |
-| 4 | Auditoría fail-closed en SQL Server | [HU-20](backlog/on-premise.md#hu-20--auditoría-fail-closed-en-sql-server) | Ninguna interfaz, ni la API ni el MCP, responde sin auditar (F11). Revisar `api/converdata_api/audit.py` |
-| 5 | Capa de herramientas compartida (ver abajo) | [HU-16](backlog/on-premise.md#hu-16--herramientas-mcp-con-la-identidad-de-la-sesión) | La API, el chat y el MCP llaman al mismo código: un único camino de escritura (F12) |
-| 6 | API y MCP publicados: las rutas llaman a las herramientas del paso 5; FastMCP en `/mcp` de `ConverData-API` con el mismo `Bearer` de `/login`; solo se publican las herramientas externas | [HU-14](backlog/on-premise.md#hu-14--api-rest-de-descubrimiento), [HU-15](backlog/on-premise.md#hu-15--confirmar-o-rechazar-un-candidato), [HU-16](backlog/on-premise.md#hu-16--herramientas-mcp-con-la-identidad-de-la-sesión) | Aceptación: Claude Code con `.mcp.json` apuntando a `/mcp` recibe un `AnswerEnvelope` con `flow=discover` (OP-04 CA3) |
-| 7 | Lo que consume las herramientas: chat, curación con las herramientas internas `curation_*` e ingesta de conocimiento | [HU-17](backlog/on-premise.md#hu-17--chat-chainlit-con-tarjetas-de-candidatos), [HU-29](backlog/on-premise.md#hu-29--golden-discovery-desde-las-confirmaciones), [HU-30](backlog/on-premise.md#hu-30--preguntar-al-responsable), [HU-31](backlog/on-premise.md#hu-31--vista-curación-para-stewards), [HU-25](backlog/on-premise.md#hu-25--ingesta-de-diccionarios-de-datos), [HU-26](backlog/on-premise.md#hu-26--ingesta-de-documentos-con-redacción-de-pii), [HU-28](backlog/on-premise.md#hu-28--reglas-de-negocio-gestionadas) | Todo escribe por las herramientas internas |
-| 8 | Operación y piloto: logs, alertas, instalación en IIS y piloto | [HU-21](backlog/on-premise.md#hu-21--logs-json-sin-contenido-y-visor-de-eventos), [HU-22](backlog/on-premise.md#hu-22--contadores-en-healthmetrics), [HU-37](backlog/on-premise.md#hu-37--scripts-de-instalación-en-windows-server), [HU-38](backlog/on-premise.md#hu-38--secretos-de-servicio-sin-contraseñas-en-claro), [HU-40](backlog/on-premise.md#hu-40--línea-base-firmada), [HU-41](backlog/on-premise.md#hu-41--ejecución-del-piloto-e-informe-de-decisión) | Cierra la versión on-premise |
-
-### Paso 5 en detalle: herramientas de `converdata-mcp`
-Funciones Python que reciben el contexto de sesión (usuario, grupos, `visible_ids`), antes de añadir FastMCP:
-
-| Orden | Herramientas | Tipo |
+## 7. Qué necesita al banco o a terceros
+| Necesidad | Para | Supuesto del backlog |
 |---|---|---|
-| 5a | `discover`, `get_asset` | Externas: lo mínimo para un cliente MCP en la fase 1a |
-| 5b | `get_related`, `find_alternatives`, `list_business_rules`, `get_lineage` | Externas: detalle de un candidato |
-| 5c | `record_discovery_feedback` | Interna: solo la usa la API |
-| 5d | `where_is`, `estate_overview`, `find_join_path`, `search_catalog`, `describe_table` | Externas, opcionales en la fase 1a (grafo F19 y catálogo) |
-
-Los tests de permisos deben pasar ya en este paso: el usuario A no ve nada de B, ningún argumento cambia la identidad (OP-03 CA5) y hay
-0 fugas en el set de evaluación.
-
-- El MCP de metadatos (`converdata-discovery`, F18) **no se publica** on-premise: sigue como biblioteca dentro de `ConverData-Builder`
-  (`src/converdata/metadata/sqlserver.py`).
-- **Fuera de la fase 1a:** `ask`, `validate_sql`, `run_select`, `exec_procedure`, `list_metrics` y `analyze` (AskFlow, fase 1b); se añaden
-  después sobre la misma capa de herramientas.
+| Cuenta de AWS con Bedrock e IAM Roles Anywhere | HU-35, HU-38 | S4 |
+| Steward funcional y técnico, y 50–80 preguntas reales | HU-33, HU-31 | S9 |
+| Ubicación de diccionarios y documentos; acceso a SSISDB y msdb | HU-26, HU-27 | S6 |
+| Windows Server del piloto, instancia para la BD `ConverData`, gMSA, certificado de la PKI | HU-37, HU-38 | S10 |
+| LDAP de solo lectura | HU-13 | S10 |
+| Gestor de requerimientos y canal de consultas para la línea base | HU-40 | S13 |
+| Decisiones de Seguridad de la Información: Guardrails, lecturas auditadas, batería de inyección | HU-36 | S7 |

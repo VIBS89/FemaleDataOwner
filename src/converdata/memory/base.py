@@ -1,4 +1,4 @@
-"""Interfaz `VectorStore` (F2), idéntica en on-premise (`SqlServerVectorStore`) y cloud native (`OpenSearchStore`).
+"""Puerto `VectorStore` (F2). La única implementación desplegada es `InMemoryVectorStore` (índice léxico en memoria).
 
 `visible_ids` es obligatorio en toda búsqueda: no existe una llamada sin filtro de permisos (F14).
 """

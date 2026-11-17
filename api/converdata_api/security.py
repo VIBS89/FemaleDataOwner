@@ -240,6 +240,22 @@ def production_violations(settings: ApiSettings) -> list[str]:
         if models.get("data_mode") != "real":
             problems.append("config/models.yaml debe declarar data_mode: real, para que el gateway rechace proveedores "
                             "que solo admiten datos de prueba (OP-06)")
+        if "embed" in (models.get("roles") or {}):
+            problems.append("config/models.yaml no debe declarar el rol embed: la búsqueda es léxica y los embeddings "
+                            "no se despliegan (PRD §13, decisión 9)")
+    if not settings.db:
+        problems.append("CONVERDATA_DB es obligatorio: la auditoría debe escribirse en la BD ConverData, donde la cuenta "
+                        "del servicio no puede modificarla ni borrarla (OP-05)")
+    else:
+        options = {k.strip().lower(): v.strip().lower() for k, _, v in
+                   (chunk.partition("=") for chunk in settings.db.split(";")) if k.strip()}
+        if "pwd" in options or "password" in options:
+            problems.append("CONVERDATA_DB no puede llevar contraseña: la conexión usa la cuenta del servicio "
+                            "(Trusted_Connection=yes con la gMSA, OP-03)")
+        if options.get("trustservercertificate") in ("yes", "true", "1"):
+            problems.append("CONVERDATA_DB tiene TrustServerCertificate: el certificado TLS de la BD ConverData debe validarse")
+        if options.get("encrypt") in ("no", "false", "0", "optional"):
+            problems.append("CONVERDATA_DB debe cifrar la conexión (Encrypt=yes): por ella viajan las preguntas auditadas")
     if settings.demo:
         problems.append("CONVERDATA_DEMO está activo: el modo demo usa servidores simulados y la contraseña 'demo'")
     if not settings.cookie_secure:

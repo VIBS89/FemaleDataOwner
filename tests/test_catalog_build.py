@@ -115,3 +115,37 @@ def test_formato_de_tipos():
     assert format_type("nvarchar", 120, 0, 0) == "nvarchar(60)"
     assert format_type("varchar", -1, 0, 0) == "varchar(max)"
     assert format_type("decimal", 9, 12, 2) == "decimal(12,2)"
+
+
+def test_un_servidor_caido_no_vacia_su_parte_del_catalogo(tmp_path):
+    """El refresco nocturno no puede dejar sin catálogo a los usuarios porque un servidor no respondió esa noche."""
+
+    class Flaky(FakeSource):
+        down = False
+
+        def __init__(self, server):
+            if Flaky.down and server.id == "LOCAL":
+                raise ConnectionError("servidor no responde")
+            super().__init__(server)
+
+    first = build_catalog(_inventory(), tmp_path, source_factory=Flaky)
+    before = sorted(p.relative_to(tmp_path).as_posix() for p in (tmp_path / "catalog").rglob("*.yaml"))
+    lineage = (tmp_path / "knowledge" / "lineage" / "views.yaml").read_text(encoding="utf-8")
+    assert first.objects == 4 and "vw_Cartera" in lineage
+    Flaky.down = True
+    second = build_catalog(_inventory(), tmp_path, source_factory=Flaky)
+    assert second.servers_ok == [] and set(second.servers_failed) == {"LOCAL", "CAIDO"}
+    assert second.kept_from_failed == 4 and second.objects == 4
+    assert sorted(p.relative_to(tmp_path).as_posix() for p in (tmp_path / "catalog").rglob("*.yaml")) == before
+    assert (tmp_path / "knowledge" / "lineage" / "views.yaml").read_text(encoding="utf-8") == lineage
+
+
+def test_la_bd_de_trabajo_converdata_no_se_cataloga(tmp_path):
+    class WithOwnDb(FakeSource):
+        def list_databases(self):
+            return [*super().list_databases(), "ConverData", "ConverData_QA"]
+
+    report = build_catalog(_inventory(), tmp_path, source_factory=WithOwnDb,
+                           exclude_databases=frozenset({"converdata", "converdata_qa"}))
+    assert report.databases == ["LOCAL/BancaPrestamos", "LOCAL/BancaTarjetasCredito"]
+    assert not (tmp_path / "catalog" / "desarrollo" / "LOCAL" / "ConverData").exists()

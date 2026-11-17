@@ -18,6 +18,7 @@ from pathlib import Path
 import yaml
 
 from converdata.catalog.ids import asset_key_of, physical_id
+from converdata.catalog.store import CatalogSnapshot
 from converdata.config import Inventory, ServerConfig
 from converdata.discovery.expansion import LEXICON
 from converdata.memory.text import normalized_name, strip_accents
@@ -256,3 +257,44 @@ def write_output(root: Path, inventory: Inventory, objects: list[CatalogObject],
 
 def _dump(path: Path, data) -> None:
     path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+# Archivos de conocimiento que escribe `write_snapshot`. Las reglas y las confirmaciones van a los archivos que edita
+# la curación de ConverData-API, y el linaje de vistas al que reescribe cada refresco.
+SNAPSHOT_FILES = {
+    "rules": "curadas.yaml", "golden": "confirmaciones_usuarios.yaml", "items": "items.yaml",
+    "estate": "entities.yaml", "lineage": "views.yaml", "lineage_other": "otros.yaml",
+}
+
+
+def write_snapshot(root: Path, snapshot: CatalogSnapshot, include_questions: bool = True) -> None:
+    """Deja en `root` un directorio de trabajo igual a la foto (la BD `ConverData` exportada): lo que había se reemplaza.
+
+    Es el formato que leen `load_snapshot`, el Builder (para no volver a enriquecer lo que no cambió) y
+    `converdata catalog export` (revisión en pull requests, OP-02). Con `include_questions=False` no se escriben las
+    confirmaciones, que llevan el texto de las preguntas (D2): así se exporta a git."""
+    root = Path(root)
+    kb = snapshot.knowledge
+    for sub in ("rules", "golden", "items", "estate", "lineage"):
+        folder = root / "knowledge" / sub
+        folder.mkdir(parents=True, exist_ok=True)
+        for stale in folder.glob("*.yaml"):
+            stale.unlink()
+    views = [e for e in kb.lineage if e.via.kind == "view"]
+    write_output(root, snapshot.inventory, snapshot.objects, kb.entities, views)
+    _dump(root / "config" / "databases.yaml",
+          {"servers": [s.model_dump(exclude_defaults=True, exclude_none=True) | {"id": s.id, "alias": s.alias,
+                                                                               "environment": s.environment}
+                       for s in snapshot.inventory.servers]})
+    _dump(root / "config" / "owners.yaml", [d.model_dump(exclude_none=True) for d in snapshot.owners.domains])
+    knowledge = root / "knowledge"
+    others = [e for e in kb.lineage if e.via.kind != "view"]
+    if others:
+        _dump(knowledge / "lineage" / SNAPSHOT_FILES["lineage_other"],
+              [e.model_dump(by_alias=True, exclude_defaults=True) for e in others])
+    if kb.rules:
+        _dump(knowledge / "rules" / SNAPSHOT_FILES["rules"], [r.model_dump(exclude_none=True) for r in kb.rules])
+    if kb.golden and include_questions:
+        _dump(knowledge / "golden" / SNAPSHOT_FILES["golden"], [g.model_dump() for g in kb.golden])
+    if kb.items:
+        _dump(knowledge / "items" / SNAPSHOT_FILES["items"], [i.model_dump(exclude_none=True) for i in kb.items])

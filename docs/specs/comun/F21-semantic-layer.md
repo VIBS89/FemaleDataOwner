@@ -1,5 +1,7 @@
 # F21 — Capa semántica: métricas gobernadas y consultas verificadas · común
 
+> Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
+>
 > Inspirada en el *semantic model* YAML y el *Verified Query Repository* de Snowflake Cortex Analyst, y en dbt MetricFlow (Apache-2.0 desde oct-2025).
 > Se adopta el **formato y el enfoque**, sin depender de dbt ni de Snowflake.
 

@@ -5,10 +5,10 @@
 | **Producto** | Enterprise Data Discovery Agent (nombre técnico: ConverData) |
 | **Cliente** | Gerencia de Datos, Banco Atlántida El Salvador |
 | **Origen** | *Propuesta 1 — Agente de descubrimiento y conocimiento de datos corporativos* |
-| **Estado** | Borrador para revisión · 2026-10-14 |
-| **Fase** | Especificación y arquitectura terminadas; implementación sin iniciar |
+| **Estado** | Revisado el 2026-11-16: arquitectura simplificada (§13, decisiones 9–16) |
+| **Fase** | Fase 1a on-premise en desarrollo: descubrimiento, API, web y MCP construidos y medidos; faltan la BD `ConverData`, Bedrock y la instalación en el servidor del piloto ([plan](PLAN-desarrollo.md), [backlog](backlog/on-premise.md)) |
 | **Alcance de este documento** | Producto, requisitos, principios, contrato de respuesta, trazabilidad con la propuesta y catálogo de specs (sustituye a `features.md` y `propuesta-trazabilidad.md`) |
-| **Documentos relacionados** | [specs](specs/) (catálogo en el anexo A) · [arquitectura on-premise](architecture/onpremise-architecture.html) · [arquitectura cloud native](architecture/cloud-native-architecture.html) |
+| **Documentos relacionados** | [specs](specs/) (catálogo en el anexo A) · [arquitectura on-premise](architecture/onpremise-architecture.html) · [arquitectura cloud native](architecture/cloud-native-architecture.html) · [capas del backend](architecture/capas-backend.md) · [calidad bancaria](calidad-bancaria.md) · [plan de desarrollo](PLAN-desarrollo.md) · [backlog on-premise](backlog/on-premise.md) |
 
 ---
 
@@ -146,84 +146,88 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 | ID | Requisito | Prioridad | Spec |
 |---|---|---|---|
 | RF-50 | Chat web con tarjetas de candidatos y botones de confirmación | P0 | F12 |
-| RF-51 | API REST (`/discover`, `/assets`, `/curation`, `/metrics`) | P0 | F12 |
+| RF-51 | API REST (`/discover`, `/assets`, `/curation`, `/admin/metrics`) | P0 | F12 |
 | RF-52 | Servidor MCP para otros agentes (`discover`, `get_asset`, `get_lineage`…) | P1 | F12 |
 | RF-53 | Auditoría completa de preguntas, candidatos y confirmaciones | P0 | F11 |
 | RF-54 | Reporte de métricas de negocio, adopción y calidad | P0 | F25 |
-| RF-55 | Set de evaluación automatizado con alerta de regresión | P0 | F25 |
+| RF-55 | Set de evaluación automatizado con alerta de regresión y compuerta de calidad (`converdata eval gate`) | P0 | F25, [calidad bancaria](calidad-bancaria.md) |
 
 ## 7. Requisitos no funcionales
 | Área | Requisito | Spec |
 |---|---|---|
 | **Permisos** | Cada usuario solo descubre y consulta lo que su login SQL puede leer, incluidos metadatos, relaciones, reglas y documentos. Si nada visible responde, no se revela la existencia de otros objetos | F14 |
 | **Residencia de datos** | Ningún dato de cliente se persiste fuera de la red del banco; el catálogo no contiene valores; los documentos se indexan con PII redactada | F17, F23 |
-| **Seguridad** | Credenciales cifradas fuera del alcance del LLM; TLS en todas las conexiones; login de metadatos de solo lectura; sin SQL libre en las herramientas de metadatos | F14, F18 |
+| **Seguridad** | Credenciales cifradas fuera del alcance del LLM; TLS en todas las conexiones; login de metadatos de solo lectura; sin SQL libre en las herramientas de metadatos; en qa y prod la API no arranca con ajustes inseguros | F14, F18, [calidad bancaria](calidad-bancaria.md) |
 | **Rendimiento** | Descubrimiento p50 < 5 s, p95 < 10 s. Consulta de datos (fase 1b) p50 < 12 s, p95 < 30 s en producción (el MVP admite p95 < 40 s) | F22, OP-01 |
-| **Calidad** | Hit@3 ≥ 85 %, Hit@1 ≥ 65 %; candidatos con confianza ≥ 0.8 correctos ≥ 85 % | F25 |
+| **Calidad** | Hit@3 ≥ 85 %, Hit@1 ≥ 65 %; candidatos con confianza ≥ 0.8 correctos ≥ 85 %; 0 fugas de permisos y 0 objetos inventados. Ningún cambio se acepta si la compuerta `converdata eval gate` baja de su línea base | F25, [calidad bancaria](calidad-bancaria.md) |
 | **Trazabilidad** | Toda respuesta auditada; logs sin contenido | F11 |
-| **Operación** | Despliegue on-premise en el stack Microsoft (Windows Server, IIS, SQL Server 2025, SQL Server Agent); camino a cloud native en AWS sin cambiar la lógica | OP-01, CN-01 |
-| **IA** | Amazon Bedrock por rol, sin logging de invocaciones; modelos configurables sin cambios de código | F16 |
+| **Operación** | Despliegue on-premise en el stack Microsoft (Windows Server, IIS, SQL Server 2016 o posterior, Programador de tareas); camino a un despliegue mínimo en AWS sin cambiar la lógica | OP-01, CN-01 |
+| **IA** | Amazon Bedrock, un modelo en el piloto (intención y orden de candidatos), sin logging de invocaciones; modelos configurables por rol sin cambios de código. El descubrimiento funciona también sin LLM (modo determinista) | F16 |
 | **Licencias** | Componentes propios bajo Apache-2.0; sin dependencias AGPL | F18 |
 | **Idioma** | Español | — |
 
 ## 8. Arquitectura (resumen)
-- **Orquestación**: DiscoverFlow (descubrimiento) y AskFlow (consulta) son grafos de **LangGraph** con pasos fijos, servidos por **FastAPI**.
-- **LLM y embeddings**: Amazon Bedrock (Claude para razonar, un modelo distinto como juez, Cohere multilingüe para embeddings).
-- **Memoria**: on-premise en SQL Server 2025 (tipo `VECTOR` + Full-Text, búsqueda híbrida; tablas de grafo para relaciones;
-  tablas temporales para el historial); en la nube, OpenSearch Serverless.
-- **Metadatos**: `converdata-discovery`, MCP propio de solo lectura que el Catalog Builder usa como biblioteca (el login de metadatos solo existe ahí).
-- **Ingesta**: Catalog Builder como proceso separado del servicio interactivo (servicio `ConverData-Builder` on-premise, tarea ECS en la nube).
-- **Interfaces**: Chainlit + FastAPI detrás de IIS; MCP en `/mcp`.
-- **Despliegue MVP**: un Windows Server de aplicación (servicios `ConverData-UI`, `ConverData-API` y `ConverData-Builder`) + BD `ConverData`; Bedrock como único servicio externo.
+Arquitectura simplificada el 2026-11-16 (§13, decisiones 9–16). Lo construido y lo pendiente están en el [plan de desarrollo](PLAN-desarrollo.md).
 
-Detalle en los diagramas de `docs/architecture/` y en las specs OP-01 a OP-07 / CN-01 a CN-06.
+- **Orquestación**: el DiscoverFlow (descubrimiento) es un grafo de **LangGraph** con pasos fijos, servido por **FastAPI**. El AskFlow (consulta) es de la fase 1b.
+- **LLM**: Amazon Bedrock con un solo modelo para dos pasos: entender la intención y ordenar los candidatos. Sin embeddings ni juez en la fase 1a. Sin LLM, el flujo responde en modo determinista.
+- **Búsqueda**: índice léxico (BM25) en la memoria de `ConverData-API`, cargado al arrancar y filtrado por los permisos del usuario antes de ordenar. El grafo del patrimonio (FKs, misma entidad, linaje) también vive en memoria.
+- **Persistencia**: BD `ConverData` en SQL Server 2016 o posterior, con tablas normales y tablas temporales para el historial (esquemas `catalog`, `knowledge`, `golden`, `curation` y `audit`). Sin tipo `VECTOR`, Full-Text ni tablas de grafo.
+- **Metadatos**: `converdata-discovery`, biblioteca de solo lectura con consultas fijas a `sys.*` que usa el Builder (el login de metadatos solo existe ahí).
+- **Ingesta**: el Builder es un comando (`converdata catalog build`) que corre y termina; lo lanza cada noche el Programador de tareas de Windows y, bajo demanda, un `data_admin` desde Administración.
+- **Interfaces**: web **Next.js** (chat, Curación, Catálogo, Métricas, Administración) y `ConverData-API` detrás de IIS; MCP en `/mcp`.
+- **Despliegue del piloto**: un Windows Server con dos procesos detrás de IIS (web y API) y la BD `ConverData`; Bedrock es el único servicio externo.
 
-### Stack tecnológico (decidido el 2026-10-15)
+Detalle en los diagramas de `docs/architecture/`, en [capas del backend](architecture/capas-backend.md) y en las specs OP-01 a OP-07 / CN-01 a CN-06.
+
+### Stack tecnológico (decidido el 2026-10-15, revisado el 2026-11-16)
 | Capa | Tecnología | Uso |
 |---|---|---|
-| API web | **FastAPI** + **Pydantic v2** | `/discover`, `/ask`, `/assets`, `/curation`, `/metrics`, `/login`; streaming SSE |
-| Chat | **Chainlit** | Tarjetas de candidatos, botones ✔/✖, pasos en vivo |
-| Orquestación | **LangGraph** | DiscoverFlow y AskFlow como grafos con pasos fijos, ciclos (validador → planner) y aristas condicionales |
-| LLM y embeddings | **Amazon Bedrock** vía **`langchain-aws`** (`ChatBedrockConverse`, `BedrockEmbeddings`) | Claude para razonar, Nova o Llama como juez, Cohere para embeddings; salida estructurada con modelos Pydantic |
-| Herramientas | **FastMCP** (`converdata-mcp`, `converdata-discovery`) | Las mismas herramientas para los grafos y para clientes MCP externos |
-| Acceso a SQL Server | **pyodbc** + ODBC Driver 18 | Consultas con el login de cada usuario |
-| Validación de SQL | **sqlglot** (dialecto `tsql`) | AST, lista negra, inyección de `TOP` |
-| Datos personales | **Microsoft Presidio** | Redacción de documentos antes de indexar |
-| Almacén de trabajo | **SQL Server 2025** on-premise · **OpenSearch Serverless** en la nube | Catálogo, conocimiento, curación, auditoría |
-| Alojamiento | IIS + servicios de Windows on-premise · **AgentCore Runtime** en AWS | El mismo código en ambos |
+| API | **FastAPI** + **Pydantic v2** | `/auth/login`, `/discover` (y `/discover/stream` con SSE), `/discover/feedback`, `/assets`, `/catalog`, `/curation`, `/admin`; `/ask` en la fase 1b |
+| Web | **Next.js** (`web/`) | Chat con tarjetas de candidatos y botones ✔/✖, pasos en vivo, Curación, Catálogo, Métricas y Administración; reenvía `/api/*` a la API |
+| Orquestación | **LangGraph** | DiscoverFlow como grafo con pasos fijos, ciclos acotados y aristas condicionales; AskFlow en la fase 1b |
+| LLM | **Amazon Bedrock** vía **`langchain-aws`** (`ChatBedrockConverse`) | Un modelo para intención y orden; salida estructurada con modelos Pydantic. En desarrollo: Ollama (solo local) o NVIDIA NIM con datos de prueba |
+| Herramientas | SDK oficial de **MCP** (`converdata-mcp`) | Las mismas herramientas de descubrimiento para la API, la web y los clientes MCP externos |
+| Acceso a SQL Server | **pyodbc** + ODBC Driver 18 | Visibilidad con el login de cada usuario; metadatos con el login del Builder |
+| Búsqueda | Índice léxico BM25 en memoria | Recuperación de tablas, columnas y conocimiento; el puerto `VectorStore` (F2) permite cambiarlo |
+| Datos personales | Patrones locales (DUI, NIT, correo, teléfono, tarjeta) hoy; **Microsoft Presidio** para documentos (HU-26) | Rechazo de ediciones de curación con datos personales; redacción de documentos antes de indexar |
+| Almacén de trabajo | BD `ConverData` en **SQL Server 2016+** | Catálogo, conocimiento, curación y auditoría, on-premise en ambos despliegues |
+| Alojamiento | IIS con HttpPlatformHandler on-premise · una tarea de **ECS Fargate** en AWS | El mismo código en ambos |
+| Fase 1b | **sqlglot** (dialecto `tsql`) | Validación de SQL: AST, lista negra, inyección de `TOP` |
 
 Reglas de uso de LangGraph:
-- **El framework vive en una sola capa** (`converdata/flows/`). Herramientas, `VectorStore`, validador, prompts y modelos Pydantic son
-  Python puro y no importan LangGraph, de modo que cambiar de orquestador no obliga a reescribir la lógica.
+- **El framework vive en una sola capa** (`converdata/flows/`). Herramientas, `VectorStore`, prompts y modelos Pydantic son
+  Python puro y no importan LangGraph, de modo que cambiar de orquestador no obliga a reescribir la lógica
+  (`tests/test_architecture.py` lo comprueba).
 - **Nodos con llamadas directas y salida estructurada**, no agentes autónomos: el orden de los pasos lo define el grafo, nunca el modelo.
-- **Checkpointer solo en memoria** durante la petición (el estado contiene filas y preguntas, clases D1/D2 de F17). La trazabilidad
+- **Checkpointer solo en memoria** durante la petición (el estado contiene preguntas, clase D2 de F17). La trazabilidad
   persistente es la auditoría de F11; no se usa un checkpointer persistente fuera de la red del banco.
-- El progreso de cada nodo (`stream_mode="updates"`) alimenta los eventos SSE y los pasos en vivo de Chainlit.
-- En AWS, los grafos se empaquetan para AgentCore Runtime; LangGraph también es compatible con AgentCore Evaluations.
+- El progreso de cada nodo (`stream_mode="updates"`) alimenta los eventos SSE de `/discover/stream` y los pasos en vivo de la web.
 
 ### 8.1 Principios de diseño
 1. **Determinismo en la orquestación**: un grafo de LangGraph con pasos fijos. El LLM razona dentro de cada nodo, pero no decide el orden ni puede saltarse pasos.
 2. **SQL Server es la barrera de seguridad**: cada consulta corre con el login del usuario. Los guardrails de la aplicación son defensa en profundidad.
 3. **Nada se ejecuta sin validar**: validación estática, compilación (NOEXEC) y plan estimado (SHOWPLAN) antes de ejecutar.
 4. **Toda respuesta es auditable**: SQL, tablas, supuestos, validaciones y confidence acompañan a cada dato.
-5. **Memoria revisable por humanos**: el catálogo vive en YAML versionable; el índice vectorial es derivado.
+5. **Memoria revisable por humanos**: el catálogo vive en tablas con historial (YAML versionable en desarrollo); el índice de búsqueda es derivado y se reconstruye al arrancar.
 6. **Cero persistencia de datos fuera de la red del cliente**: la nube procesa y muestra; datos, preguntas, SQL y auditoría persisten solo on-premise (F17).
-7. **Misma lógica, dos despliegues**: los grafos de LangGraph, las herramientas MCP y el validador son idénticos en cloud native y on-premise; solo cambia la infraestructura.
+7. **Misma lógica, dos despliegues**: los grafos de LangGraph, las herramientas MCP y las dos imágenes (web y API) son idénticos en AWS y on-premise; solo cambia dónde corren los procesos y quién los programa.
 8. **Descubrir antes que consultar**: ante la duda, el router elige el DiscoverFlow, que no toca datos (F3, F22).
 9. **El conocimiento se captura con el uso**: cada confirmación de un usuario o respuesta de un responsable se convierte en conocimiento revisado y reutilizable (F24).
 10. **Cada recomendación muestra su evidencia**: fuente de la descripción (humana, diccionario, documento o IA sin revisar) y por qué se recomienda.
 11. **El éxito se mide contra una línea base**: las métricas de la propuesta se instrumentan desde el día uno (F25).
+12. **La pieza más simple que cumple la medición**: un componente de infraestructura entra solo si mejora el set de evaluación o lo exige un requisito; por eso no hay vectores, tablas de grafo ni servicios aparte (§13, decisiones 9–12).
 
 ### 8.2 Despliegues
 | Despliegue | Spec principal | Diagrama | Cuándo |
 |---|---|---|---|
-| **On-premise** | [OP-01](specs/on-premise/OP-01-despliegue-local.md) | `docs/architecture/onpremise-architecture.html` | Primero: MVP para validar la solución sin infraestructura cloud nueva (solo Bedrock) |
-| **Cloud native** | [CN-01](specs/cloud-native/CN-01-despliegue-aws.md) | `docs/architecture/cloud-native-architecture.html` | Después del MVP, si se decide invertir en AWS |
+| **On-premise** | [OP-01](specs/on-premise/OP-01-despliegue-local.md) | `docs/architecture/onpremise-architecture.html` | Primero: piloto para validar la solución sin infraestructura cloud nueva (solo Bedrock) |
+| **AWS (despliegue mínimo)** | [CN-01](specs/cloud-native/CN-01-despliegue-aws.md) | `docs/architecture/cloud-native-architecture.html` | Después del piloto, si se decide invertir en AWS: las mismas dos imágenes en una tarea de ECS Fargate, con la BD `ConverData` todavía en el banco |
 
 Los permisos heredados se explican en `docs/architecture/permisos-heredados.html` (F14) y aplican igual a los dos despliegues.
 
 ### 8.3 Contrato de respuesta: `AnswerEnvelope`
-Lo devuelven `/ask`, `/discover` y la herramienta MCP `ask`/`discover` (F12).
+Lo devuelven `/discover` y la herramienta MCP `discover` (F12); en la fase 1b, también `/ask` y la herramienta `ask`.
 ```json
 {
   "trace_id": "uuid",
@@ -269,19 +273,19 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 ## 10. Alcance y fases
 | Fase | Contenido | Criterio de salida |
 |---|---|---|
-| **0. Preparación** (semanas 0–1) | Línea base; acceso a fuentes; responsables del dominio piloto; servidor y BD `ConverData` | Línea base firmada |
+| **0. Preparación** (semanas 0–1) | Línea base; acceso a fuentes; responsables del dominio piloto; servidor y BD `ConverData` | Línea base firmada; compuerta `converdata eval gate` aprobada con el catálogo del dominio piloto |
 | **1a. Piloto de descubrimiento** (semanas 1–8) | RF P0 de §6.1–6.3 y 6.5 sobre el dominio **clientes / onboarding digital**, producción y QA; 10–15 usuarios | D1–D7 de OP-01 |
 | **1b. Consulta de datos** | AskFlow, métricas certificadas y análisis (RF-40 a RF-42) | Criterios 1–7 de OP-01 |
-| **2. Escalamiento** | Más dominios, RF P1, cloud native o alta disponibilidad on-premise | Decisión de la Gerencia de Datos |
+| **2. Escalamiento** | Más dominios, RF P1, despliegue en AWS o alta disponibilidad on-premise | Decisión de la Gerencia de Datos |
 | **Visión** | Linaje automatizado extremo a extremo, generación de glosarios, reglas de calidad, análisis de impacto, multiplataforma | — |
 
 ## 11. Dependencias y supuestos
 - Logins SQL por usuario disponibles para los participantes del piloto en los servidores del piloto (producción y QA); Windows/AD con Kerberos es una evolución posterior.
-- Asociación de cada login SQL del piloto con la cuenta de AD de la persona y lectura de AD por LDAP para resolver grupos (F14).
+- Roles `steward` y `data_admin` asignados por login SQL en el piloto; la asociación con cuentas de AD y la lectura de grupos por LDAP (F14) es una mejora posterior (HU-13).
 - Login técnico de metadatos con `VIEW DEFINITION` y lectura de SSISDB y msdb.
 - Acceso de solo lectura, con una cuenta técnica, a los diccionarios y a la documentación del dominio piloto (carpeta compartida o SharePoint).
-- Cuenta de AWS con Bedrock habilitado (modelos Claude, Nova o Llama, Cohere Embed) e IAM Roles Anywhere.
-- Windows Server para la aplicación y una instancia SQL Server 2025 para la BD `ConverData`.
+- Cuenta de AWS con Bedrock habilitado (un modelo Claude para intención y orden) e IAM Roles Anywhere.
+- Windows Server para la aplicación y una instancia SQL Server 2016 o posterior para la BD `ConverData`.
 - Un steward funcional y uno técnico asignados al dominio piloto con tiempo para curación (semanas 2–3).
 - Aprobación de Seguridad de la Información para enviar metadatos y preguntas a Bedrock (sin almacenamiento).
 
@@ -290,6 +294,8 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 |---|---|---|
 | Descripciones generadas por IA de baja calidad | Recomendaciones erróneas, pérdida de confianza | Fuente visible, tope de confianza 0.6 sin evidencia humana, curación inicial de los 100 activos más relevantes |
 | Documentos con datos personales | Incumplimiento de residencia y privacidad | Redacción con Presidio y patrones locales; descarte de fragmentos con alta densidad de PII |
+| El set de evaluación lo escribió el equipo de desarrollo | Los porcentajes no predicen el uso real | 50–80 preguntas reales validadas por un experto antes de declarar resultados (HU-33) |
+| Las preguntas de reporte, tablero o estudio aciertan mucho menos que las de "¿dónde está X?" | Expectativas no cumplidas en el piloto | Ingesta de diccionarios, documentos y reglas antes del piloto; medir con LLM real (HU-35) |
 | Permisos heredados limitan la "democratización" | Usuarios sin acceso no descubren datos que existen | Escalamiento al responsable sin revelar nombres; revisar la política tras el piloto |
 | Sin línea base | No se pueden demostrar los objetivos | Semana 0–1 dedicada a medirla |
 | Baja adopción | No se capturan confirmaciones | Dominio piloto con dolor real, campeones por equipo, métricas semanales visibles |
@@ -300,8 +306,7 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 ### Decisiones tomadas
 1. **Stack (decidido, 2026-10-15)**: FastAPI + LangGraph + Bedrock (`langchain-aws`) en lugar de CrewAI. Motivos: el PRD pide pasos fijos,
    ciclos (validador → planner) y trazabilidad, que son el modelo nativo de LangGraph; las abstracciones de agente de CrewAI añaden tokens
-   y latencia sin aportar valor en un flujo de pasos fijos (objetivo p95 < 10 s); y LangGraph es compatible con AgentCore Runtime y
-   AgentCore Evaluations. Detalle en la §8.
+   y latencia sin aportar valor en un flujo de pasos fijos (objetivo p95 < 10 s). Detalle en la §8.
 2. **Visibilidad (decidido, 2026-10-14)**: el usuario solo ve información a la que tiene acceso, también en el descubrimiento (metadatos,
    relaciones, reglas, documentos). Consecuencia: quien no tiene acceso a una BD no descubrirá que existe; el agente le ofrece escalar al
    responsable sin revelar nombres. Esto limita en parte la "democratización" de la propuesta a favor de la seguridad.
@@ -310,12 +315,43 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 4. **Nombre**: la propuesta usa "Enterprise Data Discovery Agent"; ConverData es el nombre técnico del proyecto.
 5. **Prioridad del planner (decidido, 2026-10-15)**: métrica certificada / consulta verificada → SP de la lista blanca → golden SQL → SQL nuevo
    (F6, F21). La capa semántica es revisable y se compila de forma determinista; una métrica puede delegar en un SP oficial.
-6. **Catalog Builder separado (decidido, 2026-10-15)**: on-premise corre como servicio `ConverData-Builder`, no dentro de `ConverData-API`,
-   que atiende las preguntas en un solo proceso; `converdata-discovery` es una biblioteca dentro del Builder en ambos despliegues (F18, OP-01, CN-01).
+6. **Catalog Builder separado (decidido, 2026-10-15; sustituida por la decisión 12)**: la ingesta corre fuera del camino interactivo y
+   `converdata-discovery` es una biblioteca dentro del Builder en ambos despliegues (F18). Lo que cambia con la decisión 12 es la forma:
+   un comando programado en vez de un servicio de Windows.
 7. **Credenciales por servidor y grupos (decidido, 2026-10-15)**: los logins SQL son por instancia, así que la sesión guarda una credencial por
-   servidor; los grupos del usuario (ACL de documentos, roles de curación) vienen de Cognito en la nube y de AD por LDAP on-premise (F14).
-8. **Un solo camino de escritura del conocimiento curado (decidido, 2026-10-15)**: feedback, curación y golden se escriben con herramientas
-   internas de `converdata-mcp`, no publicadas a clientes externos (F12).
+   servidor. En el piloto los roles de curación se asignan por login SQL; los grupos de AD por LDAP (ACL de documentos, roles por grupo)
+   llegan con HU-13 (F14).
+8. **Un solo camino de escritura del conocimiento curado (decidido, 2026-10-15)**: feedback, curación y golden se escriben solo por
+   `ConverData-API` (`/discover/feedback`, `/curation/*`), con sesión, rol y auditoría previa; el MCP publicado a clientes externos solo
+   tiene herramientas de lectura (F12).
+
+9. **Búsqueda léxica en memoria, sin embeddings (decidido, 2026-11-16)**: la medición del 2026-10-29 (HU-34) dio Hit@1 93,1 % y
+   Hit@3 93,1 % con el índice léxico sobre el catálogo crudo; los embeddings no cambiaron ningún caso y subieron el p95 de 73 ms a
+   4,6 s. Se conserva el puerto `VectorStore` (F2) y el canal semántico queda como experimento de desarrollo. Se retiran
+   `SqlServerVectorStore`, el tipo `VECTOR`, Full-Text y OpenSearch.
+10. **BD `ConverData` en tablas normales (decidido, 2026-11-16)**: SQL Server 2016 o posterior, con tablas temporales para el historial.
+    Sin tablas de grafo: entidades, FKs y linaje se guardan en tablas normales y el grafo del patrimonio (F19) se arma en memoria. El
+    esquema `semantic` (F21) llega con la fase 1b. Ya no hace falta una instancia SQL Server 2025.
+11. **Web en Next.js en lugar de Chainlit (decidido, 2026-11-16)**: la web cubre chat, Curación, Catálogo, Métricas y Administración, y
+    reenvía `/api/*` a `ConverData-API`, que no se publica directamente. IIS publica dos procesos: web y API (`/mcp`).
+12. **Builder como comando programado (decidido, 2026-11-16)**: `converdata catalog build` corre y termina, lanzado por el Programador
+    de tareas de Windows o por un `data_admin` desde Administración. Sustituye a la decisión 6: no hay servicio `ConverData-Builder`,
+    job de SQL Server Agent ni API de administración en un proceso aparte.
+13. **Un solo modelo de Bedrock en el piloto (decidido, 2026-11-16)**: para intención y orden de candidatos; sin embeddings ni juez en
+    la fase 1a. Bedrock Guardrails deja de ser requisito de la fase 1a y pasa a ser una decisión de Seguridad de la Información; las
+    guardas actuales están en el código ([calidad bancaria](calidad-bancaria.md) §3).
+14. **AWS como despliegue mínimo posterior al piloto (decidido, 2026-11-16)**: ALB interno, una tarea de ECS Fargate con las imágenes de
+    web y API, Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y la BD `ConverData` todavía en el banco. Sin
+    AgentCore, OpenSearch, Cognito, WAF, S3 ni Transit Gateway (CN-01).
+15. **Rutas de la API (decidido, 2026-11-16)**: valen las del código (`/auth/login` con alias `/login`, `/discover`, `/discover/feedback`,
+    `/assets/{asset_key}`, `/curation/*`, `/admin/*`); el navegador las ve bajo `/api/` porque la web las reenvía (F12, OP-04).
+16. **Compuerta de calidad (decidido, 2026-11-15)**: `converdata eval gate` (calidad, permisos, inyección, guardas, robustez,
+    determinismo y auditoría) debe aprobar antes de aceptar un cambio y corre en la CI; los controles y lo que falta para operar en un
+    banco están en [calidad bancaria](calidad-bancaria.md).
+
+Las decisiones 9 a 15 formalizan la simplificación que ya mostraban los diagramas de `docs/architecture/`; donde contradicen a las
+decisiones 1 a 8, valen las nuevas (la 6 queda sustituida por la 12; la 7 conserva las credenciales por servidor, con grupos de AD
+aplazados a HU-13).
 
 ### Preguntas abiertas
 1. ¿Dónde viven los diccionarios y la documentación del dominio piloto (carpeta compartida, SharePoint on-premise u Online, Confluence), quién da
@@ -324,6 +360,9 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 3. ¿Qué servidores y ambientes entran en el piloto, y los participantes tienen el mismo login SQL en todos ellos?
 4. ¿Qué canal de notificación prefieren los stewards (correo o Teams)?
 5. ¿Se mantiene la política de permisos heredados también para metadatos después del piloto?
+6. ¿Exige Seguridad de la Información Bedrock Guardrails en la fase 1a, además de las guardas del código?
+7. ¿El responsable de un dominio ve en Curación activos que su login SQL no puede leer? Hoy sí ([calidad bancaria](calidad-bancaria.md) §5).
+8. ¿Qué lecturas se auditan además de las preguntas (fichas, catálogo, herramientas MCP distintas de `discover`)?
 
 ## 14. Trazabilidad con la propuesta
 Fuente: *Propuesta 1 — Agente de descubrimiento y conocimiento de datos corporativos* (Gerencia de Datos, Banco Atlántida El Salvador).
@@ -364,7 +403,7 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 ### 14.2 Experiencia de usuario (sección 5)
 | Requisito | Antes | Ahora | Dónde |
 |---|---|---|---|
-| Chat en lenguaje natural | ✅ Chainlit | ✅ | F12 |
+| Chat en lenguaje natural | ✅ | ✅ web Next.js | F12 |
 | Ejemplo "identificador único del cliente en onboarding digital" | ❌ se habría intentado responder con SQL | ✅ criterio de aceptación explícito | F3, F22 |
 | Mostrar tablas relacionadas | ⚠️ | ✅ | F22 |
 | Presentar definiciones funcionales | ⚠️ | ✅ | F22, F23 |
@@ -382,7 +421,7 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 | Conocimiento ETL (lógica de transformación y flujos) | ❌ | ✅ SSIS, SQL Agent, SPs y vistas a nivel de tabla | F23 |
 | Diccionarios y glosarios de datos | ⚠️ solo glosario manual | ✅ diccionarios Excel/CSV + glosario | F2, F23 |
 | Conocimiento institucional (interacciones y expertos) | ⚠️ golden SQL a partir de 👍 | ✅ confirmaciones, escalamiento a responsables, golden discovery | F24 |
-| Búsqueda semántica | ✅ | ✅ híbrida (semántica + léxica) | F2 |
+| Búsqueda semántica | ✅ | ⚠️ léxica con sinónimos, expansión de vocabulario y LLM para intención y orden; el canal de embeddings se midió y no se despliega (§13, decisión 9) | F2, F22 |
 | Diálogo y refinamiento iterativo | ✅ historial y aclaraciones | ✅ | F3 |
 
 ### 14.4 Beneficios e impacto
@@ -417,58 +456,61 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 | Descubrimiento multiplataforma | Interfaz `MetadataConnector` (F23); conectores pendientes |
 
 ### 14.7 Cobertura por despliegue (revisión del 2026-10-14)
-| Capacidad de la propuesta | Común | On-premise (Microsoft) | Cloud native (AWS) |
+| Capacidad de la propuesta | Común | On-premise (Microsoft) | AWS (despliegue mínimo) |
 |---|---|---|---|
 | Flujo de descubrimiento y respuesta con candidatos | F3, F22 | OP-01 (fase 1a), OP-04 | CN-01, CN-04 |
 | Ambientes y servidores | F1 | OP-02 (`catalog`) | CN-02 |
-| Diccionarios, documentos, ETL y reglas | F23 | OP-02 (`knowledge`, Presidio, job de SQL Agent) | CN-02 (tarea ECS, Presidio, S3 `_knowledge/`) |
-| Responsables, escalamiento y curación | F24 | OP-02 (`curation`), OP-04 (Database Mail o Teams) | CN-02 (`owners.yaml`), CN-04 (Teams o correo) |
-| Auditoría y métricas | F11, F25 | OP-05 (vistas y evaluación semanal) | CN-05 (vistas en `ConverData_Audit`) |
+| Diccionarios, documentos, ETL y reglas | F23 | OP-02 (`knowledge`, Presidio, tarea programada) | CN-02 (tarea ECS programada; escribe en la BD `ConverData` on-premise) |
+| Responsables, escalamiento y curación | F24 | OP-02 (`curation`), OP-04 (webhook de Teams) | Igual: BD `ConverData` on-premise, CN-04 |
+| Auditoría y métricas | F11, F25 | OP-05 (esquema `audit`, evaluación programada) | CN-05 (el mismo esquema `audit` on-premise) |
 | Residencia de documentos y preguntas escaladas | F17, F23 | OP-06 | CN-06 |
 | Permisos heredados también en el descubrimiento | F14 | OP-03 | CN-03 |
 
-Antes de esta revisión, cloud native no cubría F22–F25 y on-premise no tenía dónde guardar el conocimiento ni la curación.
-Los tres diagramas de `docs/architecture/` reflejan el descubrimiento: DiscoverFlow, fuentes de conocimiento, esquemas `knowledge` y `curation`, y permisos heredados también al descubrir.
+Los diagramas de `docs/architecture/` reflejan el descubrimiento con la arquitectura simplificada del 2026-11-16: DiscoverFlow, fuentes
+de conocimiento, BD `ConverData`, permisos heredados también al descubrir y los controles de calidad bancaria.
 
 ## Anexo A. Catálogo de specs
 ```
 docs/specs/
 ├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F25)
-├─ cloud-native/   Despliegue en AWS con Bedrock AgentCore (CN-01 a CN-06)
-└─ on-premise/     Despliegue local en la red corporativa; sirve también como MVP (OP-01 a OP-07; OP-07: instalación y operación)
+├─ on-premise/     Despliegue en la red corporativa; es el del piloto (OP-01 a OP-07)
+└─ cloud-native/   Despliegue mínimo en AWS, posterior al piloto (CN-01 a CN-06)
 ```
 
-| ID | Feature | Spec | Implementación cloud native | Implementación on-premise |
-|---|---|---|---|---|
-| F1 | Catalog Builder (ingesta y mapeo) | [F01](specs/comun/F01-catalog-builder.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) |
-| F2 | Memoria semántica (`VectorStore`) | [F02](specs/comun/F02-semantic-memory.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) OpenSearch | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) SQL Server 2025 (`VECTOR` + Full-Text) |
-| F3 | Intent & Router | [F03](specs/comun/F03-intent-router.md) | = | = |
-| F4 | Schema Linking | [F04](specs/comun/F04-schema-linking.md) | = | = |
-| F5 | Value Resolution (en vivo) | [F05](specs/comun/F05-value-resolution.md) | = | = |
-| F6 | Planner T-SQL / SP | [F06](specs/comun/F06-planner.md) | = | = |
-| F7 | Validator | [F07](specs/comun/F07-validator.md) | = | = |
-| F8 | Executor | [F08](specs/comun/F08-executor.md) | = | = |
-| F9 | Result Verifier | [F09](specs/comun/F09-result-verifier.md) | = | = |
-| F10 | Analyst | [F10](specs/comun/F10-analyst.md) | = | = |
-| F11 | Auditoría | [F11](specs/comun/F11-audit.md) | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) `ConverData_Audit` on-prem | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) esquema `audit` de la BD `ConverData` |
-| F12 | Interfaces (API, chat, MCP) | [F12](specs/comun/F12-interfaces.md) | [CN-04](specs/cloud-native/CN-04-interfaces.md) | [OP-04](specs/on-premise/OP-04-interfaces.md) |
-| F13 | Arquitectura documentada (Archify) | [F13](specs/comun/F13-architecture-docs.md) | = | = |
-| F14 | Identidad y permisos heredados | [F14](specs/comun/F14-identity.md) | [CN-03](specs/cloud-native/CN-03-identidad.md) Cognito + Secrets Manager | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault + grupos de AD |
-| F16 | Proveedores LLM: Bedrock (+ NIM opcional) | [F16](specs/comun/F16-llm-providers.md) | = | = |
-| F17 | Residencia de datos | [F17](specs/comun/F17-data-residency.md) | [CN-06](specs/cloud-native/CN-06-residencia-datos.md) | [OP-06](specs/on-premise/OP-06-residencia-datos.md) |
-| F18 | `converdata-discovery`: MCP propio de metadatos (Apache-2.0, sustituye a sql-to-mcp) | [F18](specs/comun/F18-discovery-mcp.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) biblioteca en la tarea ECS del Catalog Builder | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) biblioteca en el servicio `ConverData-Builder` |
-| F19 | Descubrimiento entre múltiples BDs (grafo del patrimonio, joins entre BDs, planes federados) | [F19](specs/comun/F19-multi-db-discovery.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) YAML `_estate/` en S3 | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) tablas de grafo del esquema `estate` |
-| F20 | Motor de análisis (compare, explain, explore, forecast, sandbox) | [F20](specs/comun/F20-analysis-engine.md) | [CN-01](specs/cloud-native/CN-01-despliegue-aws.md) sandbox AgentCore Code Interpreter | [OP-01](specs/on-premise/OP-01-despliegue-local.md) sin código libre en la v1 |
-| F21 | Capa semántica (métricas certificadas, consultas verificadas) | [F21](specs/comun/F21-semantic-layer.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) YAML `_semantic/` en S3 | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) esquema `semantic` |
-| **F22** | **DiscoverFlow: candidatos con ubicación, descripción, reglas, relaciones y confianza** | [F22](specs/comun/F22-discovery-flow.md) | = | = |
-| F23 | Fuentes de conocimiento: diccionarios, documentación, ETL (SSIS, SQL Agent) y reglas de negocio | [F23](specs/comun/F23-knowledge-sources.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) |
-| F24 | Curación y captura del conocimiento institucional (responsables, escalamiento, brechas) | [F24](specs/comun/F24-knowledge-curation.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) S3 `_curation/`, [CN-04](specs/cloud-native/CN-04-interfaces.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) esquema `curation`, [OP-04](specs/on-premise/OP-04-interfaces.md) |
-| F25 | Métricas de éxito, línea base y piloto | [F25](specs/comun/F25-success-metrics.md) | = | = |
+Fase: **1a** piloto de descubrimiento · **1b** consulta de datos (sin implementar; sus specs se revisarán contra §13 antes de empezar).
 
-"=" significa que no hay diferencias entre entornos.
+| ID | Feature | Fase | Spec | On-premise | AWS |
+|---|---|---|---|---|---|
+| F1 | Catalog Builder (ingesta y mapeo) | 1a | [F01](specs/comun/F01-catalog-builder.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) comando programado | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) tarea ECS programada |
+| F2 | Memoria de búsqueda (`VectorStore`) | 1a | [F02](specs/comun/F02-semantic-memory.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) índice léxico en memoria | = |
+| F3 | Intent & Router | 1a | [F03](specs/comun/F03-intent-router.md) | = | = |
+| F4 | Schema Linking | 1b | [F04](specs/comun/F04-schema-linking.md) | = | = |
+| F5 | Value Resolution (en vivo) | 1b | [F05](specs/comun/F05-value-resolution.md) | = | = |
+| F6 | Planner T-SQL / SP | 1b | [F06](specs/comun/F06-planner.md) | = | = |
+| F7 | Validator | 1b | [F07](specs/comun/F07-validator.md) | = | = |
+| F8 | Executor | 1b | [F08](specs/comun/F08-executor.md) | = | = |
+| F9 | Result Verifier | 1b | [F09](specs/comun/F09-result-verifier.md) | = | = |
+| F10 | Analyst | 1b | [F10](specs/comun/F10-analyst.md) | = | = |
+| F11 | Auditoría | 1a | [F11](specs/comun/F11-audit.md) | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) esquema `audit` de la BD `ConverData` | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) el mismo esquema, on-premise |
+| F12 | Interfaces (API, web, MCP) | 1a | [F12](specs/comun/F12-interfaces.md) | [OP-04](specs/on-premise/OP-04-interfaces.md) IIS | [CN-04](specs/cloud-native/CN-04-interfaces.md) ALB interno |
+| F13 | Arquitectura documentada (Archify) | 1a | [F13](specs/comun/F13-architecture-docs.md) | = | = |
+| F14 | Identidad y permisos heredados | 1a | [F14](specs/comun/F14-identity.md) | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault en memoria | [CN-03](specs/cloud-native/CN-03-identidad.md) igual; Secrets Manager solo para secretos de servicio |
+| F16 | Proveedores LLM: Bedrock (Ollama y NIM en desarrollo) | 1a | [F16](specs/comun/F16-llm-providers.md) | = | = |
+| F17 | Residencia de datos | 1a | [F17](specs/comun/F17-data-residency.md) | [OP-06](specs/on-premise/OP-06-residencia-datos.md) | [CN-06](specs/cloud-native/CN-06-residencia-datos.md) |
+| F18 | `converdata-discovery`: lectura de metadatos (Apache-2.0) | 1a | [F18](specs/comun/F18-discovery-mcp.md) | Biblioteca dentro del Builder | = |
+| F19 | Descubrimiento entre múltiples BDs (grafo del patrimonio) | 1a | [F19](specs/comun/F19-multi-db-discovery.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) grafo en memoria; entidades y linaje en tablas normales | = |
+| F20 | Motor de análisis | 1b | [F20](specs/comun/F20-analysis-engine.md) | Sin código libre | Se decidirá con la fase 1b |
+| F21 | Capa semántica (métricas certificadas, consultas verificadas) | 1b | [F21](specs/comun/F21-semantic-layer.md) | Esquema `semantic` (fase 1b) | = |
+| **F22** | **DiscoverFlow: candidatos con ubicación, descripción, reglas, relaciones y confianza** | 1a | [F22](specs/comun/F22-discovery-flow.md) | = | = |
+| F23 | Fuentes de conocimiento: diccionarios, documentación, ETL y reglas de negocio | 1a | [F23](specs/comun/F23-knowledge-sources.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) |
+| F24 | Curación y captura del conocimiento institucional | 1a | [F24](specs/comun/F24-knowledge-curation.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) esquema `curation`, [OP-04](specs/on-premise/OP-04-interfaces.md) | = |
+| F25 | Métricas de éxito, línea base y piloto | 1a | [F25](specs/comun/F25-success-metrics.md) | = | = |
+
+"=" significa que no hay diferencias frente a la spec común (o frente a on-premise, en la columna AWS).
 
 ## Anexo B. Glosario
-- **Catálogo**: descripción de BDs, esquemas, tablas, columnas, FKs y SPs, **sin valores de datos** (`**/*.yaml`).
+- **Catálogo**: descripción de BDs, esquemas, tablas, columnas, FKs y SPs, **sin valores de datos** (esquema `catalog` de la BD `ConverData`; YAML en desarrollo).
+- **Compuerta de calidad**: `converdata eval gate`, siete suites que deben aprobar antes de aceptar un cambio ([calidad bancaria](calidad-bancaria.md)).
 - **Golden SQL**: pares pregunta→SQL validados por un humano. El original vive en la auditoría on-prem; en el índice solo su plantilla anonimizada.
 - **Visibilidad**: conjunto de objetos que el login del usuario puede leer o ejecutar, según SQL Server.
 - **Confidence**: puntuación de 0 a 1. En el AskFlow combina los chequeos deterministas con el veredicto del LLM-judge (F9); en el DiscoverFlow combina relevancia, evidencia, confirmaciones y acuerdo entre fuentes (F22).

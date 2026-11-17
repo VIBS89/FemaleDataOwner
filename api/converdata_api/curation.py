@@ -211,9 +211,17 @@ class CurationStore:
                         target["synonyms"] = list(dict.fromkeys([*(target.get("synonyms") or []), *synonyms]))[:12]
                     path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
                     report["applied"] += 1
-            ledger_path.parent.mkdir(parents=True, exist_ok=True)
-            ledger_path.write_text(json.dumps([*seen, digest]), encoding="utf-8")
+            report["digest"] = digest  # quien llama lo registra con `remember_dictionary` cuando el cambio ya es firme
             return report
+
+    def remember_dictionary(self, digest: str) -> None:
+        """Anota un diccionario como ya aplicado: aplicarlo otra vez no hace nada (F23 CA5)."""
+        with self._lock:
+            ledger_path = self._dictionary_ledger()
+            seen = json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.is_file() else []
+            if digest not in seen:
+                ledger_path.parent.mkdir(parents=True, exist_ok=True)
+                ledger_path.write_text(json.dumps([*seen, digest]), encoding="utf-8")
 
     # --- reglas de negocio curadas (HU-28) ----------------------------------------------------------
     def _rules_path(self) -> Path:

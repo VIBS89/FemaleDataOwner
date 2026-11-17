@@ -21,6 +21,8 @@ ARG EXTRAS=api
 RUN pip install ".[${EXTRAS}]"
 COPY api ./api
 COPY config ./config
+# Migraciones de la BD ConverData: `converdata db migrate` desde la misma imagen
+COPY db ./db
 # Solo para CONVERDATA_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
 COPY tests/fixtures/bancos ./tests/fixtures/bancos
 

@@ -1,27 +1,38 @@
-# CN-06 — Residencia de datos: inventario de controles · cloud native
+# CN-06 — Residencia de datos: inventario de controles · despliegue en AWS
 
-> Aplica en AWS el principio de [F17](../comun/F17-data-residency.md): AWS procesa y muestra; no guarda.
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Despliegue posterior al piloto on-premise; nada está desplegado.
+>
+> Aplica en AWS el principio de [F17](../comun/F17-data-residency.md) · equivalente on-premise: [OP-06](../on-premise/OP-06-residencia-datos.md)
+
+**AWS procesa y muestra; no persiste catálogo, preguntas ni auditoría.** Todo lo persistente queda en el SQL Server del banco. En la fase 1a
+ConverData solo lee metadatos: no ejecuta SQL sobre datos de clientes.
 
 | Componente | Riesgo | Control |
 |---|---|---|
-| Catálogo en S3 y OpenSearch | Valores de columnas | El YAML nunca lleva valores (F1); el indexador rechaza los que los tengan; no existe índice de valores |
-| Golden SQL | Pregunta y SQL con literales | Original en `ConverData_Audit` on-prem; en OpenSearch solo la plantilla anonimizada |
-| Documentos y diccionarios (F23) | Datos de clientes en ejemplos o capturas | Se leen por la VPN (SMB) o por Graph con egress filtrado (CN-01); redacción de PII en memoria en la tarea ECS antes de escribir; a S3 y OpenSearch solo llegan fragmentos redactados; el original no se copia ni pasa a disco |
-| Ediciones de curación en S3 (F24) | Descripciones o reglas con datos pegados por un steward | Pasan por el mismo detector de PII antes de escribirse en `_curation/`; el indexador rechaza valores |
-| Golden discovery y curación (F24) | Pregunta de descubrimiento (D2) | Original y solicitudes escaladas en `ConverData_Audit` on-prem; en OpenSearch solo la plantilla; notificaciones sin texto de la pregunta |
-| Auditoría | Pregunta, SQL, supuestos | `ConverData_Audit` en SQL Server on-prem (CN-05) |
-| Historial de conversación | Respuestas con datos | Solo en la memoria de la sesión de AgentCore Runtime (microVM); **no se usa AgentCore Memory** |
-| Chainlit en ECS | Persistencia de chats | Data layer desactivado; descargas en streaming, sin pasar por S3 |
-| CloudWatch Logs / X-Ray | Prompts, SQL y filas | Lista blanca D5 y filtro de logger; tests que inspeccionan la salida |
-| Bedrock | Logs de invocación | *Model invocation logging* desactivado, verificado por AWS Config |
-| Bedrock Guardrails | Evaluación de texto | Procesamiento sin almacenamiento; logging del guardrail desactivado |
-| NVIDIA NIM (fallback) | Envía datos a un tercero | Desactivado en prod; solo con acuerdo de procesamiento de datos o NIM autoalojado en la VPC |
-| ALB / WAF logs | URLs y cabeceras | Preguntas en el cuerpo, nunca en la URL; los access logs no incluyen cuerpos |
-| Disco efímero de AgentCore Runtime | Resultados | Sin escritura a disco; DataFrames solo en memoria |
-| AgentCore Code Interpreter (F20) | Código y DataFrames | Sesión aislada, sin persistencia; se cierra al terminar el análisis |
-| Sketches de descubrimiento (F19) | Huellas de valores | Calculados en memoria en la tarea ECS con hashes salados; nunca se escriben |
-| Secrets Manager | Credenciales SQL | No son datos de clientes; cifradas con CMK y acceso restringido (CN-03) |
+| Tarea ECS (Web + API) | Catálogo, preguntas y respuestas en memoria | Solo memoria del proceso; la tarea no monta volúmenes persistentes; al parar no queda nada |
+| Índice léxico en memoria | Nombres de objetos que el usuario no puede ver | La búsqueda se limita a `visible_ids` del login del usuario; el índice no lleva valores de columnas (F1) |
+| SessionVault | Logins SQL de usuarios | Cifrados en memoria durante la sesión; nunca en Secrets Manager, disco ni logs ([CN-03](CN-03-identidad.md)) |
+| BD `ConverData` (on-premise) | Catálogo, conocimiento, curación y auditoría | Permanece en el SQL Server del banco; AWS la alcanza solo por la VPN (PRD §13, decisión 10) |
+| Site-to-Site VPN | Tráfico entre la VPC y el banco | Túnel cifrado; el firewall on-premise abre solo el 1433 a las subredes de la tarea; TLS de SQL Server validado (`trust_server_certificate` impide arrancar en qa y prod) |
+| Builder | Metadatos y documentos durante la ingesta | Lee con consultas fijas a `sys.*`, sin valores; escribe solo en la BD `ConverData`; sin almacenamiento en AWS ([CN-02](CN-02-catalogo-memoria.md)) |
+| Fuentes de conocimiento (F23) | Datos personales en ejemplos de documentos | Redacción en memoria antes de escribir; el original no se copia |
+| Ediciones de curación (F24) | Datos pegados por un responsable | El detector de datos personales rechaza la edición antes de guardarla |
+| Bedrock | Contexto de la pregunta (nombres y descripciones de candidatos) | Un solo modelo, por VPC endpoint con el rol de la tarea; *invocation logging* desactivado; `data_mode: real` rechaza proveedores no aptos (PRD §13, decisión 13) |
+| Guardrails de Bedrock | Evaluación de texto por otro servicio | No se usa; decisión pendiente de Seguridad de la Información |
+| Texto generado por el LLM | Enlaces, HTML, correos u objetos inventados | Se reemplaza por la respuesta determinista (suite `guardas` de `eval gate`) |
+| CloudWatch Logs | Preguntas, SQL, nombres de objetos | Logs JSON sin contenido; de los errores, solo el tipo ([CN-05](CN-05-auditoria-observabilidad.md)) |
+| ALB | URLs, cabeceras y cuerpos | Interno; las preguntas van en el cuerpo y los access logs no registran cuerpos |
+| Respuestas HTTP | Cachés intermedias | `Cache-Control: no-store` en todas las respuestas |
+| Secrets Manager | Secretos de servicio | No son datos de clientes; cifrados con KMS y legibles solo por el rol de su tarea |
+| Imágenes en ECR | Contenido de la imagen | Solo código y configuración; sin catálogo ni credenciales. La imagen incluye metadatos de prueba para el modo demo, que no arranca en qa ni prod |
+| Red de salida | Envío de datos a terceros | Subredes privadas sin salida a internet; solo VPC endpoints y la VPN |
+| Notificaciones (F24) | Texto de la pregunta | El mensaje lleva solo el dominio y un enlace |
+
+Fase 1b (consulta de datos, sandbox de análisis F20, capa semántica F21): fuera de este despliegue; sus controles se definirán con la fase 1b (PRD §13, decisión 16).
 
 ## Criterios de aceptación
-1. La prueba del literal marcado de F17 devuelve 0 coincidencias en S3, OpenSearch, CloudWatch Logs, X-Ray y AgentCore, incluidos literales sembrados en documentos de prueba (F23).
-2. Una AWS Config rule marca como no conforme cualquier cuenta con *model invocation logging* activado.
+1. La prueba del literal marcado de F17 devuelve 0 coincidencias en CloudWatch Logs, en los access logs del ALB y en Secrets Manager, incluidos literales sembrados en documentos de prueba (F23).
+2. El inventario de recursos de la cuenta no contiene ningún almacén de datos de ConverData: sin buckets de catálogo, sin bases de datos y sin índices de búsqueda.
+3. El *model invocation logging* de Bedrock está desactivado y hay una comprobación automática que lo detecta si se activa (mecanismo por confirmar).
+4. Las subredes de la tarea no tienen ruta a internet.
+5. `converdata eval gate` (suites `permisos`, `inyeccion` y `guardas`) aprueba en qa con 0 fugas, también con el modelo de Bedrock.

@@ -1,7 +1,8 @@
 """Auditoría base (F11) en archivos JSONL diarios: preguntas con sus pasos y candidatos, y eventos de la API.
 
 Es el `AuditSink` del DiscoverFlow, así que hereda su comportamiento fail-closed. Nunca registra contraseñas.
-On-premise se reemplaza por el escritor de la BD `ConverData` (esquema `audit`, OP-05) sin cambiar la API.
+Es el destino de desarrollo: con `CONVERDATA_DB` definida la API usa `converdata.audit.sqlserver.SqlServerAuditSink`
+(esquema `audit` de la BD `ConverData`, OP-05), que tiene la misma interfaz. `open_audit` elige uno u otro.
 """
 
 from __future__ import annotations
@@ -14,34 +15,11 @@ from collections import deque
 from pathlib import Path
 
 from converdata.audit.chain import GENESIS, ChainReport, last_hash, normalize, previous_file, seal, verify_directory
-from converdata.audit.recorder import TraceRecord, discovery_rows
+from converdata.audit.recorder import TraceRecord, question_row  # noqa: F401  (reexportado)
 
 
 def _iso(when: dt.datetime | None = None) -> str:
     return (when or dt.datetime.now(dt.timezone.utc)).isoformat(timespec="milliseconds")
-
-
-def question_row(record: TraceRecord, when: dt.datetime | None = None) -> dict:
-    env = record.envelope
-    return {
-        "ts": _iso(when),
-        "type": "question",
-        "trace_id": record.trace_id,
-        "user_id": record.user_id,
-        "client": record.client,
-        "question": record.question,
-        "intent": record.intent,
-        "status": env.status,
-        "confidence": env.confidence,
-        "databases": env.databases,
-        "duration_ms": env.timings_ms.get("total"),
-        "steps": [
-            {"step": s.step, "attempt": s.attempt, "duration_ms": s.duration_ms, "model": s.model, "ok": s.ok,
-             "error": s.error, "detail": s.detail}
-            for s in record.steps
-        ],
-        "discovery": discovery_rows(env),
-    }
 
 
 class FileAuditSink:
@@ -99,3 +77,13 @@ class FileAuditSink:
                     rows.append(row)
             out.extend(sorted(rows, key=lambda r: r.get("ts", "")))  # lo sembrado se escribe fuera de orden
         return list(reversed(out))
+
+
+def open_audit(settings):
+    """Destino de la auditoría según la configuración: la BD `ConverData` si `CONVERDATA_DB` está definida; si no, archivos."""
+    if settings.db:
+        from converdata.audit.sqlserver import SqlServerAuditSink
+        from converdata.storage.connection import connector
+
+        return SqlServerAuditSink(connector(settings.db))
+    return FileAuditSink(settings.audit_dir)

@@ -18,6 +18,8 @@ services:
       CONVERDATA_INVENTORY: /app/data/inventory.yaml
       CONVERDATA_AUDIT_DIR: /app/data/audit
       CONVERDATA_CURATION_DIR: /app/data/curation
+      # BD ConverData (OP-02): con ella, catálogo y auditoría van a SQL Server; obligatoria con CONVERDATA_ENV=qa|prod
+      CONVERDATA_DB: ${CONVERDATA_DB:-}
       CONVERDATA_MODELS: ${CONVERDATA_MODELS:-}  # p. ej. /app/config/models.yaml (montar abajo)
       CONVERDATA_ADMINS: ${CONVERDATA_ADMINS:-}
       CONVERDATA_DEMO: ${CONVERDATA_DEMO:-0}

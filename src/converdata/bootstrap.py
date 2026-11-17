@@ -1,15 +1,15 @@
 """Ensambla el DiscoverFlow a partir de un directorio con `config/`, `catalog/` y `knowledge/`.
 
-On-premise, `ConverData-API` lo hará leyendo los esquemas de la BD `ConverData` y con `SqlServerVectorStore` (OP-02);
-la forma de ensamblar es la misma.
+El índice de búsqueda es léxico y vive en memoria (`InMemoryVectorStore`, PRD §13 decisión 9). La carga desde la BD
+`ConverData` (OP-02, HU-09) usará la misma forma de ensamblar.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from converdata.catalog.store import load_catalog, load_knowledge
-from converdata.config import load_inventory, load_owners, load_settings
+from converdata.catalog.store import CatalogSnapshot, load_snapshot
+from converdata.config import load_settings
 from converdata.flows.discover import DiscoverDeps, DiscoverService
 from converdata.memory.memory_store import InMemoryVectorStore
 from converdata.models.identity import UserContext
@@ -22,11 +22,27 @@ def build_service(
     """Sin `models_path` ni `gateway`, modo determinista. Con ellos, los nodos `intent`, `rerank` y `respond` y los
     embeddings pasan por el gateway de LLM (NVIDIA NIM o Bedrock según `config/models.yaml`)."""
     root = Path(root)
-    inventory = load_inventory(root / "config" / "databases.yaml")
-    catalog = load_catalog(root / "catalog", inventory)
-    knowledge = load_knowledge(root / "knowledge")
-    owners = load_owners(root / "config" / "owners.yaml")
-    settings = load_settings(root / "config" / "settings.yaml")
+    return build_service_from_snapshot(
+        load_snapshot(root), settings_path=root / "config" / "settings.yaml", models_path=models_path,
+        gateway=gateway, llm_nodes=llm_nodes, embedder_override=embedder_override, **overrides)
+
+
+def build_service_from_db(connect, **kwargs) -> DiscoverService:
+    """Lo mismo, con el catálogo publicado en la BD `ConverData` (OP-02, HU-09). `connect` abre una conexión."""
+    from converdata.storage.catalog_repository import SqlServerCatalogRepository
+
+    loaded = SqlServerCatalogRepository(connect).load()
+    if loaded is None:
+        raise LookupError("La BD ConverData no tiene ningún catálogo publicado (converdata catalog publish)")
+    return build_service_from_snapshot(loaded[0], **kwargs)
+
+
+def build_service_from_snapshot(
+    snapshot: CatalogSnapshot, *, settings_path: str | Path | None = None, models_path: str | Path | None = None,
+    gateway=None, llm_nodes: bool = True, embedder_override=None, **overrides
+) -> DiscoverService:
+    catalog, knowledge, owners = snapshot.catalog(), snapshot.knowledge, snapshot.owners
+    settings = load_settings(settings_path)
 
     embedder, embed_model = None, None
     llm_ports: dict = {}
