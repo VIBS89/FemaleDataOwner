@@ -92,6 +92,7 @@ export default function ChatPage() {
       if (e instanceof ApiError && e.status === 429) {
         toast.warning(e.message);
         setInput(question);
+        return;
       }
       append(conv.id, {
         id: uid(),
@@ -108,10 +109,11 @@ export default function ChatPage() {
   async function verdict(messageId: string, traceId: string, assetKey: string, v: Verdict, current?: Record<string, Verdict>) {
     if (!active) return;
     try {
-      await api.feedback(traceId, assetKey, v);
+      const result = await api.feedback(traceId, assetKey, v);
       update(active.id, messageId, { feedback: { ...current, [assetKey]: v } });
-      toast.success(v === "confirm" ? "¡Gracias! Lo tendré en cuenta en preguntas parecidas." : "Gracias, queda registrado.", {
-        description: v === "confirm" ? "Con dos confirmaciones de distintas personas, la recomendación gana confianza." : undefined,
+      const learns = v === "confirm" && result.learned;
+      toast.success(learns ? "¡Gracias! Lo tendré en cuenta en preguntas parecidas." : "Gracias, queda registrado.", {
+        description: learns ? "Con dos confirmaciones de distintas personas, la recomendación gana confianza." : undefined,
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo registrar");

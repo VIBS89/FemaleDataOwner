@@ -26,17 +26,17 @@ sobre la BD `ConverData` en SQL Server 2016 o posterior, con 10–15 usuarios re
 | Bedrock con cuatro roles (planner, fast, judge, embed) y Guardrails | Un modelo para intención y orden; Guardrails es decisión de Seguridad | HU-02, HU-35, HU-36 |
 | Database Mail | Webhook de Teams | HU-18, HU-24, HU-30 |
 
-### Estado al 2026-11-16
-**360 tests en verde** (297 sin SQL Server, más 63 contra una BD `ConverData` real y desechable) y compuerta `converdata eval gate`
-aprobada en los dos catálogos de prueba, también con el catálogo cargado desde la BD (modo determinista).
+### Estado al 2026-11-17
+**420 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella pasan 339 y se omiten las 81
+de SQL Server) y compuerta `converdata eval gate` aprobada en los dos catálogos de prueba, también con el catálogo cargado desde la BD (modo
+determinista). El 2026-11-17 se cerró el bloque C2 del plan: curación e inventario en la BD.
 
 | Estado | Historias |
 |---|---|
 | ✅ Hechas | HU-01, HU-02, HU-03 (specs revisadas el 2026-11-16), **HU-04, HU-05, HU-08, HU-20** (2026-11-16; cada una con las salvedades de su bloque **Estado**), HU-10, HU-11, HU-12, HU-14, HU-16, HU-17, HU-19, HU-21, HU-22, HU-34, HU-42 |
-| 🟡 Hechas en lo principal; falta una parte | **HU-06 y HU-09** (catálogo y conocimiento en la BD y la API arranca desde ella; faltan responsables, solicitudes, votos e inventario, que siguen en archivos) |
-| 🟡 Hechas, con parte en archivos del servidor | HU-15 (el voto ya queda en `audit`; el recuento sigue en `feedback.jsonl`), HU-29, HU-30, HU-31, HU-32; HU-25 (CSV) y HU-28 ya se publican en la BD |
-| 🟡 Parciales | HU-18 (falta la tarea programada), HU-23 (hay `/admin/metrics`; falta `converdata metrics report`), HU-24 (hay regresión con `eval gate` y purga `converdata audit purge`; faltan las tareas programadas), HU-36 (falta repetirla con LLM real y validarla con Seguridad) |
-| ⏳ Pendientes que se pueden hacer ya en desarrollo | El resto de HU-06/HU-09 (bloque C2 del plan), HU-26, HU-37 (scripts), HU-39 |
+| ✅ Hechas el 2026-11-17 (bloque C2), con las salvedades de su bloque **Estado** | **HU-06, HU-09**, HU-15, HU-28, HU-29, HU-30, HU-31 (con `CONVERDATA_DB` todo su estado vive en la BD; sin ella, en archivos, solo para desarrollo y demo) |
+| 🟡 Parciales | HU-18 (falta la tarea programada), HU-25 (CSV hecho y en la BD; falta Excel), HU-32 (falta el reporte por dominio), HU-23 (hay `/admin/metrics`; falta `converdata metrics report`), HU-24 (hay regresión con `eval gate` y purga `converdata audit purge`; faltan las tareas programadas), HU-36 (falta repetirla con LLM real y validarla con Seguridad) |
+| ⏳ Pendientes que se pueden hacer ya en desarrollo | Lo que falta de HU-23 y HU-32 (bloque D del plan, el siguiente), HU-26, HU-37 (scripts), HU-39 |
 | ⛔ Pendientes que dependen del banco o de terceros | HU-13 (LDAP), HU-27 (SSISDB y msdb), HU-33 (preguntas reales y steward), HU-35 (cuenta AWS), HU-38 (gMSA, certificados), HU-40, HU-41 |
 | ❌ Retirada | HU-07 como "tablas de grafo" (PRD §13, decisión 10); su parte útil pasa a HU-06 |
 
@@ -48,7 +48,7 @@ El detalle de cada una está en su bloque **Estado** de la §4. Los pendientes d
 |---|---|---|---|---|---|---|
 | **O1** ✅ | Specs on-premise completas y coherentes con el PRD, los diagramas y CN: OP-07 (instalación y operación) y huecos de OP-01 a OP-06 cerrados | Las 9 brechas de la revisión del 2026-10-27 (§6) cerradas o con decisión registrada; 0 contradicciones abiertas entre PRD, specs y diagramas (revisión del 2026-11-16) | Es trabajo de documentación sobre specs ya maduras | Desbloquea instalación, seguridad y criterios de aceptación de todo lo demás | 2026-11-13 ⚠️ S2 | OP-01…OP-07, F17 |
 | **O2** | La BD `ConverData` (SQL Server 2016+) es el almacén de trabajo: catálogo con historial, conocimiento, curación y auditoría | Criterios de OP-02 en verde contra una instancia real de SQL Server; la compuerta `eval gate` da el mismo resultado con el catálogo cargado desde la BD que desde YAML | El modelo ya existe en YAML y el DDL está escrito; hay un SQL Server 2022 Express de desarrollo | Sin persistencia no hay piloto multiusuario ni historial (RF-34) | 2026-12-11 ⚠️ S2 | OP-02, F1, F2, F19 |
-| **O3** | Cada usuario descubre solo lo que su login SQL puede leer, de punta a punta por la API | CA 1–4 de OP-03 y CA 1, 4, 5 y 6 de F14 en verde con dos logins de prueba en dos servidores; **0 fugas** en el set de evaluación | `VisibilityResolver` ya calcula `visible_ids`; falta la sesión y la custodia | D6 de OP-01 (0 fugas) es criterio de salida | 2026-12-11 ⚠️ S2 | OP-03, F14 |
+| **O3** | Cada usuario descubre solo lo que su login SQL puede leer, de punta a punta por la API | CA 1–4 de OP-03 y CA 1, 4, 5 y 6 de F14 en verde con dos logins de prueba en dos servidores; **0 fugas** en el set de evaluación | `visible_ids` ya se calcula con el login de cada sesión (`AgentRuntime.visible_ids`), con sesión y custodia construidas (HU-10 a HU-12) | D6 de OP-01 (0 fugas) es criterio de salida | 2026-12-11 ⚠️ S2 | OP-03, F14 |
 | **O4** | Interfaces publicadas en IIS: web, API, MCP y administración | CA 1–7 de OP-04 en verde en el servidor de piloto | La web Next.js, la API y el MCP ya funcionan en desarrollo (docker compose); falta IIS | RF-50, RF-51, RF-52; los usuarios no usan el CLI | 2027-02-05 ⚠️ S2 | OP-04, F12 |
 | **O5** | Toda pregunta queda auditada en SQL Server y el servicio es observable sin contenido | CA 1–5 de OP-05 y CA 1, 3, 4 y 5 de F11 en verde; test de logs con 0 preguntas, SQL o filas | El modelo de F11 ya está en el DDL | RF-53; base de las métricas de F25 | 2027-01-08 ⚠️ S2 | OP-05, F11, F17 |
 | **O6** | El conocimiento del dominio clientes / onboarding digital está ingerido con PII redactada | CA 1–5 de F23 y CA 7 de OP-02; CA 3 de OP-06 (0 DUI ni cuentas de prueba en `knowledge`) | Presidio y los conectores son piezas acotadas; el dominio piloto es pequeño | RF-22, RF-23, RF-25; sin ellos la confianza depende de texto IA (tope 0.6) | Semana 3 del piloto (2027-02-26) ⚠️ S2, S6 | F23, OP-02, OP-06 |
@@ -74,6 +74,8 @@ Mientras tanto vale este orden, que es el del [plan de desarrollo §3](../PLAN-d
 | H | Piloto | HU-40, HU-41, HU-13 si hay LDAP | F, G | O10 |
 
 Los bloques A a D y los scripts de F no dependen de nadie externo. E, G y H necesitan al banco.
+
+Estado (2026-11-17): A, B y C están hechos (C se cerró con el bloque C2 del plan de desarrollo). El siguiente es D.
 
 ## 4. Épicas e historias de usuario
 Prioridad **MoSCoW** para esta versión. Estimación relativa en **puntos de historia** (Fibonacci: 1, 2, 3, 5, 8, 13).
@@ -172,7 +174,15 @@ piloto con scripts revisables.
 > (`src/converdata/storage/migrations.py`): una transacción por script, registro en `dbo.schema_version` y rechazo de un script editado
 > después de aplicarse. Pruebas: `tests/test_storage_migrations.py` (permisos de cada rol contra SQL Server real, incluido que ni la API ni
 > el Builder pueden apagar el versionado temporal ni bajar la versión) y `tests/test_catalog_repository.py` (publicar, cargar y auditar con
-> la cuenta de cada rol). Salvedades: probado en SQL Server 2022, no en 2016; el comando `db migrate` se probó a mano.
+> la cuenta de cada rol). Salvedades: probado en SQL Server 2022, no en 2016.
+>
+> **Estado (2026-11-17):** se añade `db/converdata/002_curacion.sql`: `catalog.inventory_server`, `curation.steward`,
+> `curation.request` y `curation.vote` (sin texto libre); la purga `audit.usp_purge` alcanza también las dudas escaladas y los
+> originales de las confirmaciones; `converdata_app` no puede alterar el esquema `curation` ni cambiar o borrar votos y originales,
+> y el Builder solo lee el inventario (`test_la_purga_alcanza_las_dudas_y_los_originales_pero_no_los_votos`,
+> `test_la_cuenta_de_la_api_no_puede_cambiar_ni_borrar_votos_ni_originales`). Con `CONVERDATA_DB` la API no arranca si faltan
+> migraciones (`test_la_api_no_arranca_con_migraciones_pendientes_y_lo_dice_claro`). El comando `db migrate` ya tiene prueba
+> automática (`tests/test_catalog_refresh.py`).
 
 #### HU-05 · Validar la BD `ConverData` contra un SQL Server real
 **Como** desarrollador **quiero** pruebas de integración que apliquen las migraciones y ejerciten los adaptadores contra SQL Server
@@ -207,14 +217,22 @@ piloto con scripts revisables.
 - **Dado** un refresco posterior, **cuando** termina, **entonces** no sobrescribe ninguna edición `human` (F24 CA3).
 - **Dado** el test de literales marcados, **cuando** se ejecuta, **entonces** ninguna tabla fuera de `audit`, `golden` y `curation` contiene valores.
 
-> **Estado (2026-11-16):** hecho el catálogo y el conocimiento (`src/converdata/storage/catalog_repository.py`): `converdata catalog publish`,
-> `catalog build --db` y la API publican servidores, objetos, columnas, FKs, fragmentos, reglas, linaje, entidades, confirmaciones y
-> responsables por dominio, escribiendo solo lo que cambió; el historial temporal guarda la versión anterior y su autor
-> (`description_history`); un refresco (`scope="build"`) no pisa lo `human` ni lo `data_dictionary`, ni toca lo curado. Pruebas:
-> `tests/test_catalog_repository.py`, `api/tests/test_catalog_db.py`. Falta (bloque C2): la prueba de literales marcados de punta a punta
-> (criterio 4; hoy se comprueba que `catalog` y `knowledge` no tienen columnas de valores, y `knowledge.golden_discovery` guarda la
-> pregunta normalizada, no anonimizada); exponer el historial en la vista Curación (hoy solo por SQL); una prueba automática del
-> comando `catalog build --db` (probado a mano; el mismo flujo por la API sí está probado).
+> **Estado (2026-11-17):** hecha. Catálogo y conocimiento en la BD (`src/converdata/storage/catalog_repository.py`): `converdata catalog
+> publish` y `catalog build --db` publican servidores, objetos, columnas, FKs, fragmentos, reglas, linaje, entidades, confirmaciones y
+> responsables por dominio, escribiendo solo lo que cambió; un refresco (`scope="build"`) no pisa lo `human` ni lo `data_dictionary`,
+> ni toca lo curado, y tampoco revierte una corrección humana hecha mientras corría el build
+> (`test_el_refresco_no_revierte_una_correccion_humana_hecha_durante_el_build`). La curación de la API ya no publica el catálogo: escribe filas concretas (`write_descriptions`, `upsert_rule`,
+> `delete_rule`, `upsert_golden`), cada una con su autor y en el historial temporal. El historial se ve en la vista Curación y en la
+> ficha del activo (`GET /curation/history`, botón "Historial"), con cada cambio atribuido a quien escribió la descripción
+> (`test_el_historial_atribuye_la_descripcion_a_quien_la_escribio_no_a_quien_toco_la_fila`). `knowledge.golden_discovery` guarda
+> una plantilla anónima (sin números sueltos, correos ni identificadores alfanuméricos) y el original va a
+> `golden.golden_discovery_original` solo si la pregunta no traía ningún literal ni parece llevar datos personales. Pruebas:
+> `tests/test_catalog_repository.py`, `tests/test_curation.py`, `tests/test_catalog_refresh.py` (incluye `catalog build --db` por la
+> CLI) y `api/tests/test_catalog_db.py`. Salvedades: del criterio 4 hay pruebas con un documento y una cuenta marcados en una
+> confirmación (`test_la_confirmacion_guarda_una_plantilla_sin_literales`,
+> `test_un_identificador_alfanumerico_tampoco_llega_a_la_plantilla`) y la de columnas de valores en `catalog` y `knowledge`, no una que
+> recorra todas las tablas; la plantilla no detecta nombres de personas ni texto entre comillas
+> ([calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)); no se ha probado en SQL Server 2016 ni en la CI.
 
 #### HU-07 · Grafo del patrimonio en tablas de grafo — retirada
 > **Estado (2026-11-16):** retirada por la decisión 10 del PRD §13. El grafo del patrimonio (F19) se construye en memoria al cargar el
@@ -249,14 +267,19 @@ dependa de archivos YAML en el servidor.
 - **Dado** el modo de desarrollo, **cuando** se pasa `--root`, **entonces** sigue funcionando con YAML (todos los tests actuales siguen en verde).
 - **Dado** el mismo catálogo en YAML y en la BD, **cuando** corre `converdata eval gate` con cada uno, **entonces** el resultado es el mismo.
 
-> **Estado (2026-11-16):** hecha en lo principal. Con `CONVERDATA_DB`, `ConverData-API` trae el catálogo de la BD al arrancar
-> (`build_service_from_db`, `runtime._pull`), publica cada edición de curación antes de recargar (`runtime.commit`), carga lo que publica
-> el Builder sin reiniciar (comprueba la versión cada 15 s) y responde 409 si se edita sobre una versión que ya cambió. Otra instancia
-> con el catálogo vacío en disco arranca con lo publicado. El descubrimiento da las mismas métricas y los mismos candidatos, caso por caso,
-> desde la BD que desde YAML (`test_el_descubrimiento_responde_igual_desde_la_bd_que_desde_yaml`), y `eval gate --db` aprueba las siete
-> suites (a mano). Las ediciones corren bajo un solo candado (`runtime.editing`), y `/mcp` también carga la versión nueva. Falta (bloque
-> C2): responsables por login, solicitudes escaladas, votos, registro de diccionarios e inventario de la API siguen en archivos, y la API
-> trabaja sobre una copia del catálogo en disco, así que el servidor todavía guarda estado propio.
+> **Estado (2026-11-17):** hecha. Con `CONVERDATA_DB`, `ConverData-API` carga el catálogo y el conocimiento de la BD en memoria
+> (`runtime._pull`, `build_service_from_snapshot`), sin copia de trabajo en disco, y carga lo que publica el Builder sin reiniciar
+> (comprueba la versión cada 15 s). El inventario de servidores, los responsables, las dudas escaladas y los votos viven en la BD (`db/converdata/002_curacion.sql`, `storage/curation_repository.py`), y el build bajo demanda usa un
+> directorio temporal que se borra: el servidor no guarda estado propio (`test_el_servidor_no_guarda_estado_en_disco`,
+> `test_otra_instancia_arranca_con_lo_publicado_sin_archivos_previos`). Cada edición corre bajo un solo candado (`runtime.editing`) y
+> escribe sus filas; ya no hay respuesta 409 por catálogo desactualizado. El descubrimiento da las mismas métricas y los mismos
+> candidatos, caso por caso, desde la BD que desde YAML (`test_el_descubrimiento_responde_igual_desde_la_bd_que_desde_yaml`), y
+> `eval gate --db` aprueba las siete suites (a mano). Los almacenes se abren en la raíz de composición (`bootstrap.open_stores`). Sin
+> `CONVERDATA_DB` (desarrollo y demo) todo sigue en archivos (`converdata.storage.files`). Si lo vigente no se puede cargar, la API
+> queda sin catálogo (409) en vez de servir el anterior (`test_si_el_catalogo_no_recarga_tras_editar_no_se_sirve_lo_anterior`), y no
+> arranca si a la BD le faltan migraciones. Salvedades: tras cada escritura de curación la API vuelve a cargar el catálogo completo y
+> reconstruye el índice; se asume un solo proceso de API (el inventario se lee al arrancar); en modo demo con BD queda un marcador
+> en `curation_dir`.
 
 ---
 
@@ -305,7 +328,7 @@ actividad en SQL Server Audit.
 
 - **Dado** una sesión, **cuando** `ConnectionFactory.for_session(session_id, database)` conecta, **entonces** la cadena ODBC lleva `Encrypt=yes`
   y `ApplicationName=ConverData`, y la contraseña solo se descifra durante `pyodbc.connect`.
-- **Dado** el login, **cuando** `VisibilityResolver` calcula `visible_ids`, **entonces** usa esa conexión (no el login de metadatos).
+- **Dado** el login, **cuando** la API calcula `visible_ids` (`AgentRuntime.visible_ids`), **entonces** usa esa conexión (no el login de metadatos).
 - **Dado** SQL Server, **cuando** el DBA consulta las sesiones, **entonces** las de ConverData tienen `program_name = 'ConverData'` y el login del usuario.
 
 > **Estado (2026-11-16):** hecha (`connector.py`: `APP=ConverData`, `Encrypt=yes`; la visibilidad se lee con la credencial del usuario y
@@ -322,7 +345,11 @@ actividad en SQL Server Audit.
 - **Dado** un login sin asociación, **cuando** inicia sesión, **entonces** `groups = []` y solo tiene el rol `consumer` (salvo asignación directa en `curation.owners`).
 
 > **Estado (2026-11-16):** pendiente; depende de LDAP de solo lectura (⚠️ S10). En el piloto los roles se asignan por login SQL
-> (`curation/stewards.yaml`, `CONVERDATA_ADMINS`), que es lo que OP-04 admite "en su defecto".
+> (`CONVERDATA_ADMINS` para `data_admin`; para `steward`, la tabla `curation.steward`, que el administrador mantiene desde la pestaña
+> Responsables de Administración con `GET`/`PUT /admin/stewards`, auditado como `stewards_updated`; 2026-11-17), que es lo que OP-04
+> admite "en su defecto". Esos roles por nombre solo cuentan si la sesión validó el login en un servidor de producción, cuando el
+> inventario tiene alguno (`identity_trusted`, `test_un_login_validado_solo_en_desarrollo_no_hereda_roles_por_su_nombre`): política
+> por confirmar con el banco (PRD §13, pregunta abierta 9), que esta historia deja superada.
 
 ---
 
@@ -357,9 +384,11 @@ descubrimiento en mis herramientas.
   `audit.audit_discovery_feedback` con `time_to_verdict_ms`.
 - **Dado** un `trace_id` de otro usuario, **cuando** envío feedback, **entonces** la API lo rechaza.
 
-> **Estado (2026-11-16):** hecha sobre archivos (`runtime.record_feedback`: solo acepta activos mostrados en esa respuesta y a ese
-> usuario). Con la BD, cada voto deja su fila en `audit.audit_discovery_feedback` con `time_to_verdict_ms`. El recuento de votos por
-> usuario sigue en `curation/feedback.jsonl` (bloque C2).
+> **Estado (2026-11-17):** hecha (`runtime.record_feedback`: solo acepta activos mostrados en esa respuesta y a ese usuario). Con la
+> BD, cada voto se audita antes de aplicarse (`audit.audit_discovery_feedback`, con `time_to_verdict_ms`) y deja su fila en
+> `curation.vote`, de donde sale el recuento (último voto de cada usuario). Sin BD, el recuento va a `feedback.jsonl` (desarrollo).
+> El voto no lleva comentario ni otro texto libre. El voto y la confirmación que resulta se escriben bajo el mismo candado
+> (`test_dos_votos_a_la_vez_cuentan_los_dos`); si la escritura falla, queda `feedback_failed` en la auditoría.
 
 #### HU-16 · Herramientas MCP con la identidad de la sesión
 **Como** ingeniero de datos que usa Claude Code **quiero** las herramientas `discover` y `get_asset` en `/mcp` **para** preguntar por datos
@@ -415,8 +444,11 @@ responsables y confianza **para** entender un dato sin depender de TI.
 - **Dado** un refresco fallido, **cuando** termina, **entonces** queda en el Visor de eventos y el webhook de Teams avisa.
 
 > **Estado (2026-11-16):** hecho el refresco bajo demanda (`/admin/catalog/build`, auditado, con la credencial del administrador) y el
-> comando `converdata catalog build --db`, que parte de la BD y publica en ella; la API carga la versión nueva sin reiniciar. Faltan la
-> tarea programada (script en HU-37) y el aviso al fallar.
+> comando `converdata catalog build --db`, que parte de la BD y publica en ella; la API carga la versión nueva sin reiniciar. Desde el
+> 2026-11-17 los dos usan el mismo caso de uso (`application/catalog_refresh.py`), y el comando sin `--config` toma el inventario de
+> la BD y entra con la cuenta del proceso (salvo `metadata_user_env`), que es lo que necesita la tarea programada
+> (`test_cli_build_usa_el_inventario_de_la_bd_y_no_pisa_lo_curado`). Con ese inventario solo se conecta a los hosts de
+> `CONVERDATA_BUILDER_HOSTS`, obligatoria en qa y prod (`test_el_builder_solo_va_a_los_hosts_permitidos`). Faltan la tarea programada (script en HU-37) y el aviso al fallar.
 
 #### HU-19 · Límite de tokens por usuario y día
 **Como** data_admin **quiero** un tope diario de tokens por usuario **para** acotar el coste de Bedrock en el piloto.
@@ -552,9 +584,11 @@ regresiones sin acordarme de lanzarlas.
 - **Dado** una segunda ingesta sin cambios, **cuando** corre, **entonces** no llama al LLM ni reindexa (hash).
 
 > **Estado (2026-10-27):** hecho para CSV sobre el catálogo en archivos: `POST /curation/dictionary` (steward, por dominio), pestaña *Diccionario* en Curación,
-> descripciones como `data_dictionary` sin pisar las `human`, hash para no repetir y test `test_ingesta_de_diccionario_no_pisa_lo_humano_y_es_idempotente`.
-> Con la BD, las descripciones del diccionario se publican en `catalog` con su autor. Falta Excel, probar con un diccionario de 200
-> columnas reales y llevar a la BD el registro de diccionarios ya aplicados.
+> descripciones como `data_dictionary` sin pisar las `human`, hash para no repetir (retirado el 2026-11-17, ver abajo) y test `test_ingesta_de_diccionario_no_pisa_lo_humano_y_es_idempotente`.
+> Con la BD, las descripciones del diccionario se escriben en `catalog` con su autor. Desde el 2026-11-17 no hay registro por hash
+> de los diccionarios aplicados: la segunda vez no queda nada que escribir y la respuesta lleva `unchanged` (criterio 2), y así el
+> archivo de un responsable no bloquea al de otro dominio (`test_el_diccionario_de_un_responsable_no_bloquea_el_de_otro`). Las filas
+> de activos que el responsable no ve se informan como desconocidas. Falta Excel y probar con un diccionario de 200 columnas reales.
 
 #### HU-26 · Ingesta de documentos con redacción de PII
 **Como** responsable de Seguridad de la Información **quiero** que los documentos se indexen con DUI, NIT, cuentas y tarjetas redactados
@@ -596,8 +630,9 @@ regresiones sin acordarme de lanzarlas.
 - **Dado** una regla vinculada a un activo que no veo, **cuando** pregunto, **entonces** no aparece.
 
 > **Estado (2026-10-27):** hecho sobre archivos (`knowledge/rules/curadas.yaml`): `GET/PUT/DELETE /curation/rules` con control por dominio del steward,
-> pestaña *Reglas de negocio* en Curación y test `test_reglas_de_negocio_gestionadas_por_el_steward`. Con la BD, las reglas se publican
-> en `knowledge.business_rule` con historial (`test_una_regla_curada_y_una_confirmacion_llegan_a_la_bd`).
+> pestaña *Reglas de negocio* en Curación y test `test_reglas_de_negocio_gestionadas_por_el_steward`. Con la BD, cada regla se escribe
+> o se borra como una fila de `knowledge.business_rule`, con historial (`upsert_rule`, `delete_rule`; 2026-11-17;
+> `test_una_regla_curada_y_una_confirmacion_llegan_a_la_bd`, `test_las_reglas_curadas_se_escriben_y_borran_por_fila`).
 
 ---
 
@@ -614,9 +649,18 @@ regresiones sin acordarme de lanzarlas.
 - **Dado** un "✖" posterior del steward, **cuando** se repite la búsqueda, **entonces** el golden discovery se retira y el activo pierde el bonus.
 - **Dado** `knowledge.golden_discovery`, **cuando** se inspecciona, **entonces** solo contiene la plantilla anonimizada; el original está en `golden`.
 
-> **Estado (2026-11-16):** hecha sobre archivos (`knowledge/golden/confirmaciones_usuarios.yaml`): dos confirmaciones de usuarios distintos
-> o una del responsable dan el bonus; el "✖" del responsable lo retira. Pendiente: pasarla a la BD (HU-06), que un solo "✖" de un
-> consumidor no retire una confirmación de usuarios y no recargar todo el índice en cada voto ([calidad bancaria §5](../calidad-bancaria.md)).
+> **Estado (2026-11-17):** hecha, con la BD (`knowledge.golden_discovery`; sin ella, `knowledge/golden/confirmaciones_usuarios.yaml`).
+> Regla de votos (`converdata.curation.resolve_golden`): el voto de un responsable del dominio entra de inmediato y su "✖" retira la
+> pareja; los votos de usuarios cuentan confirmaciones netas (confirmaciones menos rechazos, último voto de cada usuario): con 2 o
+> más dan el bonus, con 0 o menos la pareja se retira, y un solo "✖" ya no retira lo que confirmaron varios; si ya la confirmó un
+> responsable, los usuarios no cambian su decisión. El voto del responsable reindexa antes de responder y rige en la siguiente
+> búsqueda (`test_el_voto_del_responsable_rige_en_la_siguiente_busqueda`); el de un usuario, en segundo plano. La plantilla es
+> anónima (`question_template`: sin números sueltos, correos ni identificadores alfanuméricos; también se quitan los umbrales de
+> negocio) y el original va a `golden.golden_discovery_original` solo si la pregunta no traía ningún literal ni parece llevar datos
+> personales (criterio 3). Cada voto escribe una sola fila.
+> Pruebas: `tests/test_curation.py`, `api/tests/test_catalog_db.py`. Salvedades: la plantilla no detecta nombres de personas ni texto
+> entre comillas; tras cada voto se recarga todo el índice
+> ([calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)).
 
 #### HU-30 · Preguntar al responsable
 **Como** analista BI **quiero** escalar una pregunta sin respuesta al responsable del dominio **para** obtenerla sin buscar a quién preguntar.
@@ -630,8 +674,13 @@ regresiones sin acordarme de lanzarlas.
 - **Dado** la respuesta del steward, **cuando** otro usuario hace una pregunta equivalente, **entonces** el activo aparece como candidato principal con
   confianza ≥ 0.85.
 
-> **Estado (2026-11-16):** hecha sobre archivos (`curation/requests.json`, `POST /curation/requests`, vista Solicitudes y webhook de Teams
-> con solo el dominio y el enlace). Pendiente: pasarla a la BD (HU-06) y confirmar el canal (⚠️ S12).
+> **Estado (2026-11-17):** hecha (`POST /curation/requests`, vista Solicitudes y webhook de Teams con solo el dominio y el enlace).
+> Con la BD las dudas viven en `curation.request` (la tabla se llama así, no `curation_request`), una por respuesta y usuario; sin
+> ella, en `requests.json`. La respuesta del responsable entra al índice como confirmación `steward` y la siguiente pregunta
+> equivalente encuentra el activo (`test_una_duda_escalada_vive_en_la_bd_y_su_respuesta_entra_al_indice`). Pendiente: confirmar el
+> canal (⚠️ S12). La pregunta y la nota son texto libre: la purga de retención (`audit.usp_purge`) borra las dudas anteriores al
+> corte. La bandeja solo muestra al responsable, de lo que se enseñó al usuario, los activos de sus dominios, y el usuario no recibe
+> la nota libre cuando necesita pedir acceso (`test_la_bandeja_y_la_respuesta_de_una_duda_no_filtran_otros_dominios`).
 
 #### HU-31 · Vista Curación para stewards
 **Como** steward **quiero** una vista para revisar descripciones, reglas, entidades, tablas canónicas y dudas escaladas **para** responder una
@@ -645,9 +694,14 @@ vez y que quede para todos.
 - **Dado** el rol `consumer`, **cuando** abro `/curation` o intento editar, **entonces** recibo 403.
 - **Dado** la cola de revisión, **cuando** la abro, **entonces** está ordenada por demanda (preguntas que tocaron cada activo).
 
-> **Estado (2026-11-16):** hecha sobre archivos (`/curation/review`, `/curation/description`, pestañas de la vista Curación; el consumidor
-> recibe 403; las ediciones con datos personales se rechazan). Pendiente: historial temporal en la BD (HU-06) y decidir si el responsable
-> ve activos que su login no puede leer (PRD §13, pregunta abierta 7).
+> **Estado (2026-11-17):** hecha (`/curation/review`, `/curation/description`, pestañas de la vista Curación; el consumidor recibe 403;
+> las ediciones con datos personales se rechazan). Con la BD cada edición queda en el historial temporal con su autor, y el botón
+> "Historial" de Curación y de la ficha lo muestra (`GET /curation/history`, solo responsables del dominio que además ven el
+> activo con su login; `test_el_historial_de_descripciones_se_ve_en_curacion`). Los responsables se administran desde Administración
+> (`GET`/`PUT /admin/stewards`). Curar no revela activos: fuera de sus dominios, lo que el login no ve responde 404
+> (`test_curar_no_revela_activos_que_el_login_no_puede_ver`), y una regla sin activos vigentes solo la gestiona su dominio
+> (`test_una_regla_sin_activos_vigentes_solo_la_gestiona_su_dominio`). Pendiente: decidir si el responsable ve en la cola de revisión
+> y al editar activos de sus dominios que su login no puede leer (PRD §13, pregunta abierta 7).
 
 #### HU-32 · Reporte de brechas de conocimiento
 **Como** Gerencia de Datos **quiero** un reporte de brechas abiertas y cerradas por dominio **para** priorizar el trabajo de los stewards.
@@ -697,6 +751,10 @@ medir la calidad sin el sesgo del set del equipo de desarrollo.
 > **crudo léxico**: Hit@1 93,1 % / Hit@3 93,1 %, B 87,5 % (antes 25 %), A, C, D y G sin bajar. La subida de B viene de las mejoras de
 > descubrimiento del commit `9c700ec`, no de los embeddings: `bge-m3` no cambia ningún caso en crudo y sube p95 a 4,6 s. No se ajusta el
 > peso en RRF. Queda abierto el paso 2 del plan (cobertura semántica) para los fallos de ranking B4 y C2, y repetir con el set real de HU-33.
+>
+> **Nota (2026-11-17):** el canal de embeddings usado en esta medición se retiró del código (rol `embed`, `--embeddings-only`,
+> `config/models.embed.yaml`). El resultado sigue valiendo, pero la medición ya no se puede repetir con este código, solo desde el
+> historial de git.
 
 #### HU-35 · Bedrock probado de punta a punta
 **Como** desarrollador **quiero** probar el modelo del piloto (intención y orden) contra Bedrock por el proxy corporativo **para**

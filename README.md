@@ -4,7 +4,7 @@ Asistente de IA para la **Gerencia de Datos de Banco Atlántida El Salvador** qu
 qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece la recomendación*. Su objetivo es reducir la dependencia
 del conocimiento tribal y convertir la experiencia de los expertos en conocimiento reutilizable por toda la organización.
 
-> **Estado:** fase 1a on-premise en desarrollo. Agente, API, web y MCP construidos y medidos; catálogo y auditoría en la BD `ConverData` (SQL Server). Faltan Bedrock, la instalación en el servidor del piloto y el trabajo con el banco. Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
+> **Estado:** fase 1a on-premise en desarrollo. Agente, API, web y MCP construidos y medidos; catálogo, conocimiento, curación, inventario y auditoría en la BD `ConverData` (SQL Server). Faltan Bedrock, la instalación en el servidor del piloto y el trabajo con el banco. Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
 > Todo el detalle está en el **[PRD](docs/PRD.md)**.
 
 ## Desarrollo
@@ -19,8 +19,6 @@ python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim
 
 # 2. Preguntar (búsqueda léxica + grafo del patrimonio; con --models, el LLM entiende la intención y ordena)
 .venv/Scripts/python -m converdata.cli discover "¿Dónde está el DUI del cliente?" --root data/catalog_bancos
-#    canal de embeddings, solo para experimentar: no mejoró el acierto y no se despliega (PRD §13, decisión 9)
-.venv/Scripts/python -m converdata.cli discover "<pregunta>" --root data/catalog_bancos_enriched --models config/models.embed.yaml --embeddings-only
 
 # 3. Medir: set de evaluación por tipo de pregunta y ablación de patrones
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos
@@ -31,18 +29,20 @@ cp config/models.local.example.yaml config/models.yaml  # Ollama local (o models
 .venv/Scripts/python -m converdata.cli llm smoke
 ```
 ### BD `ConverData` (SQL Server 2016 o posterior)
-Con `CONVERDATA_DB` definida (cadena ODBC; obligatoria en qa y prod), el catálogo, el conocimiento y la auditoría viven en SQL Server;
-sin ella, en archivos bajo `data/` (solo desarrollo).
+Con `CONVERDATA_DB` definida (cadena ODBC; obligatoria en qa y prod), todo el estado vive en SQL Server: catálogo, conocimiento,
+curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. El servidor de aplicación no guarda archivos de
+estado. Sin ella, todo va a archivos bajo `data/` (solo desarrollo y modo demo).
 ```bash
 sqlcmd -S "localhost\SQLEXPRESS" -E -C -Q "CREATE DATABASE ConverData"
 export CONVERDATA_DB='SERVER=localhost\SQLEXPRESS;DATABASE=ConverData;Trusted_Connection=yes;TrustServerCertificate=yes'
 .venv/Scripts/python -m converdata.cli db migrate                                   # aplica db/converdata/*.sql (una transacción por script)
 .venv/Scripts/python -m converdata.cli catalog publish --root tests/fixtures/bancos # importa un catálogo en archivos
-.venv/Scripts/python -m converdata.cli catalog build --config config/databases.local.yaml --out data/trabajo --db  # refresco: parte de la BD y publica en ella
+.venv/Scripts/python -m converdata.cli catalog build --config config/databases.local.yaml --db  # refresco: parte de la BD y publica en ella
+.venv/Scripts/python -m converdata.cli catalog build --db                           # lo mismo con el inventario guardado en la BD (tarea programada)
 .venv/Scripts/python -m converdata.cli discover "¿Dónde está el DUI del cliente?" --db
 .venv/Scripts/python -m converdata.cli eval gate --db --root tests/fixtures/bancos  # la compuerta, con el catálogo de la BD
 .venv/Scripts/python -m converdata.cli catalog export --out data/export             # YAML para revisar en git
-.venv/Scripts/python -m converdata.cli audit purge                                  # retención de 180 días (rol converdata_maintenance)
+.venv/Scripts/python -m converdata.cli audit purge                                  # retención de 180 días: auditoría, dudas escaladas y originales (rol converdata_maintenance)
 
 # Pruebas contra un SQL Server real (crean y eliminan su propia BD); sin la variable se omiten
 CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes' .venv/Scripts/python -m pytest -q
@@ -52,8 +52,9 @@ CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServ
 `/catalog/*`, `/auth/login`, `/admin/*`). El login es el **usuario de base de datos** de cada persona (OP-03): la API calcula con él lo que
 puede ver (F14) y guarda la contraseña cifrada solo en memoria. **Primer arranque**: sin inventario ni catálogo, el primer login (con
 `VIEW ANY DEFINITION` o `sysadmin`) registra el servidor y, desde *Administración → Descubrir esquemas*, el agente extrae los esquemas
-con ese acceso. Sin `CONVERDATA_DB`, la auditoría queda en `data/audit/*.jsonl` y las confirmaciones "Es este" en `knowledge/golden` (F24);
-con ella, en la BD `ConverData`.
+con ese acceso. Los responsables de datos se asignan en *Administración → Responsables* y el historial de cada descripción se ve en *Curación* y en la
+ficha del activo. Sin `CONVERDATA_DB`, la auditoría queda en `data/audit/*.jsonl` y las confirmaciones "Es este" en `knowledge/golden`
+(F24); con ella, en la BD `ConverData`.
 ```bash
 docker compose up --build                    # http://localhost:3000
 CONVERDATA_DEMO=1 docker compose up --build  # servidor simulado: usuarios demo (admin) / analista, contraseña demo
@@ -82,7 +83,7 @@ desarrollo local se activa con `CONVERDATA_ALLOW_WINDOWS_AUTH=1`.
 | Grafo del patrimonio | `converdata.graph` | Entidades y copias canónicas, caminos de unión entre tablas y BDs filtrados por permisos |
 | LLM (única con LangChain) | `converdata.llm` | Gateway: Ollama (solo local), NVIDIA NIM, Bedrock por configuración; respaldo, circuit breaker y guarda de residencia |
 | Lógica determinista | `converdata.discovery` | Expansión y descomposición de la consulta, calificación, revisor, cascada, confianza de F22, guardas |
-| Memoria | `converdata.memory` | Puerto `VectorStore` e `InMemoryVectorStore`: índice léxico BM25 en memoria (el canal de embeddings queda como experimento) |
+| Memoria | `converdata.memory` | Puerto `VectorStore` e `InMemoryVectorStore`: índice léxico BM25 en memoria |
 | Evaluación | `converdata.evaluation` | Hit@k por tipo (A–G), calibración, caminos, duplicados, fugas, inventados, latencia; compuerta de calidad `eval gate` con siete suites y línea base |
 | Identidad y auditoría | `converdata.identity`, `converdata.audit` | `visible_ids` con el login del usuario (F14); auditoría fail-closed (F11) en SQL Server o, en desarrollo, en archivos con cadena de hashes |
 | BD `ConverData` | `db/converdata/`, `converdata.storage` | Migraciones numeradas (esquemas `catalog`, `knowledge`, `golden`, `curation` y `audit` en tablas normales y temporales, SQL Server 2016+), repositorio del catálogo con historial y roles de mínimo privilegio |

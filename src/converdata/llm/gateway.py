@@ -1,6 +1,6 @@
 """Gateway de LLM (F16): un único punto por el que pasan todas las llamadas a modelos.
 
-- Resuelve cada **rol** (`planner`, `fast`, `judge`, `coder`, `embed`) al proveedor y modelo de `config/models.yaml`.
+- Resuelve cada **rol** (`planner`, `fast`, `judge`, `coder`) al proveedor y modelo de `config/models.yaml`.
   Empezar con NVIDIA NIM y pasar a Bedrock es solo cambiar ese archivo (F16-CA1).
 - **Respaldo** a otro proveedor solo ante throttling, indisponibilidad o timeout; nunca por errores de contenido.
 - **Circuit breaker** por proveedor: 3 errores transitorios en 60 s lo abren 5 min.
@@ -189,8 +189,7 @@ class LLMGateway:
         primary = self.config.roles[role]
         routes = [Route(primary.provider, primary)]
         fb = self.config.fallback
-        # Los embeddings no tienen respaldo: otro modelo produce vectores incompatibles con el índice.
-        if role != "embed" and fb and fb.provider != primary.provider and role in fb.models:
+        if fb and fb.provider != primary.provider and role in fb.models:
             prov_fb = self.config.provider(fb.provider)
             if prov_fb.enabled:
                 routes.append(Route(fb.provider, primary.model_copy(update={"provider": fb.provider, "model": fb.models[role]})))
@@ -203,21 +202,6 @@ class LLMGateway:
 
     def has_role(self, role: str) -> bool:
         return role in self.config.roles
-
-    def embeddings(self):
-        """Modelo de embeddings del rol `embed` (o None si no está configurado: búsqueda solo léxica)."""
-        if "embed" not in self.config.roles:
-            return None
-        route = self.routes("embed")[0]
-        return self._model(route, "embed")
-
-    @property
-    def embed_model(self) -> str:
-        """Etiqueta que se guarda en el índice; la búsqueda verifica que coincida (F2)."""
-        if "embed" not in self.config.roles:
-            return "lexical-only"
-        r = self.config.roles["embed"]
-        return f"{r.provider}:{r.model}" + (f"@{r.dimensions}" if r.dimensions else "")
 
     # --- internos --------------------------------------------------------------------------
     def _model(self, route: Route, kind: str, schema=None, skw=None):

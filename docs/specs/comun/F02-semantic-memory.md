@@ -32,10 +32,11 @@ Las descripciones de `tables` y `columns` usan la mejor fuente disponible (`huma
   recarga tras cada build, confirmación o cambio de curación. No hay embeddings, ni columnas de vectores, ni índices de texto en SQL Server.
 - **Medición que lo justifica** (HU-34, 2026-10-29): el canal léxico solo dio **Hit@1 93,1 % y Hit@3 93,1 %**; añadir
   embeddings `bge-m3` **no cambió ningún caso** y subió el **p95 de 73 ms a 4,6 s**.
-- El **canal semántico queda como opción experimental de desarrollo**: `InMemoryVectorStore` acepta un `embedder` y entonces fusiona
-  el top-k léxico con el top-k por coseno (*Reciprocal Rank Fusion*). Se activa solo si `config/models.yaml` declara el rol `embed`
-  (p. ej. `config/models.embed.yaml`, opción `--embeddings-only` de la CLI). **No se despliega** en qa ni en piloto. Reabrir la decisión
-  exige repetir la medición con `converdata eval discovery` por tipo de pregunta (A–G) y mejorar el acierto sin romper la latencia de F22.
+- El **canal semántico se retiró del código** (2026-11-17). Existió como experimento de desarrollo para hacer esa medición; ya no hay
+  rol `embed`, `config/models.embed.yaml` ni opción `--embeddings-only`, así que la medición no se puede repetir con este código (solo
+  desde el historial de git). Un `config/models.yaml` que declare el rol `embed` se carga ignorándolo con un aviso, y en qa y prod la
+  API se niega a arrancar. Reabrir la decisión exige volver a construir el canal, medir con `converdata eval discovery` por tipo de
+  pregunta (A–G) y mejorar el acierto sin romper la latencia de F22.
 - Las preguntas largas de reporte, donde el léxico solo acierta menos, se atacan con el paso `intent` del LLM y con las fuentes de
   conocimiento (F22, F23), no con embeddings.
 
@@ -78,6 +79,6 @@ Implementaciones:
 2. Con un `visible_ids` que excluye el esquema `RRHH`, ninguna búsqueda devuelve objetos de `RRHH`.
 3. Ninguna colección contiene valores de datos ni literales de preguntas (test con literales marcados).
 4. `search_tables` con k=30 tarda menos de 300 ms en AdventureWorks.
-5. Los tests de contrato de `VectorStore` cubren `search_knowledge` y `search_golden_discovery` sobre `InMemoryVectorStore`, con y sin `embedder`.
+5. Los tests de contrato de `VectorStore` cubren `search_knowledge` y `search_golden_discovery` sobre `InMemoryVectorStore`.
 6. La búsqueda de `ClientCode` (nombre técnico exacto) devuelve esa columna en la primera posición.
-7. Sin rol `embed` en `config/models.yaml`, ninguna búsqueda llama a un modelo de embeddings (test).
+7. Ninguna búsqueda llama a un modelo de embeddings: el código no tiene ese canal, y un rol `embed` en `config/models.yaml` se ignora con un aviso (en qa y prod impide arrancar).

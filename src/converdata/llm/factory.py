@@ -10,12 +10,15 @@ Los imports de cada SDK son perezosos: solo se carga el del proveedor que se usa
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+log = logging.getLogger(__name__)
 
 Provider = Literal["nvidia_nim", "bedrock", "ollama"]
 DataClass = Literal["test", "real"]
@@ -24,6 +27,7 @@ Environment = Literal["local", "dev", "qa", "prod"]
 # Proveedores que solo pueden usarse en la máquina del desarrollador. Es una regla de código, no de configuración.
 LOCAL_ONLY_PROVIDERS = {"ollama"}
 ENV_VAR = "CONVERDATA_ENV"  # sobrescribe `environment` del archivo (el servidor fija dev/qa/prod)
+RETIRED_ROLES = frozenset({"embed"})  # roles que ya no existen: se ignoran al cargar la configuración
 
 
 class ProviderConfig(BaseModel):
@@ -43,7 +47,6 @@ class RoleConfig(BaseModel):
     model: str
     temperature: float | None = None
     max_tokens: int | None = None
-    dimensions: int | None = None  # solo `embed` (canal experimental de desarrollo; no se despliega)
     reasoning: bool = False  # F16: modelos con razonamiento extendido se usan con él desactivado
     num_ctx: int | None = None  # Ollama: ventana de contexto
 
@@ -69,6 +72,17 @@ class ModelsConfig(BaseModel):
     roles: dict[str, RoleConfig] = Field(default_factory=dict)
     fallback: FallbackConfig | None = None
     circuit: CircuitConfig = Field(default_factory=CircuitConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_roles(cls, data):
+        """Un `models.yaml` antiguo puede declarar el rol `embed`: ya no existe (la búsqueda es léxica; PRD §13,
+        decisión 9). Se ignora con un aviso en lugar de romper la carga."""
+        if isinstance(data, dict) and isinstance(data.get("roles"), dict) and RETIRED_ROLES & set(data["roles"]):
+            retired = sorted(RETIRED_ROLES & set(data["roles"]))
+            log.warning("models.yaml declara roles retirados que se ignoran: %s (la búsqueda es léxica)", ", ".join(retired))
+            data = {**data, "roles": {k: v for k, v in data["roles"].items() if k not in RETIRED_ROLES}}
+        return data
 
     def provider(self, name: str) -> ProviderConfig:
         return self.providers.get(name) or ProviderConfig()
@@ -99,7 +113,7 @@ def _api_key(provider: ProviderConfig, default_env: str) -> str | None:
 def build_nim_chat(role: RoleConfig, provider: ProviderConfig):
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-    # timeout: tope por petición HTTP (y por la espera de un 202). NVIDIAEmbeddings no lo expone en su constructor.
+    # timeout: tope por petición HTTP (y por la espera de un 202).
     kwargs = {"model": role.model, "api_key": _api_key(provider, "NVIDIA_API_KEY"), "usage_telemetry_enabled": False,
               "timeout": provider.timeout_s}
     if provider.base_url:
@@ -111,18 +125,6 @@ def build_nim_chat(role: RoleConfig, provider: ProviderConfig):
     return ChatNVIDIA(**kwargs)
 
 
-def build_nim_embeddings(role: RoleConfig, provider: ProviderConfig):
-    from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
-
-    kwargs = {"model": role.model, "api_key": _api_key(provider, "NVIDIA_API_KEY"), "truncate": "END",
-              "usage_telemetry_enabled": False}
-    if provider.base_url:
-        kwargs["base_url"] = provider.base_url
-    if role.dimensions:
-        kwargs["dimensions"] = role.dimensions
-    return NVIDIAEmbeddings(**kwargs)
-
-
 def build_bedrock_chat(role: RoleConfig, provider: ProviderConfig):
     from langchain_aws import ChatBedrockConverse
 
@@ -132,12 +134,6 @@ def build_bedrock_chat(role: RoleConfig, provider: ProviderConfig):
     if role.max_tokens is not None:
         kwargs["max_tokens"] = role.max_tokens
     return ChatBedrockConverse(**kwargs)
-
-
-def build_bedrock_embeddings(role: RoleConfig, provider: ProviderConfig):
-    from langchain_aws import BedrockEmbeddings
-
-    return BedrockEmbeddings(model_id=role.model, region_name=provider.region or "us-east-1")
 
 
 OLLAMA_URL = "http://localhost:11434"
@@ -156,20 +152,8 @@ def build_ollama_chat(role: RoleConfig, provider: ProviderConfig):
     return ChatOllama(**kwargs)
 
 
-def build_ollama_embeddings(role: RoleConfig, provider: ProviderConfig):
-    from langchain_ollama import OllamaEmbeddings
-
-    kwargs = {"model": role.model, "base_url": provider.base_url or OLLAMA_URL}
-    if role.dimensions:
-        kwargs["dimensions"] = role.dimensions
-    return OllamaEmbeddings(**kwargs)
-
-
 BUILDERS = {
     ("nvidia_nim", "chat"): build_nim_chat,
-    ("nvidia_nim", "embed"): build_nim_embeddings,
     ("bedrock", "chat"): build_bedrock_chat,
-    ("bedrock", "embed"): build_bedrock_embeddings,
     ("ollama", "chat"): build_ollama_chat,
-    ("ollama", "embed"): build_ollama_embeddings,
 }

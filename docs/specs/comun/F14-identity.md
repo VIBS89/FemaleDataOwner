@@ -42,8 +42,10 @@ métricas (`user_group`, F25) necesitan saber a qué grupos corporativos pertene
 | Cloud native | La misma que on-premise (PRD §13, decisión 14) |
 | On-premise | Tabla `curation.user_directory` (login SQL → cuenta de AD), mantenida por `data_admin`; al iniciar sesión, el servicio consulta AD por LDAP (solo lectura, con su gMSA) los grupos de esa cuenta (OP-03) |
 
-Estado: la consulta LDAP está pendiente (HU-13). Hoy `data_admin` sale de una lista explícita de logins y `steward` de los responsables
-por dominio de `owners.yaml`, asignados por login SQL.
+Estado: la consulta LDAP está pendiente (HU-13). Hoy `data_admin` sale de una lista explícita de logins (`CONVERDATA_ADMINS`) y
+`steward` de la lista de responsables de curación por login y dominio que mantiene el administrador (F24).
+
+**Confianza en el nombre del login (2026-11-17).** Un rol que se da por nombre de login solo cuenta si la sesión validó ese login en un servidor con `environment: produccion`, cuando el inventario tiene alguno (`identity_trusted`): quien administra un servidor de desarrollo o de QA puede crear allí un login con cualquier nombre. Es una política por confirmar con el banco (PRD §13, pregunta abierta 9). Queda superada cuando los roles salgan de grupos de AD (HU-13).
 
 Si no hay grupos resueltos (login sin cuenta de AD asociada o directorio no disponible), `groups = []`: el usuario no ve fragmentos con ACL
 ni tiene roles de curación (fail-closed). Los grupos se cachean con la visibilidad.

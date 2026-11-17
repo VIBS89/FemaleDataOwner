@@ -28,10 +28,9 @@ roles:
   planner: {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 1024}
   fast:    {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 400}
   # La fase 1a usa dos roles, que pueden apuntar al mismo modelo: planner (intención y orden) y fast (narrativa).
-  # `judge` es de la fase 1b. `embed` solo sirve para experimentar con el canal semántico en desarrollo
-  # (config/models.embed.yaml): no mejoró el acierto y la API no arranca en qa/prod si se declara (PRD §13, decisión 9).
+  # `judge` es de la fase 1b. La búsqueda es léxica (PRD §13, decisión 9): no hay rol para ella.
 
-# Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Los embeddings no tienen respaldo.
+# Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido).
 # Con Bedrock activo como principal, NIM puede quedar aquí como respaldo (solo si data_mode: test o NIM autoalojado).
 fallback: null
 # fallback:

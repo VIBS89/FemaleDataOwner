@@ -119,6 +119,9 @@ export interface BuildJob {
     lineage_edges: number;
     files_written: number;
     seconds: number;
+    enrich_errors: string[];
+    kept_from_failed: number; // objetos conservados de servidores que no respondieron
+    skipped_unsafe: number; // objetos omitidos por nombres no admitidos
   } | null;
   summary: string | null;
   error: string | null;
@@ -272,6 +275,26 @@ export interface ManagedRule {
   source?: string | null;
   owner?: string | null;
   reviewed: boolean;
+}
+
+export interface Steward {
+  login: string;
+  domains: string[]; // ["*"] = todos los dominios
+}
+
+export interface DescriptionVersion {
+  description: string | null;
+  description_source: DescriptionSource;
+  modified_by: string;
+  environment: string;
+  server_alias: string;
+  valid_from: string;
+  valid_to: string | null; // null = versión vigente
+}
+
+export interface DescriptionHistory {
+  available: boolean; // false: la instalación trabaja con archivos y no guarda historial
+  items: DescriptionVersion[];
 }
 
 export interface DictionaryReport {

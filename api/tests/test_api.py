@@ -308,3 +308,82 @@ def test_ingesta_de_diccionario_no_pisa_lo_humano_y_es_idempotente(ready):
     again = steward.post("/curation/dictionary", json={"csv": csv_text}).json()
     assert again["unchanged"] is True and again["applied"] == 0  # mismo hash: sin trabajo ni reindexado
     assert analyst.post("/curation/dictionary", json={"csv": csv_text}).status_code == 403
+
+
+def test_los_responsables_se_administran_y_cada_cambio_queda_auditado(ready, settings):
+    analyst = TestClient(ready.app)
+    login(analyst, user="analista")
+    assert analyst.get("/admin/stewards").status_code == 403 and analyst.get("/curation/review").status_code == 403
+    r = ready.put("/admin/stewards", json={"stewards": [{"login": " Analista ", "domains": ["prestamos"]}]})
+    assert r.status_code == 200 and r.json()["stewards"] == [{"login": "analista", "domains": ["prestamos"]}]
+    listed = ready.get("/admin/stewards").json()
+    assert listed["stewards"] == r.json()["stewards"] and "prestamos" in listed["domains"]
+    me = analyst.get("/auth/me").json()
+    assert "steward" in me["roles"] and me["domains"] == ["prestamos"]
+    # Solo cura su dominio.
+    assert analyst.put("/curation/description", json={"asset_key": "BancaPrestamos.dbo.Prestamos",
+                                                      "description": "Préstamos del banco"}).status_code == 200
+    assert analyst.put("/curation/description", json={"asset_key": "BancaCuentasDebito.dbo.Agencias",
+                                                      "description": "Agencias del banco"}).status_code == 403
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "x;DROP", "domains": ["*"]}]}).status_code == 422
+    assert ready.put("/admin/stewards", json={"stewards": []}).status_code == 200
+    assert "steward" not in analyst.get("/auth/me").json()["roles"]
+    events = [row for row in ready.get("/admin/audit", params={"kind": "stewards_updated"}).json()["items"]]
+    assert len(events) == 2 and events[-1]["stewards"] == [{"login": "analista", "domains": ["prestamos"]}]
+
+
+def test_sin_bd_no_hay_historial_de_descripciones_y_se_dice(ready):
+    asset = "BancaPrestamos.dbo.Prestamos"
+    assert ready.get("/curation/history", params={"asset_key": asset}).json() == {"available": False, "items": []}
+    assert ready.get("/curation/history", params={"asset_key": "No.Existe.Tabla"}).status_code == 404
+    analyst = TestClient(ready.app)
+    login(analyst, user="analista")
+    assert analyst.get("/curation/history", params={"asset_key": asset}).status_code == 403
+
+
+def test_un_rechazo_no_retira_lo_que_confirmaron_dos_usuarios(ready, settings):
+    """Regla de votos (F24): cuentan las confirmaciones netas de usuarios distintos; el responsable decide por encima."""
+    import yaml
+
+    assert ready.put("/admin/stewards", json={"stewards": []}).status_code == 200  # `responsable` vota como usuario
+    golden = settings.data_root / "knowledge" / "golden" / "confirmaciones_usuarios.yaml"
+
+    def vote(user, verdict, question="¿Dónde está el DUI del cliente 01234567-8?"):
+        client = TestClient(ready.app)
+        login(client, user=user)
+        env = client.post("/discover", json={"question": question}).json()
+        key = env["discovery"]["candidates"][0]["asset_key"]
+        r = client.post("/discover/feedback", json={"trace_id": env["trace_id"], "asset_key": key, "verdict": verdict})
+        assert r.status_code == 200, r.text
+        ready.app.state.runtime.drain()
+        [stored] = yaml.safe_load(golden.read_text(encoding="utf-8"))
+        return r.json(), stored
+
+    result, stored = vote("analista", "confirm")
+    assert result["learned"] is True and stored["template"] == "donde esta el dui del cliente"  # sin el documento
+    assert (stored["confirmed_by"], stored["confirmations"], stored["rejected"]) == ("users", 1, False)
+    result, stored = vote("responsable", "confirm", "¿dónde está el DUI del cliente 98765432-1?")  # misma plantilla
+    assert result["confirmations"] == 2 and (stored["confirmations"], stored["rejected"]) == (2, False)
+    result, stored = vote("responsable", "reject")  # cambia de opinión: 1 a favor, 1 en contra
+    assert (result["confirmations"], result["rejections"]) == (1, 1) and stored["rejected"] is True
+    result, stored = vote("demo", "confirm")  # el administrador es responsable de todos los dominios: decide
+    assert (stored["confirmed_by"], stored["rejected"]) == ("steward", False)
+    result, stored = vote("analista", "reject")  # y un "✖" de un usuario ya no lo cambia
+    assert (stored["confirmed_by"], stored["rejected"]) == ("steward", False)
+    assert "01234567" not in golden.read_text(encoding="utf-8")
+
+
+def test_una_pregunta_que_es_solo_literales_no_se_aprende(ready, settings):
+    """Sin nada que quede en la plantilla, el voto cuenta y se audita, pero no se convierte en conocimiento."""
+    from converdata_api.runtime import ShownTrace
+
+    runtime = ready.app.state.runtime
+    session = next(s for s in runtime.vault.sessions() if s.user_id == "demo")
+    asset = "BancaPrestamos.dbo.Clientes.DUI"
+    trace = ShownTrace(session.user_id, "01234567-8, 2026-01-01", {asset})
+    result = runtime.record_feedback(session, "t-solo-literales", trace, asset, "confirm")
+    runtime.drain()
+    assert result["learned"] is False and result["confirmations"] == 1
+    assert not (settings.data_root / "knowledge" / "golden" / "confirmaciones_usuarios.yaml").exists()
+    kinds = [row["type"] for row in ready.get("/admin/audit", params={"kind": "feedback"}).json()["items"]]
+    assert kinds == ["feedback"]

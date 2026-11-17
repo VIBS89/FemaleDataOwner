@@ -4,10 +4,9 @@ import pytest
 import yaml
 
 from converdata.catalog.store import load_catalog
-from converdata.config import DiscoverySettings, load_inventory
+from converdata.config import DiscoverySettings
 from converdata.discovery.deterministic import RuleBasedIntentClassifier
 from converdata.discovery.engine import Draft, compute_confidence
-from converdata.identity.visibility import VisibilityResolver, VisibleObject
 from converdata.memory.memory_store import InMemoryVectorStore
 from converdata.models.catalog import CatalogObject
 from conftest import FIXTURE, ONBOARDING_Q
@@ -111,34 +110,6 @@ def test_intencion_de_la_propuesta():
     assert result.business_context == "onboarding digital"
     assert result.asset_kind_hint == "column"
     assert result.environment_hint == "produccion"
-
-
-# --- F14 visibilidad -----------------------------------------------------------------------------
-
-
-class FakeLister:
-    def __init__(self, objects):
-        self.objects, self.calls = objects, 0
-
-    def visible_objects(self, server_id, databases):
-        self.calls += 1
-        return [o for s, o in self.objects if s == server_id and o.database in databases]
-
-
-def test_visibilidad_se_mapea_a_ids_fisicos_y_se_cachea():
-    inventory = load_inventory(FIXTURE / "config/databases.yaml")
-    lister = FakeLister([
-        ("SRVPRDSQL01", VisibleObject("VBank_ING", "dbo", "Users")),
-        ("SRVQASQL01", VisibleObject("VBank_ING", "dbo", "Users")),
-    ])
-    clock = iter([0.0, 100.0, 1000.0, 1000.0]).__next__  # guardar, 2.ª consulta, 3.ª consulta, guardar
-    resolver = VisibilityResolver(inventory, ttl_seconds=900, clock=clock)
-    ids = resolver.resolve("s1", lister, ["SRVPRDSQL01"])  # solo el servidor donde el login se validó
-    assert ids == {"produccion:SRVPRDSQL01.VBank_ING.dbo.Users"}
-    resolver.resolve("s1", lister, ["SRVPRDSQL01"])
-    assert lister.calls == 1  # cacheado
-    resolver.resolve("s1", lister, ["SRVPRDSQL01"])
-    assert lister.calls == 2  # expiró a los 15 min
 
 
 # --- F22 confianza -------------------------------------------------------------------------------

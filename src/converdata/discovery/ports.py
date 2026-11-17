@@ -44,11 +44,6 @@ class DiscoveryVerdict(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
 
 
-class QueryVariants(BaseModel):
-    variants: list[str] = Field(default_factory=list, max_length=3,
-                                description="Reformulaciones con términos técnicos o nombres probables de columnas")
-
-
 class QueryExpander(Protocol):
     def expand(self, question: str, weak_terms: list[str]) -> list[str]: ...
 

@@ -15,13 +15,13 @@ Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15)
 | POST · GET | `/auth/logout` (alias `/logout`) · `/auth/me` | Cierra la sesión · usuario, roles, dominios y servidores de la sesión |
 | POST | `/discover` | `{question, history?}` → `AnswerEnvelope` con `flow=discover` (F22) |
 | POST | `/discover/stream` | Lo mismo por SSE, con eventos `step` (progreso de cada nodo) y `answer` |
-| POST | `/discover/feedback` | `{trace_id, asset_key, verdict, comment?}` con `verdict` = `confirm` o `reject` (F24) |
+| POST | `/discover/feedback` | `{trace_id, asset_key, verdict}` con `verdict` = `confirm` o `reject` (F24). Sin comentario: el voto no guarda texto libre |
 | GET | `/assets/{asset_key}` | Ficha del activo: ubicaciones por ambiente, descripción y fuente, reglas, responsables, relaciones, linaje, documentos vinculados |
 | GET | `/catalog/databases` · `/catalog/objects` · `/catalog/object` | Exploración del catálogo filtrada por la visibilidad del usuario |
 | POST | `/curation/requests` | Escalamiento de una duda al responsable (cualquier usuario, F24) |
-| GET/POST/PUT/DELETE | `/curation/*` | Vista de curación: solicitudes y su respuesta, cola de revisión, descripciones, diccionario CSV y reglas; solo `steward`/`data_admin` (F24) |
+| GET/POST/PUT/DELETE | `/curation/*` | Vista de curación: solicitudes y su respuesta, cola de revisión, descripciones y su historial (`GET /curation/history?asset_key=`), diccionario CSV y reglas; solo `steward`/`data_admin` (F24). Ser responsable no da lectura: lo que su login no puede ver responde igual que lo inexistente (OP-04) |
 | GET | `/me/requests` · `/me/history` | Solicitudes y preguntas propias |
-| GET/PUT/POST/DELETE | `/admin/*` | Inventario de servidores, build del catálogo, auditoría y su verificación (F11), sesiones y métricas de F25; solo `data_admin` |
+| GET/PUT/POST/DELETE | `/admin/*` | Inventario de servidores, responsables de curación (`GET`/`PUT /admin/stewards`), build del catálogo, auditoría y su verificación (F11), sesiones y métricas de F25; solo `data_admin` |
 | GET | `/health` · `/setup/status` | Públicas: proceso vivo · estado del inventario, del catálogo, del último build y del LLM, sin hosts |
 | GET | `/health/metrics` | Contadores para el monitoreo, sin contenido (OP-05) |
 

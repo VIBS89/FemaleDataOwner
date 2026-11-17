@@ -15,12 +15,14 @@ persistir y puede contener datos vive **on-premise**.
 | **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición |
 | **D2: texto derivado del usuario** | Pregunta, pregunta reescrita, SQL con literales, narrativa, historial | Solo en la auditoría on-premise (F11) |
 | **D3: metadatos estructurales** | Nombres y descripciones de BDs, tablas y columnas, tipos, FKs, conteos, parámetros de SPs; reglas de negocio, linaje ETL y fragmentos de documentos **ya redactados** (F23) | Catálogo e índice (cloud u on-prem) |
-| **D4: plantillas anonimizadas** | Golden SQL y golden discovery con literales sustituidos por placeholders | Índice (cloud u on-prem), con el original en la auditoría on-prem |
+| **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders (fase 1b) y golden discovery como plantilla sin literales: la pregunta normalizada sin números sueltos (documentos, teléfonos, fechas, montos), correos ni identificadores alfanuméricos con 5 o más dígitos (F24). Limitación: la plantilla no detecta nombres de personas ni texto entre comillas | Índice (cloud u on-prem). El original queda en la auditoría on-prem y, solo si la pregunta no traía ningún literal ni parece llevar datos personales, en el esquema `golden` on-prem, con la misma retención |
 | **D5: telemetría sin contenido** | Latencias, tokens, códigos de error, ids de traza, nombres de tablas usadas | Logs y métricas (cloud u on-prem) |
 | **C: credenciales** | Login SQL por usuario | Custodia cifrada según F14 (CN-03 / OP-03) |
 
 ## Reglas comunes
 - El catálogo nunca contiene valores (F1) y no existe índice de valores (F5).
+- Una pregunta que, quitados los literales, aún parece llevar datos personales no se guarda como golden discovery: el voto cuenta y
+  queda en la auditoría, pero no se aprende (F24).
 - Los sketches MinHash del descubrimiento (F18, F19) se calculan en memoria con hashes salados y se descartan; solo persisten las relaciones inferidas.
 - El sandbox de análisis (F20) no tiene red ni almacenamiento persistente.
 - El historial de conversación vive solo en la memoria de la sesión.

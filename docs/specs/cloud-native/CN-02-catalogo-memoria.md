@@ -16,8 +16,9 @@
 | Redacción de datos personales | En la memoria del Builder, antes de escribir; el original no se copia ni pasa a disco. Hoy el detector cubre cinco patrones (DUI, NIT, correo, teléfono, tarjeta) | Igual |
 | Descripciones con LLM (opcional) | `--models`: el mismo modelo de Bedrock por el VPC endpoint | Bedrock por el proxy corporativo |
 
-Pendiente en el código (dependencia de [CN-01](CN-01-despliegue-aws.md)): hoy `catalog build` escribe archivos en un directorio (`--out`);
-escribir en la BD `ConverData` es HU-04 y HU-06. Sin eso este despliegue no es viable, porque la tarea no tiene disco persistente.
+Estado del código (2026-11-17): `converdata catalog build --db` parte del catálogo publicado en la BD `ConverData`, toma de ella el
+inventario de servidores, trabaja en un directorio temporal y publica el resultado, así que la tarea no necesita disco persistente.
+No se ha probado en una tarea de Fargate.
 
 ## Memoria: índice léxico en la tarea
 - Al arrancar, `ConverData-API` carga el catálogo y el conocimiento de la BD `ConverData` en un **índice BM25 en memoria** y busca solo entre los objetos que el usuario puede ver (PRD §13, decisión 9).

@@ -96,10 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--groups", default="", help="Grupos de AD del usuario de desarrollo (coma)")
     d.add_argument("--models", help="config/models.yaml para usar el gateway de LLM (NIM o Bedrock); sin él, modo determinista")
     d.add_argument("--json", action="store_true", help="Imprime el AnswerEnvelope completo")
-    d.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
     llm = sub.add_parser("llm", help="Gateway de LLM (F16)")
     llm_sub = llm.add_subparsers(dest="llm_command", required=True)
-    smoke = llm_sub.add_parser("smoke", help="Prueba cada rol contra su proveedor (salida estructurada y embeddings)")
+    smoke = llm_sub.add_parser("smoke", help="Prueba cada rol contra su proveedor (salida estructurada)")
     smoke.add_argument("--models", default="config/models.yaml")
     ev = sub.add_parser("eval", help="Evaluación offline (F25)")
     ev_sub = ev.add_subparsers(dest="eval_command", required=True)
@@ -112,7 +111,6 @@ def main(argv: list[str] | None = None) -> int:
         "--patterns", default="all",
         help="Patrones activos: all | none | lista separada por comas (query_expansion,grade,review,cascade)",
     )
-    evd.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
     evd.add_argument("--min-hit3", type=float, help="Sale con código 1 si Hit@3 queda por debajo (alerta de regresión, OP-05)")
     evg = ev_sub.add_parser("gate", help="Compuerta de calidad: calidad, permisos, inyección, robustez, determinismo y auditoría")
     evg.add_argument("--root", action="append", help="Directorio de catálogo; se puede repetir. Por defecto los dos fixtures")
@@ -120,7 +118,6 @@ def main(argv: list[str] | None = None) -> int:
                      help=DB_HELP + "; `--root` (uno solo) aporta los casos, la línea base y los umbrales")
     evg.add_argument("--cases", help="YAML de casos (solo con un --root); por defecto <root>/eval/discovery.yaml")
     evg.add_argument("--models", help="config/models.yaml para correr la compuerta con el gateway de LLM")
-    evg.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
     evg.add_argument("--suites", default="all", help="all o lista separada por comas: " + ",".join(GATE_SUITES))
     evg.add_argument("--out", help="Directorio donde escribir la evidencia (gate-<catálogo>.json y .md)")
     evg.add_argument("--write-baseline", action="store_true", help="Guarda el resultado de calidad como nueva línea base")
@@ -139,8 +136,10 @@ def main(argv: list[str] | None = None) -> int:
     cat = sub.add_parser("catalog", help="Catalog Builder (F1): descubre los esquemas con el login de metadatos")
     cat_sub = cat.add_subparsers(dest="catalog_command", required=True)
     cb = cat_sub.add_parser("build", help="Extrae metadatos, enriquece y escribe el catálogo (también refresca)")
-    cb.add_argument("--config", default="config/databases.local.yaml", help="Inventario de servidores")
-    cb.add_argument("--out", default="data/catalog_local", help="Directorio de salida (raíz para `discover --root`)")
+    cb.add_argument("--config", help="Inventario de servidores en YAML. Por defecto config/databases.local.yaml; con "
+                                     "--db, el inventario guardado en la BD (el que administra la API)")
+    cb.add_argument("--out", help="Directorio de salida (raíz para `discover --root`); por defecto data/catalog_local. "
+                                  "Con --db es solo el área de trabajo y por defecto es temporal")
     cb.add_argument("--models", help="config/models.yaml: enriquece descripciones con el rol planner del gateway")
     cb.add_argument("--db", action="store_true",
                     help="Parte del catálogo publicado en la BD ConverData (CONVERDATA_DB) y publica el resultado en ella")
@@ -162,7 +161,6 @@ def main(argv: list[str] | None = None) -> int:
     ms.add_argument("--groups", default="", help="Grupos de AD del usuario de desarrollo (coma)")
     ms.add_argument("--user", default="dev", help="user_id de desarrollo que queda en la auditoría")
     ms.add_argument("--models", help="config/models.yaml para usar el gateway de LLM; sin él, modo determinista")
-    ms.add_argument("--embeddings-only", action="store_true", help="Del gateway solo usa los embeddings (sin nodos LLM)")
     args = parser.parse_args(argv)
 
     if args.command == "mcp":  # stdout es el canal del protocolo: nada más puede escribir en él
@@ -183,9 +181,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "catalog":
         return {"build": catalog_build, "publish": catalog_publish, "export": catalog_export}[args.catalog_command](args)
     if args.db:
-        service = build_service_from_db(db_connect(), models_path=args.models, llm_nodes=not args.embeddings_only)
+        service = build_service_from_db(db_connect(), models_path=args.models)
     else:
-        service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
+        service = build_service(args.root, models_path=args.models)
     dbs = args.databases.split(",") if args.databases else None
     user = user_with_databases(service, "dev", dbs, [g for g in args.groups.split(",") if g])
     envelope = service.run(args.question, user, client="cli")
@@ -249,7 +247,6 @@ def catalog_publish(args) -> int:
 
 
 def catalog_export(args) -> int:
-    from pathlib import Path
 
     from converdata.builder.catalog_builder import write_snapshot
     from converdata.storage.catalog_repository import SqlServerCatalogRepository
@@ -270,7 +267,8 @@ def audit_purge(args) -> int:
     try:
         conn.autocommit = True
         row = conn.cursor().execute("EXEC audit.usp_purge @keep_days = ?", args.keep_days).fetchone()
-        print(f"Purgadas {row[0]} preguntas y {row[1]} eventos anteriores a {row[2]:%Y-%m-%d %H:%M} UTC")
+        print(f"Purgadas {row[0]} preguntas, {row[1]} eventos, {row[3]} dudas escaladas y {row[4]} textos originales "
+              f"de confirmaciones anteriores a {row[2]:%Y-%m-%d %H:%M} UTC")
         return 0
     except Exception as exc:
         print(f"ERROR: {str(exc)[:300]}")
@@ -280,10 +278,12 @@ def audit_purge(args) -> int:
 
 
 def catalog_build(args) -> int:
-    from pathlib import Path
+    import shutil
+    import tempfile
 
-    from converdata.config import load_inventory
-    from converdata.flows.catalog_build import build_catalog
+    from converdata.application.catalog_refresh import refresh_catalog
+    from converdata.config import Inventory, load_inventory
+    from converdata.metadata.sqlserver import SqlServerMetadata
 
     enricher = None
     if args.models:
@@ -291,40 +291,74 @@ def catalog_build(args) -> int:
         from converdata.llm.nodes import LlmEnricher
 
         enricher = LlmEnricher(LLMGateway.from_file(args.models).chat("planner"))
-    from converdata.metadata.sqlserver import SqlServerMetadata
+    if not args.db:
+        result = refresh_catalog(load_inventory(args.config or "config/databases.local.yaml"),
+                                 Path(args.out or "data/catalog_local"), source_factory=SqlServerMetadata, enricher=enricher)
+        print(result.report.render())
+        return 0 if result.report.servers_ok else 1
 
-    from converdata.flows.catalog_build import OWN_DATABASES
+    from converdata.storage.catalog_repository import SqlServerCatalogRepository
+    from converdata.storage.connection import connection_string, describe
 
-    repository = version = None
-    exclude = OWN_DATABASES
-    if args.db:  # el directorio es solo el área de trabajo: se parte de la BD y se publica en ella
-        from converdata.builder.catalog_builder import write_snapshot
-        from converdata.storage.catalog_repository import SqlServerCatalogRepository
-        from converdata.storage.connection import connection_string, describe
-
-        connect = db_connect()
-        repository = SqlServerCatalogRepository(connect)
-        exclude = OWN_DATABASES | {describe(connection_string()).split("/")[-1].lower()}
-        audit_event(connect, "catalog_build_started", "builder", enrich=enricher is not None)
-        loaded = repository.load("build")  # el Builder no lee lo curado (las confirmaciones llevan preguntas)
-        if loaded is not None:
-            write_snapshot(Path(args.out), loaded[0])
-            version = loaded[1]
-    report = build_catalog(load_inventory(args.config), Path(args.out), source_factory=SqlServerMetadata,
-                           enricher=enricher, exclude_databases=exclude)
+    connect = db_connect()
+    repository = SqlServerCatalogRepository(connect)
+    if args.config:
+        inventory = load_inventory(args.config)
+    else:
+        # El inventario que administra la API guarda cómo entran los usuarios (login SQL). El Builder es una tarea
+        # programada: entra con la cuenta del proceso (gMSA), salvo que el servidor declare su propio login de metadatos.
+        inventory = Inventory(servers=[s if s.metadata_user_env else s.model_copy(update={"auth": "windows"})
+                                       for s in repository.inventory()])
+        if not inventory.servers:
+            print("La BD ConverData no tiene inventario de servidores: regístralos desde Administración o pasa --config.")
+            return 1
+        refused = builder_hosts_refused(inventory.servers)
+        if refused:
+            print("ERROR: " + refused)
+            return 1
+    scratch = None if args.out else tempfile.mkdtemp(prefix="converdata-build-")
+    audit_event(connect, "catalog_build_started", "builder", enrich=enricher is not None)
+    try:
+        # El Builder no lee lo curado (las confirmaciones salen de preguntas de usuarios): parte de `scope="build"`.
+        result = refresh_catalog(inventory, Path(args.out or scratch), source_factory=SqlServerMetadata, enricher=enricher,
+                                 repository=repository, published_by="builder", scope="build",
+                                 own_databases={describe(connection_string()).split("/")[-1]})
+    except Exception as exc:
+        audit_event(connect, "catalog_build_finished", "builder", status="error", error_type=type(exc).__name__)
+        raise
+    finally:
+        if scratch:
+            shutil.rmtree(scratch, ignore_errors=True)
+    report, published = result.report, result.published
     print(report.render())
-    if repository is not None:
-        from converdata.catalog.store import load_snapshot
-
-        result = None
-        if report.servers_ok:
-            result = repository.publish(load_snapshot(args.out), published_by="builder", reason="build", scope="build")
-            print(f"BD ConverData: versión {result.version}" + ("" if result.changed else " (sin cambios)")
-                  + (f", antes {version}" if version and result.changed else ""))
-        audit_event(connect, "catalog_build_finished", "builder", status="ok" if report.servers_ok else "error",
-                    objects=report.objects, servers_failed=sorted(report.servers_failed),
-                    version=result.version if result else version)
+    if published is not None:
+        print(f"BD ConverData: versión {published.version}" + ("" if published.changed else " (sin cambios)")
+              + (f", antes {result.previous_version}" if result.previous_version and published.changed else ""))
+    audit_event(connect, "catalog_build_finished", "builder", status="ok" if report.servers_ok else "error",
+                objects=report.objects, servers_failed=sorted(report.servers_failed), version=result.version)
     return 0 if report.servers_ok else 1
+
+
+def builder_hosts_refused(servers) -> str | None:
+    """El inventario de la BD lo edita un administrador desde la web y el Builder entra a esos hosts con la cuenta del
+    servicio. `CONVERDATA_BUILDER_HOSTS` (hosts o sufijos como `.banco.local`, separados por coma) limita a dónde puede
+    ir; en qa y prod es obligatoria. Devuelve el motivo del rechazo, o None."""
+    import re
+
+    allowed = [h.strip().lower() for h in os.environ.get("CONVERDATA_BUILDER_HOSTS", "").split(",") if h.strip()]
+    if not allowed:
+        if os.environ.get("CONVERDATA_ENV", "dev").strip().lower() in ("qa", "prod"):
+            return ("Define CONVERDATA_BUILDER_HOSTS con los servidores (o sufijos de dominio) a los que la tarea "
+                    "puede conectarse con la cuenta del servicio")
+        return None
+
+    def permitted(host: str) -> bool:
+        name = re.split(r"[,\\:]", (host or "").strip().lower())[0]  # sin puerto ni instancia
+        return any(name == a or (a.startswith(".") and name.endswith(a)) for a in allowed)
+
+    outside = sorted(s.id for s in servers if not permitted(s.host))
+    return (f"Servidores del inventario fuera de CONVERDATA_BUILDER_HOSTS: {', '.join(outside)}. No se conecta a "
+            "ninguno hasta que se corrija el inventario o la lista") if outside else None
 
 
 def eval_discovery(args) -> int:
@@ -334,9 +368,9 @@ def eval_discovery(args) -> int:
 
     if args.db:
         service = build_service_from_db(db_connect(), settings_path=Path(args.root) / "config" / "settings.yaml",
-                                        models_path=args.models, llm_nodes=not args.embeddings_only)
+                                        models_path=args.models)
     else:
-        service = build_service(args.root, models_path=args.models, llm_nodes=not args.embeddings_only)
+        service = build_service(args.root, models_path=args.models)
     apply_patterns(service, args.patterns)
     report = evaluate(service, load_cases(args.cases or Path(args.root) / "eval" / "discovery.yaml"))
     print(report.render())
@@ -363,11 +397,11 @@ def eval_gate(args) -> int:
         root = Path(root)
         if args.db:
             service = build_service_from_db(db_connect(), settings_path=root / "config" / "settings.yaml",
-                                            models_path=args.models, llm_nodes=not args.embeddings_only)
+                                            models_path=args.models)
         else:
-            service = build_service(root, models_path=args.models, llm_nodes=not args.embeddings_only)
+            service = build_service(root, models_path=args.models)
         cases = load_cases(args.cases or root / "eval" / "discovery.yaml")
-        llm = bool(args.models) and not args.embeddings_only
+        llm = bool(args.models)
         report, quality = gate.run_gate(service, cases, root=root, llm=llm, thresholds=gate.load_thresholds(root),
                                         baseline=None if args.write_baseline else gate.load_baseline(root), suites=suites)
         print(report.render())
@@ -415,7 +449,7 @@ def apply_patterns(service, spec: str) -> None:
 
 
 def llm_smoke(models_path: str, gateway=None) -> int:
-    """F16-CA2: cada rol de chat devuelve salida estructurada parseable; `embed` devuelve la dimensión configurada."""
+    """F16-CA2: cada rol devuelve salida estructurada parseable."""
     import time
 
     from langchain_core.messages import HumanMessage
@@ -434,15 +468,8 @@ def llm_smoke(models_path: str, gateway=None) -> int:
     for role in gw.config.roles:
         t0 = time.perf_counter()
         try:
-            if role == "embed":
-                vec = gw.embeddings().embed_query("identificador único del cliente")
-                expected = gw.config.roles[role].dimensions
-                ok = expected is None or len(vec) == expected
-                detail = f"dim={len(vec)}" + ("" if ok else f" (esperada {expected})")
-                label = gw.embed_model
-            else:
-                out = gw.chat(role).with_structured_output(Ping).invoke([HumanMessage(question)])
-                ok, detail, label = isinstance(out, Ping), f"intent={getattr(out, 'intent', '?')}", gw.labels[role]
+            out = gw.chat(role).with_structured_output(Ping).invoke([HumanMessage(question)])
+            ok, detail, label = isinstance(out, Ping), f"intent={getattr(out, 'intent', '?')}", gw.labels[role]
         except Exception as exc:  # se informa y se sigue con el resto de roles
             ok, detail, label = False, f"{type(exc).__name__}: {str(exc)[:160]}", gw.config.roles[role].model
         failures += not ok

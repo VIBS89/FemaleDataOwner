@@ -327,8 +327,9 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 
 9. **Búsqueda léxica en memoria, sin embeddings (decidido, 2026-11-16)**: la medición del 2026-10-29 (HU-34) dio Hit@1 93,1 % y
    Hit@3 93,1 % con el índice léxico sobre el catálogo crudo; los embeddings no cambiaron ningún caso y subieron el p95 de 73 ms a
-   4,6 s. Se conserva el puerto `VectorStore` (F2) y el canal semántico queda como experimento de desarrollo. Se retiran
-   `SqlServerVectorStore`, el tipo `VECTOR`, Full-Text y OpenSearch.
+   4,6 s. Se conserva el puerto `VectorStore` (F2). Se retiran `SqlServerVectorStore`, el tipo `VECTOR`, Full-Text y OpenSearch.
+   Nota (2026-11-17): el canal semántico, que había quedado como experimento de desarrollo, se retiró del código; la medición de
+   HU-34 queda como historia y ya no se puede repetir con este código.
 10. **BD `ConverData` en tablas normales (decidido, 2026-11-16)**: SQL Server 2016 o posterior, con tablas temporales para el historial.
     Sin tablas de grafo: entidades, FKs y linaje se guardan en tablas normales y el grafo del patrimonio (F19) se arma en memoria. El
     esquema `semantic` (F21) llega con la fase 1b. Ya no hace falta una instancia SQL Server 2025.
@@ -345,6 +346,8 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
     AgentCore, OpenSearch, Cognito, WAF, S3 ni Transit Gateway (CN-01).
 15. **Rutas de la API (decidido, 2026-11-16)**: valen las del código (`/auth/login` con alias `/login`, `/discover`, `/discover/feedback`,
     `/assets/{asset_key}`, `/curation/*`, `/admin/*`); el navegador las ve bajo `/api/` porque la web las reenvía (F12, OP-04).
+    Nota (2026-11-17): se añaden `GET /curation/history` (historial de una descripción, RF-34) y `GET`/`PUT /admin/stewards`
+    (responsables de curación por login y dominio).
 16. **Compuerta de calidad (decidido, 2026-11-15)**: `converdata eval gate` (calidad, permisos, inyección, guardas, robustez,
     determinismo y auditoría) debe aprobar antes de aceptar un cambio y corre en la CI; los controles y lo que falta para operar en un
     banco están en [calidad bancaria](calidad-bancaria.md).
@@ -352,6 +355,18 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 Las decisiones 9 a 15 formalizan la simplificación que ya mostraban los diagramas de `docs/architecture/`; donde contradicen a las
 decisiones 1 a 8, valen las nuevas (la 6 queda sustituida por la 12; la 7 conserva las credenciales por servidor, con grupos de AD
 aplazados a HU-13).
+
+Notas del 2026-11-17 (precisan las decisiones anteriores; no añaden numeración):
+- **Decisión 12, Builder**: la tarea programada entra a los servidores con autenticación de Windows (la cuenta del proceso) aunque el
+  inventario diga login SQL, salvo que el servidor declare `metadata_user_env`. El inventario describe cómo entran los usuarios. La
+  tarea solo va a los hosts de `CONVERDATA_BUILDER_HOSTS`, obligatoria en qa y prod (OP-07).
+- **Decisión 8, plantilla de las confirmaciones**: se quitan todos los números sueltos, también los umbrales de negocio ("mora mayor
+  a 90 días" y "a 30 días" son la misma confirmación), además de correos e identificadores alfanuméricos. Se prefiere perder ese
+  matiz a guardar un documento o una cuenta (F24, OP-02).
+- **Decisión 10, versión del catálogo**: cada edición de curación y cada voto aprendido suben `catalog.catalog_version`. La versión
+  significa "algo cambió", no "publicación".
+- **Un solo proceso de API**: sesiones, trazas de respuestas, inventario y confirmaciones recientes viven en la memoria de
+  `ConverData-API`; el inventario se lee al arrancar. Más de un proceso exige rediseñar ese estado (OP-03, OP-07).
 
 ### Preguntas abiertas
 1. ¿Dónde viven los diccionarios y la documentación del dominio piloto (carpeta compartida, SharePoint on-premise u Online, Confluence), quién da
@@ -361,8 +376,13 @@ aplazados a HU-13).
 4. ¿Qué canal de notificación prefieren los stewards (correo o Teams)?
 5. ¿Se mantiene la política de permisos heredados también para metadatos después del piloto?
 6. ¿Exige Seguridad de la Información Bedrock Guardrails en la fase 1a, además de las guardas del código?
-7. ¿El responsable de un dominio ve en Curación activos que su login SQL no puede leer? Hoy sí ([calidad bancaria](calidad-bancaria.md) §5).
+7. ¿El responsable de un dominio ve en Curación activos que su login SQL no puede leer? Hoy sí en la cola de revisión y al editar
+   descripciones de sus dominios; resuelto (2026-11-17) para el historial, que exige visibilidad, y fuera de sus dominios, donde lo
+   que no ve responde igual que lo inexistente ([calidad bancaria](calidad-bancaria.md) §5).
 8. ¿Qué lecturas se auditan además de las preguntas (fichas, catálogo, herramientas MCP distintas de `discover`)?
+9. ¿Qué validación del login hace falta para dar un rol por su nombre (lista de administradores y responsables)? Hoy el código exige
+   haberlo validado en un servidor con `environment: produccion`, cuando el inventario tiene alguno. ¿Vale esa regla o el banco
+   prefiere un servidor de referencia designado? Queda superada cuando los roles salgan de grupos de AD (HU-13).
 
 ## 14. Trazabilidad con la propuesta
 Fuente: *Propuesta 1 — Agente de descubrimiento y conocimiento de datos corporativos* (Gerencia de Datos, Banco Atlántida El Salvador).
@@ -421,7 +441,7 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 | Conocimiento ETL (lógica de transformación y flujos) | ❌ | ✅ SSIS, SQL Agent, SPs y vistas a nivel de tabla | F23 |
 | Diccionarios y glosarios de datos | ⚠️ solo glosario manual | ✅ diccionarios Excel/CSV + glosario | F2, F23 |
 | Conocimiento institucional (interacciones y expertos) | ⚠️ golden SQL a partir de 👍 | ✅ confirmaciones, escalamiento a responsables, golden discovery | F24 |
-| Búsqueda semántica | ✅ | ⚠️ léxica con sinónimos, expansión de vocabulario y LLM para intención y orden; el canal de embeddings se midió y no se despliega (§13, decisión 9) | F2, F22 |
+| Búsqueda semántica | ✅ | ⚠️ léxica con sinónimos, expansión de vocabulario y LLM para intención y orden; el canal de embeddings se midió, no mejoró el acierto y se retiró (§13, decisión 9) | F2, F22 |
 | Diálogo y refinamiento iterativo | ✅ historial y aclaraciones | ✅ | F3 |
 
 ### 14.4 Beneficios e impacto
@@ -515,6 +535,6 @@ Fase: **1a** piloto de descubrimiento · **1b** consulta de datos (sin implement
 - **Visibilidad**: conjunto de objetos que el login del usuario puede leer o ejecutar, según SQL Server.
 - **Confidence**: puntuación de 0 a 1. En el AskFlow combina los chequeos deterministas con el veredicto del LLM-judge (F9); en el DiscoverFlow combina relevancia, evidencia, confirmaciones y acuerdo entre fuentes (F22).
 - **`asset_key`**: identificador lógico de un objeto (`db.schema.objeto[.columna]`) que agrupa sus copias en todos los ambientes (F1).
-- **Golden discovery**: pregunta de descubrimiento (plantilla anonimizada) confirmada por usuarios o por un responsable, ligada a los activos correctos (F24).
+- **Golden discovery**: pregunta de descubrimiento (plantilla sin literales: números y correos; no detecta nombres de personas) confirmada por usuarios o por un responsable, ligada a los activos correctos (F24).
 - **Steward / responsable**: grupo funcional o técnico dueño de un dominio de datos (`config/owners.yaml`, F24).
 - **Brecha de conocimiento**: pregunta sin candidato con confianza suficiente, o activo muy consultado sin descripción revisada (F24).

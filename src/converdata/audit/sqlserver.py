@@ -54,7 +54,7 @@ WHERE o.schema_id = SCHEMA_ID('audit') AND o.type = 'U'
 UNION ALL
 SELECT 'audit.usp_purge', 'EXECUTE' WHERE HAS_PERMS_BY_NAME('audit.usp_purge', 'OBJECT', 'EXECUTE') = 1
 UNION ALL
-SELECT s.name, 'ALTER' FROM (VALUES ('catalog'), ('knowledge')) AS s(name)
+SELECT s.name, 'ALTER' FROM (VALUES ('catalog'), ('knowledge'), ('curation')) AS s(name)
 WHERE HAS_PERMS_BY_NAME(s.name, 'SCHEMA', 'ALTER') = 1
 """
 

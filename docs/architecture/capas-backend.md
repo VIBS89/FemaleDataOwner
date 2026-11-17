@@ -14,10 +14,10 @@ El dominio y la aplicación no importan librerías de adaptadores (`pyodbc`, `la
 
 | Capa | Qué contiene | Módulos |
 |---|---|---|
-| **Dominio** | Modelos (`AnswerEnvelope`, catálogo, conocimiento, identidad), reglas de negocio deterministas del descubrimiento (F22), grafo del patrimonio (F19), conversión de metadatos a catálogo (F1), visibilidad (F14), auditoría como puerto (F11) y puertos | `models`, `catalog`, `config`, `discovery`, `graph`, `builder`, `identity`, `audit`, `memory.base` y `memory.text`, `metadata.ports` |
-| **Aplicación** | Casos de uso: flujos de LangGraph (DiscoverFlow, CatalogBuildFlow) y consultas de descubrimiento que comparten la API, el chat y el MCP | `flows`, `application` |
-| **Infraestructura** | Adaptadores: SQL Server (`SqlServerMetadata`, `SqlServerAuditSink`, `SqlServerCatalogRepository`, migraciones), índice léxico en memoria, gateway de LLM (Bedrock, NIM, Ollama), logs y contadores | `memory.memory_store`, `metadata.sqlserver`, `audit.sqlserver`, `audit.chain`, `storage`, `llm`, `observability` |
-| **Integración** | Entradas al sistema: MCP (`integration.mcp`), CLI, evaluación offline y la raíz de composición (`bootstrap`). La API FastAPI (`api/converdata_api`) es también integración | `integration`, `cli`, `bootstrap`, `evaluation`, `api/` |
+| **Dominio** | Modelos (`AnswerEnvelope`, catálogo, conocimiento, identidad), reglas de negocio deterministas del descubrimiento (F22), reglas de la curación (F24: plantilla anónima, regla de votos, ediciones de descripciones y diccionarios) con sus puertos `KnowledgeWriter` y `CurationRepository`, los puertos del catálogo (`CatalogRepository`, con `description_history`, e `InventoryStore`), grafo del patrimonio (F19), conversión de metadatos a catálogo (F1), lectura de objetos visibles (F14), auditoría como puerto (F11) y puertos | `models`, `catalog`, `config`, `discovery`, `curation`, `graph`, `builder`, `identity`, `audit`, `memory.base` y `memory.text`, `metadata.ports` |
+| **Aplicación** | Casos de uso: flujos de LangGraph (DiscoverFlow, CatalogBuildFlow), consultas de descubrimiento que comparten la API, el chat y el MCP (`application.discovery`) y el refresco del catálogo que comparten la CLI y la API (`application.catalog_refresh.refresh_catalog`) | `flows`, `application` |
+| **Infraestructura** | Adaptadores: SQL Server (`SqlServerMetadata`, `SqlServerAuditSink`, `SqlServerCatalogRepository`, `SqlServerCurationRepository`, migraciones), los mismos puertos de curación sobre archivos para desarrollo y demo (`storage.files`: `FileKnowledgeWriter`, `FileCurationRepository`, `FileInventoryStore`), índice léxico en memoria, gateway de LLM (Bedrock, NIM, Ollama), logs y contadores | `memory.memory_store`, `metadata.sqlserver`, `audit.sqlserver`, `audit.chain`, `storage`, `llm`, `observability` |
+| **Integración** | Entradas al sistema: MCP (`integration.mcp`), CLI, evaluación offline y la raíz de composición (`bootstrap`: `build_service*` ensambla el DiscoverFlow y `open_stores` devuelve los almacenes `Stores` del catálogo, de la curación y del inventario, SQL Server con la cadena de la BD y archivos sin ella; con la BD comprueba antes que no falten migraciones, `require_current`). La API FastAPI (`api/converdata_api`) es también integración | `integration`, `cli`, `bootstrap`, `evaluation`, `api/` |
 
 ## Capa de integración: API y MCP sobre el mismo caso de uso
 ```
@@ -40,8 +40,8 @@ Terminal ───────────► cli ──────────
 | Capa | Pruebas |
 |---|---|
 | Arquitectura | `tests/test_architecture.py`: cada módulo tiene capa, las dependencias apuntan hacia dentro, sin librerías de adaptadores en dominio y aplicación |
-| Dominio | `tests/test_core.py`, `tests/test_graph_rag.py`, `tests/test_catalog_build.py`, `tests/test_llm_guards.py`, `tests/test_prompt_injection.py` |
-| Aplicación | `tests/test_application_discovery.py` (permisos de cada herramienta), `tests/test_discover_flow_e2e.py` |
+| Dominio | `tests/test_core.py`, `tests/test_graph_rag.py`, `tests/test_catalog_build.py`, `tests/test_llm_guards.py`, `tests/test_prompt_injection.py`, `tests/test_curation.py` (plantilla anónima, regla de votos, ediciones; también los adaptadores de archivos) |
+| Aplicación | `tests/test_application_discovery.py` (permisos de cada herramienta), `tests/test_discover_flow_e2e.py`, `tests/test_catalog_refresh.py` (`refresh_catalog`, y la CLI contra la BD con `CONVERDATA_TEST_DB`) |
 | Infraestructura | `tests/test_storage_migrations.py`, `tests/test_catalog_repository.py`, `tests/test_audit_sqlserver.py` (con `CONVERDATA_TEST_DB`, contra un SQL Server real), `tests/test_llm_gateway.py`, `tests/test_observability.py` |
 | Integración | `tests/test_mcp_server.py` (HTTP con el cliente MCP oficial: 401, identidad del token, sesión revocada), `tests/test_mcp_stdio.py` (incluye lanzar `converdata mcp serve` como proceso) y `api/tests/` (`test_audit_db.py` y `test_catalog_db.py` con la BD `ConverData` real) |
 
@@ -52,15 +52,21 @@ Terminal ───────────► cli ──────────
 - `identity.visibility.PyodbcObjectLister` vive en el dominio porque recibe la conexión inyectada; si crece, pasa a infraestructura.
 - La API (`api/converdata_api`) todavía llama directamente al DiscoverFlow; debe pasar por `DiscoveryTools` (HU-14, HU-16).
   El MCP montado en `/mcp` ya lo hace.
-- Con `CONVERDATA_DB`, la API trabaja sobre una **copia de trabajo en disco** (`data_root`) que trae de la BD y publica entera tras cada
-  edición (`runtime.commit`). Es correcto (la BD es la fuente de verdad, con bloqueo y versión esperada) pero costoso en catálogos
-  grandes: cada voto compara todo el catálogo. El siguiente paso es que `CurationStore` escriba filas concretas.
-- `CurationStore` (`api/converdata_api/curation.py`) guarda en archivos los responsables, las solicitudes escaladas y los votos, y
-  `runtime` el inventario de servidores: falta llevarlos a la BD (migración `002`).
-- La política de sincronización con la BD (`_pull`, `refresh`, `editing`, `commit` en `api/converdata_api/runtime.py`) y el caso de uso
-  "traer de la BD → build → publicar" son lógica de aplicación que hoy vive en la API y, repetida, en `cli.py`. Deben pasar a un caso de
-  uso en `converdata.application`, y la construcción de los adaptadores de SQL Server (hoy en `cli.py`, `runtime.py`, `audit.py` y
-  `bootstrap.py`) a dos fábricas en `bootstrap.py`.
+- Cada escritura de curación escribe solo sus filas, pero después la API vuelve a cargar el catálogo completo de la BD y reconstruye
+  el índice (`runtime._written`; tras el voto de un usuario, en segundo plano). En catálogos grandes convendrá actualizar solo lo
+  que cambió.
+- La política de sincronización con la BD (`_pull`, `refresh`, `editing`, `_written` en `api/converdata_api/runtime.py`) es lógica de
+  aplicación que sigue en la API. Lo mismo la orquestación de votos (`record_feedback`, `steward_golden` en `runtime.py`): debería
+  ser un caso de uso de `converdata.application`.
+- `open_stores` solo lo usa la API. `cli.py` todavía construye `SqlServerCatalogRepository` y `SqlServerAuditSink` por su cuenta, y la
+  auditoría de la API se abre en `api/converdata_api/audit.py`.
 - `flows.catalog_build` lee el linaje anterior directamente del directorio de salida (`load_knowledge`) cuando un servidor no responde.
-- El puerto `CatalogRepository` no incluye `description_history`, que solo existe en el adaptador de SQL Server y aún no tiene interfaz.
-- El canal de embeddings de `memory.memory_store` no se despliega (PRD §13, decisión 9); se conserva para repetir la medición.
+- `tests/test_architecture.py` no analiza `api/converdata_api`: la regla de dependencias solo se verifica en `src/converdata`.
+- La API se asume de un solo proceso: sesiones, trazas, inventario y confirmaciones recientes viven en memoria (el inventario se
+  lee al arrancar).
+
+Resuelto el 2026-11-17 (bloque C2): la copia de trabajo del catálogo en disco y la publicación completa tras cada edición; la curación
+y el inventario en archivos del servidor con `CONVERDATA_DB`; el caso de uso "traer de la BD → build → publicar" repetido en la CLI y
+en la API. Se retiraron el canal de embeddings de `memory.memory_store` (la medición de HU-34 ya no se puede repetir con este código)
+y `identity.VisibilityResolver`: la visibilidad por sesión la calcula `AgentRuntime.visible_ids` con `ObjectLister`. El inventario y
+`description_history` ya están en puertos (`InventoryStore`, `CatalogRepository`), y `runtime.py` ya no lee ni escribe YAML.

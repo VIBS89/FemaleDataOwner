@@ -16,12 +16,13 @@ Controles del login y de la sesión, ya construidos (detalle y pruebas en [calid
 - **Visibilidad releída** de SQL Server cada 15 min, para que una revocación de permisos surta efecto sin cerrar la sesión.
 - **Código de instalación** (`CONVERDATA_SETUP_TOKEN`) para registrar el primer servidor cuando el inventario está vacío.
 - **`data_admin` por lista explícita** (`CONVERDATA_ADMINS_ONLY`, `CONVERDATA_ADMINS`); la autenticación de Windows con la cuenta del proceso está apagada.
+- **Roles por nombre solo con el login validado en producción** (`identity_trusted`): la lista de administradores y los responsables solo dan rol si la sesión validó ese login en un servidor con `environment: produccion`, cuando el inventario tiene alguno. Política por confirmar con el banco (PRD §13, pregunta abierta 9).
 - Con `CONVERDATA_ENV=qa` o `prod`, la API **se niega a arrancar** con ajustes inseguros ([calidad bancaria §4](../../calidad-bancaria.md)).
 
 **Grupos** (F14): `curation.user_directory` asocia el login SQL con la cuenta de AD de la persona (lo mantiene `data_admin`). Al iniciar
 sesión, `ConverData-API` consulta por LDAP (solo lectura, con su gMSA) los grupos de esa cuenta; sin asociación, `groups = []`.
-**Pendiente (HU-13)**: hoy no hay consulta LDAP; los roles salen de la lista de administradores y de los responsables por dominio
-(`owners.yaml`) asignados por login SQL.
+**Pendiente (HU-13)**: hoy no hay consulta LDAP; los roles salen de la lista de administradores y de la lista de responsables de curación por login
+(`curation.steward`, administrada desde Administración).
 
 ## Custodia: `SessionVault` en memoria del proceso `ConverData-API`
 - `session_id → {user_id, groups[], credentials: {server → {login, password_enc}}, created_at, last_seen}`.

@@ -1,4 +1,5 @@
-"""Puerto `VectorStore` (F2). La única implementación desplegada es `InMemoryVectorStore` (índice léxico en memoria).
+"""Puerto `VectorStore` (F2). La única implementación es `InMemoryVectorStore`: índice léxico BM25 en memoria, sin
+vectores ni embeddings (PRD §13, decisión 9); el nombre del puerto es histórico.
 
 `visible_ids` es obligatorio en toda búsqueda: no existe una llamada sin filtro de permisos (F14).
 """
@@ -9,13 +10,6 @@ from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from converdata.models.knowledge import GoldenDiscovery, KnowledgeItem, KnowledgeKind
-
-
-class Embedder(Protocol):
-    """Lo cumple `BedrockEmbeddings` de langchain-aws (rol `embed` de F16) sin importarlo aquí."""
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
-    def embed_query(self, text: str) -> list[float]: ...
 
 
 @dataclass(frozen=True)

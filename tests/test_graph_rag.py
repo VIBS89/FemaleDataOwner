@@ -61,7 +61,7 @@ def test_descomposicion():
 
 
 def test_regresion_por_tipo_de_pregunta(bancos):
-    """Umbrales medidos con el catálogo crudo (sin descripciones ni embeddings). Si bajan, algo empeoró."""
+    """Umbrales medidos con el catálogo crudo (sin descripciones). Si bajan, algo empeoró."""
     report = evaluate(bancos, load_cases(BANCOS / "eval" / "discovery.yaml"))
     by_type = report.by_type()
     assert by_type["A"]["hit@1"] == 100.0
@@ -80,30 +80,6 @@ def test_sin_grafo_hay_duplicados_y_sin_caminos(bancos):
         bancos.deps.settings.patterns.graph = True
     assert report.by_type()["D"]["hit@1"] < 100.0
     assert report.by_type()["C"]["related"] < 100.0
-
-
-def test_canal_semantico_encuentra_sinonimos_sin_coincidencia_lexica():
-    """Con un embedder (aquí uno de juguete) 'billetera' encuentra Wallets aunque no comparta palabras."""
-
-    class ToyEmbedder:
-        groups = [("billetera", "wallet"), ("huella", "fingerprint")]
-
-        def _vec(self, text):
-            t = text.lower()
-            return [1.0 if any(w in t for w in g) else 0.0 for g in self.groups] + [0.01]
-
-        def embed_documents(self, texts):
-            return [self._vec(t) for t in texts]
-
-        def embed_query(self, text):
-            return self._vec(text)
-
-    lexical = build_service(BANCOS)
-    user = user_with_databases(lexical, "dev", None)
-    assert lexical.deps.store.search_tables("billeteras móviles", visible_ids=user.visible_ids) == []
-    service = build_service(BANCOS, embedder_override=ToyEmbedder())
-    hits = service.deps.store.search_tables("billeteras móviles", visible_ids=user.visible_ids)
-    assert "BancaTokenizacion.dbo.Wallets" in [h.asset_key for h in hits[:2]]
 
 
 # --- preguntas compuestas a medio responder ---------------------------------------------------------

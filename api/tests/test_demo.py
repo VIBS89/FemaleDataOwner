@@ -191,3 +191,15 @@ def test_historial_simulado_para_el_tablero(settings, tmp_path):
     # Lo simulado no entra al conocimiento: no hay golden de usuarios ficticios.
     golden = settings.data_root / "knowledge" / "golden" / "confirmaciones_usuarios.yaml"
     assert not golden.exists() or "analista0" not in golden.read_text(encoding="utf-8")
+
+
+def test_una_regla_importada_con_el_catalogo_no_se_reescribe_desde_curacion(demo, app):
+    """El id de una regla que llegó con el conocimiento del catálogo no se puede reutilizar para pisarla."""
+    steward = client_for(app, "responsable")
+    rule = {"id": "BR-ONB-004", "text": "Intento de reemplazar una regla importada", "applies_to": ["VBank_ING.dbo.Users"]}
+    r = steward.put("/curation/rules", json=rule)
+    assert r.status_code == 409 and r.json()["detail"] == "Ya existe una regla con ese identificador"
+    assert "BR-ONB-004" not in {x["id"] for x in steward.get("/curation/rules").json()["items"]}  # ni se lista como suya
+    assert steward.delete("/curation/rules/BR-ONB-004").status_code == 404
+    card = steward.get("/assets/VBank_ING.dbo.Users").json()
+    assert all("Intento de reemplazar" not in x["text"] for x in card["business_rules"])

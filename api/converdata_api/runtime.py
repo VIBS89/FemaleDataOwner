@@ -4,50 +4,45 @@ El primer arranque no tiene catálogo: un admin inicia sesión con su usuario de
 credencial y, al terminar, el DiscoverService se carga con lo descubierto (F1, F18). Cada reconstrucción sube `version`
 y las visibilidades se recalculan con la credencial de cada sesión (F14).
 
-Con `CONVERDATA_DB` definida, la fuente de verdad del catálogo y del conocimiento es la BD `ConverData` (OP-02, HU-09):
-`data_root` pasa a ser una copia de trabajo que se trae de la BD al arrancar y cuando otro proceso (el Builder
-programado) publica una versión nueva, y cada edición de curación se publica en la BD (`commit`) antes de recargar.
-Sin la variable (desarrollo), `data_root` es el catálogo.
+Con `CONVERDATA_DB` definida todo el estado vive en la BD `ConverData` (OP-02, HU-09): el catálogo y el conocimiento se
+cargan de ella en memoria (no hay copia en el disco del servidor), se vuelven a cargar cuando otro proceso publica
+(el Builder programado) y cada edición de curación escribe sus filas (`KnowledgeWriter`). Sin la variable (desarrollo y
+modo demo), `data_root` es el catálogo y la curación edita sus archivos.
 """
 
 from __future__ import annotations
 
 import contextlib
 import datetime as dt
-import hashlib
-import json
 import logging
 import shutil
 import tempfile
 import threading
 import time
-import unicodedata
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import yaml
-
-from converdata.bootstrap import build_service
-from converdata.builder.catalog_builder import write_snapshot
+from converdata.application.catalog_refresh import refresh_catalog
+from converdata.bootstrap import Stores, build_service, build_service_from_snapshot, open_stores
 from converdata.catalog.ids import physical_id
-from converdata.catalog.store import CatalogRepository, StaleCatalog, load_snapshot
+from converdata.catalog.store import CatalogSnapshot
 from converdata.config import Inventory, ServerConfig
-from converdata.flows.catalog_build import OWN_DATABASES, build_catalog
+from converdata.curation import (DescriptionEdit, golden_id, has_literals, question_template, resolve_golden,
+                                 steward_rules, strip_literals, tally)
 from converdata.flows.discover import DiscoverService
 from converdata.models.identity import UserContext
-from converdata.models.knowledge import GoldenDiscovery
+from converdata.models.knowledge import BusinessRule, GoldenDiscovery
 from converdata.storage.connection import describe
 
 from converdata_api.connector import Connector
 from converdata_api.demo import apply_fixture_knowledge, demo_inventory
-from converdata_api.demo_history import seed_history
+from converdata_api.demo_history import HISTORY_MARKER, seed_history
 from converdata_api.pii import find_pii
 from converdata_api.settings import ApiSettings
 from converdata_api.vault import Session, SessionVault
 
 log = logging.getLogger(__name__)
-GOLDEN_FILE = "confirmaciones_usuarios.yaml"
 MAX_TRACES = 500
 
 
@@ -78,30 +73,25 @@ def _now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
 
-def normalize_question(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text.lower())
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    return " ".join("".join(ch if ch.isalnum() else " " for ch in text).split())
-
-
-def open_repository(settings: ApiSettings) -> CatalogRepository | None:
-    """Repositorio del catálogo en la BD `ConverData` si `CONVERDATA_DB` está definida; None = solo archivos."""
-    if not settings.db:
-        return None
-    from converdata.storage.catalog_repository import SqlServerCatalogRepository
-    from converdata.storage.connection import connector
-
-    return SqlServerCatalogRepository(connector(settings.db))
+def open_api_stores(settings: ApiSettings) -> Stores:
+    """Almacenes según la configuración: la BD `ConverData` si `CONVERDATA_DB` está definida; si no, archivos."""
+    return open_stores(settings.db, data_root=settings.data_root, curation_dir=settings.curation_dir,
+                       inventory_path=settings.inventory_path)
 
 
 class AgentRuntime:
-    def __init__(self, settings: ApiSettings, connector: Connector, vault: SessionVault, audit):
+    def __init__(self, settings: ApiSettings, connector: Connector, vault: SessionVault, audit,
+                 stores: Stores | None = None):
         # `audit`: FileAuditSink (desarrollo) o SqlServerAuditSink (BD ConverData); misma interfaz.
         self.settings = settings
         self.connector = connector
         self.vault = vault
         self.audit = audit
-        self.inventory = self._load_inventory()
+        stores = stores or open_api_stores(settings)
+        self.repository = stores.repository  # BD `ConverData`; None = solo `data_root` (desarrollo)
+        self.writer = stores.writer
+        self.curation = stores.curation
+        self.inventory_store = stores.inventory
         self.service: DiscoverService | None = None
         self.version = 0
         self.job = BuildJob()
@@ -111,43 +101,39 @@ class AgentRuntime:
         self.usage_listeners: list = []  # (rol, tokens_in, tokens_out): tope diario (HU-19) y /health/metrics (HU-22)
         self._visibility: dict[str, tuple[int, float, frozenset[str]]] = {}  # sesión → (versión, leído_en, ids)
         self._traces: OrderedDict[str, ShownTrace] = OrderedDict()
-        self.curation = None  # CurationStore; lo asigna create_app (historial simulado del modo demo)
-        self.repository: CatalogRepository | None = None  # BD `ConverData`; None = solo `data_root` (desarrollo)
-        self.db_version: int | None = None  # versión de la BD que refleja `data_root`
+        self.snapshot: CatalogSnapshot | None = None  # con BD: el catálogo vigente, en memoria
+        self.db_version: int | None = None  # versión de la BD que refleja `snapshot`
         self._db_checked = 0.0
-        self._dirty = False  # la copia de trabajo tiene algo que no se pudo publicar: se descarta antes de seguir
+        self._fresh_golden: dict[str, GoldenDiscovery] = {}  # confirmaciones escritas que aún no entran al índice
         self._background: list[threading.Thread] = []
-        self.repository = open_repository(settings)
+        # Se lee al arrancar: la API es de un solo proceso (OP-03) y es la única que lo cambia.
+        self.inventory = Inventory(servers=self.inventory_store.inventory())
         self._pull()
         if settings.demo and settings.demo_preload_inventory and not self.inventory.servers:
-            self.save_inventory(demo_inventory(settings.demo_fixtures))
+            self.save_inventory(demo_inventory(settings.demo_fixtures), by="demo")
         self.reload()
 
     # --- inventario -------------------------------------------------------------------------------
-    def _load_inventory(self) -> Inventory:
-        path = self.settings.inventory_path
-        if path.is_file():
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            return Inventory.model_validate({"servers": data.get("servers") or []})
-        return Inventory(servers=[])
-
-    def save_inventory(self, servers: list[ServerConfig]) -> None:
+    def save_inventory(self, servers: list[ServerConfig], *, by: str) -> None:
         with self._lock:
+            self.inventory_store.save_inventory(servers, by=by)
             self.inventory = Inventory(servers=servers)
-            path = self.settings.inventory_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            data = {"servers": [s.model_dump(exclude_none=True) for s in servers]}
-            path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
     # --- catálogo y DiscoverService ---------------------------------------------------------------
     @property
     def has_catalog(self) -> bool:
+        if self.repository is not None:
+            return self.snapshot is not None and bool(self.snapshot.objects)
         root = self.settings.data_root
         return (root / "config" / "databases.yaml").is_file() and any((root / "catalog").rglob("*.yaml"))
 
+    @property
+    def _settings_path(self) -> Path:
+        return self.settings.data_root / "config" / "settings.yaml"  # ajustes del flujo; no es estado
+
     # --- BD `ConverData` como fuente de verdad (HU-09) ---------------------------------------------
     def _pull(self, force: bool = False) -> bool:
-        """Trae a `data_root` la versión vigente de la BD. Devuelve True si la copia de trabajo cambió."""
+        """Carga en memoria la versión vigente de la BD. Devuelve True si cambió lo cargado."""
         if self.repository is None:
             return False
         version = self.repository.version()
@@ -156,17 +142,12 @@ class AgentRuntime:
         loaded = self.repository.load()
         if loaded is None:
             return False
-        write_snapshot(self.settings.data_root, loaded[0])
-        self.db_version = loaded[1]
+        self.snapshot, self.db_version = loaded
         return True
 
     def _sync(self) -> None:
-        """Con el candado tomado: deja la copia de trabajo igual a la BD si esta cambió o si quedó algo sin publicar."""
-        if self.repository is None:
-            return
-        changed = self._pull(force=self._dirty)  # si la BD no responde, lanza y `_dirty` se conserva
-        self._dirty = False
-        if changed:
+        """Con el candado tomado: si la BD va por otra versión, la carga y reconstruye el índice."""
+        if self._pull():
             self.reload()
 
     def refresh(self, max_age_s: float = 15.0) -> None:
@@ -182,55 +163,73 @@ class AgentRuntime:
 
     @contextlib.contextmanager
     def editing(self):
-        """Una edición de la copia de trabajo, de principio a fin bajo un solo candado.
-
-        Nadie más lee, trae ni publica la copia mientras dura: la edición parte de la versión vigente de la BD y lo que
-        se publica es exactamente lo que cambió quien edita (y a su nombre). Devuelve el servicio ya al día. Si la BD
-        no responde, lanza antes de tocar nada."""
+        """Una edición de curación de principio a fin bajo un solo candado y sobre el catálogo vigente: lo que se
+        comprueba (que el activo existe, de qué dominio es) es lo mismo que se escribe. Devuelve el servicio al día.
+        Si la BD no responde, lanza antes de tocar nada."""
         with self._lock:
             self._sync()
             yield self.service
 
-    def commit(self, user_id: str, reason: str, scope: str = "all", source: Path | None = None) -> None:
-        """Publica la copia de trabajo (o `source`, el directorio de un build) en la BD y recarga el índice. Sin BD
-        configurada, solo recarga. Se llama dentro de `editing()`.
-
-        Si la publicación falla, la copia de trabajo se descarta (vuelve a ser la de la BD): `StaleCatalog` cuando otro
-        proceso publicó entre tanto, y quien editaba debe repetir el cambio."""
+    def _written(self, strict: bool = True) -> None:
+        """Tras una escritura de curación: el índice refleja lo escrito antes de responder. Si no se puede (la BD no
+        responde al releer, o el catálogo no carga), lo escrito ya es firme pero quien editó recibe el error: no se le
+        dice que su cambio está en vigor cuando el índice aún no lo refleja."""
         with self._lock:
-            if self.repository is not None:
-                try:
-                    result = self.repository.publish(
-                        load_snapshot(source or self.settings.data_root), published_by=user_id, reason=reason,
-                        scope=scope, expected_version=self.db_version if scope == "all" and source is None else None)
-                except Exception as exc:
-                    self._dirty = True  # lo editado no llegó a la BD: no puede quedar para que lo publique otro
-                    if isinstance(exc, StaleCatalog):
-                        with contextlib.suppress(Exception):  # la edición ya quedó auditada: se anota que no se aplicó
-                            self.audit.event("catalog_conflict", user_id, reason=reason)
-                    with contextlib.suppress(Exception):
-                        self._sync()
-                    raise
-                self.db_version = result.version
-                if scope == "build" or source is not None:  # la BD conserva lo humano y lo curado que el refresco no trae
-                    self._pull(force=True)
+            try:
+                self._pull(force=True)
+            except Exception as exc:
+                log.error("catalog.refresh_failed", extra={"error_type": type(exc).__name__})
+                self._db_checked = 0.0  # se reintenta en la siguiente petición
+                raise
             self.reload()
+            if strict and self.load_error:
+                raise RuntimeError("El cambio se guardó pero el catálogo no se pudo recargar")
+
+    def write_descriptions(self, edits: list[DescriptionEdit], user_id: str, reason: str) -> int:
+        """Escribe descripciones (edición del responsable o diccionario) y recarga. Devuelve las copias cambiadas."""
+        with self._lock:
+            changed = self.writer.write_descriptions(edits, by=user_id, reason=reason)
+            if changed:
+                self._written()
+            return changed
+
+    def curated_rules(self) -> list[BusinessRule]:
+        """Reglas que gestionan los responsables desde la vista Curación (HU-28)."""
+        return steward_rules(self.service.deps.knowledge.rules) if self.service else []
+
+    def upsert_rule(self, rule: BusinessRule, user_id: str) -> None:
+        with self._lock:
+            self.writer.upsert_rule(rule, by=user_id)
+            self._written()
+
+    def delete_rule(self, rule_id: str, user_id: str) -> bool:
+        with self._lock:
+            deleted = self.writer.delete_rule(rule_id, by=user_id)
+            if deleted:
+                self._written()
+            return deleted
 
     def deterministic_service(self) -> DiscoverService | None:
-        """El mismo catálogo sin nodos de LLM ni embeddings remotos (modo del tope diario agotado, HU-19)."""
+        """El mismo catálogo sin nodos de LLM (modo del tope diario agotado, HU-19)."""
         if self.service is None or not self.settings.models_path:
             return self.service  # sin LLM configurado el servicio ya es determinista
         with self._lock:
             if self._deterministic is None or self._deterministic[0] != self.version:
-                self._deterministic = (self.version, build_service(self.settings.data_root, audit=self.audit))
+                self._deterministic = (self.version, self._build_service(None))
             return self._deterministic[1]
 
     def _on_usage(self, role: str, tokens_in: int, tokens_out: int) -> None:
         for listener in self.usage_listeners:
             listener(role, tokens_in, tokens_out)
 
+    def _build_service(self, gateway) -> DiscoverService:
+        if self.repository is not None:
+            return build_service_from_snapshot(self.snapshot, settings_path=self._settings_path, gateway=gateway,
+                                               audit=self.audit)
+        return build_service(self.settings.data_root, gateway=gateway, audit=self.audit)
+
     def reload(self) -> None:
-        """Carga (o recarga) el DiscoverFlow sobre el catálogo escrito; sin catálogo, la API queda en modo configuración."""
+        """Carga (o recarga) el DiscoverFlow sobre el catálogo vigente; sin catálogo, la API queda en modo configuración."""
         with self._lock:
             if not self.has_catalog:
                 self.service, self.load_error = None, None
@@ -242,18 +241,19 @@ class AgentRuntime:
 
                     gateway = LLMGateway.from_file(self.settings.models_path)
                     gateway.usage_hook = self._on_usage
-                service = build_service(
-                    self.settings.data_root, gateway=gateway,
-                    llm_nodes=not self.settings.embeddings_only, audit=self.audit,
-                )
+                service = self._build_service(gateway)
             except Exception as exc:
                 # Solo el tipo: el texto de la excepción puede llevar rutas o contenido del catálogo (D5).
                 log.error("catalog.load_failed", extra={"error_type": type(exc).__name__})
-                self.load_error = type(exc).__name__
+                # Sin poder cargar lo vigente no se sigue respondiendo con lo anterior: podría incluir una regla o
+                # una confirmación que un responsable acaba de retirar. La API queda sin catálogo hasta que cargue.
+                self.service, self.load_error = None, type(exc).__name__
+                self._visibility.clear()
                 return
             self.service, self.load_error = service, None
             self.version += 1
             self._visibility.clear()
+            self._fresh_golden.clear()
 
     def catalog_stats(self) -> dict:
         if self.service is None:
@@ -311,109 +311,84 @@ class AgentRuntime:
     def shown(self, trace_id: str) -> ShownTrace | None:
         return self._traces.get(trace_id)
 
-    def record_feedback(self, session: Session, trace_id: str, trace: ShownTrace, asset_key: str, verdict: str,
-                        comment: str | None, steward: bool = False) -> dict:
-        """Guarda la opinión del usuario y la agrega a las confirmaciones (`golden`).
+    def golden(self, gid: str) -> GoldenDiscovery | None:
+        """La confirmación vigente de una pareja pregunta-activo, incluida una recién escrita."""
+        if gid in self._fresh_golden:
+            return self._fresh_golden[gid]
+        known = self.service.deps.knowledge.golden if self.service else []
+        return next((g for g in known if g.id == gid), None)
 
-        De usuarios: desde 2 confirmaciones distintas sin rechazos pesa en la confianza (F22). De un responsable del
-        dominio: entra de inmediato, y su "✖" retira el par (F24 CA2)."""
-        template = normalize_question(trace.question)
-        golden_id = "u-" + hashlib.sha1(f"{template}|{asset_key}".encode("utf-8")).hexdigest()[:12]
-        row = {"ts": _now(), "trace_id": trace_id, "user_id": session.user_id, "asset_key": asset_key,
-               "verdict": verdict, "golden_id": golden_id, "comment": (comment or "")[:500] or None,
-               "steward": steward, "time_to_verdict_ms": int((time.time() - trace.asked_at) * 1000)}
+    def record_feedback(self, session: Session, trace_id: str, trace: ShownTrace, asset_key: str, verdict: str,
+                        steward: bool = False) -> dict:
+        """Guarda el voto y actualiza la confirmación de la pareja plantilla-activo (regla en `resolve_golden`).
+
+        La plantilla es la pregunta sin literales. Si aun así parece llevar datos personales, el voto cuenta pero no se
+        convierte en conocimiento reutilizable (F17)."""
+        safe = strip_literals(trace.question)
+        template = question_template(trace.question)
+        gid = golden_id(template, asset_key)
+        elapsed_ms = int((time.time() - trace.asked_at) * 1000)
+        learnable = bool(template) and not find_pii(safe)
         # Se audita antes de aplicar: sin registro no hay cambio (F11).
         self.audit.event("feedback", session.user_id, trace_id=trace_id, asset_key=asset_key, verdict=verdict,
-                         steward=steward, time_to_verdict_ms=row["time_to_verdict_ms"])
-        cdir = self.settings.curation_dir
-        cdir.mkdir(parents=True, exist_ok=True)
-        # La confirmación guarda el texto de la pregunta: si parece llevar datos personales, el voto cuenta pero no se
-        # convierte en conocimiento reutilizable (F17).
-        learnable = not find_pii(trace.question)
-        with self._lock:
-            path = cdir / "feedback.jsonl"
-            previous = []
-            if path.is_file():
-                previous = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-            with path.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-            votes: dict[str, str] = {}  # último voto de cada usuario para esta pareja pregunta-activo
-            for r in [*previous, row]:
-                if r.get("golden_id") == golden_id:
-                    votes[r["user_id"]] = r["verdict"]
-            confirms = sum(v == "confirm" for v in votes.values())
-            rejects = sum(v == "reject" for v in votes.values())
-            if steward:
-                golden = GoldenDiscovery(id=golden_id, template=template, asset_keys=[asset_key], confirmed_by="steward",
-                                         confirmations=max(confirms, 1), rejected=verdict == "reject")
-            else:
-                golden = GoldenDiscovery(id=golden_id, template=template, asset_keys=[asset_key], confirmed_by="users",
-                                         confirmations=max(confirms, 1), rejected=rejects > 0)
-                current = next((g for g in self.golden() if g.id == golden_id), None)
-                if current is not None and current.confirmed_by == "steward":  # el responsable manda sobre los usuarios
-                    golden = current.model_copy(update={"confirmations": max(confirms, 1)})
-            if learnable:
-                self._store_golden(golden, session.user_id)
-        if learnable:  # reindexa con la nueva confirmación, sin hacer esperar al usuario
-            worker = threading.Thread(target=self._reload_quietly, daemon=True)
-            self._background = [t for t in self._background if t.is_alive()] + [worker]
-            worker.start()
-        return {"golden_id": golden_id, "confirmations": confirms, "rejections": rejects, "learned": learnable}
+                         steward=steward, time_to_verdict_ms=elapsed_ms)
+        try:
+            with self._lock:  # el voto y la confirmación que resulta, juntos: dos votos a la vez no se pisan
+                votes = self.curation.add_vote({
+                    "golden_id": gid, "user_id": session.user_id, "trace_id": trace_id, "asset_key": asset_key,
+                    "verdict": verdict, "steward": steward})
+                if learnable:
+                    golden = resolve_golden(template, asset_key, votes, steward=steward, verdict=verdict,
+                                            current=self.golden(gid))
+                    self._store_golden(golden, session.user_id, trace.question)
+        except Exception as exc:
+            with contextlib.suppress(Exception):  # lo anunciado en la auditoría no se aplicó
+                self.audit.event("feedback_failed", session.user_id, trace_id=trace_id, asset_key=asset_key,
+                                 error_type=type(exc).__name__)
+            raise
+        if learnable and steward:
+            self._written()  # su "✔" o su "✖" ya rige en la siguiente búsqueda (F24 CA2)
+        elif learnable:
+            self._reindex_later()
+        counted = tally(votes)
+        return {"golden_id": gid, "confirmations": counted.confirms, "rejections": counted.rejects, "learned": learnable}
 
-    def _store_golden(self, golden: GoldenDiscovery, user_id: str) -> None:
-        """Con el candado tomado: una sola fila en la BD (no se publica todo el catálogo) y después la copia de trabajo."""
-        if self.repository is not None:
-            version = self.repository.upsert_golden(golden, published_by=user_id)
-            if self.db_version is not None and version == self.db_version + 1:
-                self.db_version = version  # nadie más publicó: la copia de trabajo sigue al día
-        self._upsert_golden(golden, keep=True)
+    def steward_golden(self, question: str, asset_key: str, user_id: str) -> GoldenDiscovery | None:
+        """Respuesta de un responsable a una duda escalada: entra de inmediato al índice (F24 CA1). None si la pregunta
+        parece llevar datos personales: la respuesta queda en la solicitud, pero no como conocimiento reutilizable."""
+        template = question_template(question)
+        if not template or find_pii(strip_literals(question)):
+            return None
+        golden = GoldenDiscovery(id=golden_id(template, asset_key), template=template, asset_keys=[asset_key],
+                                 confirmed_by="steward")
+        with self._lock:
+            self._store_golden(golden, user_id, question)
+            self._written()
+        return golden
+
+    def _store_golden(self, golden: GoldenDiscovery, user_id: str, question: str) -> None:
+        """Con el candado tomado: una sola fila. El texto original solo se guarda si no traía ningún literal (nada que
+        la plantilla descartara) ni parece llevar datos personales; la pregunta completa ya está en la auditoría."""
+        keep = not has_literals(question) and not find_pii(question)
+        self.writer.upsert_golden(golden, by=user_id, question=question if keep else None)
+        self._fresh_golden[golden.id] = golden
+
+    def _reindex_later(self) -> None:
+        """Reindexa con la confirmación nueva sin hacer esperar a quien votó."""
+        worker = threading.Thread(target=self._reindex_quietly, daemon=True)
+        self._background = [t for t in self._background if t.is_alive()] + [worker]
+        worker.start()
 
     def drain(self, timeout_s: float = 30.0) -> None:
-        """Espera a que terminen las publicaciones en segundo plano (apagado ordenado y pruebas)."""
+        """Espera a que terminen las recargas en segundo plano (apagado ordenado y pruebas)."""
         for worker in list(self._background):
             worker.join(timeout_s)
 
-    def _reload_quietly(self) -> None:
+    def _reindex_quietly(self) -> None:
         try:
-            self.reload()
+            self._written()
         except Exception as exc:  # la confirmación ya está guardada; entra al índice en la siguiente recarga
             log.error("catalog.reload_failed", extra={"error_type": type(exc).__name__})
-
-    def golden(self) -> list[GoldenDiscovery]:
-        path = self.settings.data_root / "knowledge" / "golden" / GOLDEN_FILE
-        if not path.is_file():
-            return []
-        return [GoldenDiscovery.model_validate(d) for d in (yaml.safe_load(path.read_text(encoding="utf-8")) or [])]
-
-    def steward_golden(self, question: str, asset_key: str) -> GoldenDiscovery | None:
-        """Respuesta de un responsable a una duda escalada: entra de inmediato al índice (F24 CA1). None si la pregunta
-        parece llevar datos personales: la respuesta queda en la solicitud, pero no como conocimiento reutilizable."""
-        if find_pii(question):
-            return None
-        template = normalize_question(question)
-        golden_id = "u-" + hashlib.sha1(f"{template}|{asset_key}".encode("utf-8")).hexdigest()[:12]
-        golden = GoldenDiscovery(id=golden_id, template=template, asset_keys=[asset_key], confirmed_by="steward")
-        with self._lock:
-            self._upsert_golden(golden, keep=True)
-        return golden
-
-    def set_golden_state(self, golden_id: str, action: str) -> GoldenDiscovery | None:
-        with self._lock:
-            current = next((g for g in self.golden() if g.id == golden_id), None)
-            if current is None:
-                return None
-            update = {"confirmed_by": "steward", "rejected": False} if action == "approve" else {"rejected": True}
-            golden = current.model_copy(update=update)
-            self._upsert_golden(golden, keep=True)
-            return golden
-
-    def _upsert_golden(self, golden: GoldenDiscovery, keep: bool) -> None:
-        path = self.settings.data_root / "knowledge" / "golden" / GOLDEN_FILE
-        items = self.golden()
-        items = [g for g in items if g.id != golden.id] + ([golden] if keep else [])
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(yaml.safe_dump([g.model_dump() for g in items], allow_unicode=True, sort_keys=False),
-                        encoding="utf-8")
 
     # --- CatalogBuildFlow -------------------------------------------------------------------------
     def start_build(self, session: Session, enrich: bool) -> BuildJob:
@@ -432,15 +407,10 @@ class AgentRuntime:
             self.audit.event("catalog_build_started", session.user_id, enrich=job.enrich)
             # Copia: el flujo reemplaza `databases: ["*"]` por lo descubierto y el inventario guardado conserva "*".
             inventory = Inventory(servers=[s.model_copy(deep=True) for s in self.inventory.servers])
-            scope = "all" if self.settings.demo else "build"
             if self.repository is not None:
-                # Con BD, el build corre en un directorio aparte: la copia de trabajo no cambia a medias mientras otros
-                # editan o votan, y solo se publica el resultado completo.
-                self.settings.data_root.parent.mkdir(parents=True, exist_ok=True)
-                scratch = work = Path(tempfile.mkdtemp(prefix=".build-", dir=self.settings.data_root.parent))
-                loaded = self.repository.load(scope)  # el refresco parte de la versión vigente de la BD
-                if loaded is not None:
-                    write_snapshot(work, loaded[0])
+                # Con BD el build corre en un directorio temporal, que se borra al terminar: solo se publica el
+                # resultado completo y el servidor no conserva una copia del catálogo.
+                scratch = work = Path(tempfile.mkdtemp(prefix="converdata-build-"))
 
             def source_factory(server: ServerConfig):
                 cred = self.vault.credential(session, server.id)
@@ -454,36 +424,39 @@ class AgentRuntime:
                 from converdata.llm.nodes import LlmEnricher
 
                 enricher = LlmEnricher(LLMGateway.from_file(self.settings.models_path).chat("planner"))
-            own = OWN_DATABASES
-            if self.settings.db:  # la BD de trabajo no se cataloga a sí misma, se llame como se llame
-                own = own | {describe(self.settings.db).split("/")[-1].lower()}
-            report = build_catalog(inventory, work, source_factory=source_factory, enricher=enricher,
-                                   exclude_databases=own)
-            if self.settings.demo and report.servers_ok:
-                apply_fixture_knowledge(self.settings.demo_fixtures, work)
+            demo = self.settings.demo
+            result = refresh_catalog(
+                inventory, work, source_factory=source_factory, enricher=enricher, repository=self.repository,
+                published_by=session.user_id, scope="all" if demo else "build",
+                # La BD de trabajo no se cataloga a sí misma, se llame como se llame.
+                own_databases={describe(self.settings.db).split("/")[-1]} if self.settings.db else frozenset(),
+                after_build=(lambda root: apply_fixture_knowledge(self.settings.demo_fixtures, root)) if demo else None)
+            report = result.report
             job.report, job.summary = asdict(report), report.render()
             # Antes de marcar "ok": quien espera el estado ya encuentra el catálogo cargado (y publicado en la BD).
             if report.servers_ok:
-                self.commit(session.user_id, "build", scope=scope, source=scratch)
-            else:
-                self.reload()
+                self._written(strict=False)
             if not report.servers_ok:
                 job.error = "Ningún servidor respondió: " + "; ".join(report.servers_failed.values())
             elif self.load_error:
                 job.error = f"El catálogo se escribió pero no se pudo cargar: {self.load_error}"
-            if not job.error and self.settings.demo and self.settings.demo_history and self.curation is not None:
-                seeded = seed_history(self.service, self.audit, self.curation, self.settings.demo_fixtures)
+            if not job.error and demo and self.settings.demo_history:
+                seeded = seed_history(self.service, self.audit, self.curation, self.settings.demo_fixtures,
+                                      marker=self.settings.curation_dir / HISTORY_MARKER)
                 if seeded:  # antes de marcar "ok": el tablero ya tiene el historial cuando la web lo pide
                     self.audit.event("demo_history_seeded", session.user_id, client="demo-seed", simulated=True,
                                      **seeded)
-            job.status = "error" if job.error else "ok"
         except Exception as exc:
             log.error("catalog.build_failed", extra={"error_type": type(exc).__name__})
-            job.status, job.error = "error", f"{type(exc).__name__}: {str(exc)[:300]}"  # solo lo ve el admin
+            job.error = f"{type(exc).__name__}: {str(exc)[:300]}"  # solo lo ve el admin
         finally:
             if scratch is not None:
                 shutil.rmtree(scratch, ignore_errors=True)
+        # El estado final va al último: quien lo consulta ya no encuentra el directorio temporal.
         job.finished_at = _now()
+        job.status = "error" if job.error else "ok"
         with contextlib.suppress(Exception):  # sin auditoría el trabajo igualmente termina (no queda "running")
-            self.audit.event("catalog_build_finished", session.user_id, status=job.status, error=job.error,
-                             objects=(job.report or {}).get("objects"))
+            # Sin el texto del error: un mensaje de conexión puede traer host, instancia o login (solo lo ve el admin).
+            self.audit.event("catalog_build_finished", session.user_id, status=job.status,
+                             objects=(job.report or {}).get("objects"),
+                             servers_failed=sorted((job.report or {}).get("servers_failed") or {}))

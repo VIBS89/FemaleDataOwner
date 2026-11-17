@@ -225,13 +225,6 @@ def production_violations(settings: ApiSettings) -> list[str]:
     if not settings.admins_only or not settings.admins:
         problems.append("CONVERDATA_ADMINS_ONLY=1 y CONVERDATA_ADMINS son obligatorios: el rol data_admin se asigna por "
                         "lista explícita, no por ser sysadmin de algún servidor")
-    inventory = _yaml(settings.inventory_path)
-    servers = (inventory or {}).get("servers") or []
-    if not servers and not settings.setup_token:
-        problems.append("Sin inventario de servidores hace falta CONVERDATA_SETUP_TOKEN para el primer arranque")
-    for server in servers:
-        if server.get("trust_server_certificate"):
-            problems.append(f"El servidor {server.get('id')} tiene trust_server_certificate: el certificado TLS debe validarse")
     catalog_settings = _yaml(settings.data_root / "config" / "settings.yaml") or {}
     if (catalog_settings.get("audit") or {}).get("fail_open"):
         problems.append("config/settings.yaml tiene audit.fail_open: la auditoría debe ser fail-closed (F11)")
@@ -273,6 +266,17 @@ def production_violations(settings: ApiSettings) -> list[str]:
         problems.append("La sesión no puede durar más de 8 h de inactividad ni 12 h en total (OP-03)")
     if settings.notify_webhook and not settings.notify_webhook.lower().startswith("https://"):
         problems.append("CONVERDATA_NOTIFY_WEBHOOK debe ser https")
+    return problems
+
+
+def inventory_violations(servers, settings: ApiSettings) -> list[str]:
+    """Lo mismo para el inventario de servidores ya cargado (de la BD `ConverData`)."""
+    problems = []
+    if not servers and not settings.setup_token:
+        problems.append("Sin inventario de servidores hace falta CONVERDATA_SETUP_TOKEN para el primer arranque")
+    for server in servers:
+        if server.trust_server_certificate:
+            problems.append(f"El servidor {server.id} tiene trust_server_certificate: el certificado TLS debe validarse")
     return problems
 
 

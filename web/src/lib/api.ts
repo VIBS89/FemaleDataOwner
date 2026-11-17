@@ -14,7 +14,21 @@ import type {
   ServerConfig,
   SetupStatus,
   User,
+  DescriptionHistory,
+  Steward,
 } from "@/lib/types";
+
+/** Texto del error de la API: `detail` como cadena, o los mensajes de validación (422) sin el prefijo de Pydantic. */
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((d: { msg: string }) => d.msg.replace(/^Value error, /, "")).join("; ");
+    }
+  } catch {}
+  return `Error ${res.status}`;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -32,12 +46,7 @@ async function request<T>(path: string, init?: RequestInit & { json?: unknown })
     cache: "no-store",
   });
   if (!res.ok) {
-    let message = `Error ${res.status}`;
-    try {
-      const data = await res.json();
-      if (typeof data.detail === "string") message = data.detail;
-      else if (Array.isArray(data.detail)) message = data.detail.map((d: { msg: string }) => d.msg).join("; ");
-    } catch {}
+    const message = await errorMessage(res);
     if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/auth/")) {
       window.dispatchEvent(new Event("converdata:unauthorized"));
     }
@@ -72,10 +81,10 @@ export const api = {
 
   discover: (question: string, history: string[]) =>
     request<AnswerEnvelope>("/discover", { method: "POST", json: { question, history } }),
-  feedback: (trace_id: string, asset_key: string, verdict: "confirm" | "reject", comment?: string) =>
-    request<{ confirmations: number; rejections: number }>("/discover/feedback", {
+  feedback: (trace_id: string, asset_key: string, verdict: "confirm" | "reject") =>
+    request<{ golden_id: string; confirmations: number; rejections: number; learned: boolean }>("/discover/feedback", {
       method: "POST",
-      json: { trace_id, asset_key, verdict, comment },
+      json: { trace_id, asset_key, verdict },
     }),
   history: () =>
     request<{ items: { ts: string; trace_id: string; question: string; status: string; confidence: number | null }[] }>(
@@ -104,11 +113,7 @@ export const api = {
       credentials: "same-origin",
     });
     if (!res.ok || !res.body) {
-      let message = `Error ${res.status}`;
-      try {
-        const data = await res.json();
-        if (typeof data.detail === "string") message = data.detail;
-      } catch {}
+      const message = await errorMessage(res);
       if (res.status === 401) window.dispatchEvent(new Event("converdata:unauthorized"));
       throw new ApiError(res.status, message);
     }
@@ -141,11 +146,13 @@ export const api = {
   curationRequests: (status: "open" | "answered" | "all" = "open") =>
     request<{ items: CurationRequest[] }>(`/curation/requests?status=${status}`),
   answerRequest: (id: string, body: { kind: "asset" | "no_source"; asset_key?: string; description?: string; note?: string }) =>
-    request<{ ok: boolean }>(`/curation/requests/${id}/answer`, { method: "POST", json: body }),
+    request<{ ok: boolean; request: CurationRequest }>(`/curation/requests/${id}/answer`, { method: "POST", json: body }),
   reviewQueue: (domain?: string) =>
     request<{ items: ReviewItem[] }>(`/curation/review?limit=100${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`),
   setDescription: (asset_key: string, description: string, synonyms?: string[]) =>
     request<{ ok: boolean; copies: number }>("/curation/description", { method: "PUT", json: { asset_key, description, synonyms } }),
+  descriptionHistory: (asset_key: string) =>
+    request<DescriptionHistory>(`/curation/history?asset_key=${encodeURIComponent(asset_key)}`),
   uploadDictionary: (csv: string) => request<DictionaryReport>("/curation/dictionary", { method: "POST", json: { csv } }),
   rules: () => request<{ items: ManagedRule[] }>("/curation/rules"),
   saveRule: (rule: { id: string; text: string; applies_to: string[]; domain?: string }) =>
@@ -159,6 +166,9 @@ export const api = {
       method: "PUT",
       json: { servers },
     }),
+  stewards: () => request<{ stewards: Steward[]; domains: string[] }>("/admin/stewards"),
+  saveStewards: (stewards: Steward[]) =>
+    request<{ ok: boolean; stewards: Steward[] }>("/admin/stewards", { method: "PUT", json: { stewards } }),
   startBuild: (enrich: boolean) => request<BuildJob>("/admin/catalog/build", { method: "POST", json: { enrich } }),
   buildStatus: () => request<BuildJob>("/admin/catalog/build"),
   audit: (kind?: string) => request<{ items: AuditRow[] }>(`/admin/audit?limit=200${kind ? `&kind=${kind}` : ""}`),

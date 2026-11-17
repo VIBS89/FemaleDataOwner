@@ -167,8 +167,8 @@
       "dot": "amber",
       "title": "Estado y evolución",
       "items": [
-        "Hoy: catálogo y auditoría en la BD ConverData; LLM local; docker compose",
-        "Piloto: Bedrock, IIS, tareas programadas, resto de la curación en la BD",
+        "Hoy: catálogo, curación, inventario y auditoría en la BD ConverData; LLM local; docker compose",
+        "Piloto: Bedrock, IIS y tareas programadas en el servidor del banco",
         "Después: grupos de Active Directory (HU-13), consulta de datos (fase 1b), despliegue en AWS"
       ]
     }

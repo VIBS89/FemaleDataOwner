@@ -42,7 +42,7 @@ def seed_stewards(curation) -> None:
     known = {s["login"] for s in current}
     missing = [s for s in DEMO_STEWARDS if s["login"] not in known]
     if missing:
-        curation.save_stewards(current + missing)
+        curation.save_stewards(current + missing, by="demo")
 
 
 def apply_fixture_knowledge(fixtures: list[Path], data_root: Path) -> dict:

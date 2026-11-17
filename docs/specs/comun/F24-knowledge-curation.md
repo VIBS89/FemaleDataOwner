@@ -1,6 +1,6 @@
 # F24 — Curación y captura del conocimiento institucional · común
 
-> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Regla de votos, plantilla e historial actualizados el 2026-11-17.
 >
 > Origen: Propuesta — "reducir la dependencia del conocimiento tribal", "preservación del conocimiento institucional",
 > "conocimiento institucional obtenido de interacciones históricas y aportes de expertos".
@@ -23,15 +23,30 @@ quede disponible para todos, en lugar de contestar la misma pregunta a cada equi
   business_owner: {name: "Producto Banca Digital", group: "GG-Datos-BancaDigital"}
   technical_owner: {name: "Ingeniería de Datos — Canales", group: "GG-IngDatos-Canales"}
 ```
-Los grupos se resuelven como indica F14 (§Grupos y roles): AD por LDAP (pendiente, HU-13; hoy los responsables se asignan por login SQL). Las personas no se
+Los grupos se resuelven como indica F14 (§Grupos y roles): AD por LDAP (pendiente, HU-13). Hoy los responsables de curación se
+asignan por login SQL y dominio: los administra el `data_admin` desde la pestaña Responsables de Administración
+(`GET`/`PUT /admin/stewards`), y cada cambio se audita antes de aplicarse (`stewards_updated`). Un rol que se da por nombre de login solo cuenta si la sesión validó ese login en un servidor con `environment: produccion`, cuando el inventario tiene alguno (`identity_trusted`): quien administra un servidor de desarrollo o de QA puede crear allí un login con cualquier nombre. Es una política por confirmar con el banco (PRD §13, pregunta abierta 9). Las personas no se
 guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga en la tabla `curation.owners` (OP-02).
 
 ## Captura desde el uso
 1. **Confirmación de candidatos**: cada candidato de F22 tiene "✔ Es este", "✖ No es" y "El correcto es…" (búsqueda en el catálogo).
-2. **Golden discovery**: una confirmación genera un par `plantilla de la pregunta → asset_key` (literales sustituidos, como en F2).
-   - Confirmado por un `steward` del dominio: entra al índice de inmediato (`confirmation_score = 1.0`).
-   - Confirmado por usuarios: entra al índice cuando lo confirman ≥ 2 usuarios distintos sin rechazos (`0.7`).
-   - Un "✖" de un `steward` retira el par del índice.
+2. **Golden discovery**: una confirmación genera un par `plantilla de la pregunta → asset_key`.
+   - **Plantilla anónima** (`converdata.curation.question_template`): la pregunta normalizada y sin números sueltos (documentos,
+     teléfonos, fechas, montos), correos ni identificadores alfanuméricos con 5 o más dígitos (pasaporte, cuenta, IBAN); los
+     dígitos pegados a letras en nombres cortos (`T24`, `F14`) se conservan. Se quitan todos los números sueltos, también los
+     umbrales de negocio: "mora mayor a 90 días" y "a 30 días" son la misma confirmación (decisión del 2026-11-17). Si tras quitar
+     los literales aún parece llevar datos personales, el voto cuenta y se audita, pero no se aprende. El texto original se guarda
+     aparte (on-premise, `golden.golden_discovery_original`) solo si la pregunta no traía ningún literal ni parece llevar datos
+     personales. Limitación: no detecta nombres de personas ni texto entre comillas (F17).
+   - El voto no lleva comentario ni otro texto libre.
+   - **Regla de votos** (`converdata.curation.resolve_golden`):
+     - Voto de un `steward` del dominio: entra al índice de inmediato (`confirmation_score = 1.0`), y su "✖" retira el par. El
+       índice se actualiza antes de responderle, así que rige en la siguiente búsqueda (CA2); el voto de un usuario reindexa en
+       segundo plano.
+     - Votos de usuarios: cuentan las **confirmaciones netas** (confirmaciones menos rechazos, con el último voto de cada usuario).
+       Con 2 o más pesa en la confianza (`0.7`); con 0 o menos el par se retira del índice. Un solo "✖" no retira lo que
+       confirmaron varios.
+     - Si el par ya lo confirmó un `steward`, los votos de usuarios no cambian su decisión.
 3. **Escalamiento al responsable**: con `knowledge_gap = true` o a petición del usuario, "Preguntar al responsable" crea una
    `curation_request` (pregunta reescrita, candidatos mostrados y dominio probable) asignada al grupo `steward` del dominio.
    - La crea la ruta `POST /curation/requests` de la API (F12) y se guarda solo on-premise (F17).
@@ -45,13 +60,22 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
      el steward es quien decide si lo concede.
 
 ## Revisión del catálogo
+- **Ser responsable no da lectura**: fuera de sus dominios, un activo que su login no puede ver responde igual que uno que no
+  existe; el historial de una descripción exige además poder ver el activo; la bandeja solo muestra, de lo que se enseñó al
+  usuario, los activos de sus dominios. Dentro de sus dominios, la cola de revisión y la edición no filtran por visibilidad
+  (PRD §13, pregunta abierta 7).
+- Una regla cuyos activos ya no existen solo la gestiona quien cura el dominio de la regla.
 - Vista web **Curación** (solo `steward` y `data_admin`), filtrada por dominio:
   - descripciones `generated` o con `conflict: true`, ordenadas por **número de búsquedas** (lo más consultado primero);
   - reglas sugeridas y vínculos documento→activo sin revisar;
   - solicitudes escaladas pendientes, con antigüedad.
 - Las ediciones humanas se guardan separadas de lo generado (`description_source: human`) y **nunca se sobrescriben en un `refresh`**;
-  quedan versionadas con el autor (grupo) y la fecha en las *temporal tables* de la BD `ConverData` (OP-02). Hoy se guardan en archivos
-  y cada edición queda en la auditoría; tras cada una se recarga el índice en memoria.
+  quedan versionadas con el autor (hoy el login; el grupo, con HU-13) y la fecha en las *temporal tables* de la BD `ConverData`
+  (OP-02). Cada edición escribe sus filas en la BD y queda en la auditoría; tras cada una se recarga el índice en memoria. Sin BD
+  (desarrollo y modo demo) se guardan en archivos.
+- **Historial de una descripción**: el botón "Historial" de la vista Curación y de la ficha del activo muestra sus versiones con
+  autor y fecha (`GET /curation/history?asset_key=`, solo para responsables del dominio del activo que además pueden verlo con su login; sin BD
+  no hay historial). Cada entrada es un cambio real de la descripción, atribuido a quien la escribió.
 - `converdata catalog review --unreviewed --domain <d>` por CLI: pendiente.
 
 ## Reporte de brechas de conocimiento

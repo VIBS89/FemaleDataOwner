@@ -1,64 +1,63 @@
-"""Curación y captura del conocimiento (F24) sobre archivos del directorio de datos.
+"""Curación y captura del conocimiento (F24): lo que la API añade sobre los repositorios.
 
-- Solicitudes escaladas ("Preguntar al responsable"): `curation/requests.json`. La notificación lleva solo el dominio y el
-  enlace a la vista Curación, nunca el texto de la pregunta (OP-04 CA7).
-- Ediciones humanas de descripciones: en el YAML del catálogo con `description_source: human` y `reviewed: true`; el
-  CatalogBuildFlow nunca las sobrescribe en un refresco (F24 CA3, `merge_existing`).
-- Reglas de negocio curadas: `knowledge/rules/curadas.yaml` (HU-28).
-- Golden discovery de responsables: `knowledge/golden/confirmaciones_usuarios.yaml`, con `confirmed_by: steward` (F24 CA1, CA2).
-- Responsables (`steward`) por login SQL y dominio: `curation/stewards.yaml` (OP-04: en su defecto, logins SQL).
+- `CurationDesk`: responsables por login, dudas escaladas ("Preguntar al responsable") y su aviso. La notificación
+  lleva solo el dominio y el enlace a la vista Curación, nunca el texto de la pregunta (OP-04 CA7).
+- `demand_by_asset` y `metrics_report`: la cola de revisión y el tablero de impacto, calculados desde la auditoría.
 
-On-premise estas piezas viven en los esquemas `curation` y `knowledge` de la BD `ConverData` (OP-02); la API no cambia.
+El estado vive en el `CurationRepository` (esquema `curation` de la BD `ConverData`; archivos en desarrollo). Las
+descripciones, las reglas y las confirmaciones se escriben por `AgentRuntime` (`KnowledgeWriter`).
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import json
-import io
-import hashlib
-import csv
 import logging
 import threading
+import time
 import urllib.request
 import uuid
 from collections import Counter, defaultdict
-from pathlib import Path
 
-import yaml
-
-from converdata.builder.catalog_builder import object_path
 from converdata.catalog.ids import table_key
-from converdata.models.knowledge import BusinessRule
+from converdata.curation import CurationRepository
 
 log = logging.getLogger(__name__)
-CURATED_RULES = "curadas.yaml"
+STEWARDS_TTL_S = 5.0
 
 
 def _now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
 
-class CurationStore:
-    def __init__(self, curation_dir: Path, data_root: Path, notify_webhook: str | None = None, public_url: str = ""):
-        self.dir = Path(curation_dir)
-        self.data_root = Path(data_root)
+class CurationDesk:
+    def __init__(self, repository: CurationRepository, notify_webhook: str | None = None, public_url: str = ""):
+        self.repository = repository
         self.notify_webhook = notify_webhook
         self.public_url = public_url.rstrip("/")
-        self._lock = threading.RLock()
+        self._stewards: tuple[float, list[dict]] | None = None  # (leído_en, lista)
 
     # --- responsables -------------------------------------------------------------------------------
     def stewards(self) -> list[dict]:
-        path = self.dir / "stewards.yaml"
-        if not path.is_file():
-            return []
-        return [{"login": str(s["login"]).lower(), "domains": list(s.get("domains") or ["*"])}
-                for s in (yaml.safe_load(path.read_text(encoding="utf-8")) or [])]
+        """Se releen como mucho cada `STEWARDS_TTL_S` segundos (una petición comprueba el dominio de cada fila de un
+        diccionario); guardar la lista la refresca al momento, así quitar un rol rige de inmediato."""
+        cached = self._stewards
+        if cached is None or time.monotonic() - cached[0] > STEWARDS_TTL_S:
+            cached = (time.monotonic(), [{"login": s["login"].lower(), "domains": list(s.get("domains") or ["*"])}
+                                         for s in self.repository.stewards()])
+            self._stewards = cached
+        return [dict(s) for s in cached[1]]
 
-    def save_stewards(self, items: list[dict]) -> None:
-        self.dir.mkdir(parents=True, exist_ok=True)
-        clean = [{"login": i["login"].strip().lower(), "domains": i.get("domains") or ["*"]} for i in items if i["login"].strip()]
-        (self.dir / "stewards.yaml").write_text(yaml.safe_dump(clean, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    def save_stewards(self, items: list[dict], *, by: str) -> list[dict]:
+        clean: dict[str, dict] = {}
+        for item in items:
+            login = item["login"].strip().lower()
+            if login:
+                domains = list(dict.fromkeys(d.strip() for d in item.get("domains") or [] if d.strip())) or ["*"]
+                clean[login] = {"login": login, "domains": domains}
+        self.repository.save_stewards(list(clean.values()), by=by)
+        self._stewards = None
+        return list(clean.values())
 
     def steward_domains(self, login: str) -> list[str] | None:
         """Dominios de un responsable (`["*"]` = todos); None si no es responsable."""
@@ -68,50 +67,22 @@ class CurationStore:
         return None
 
     # --- solicitudes escaladas (F24 §Escalamiento) ---------------------------------------------------
-    def _requests_path(self) -> Path:
-        return self.dir / "requests.json"
-
     def requests(self) -> list[dict]:
-        path = self._requests_path()
-        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
-
-    def _save_requests(self, items: list[dict]) -> None:
-        self.dir.mkdir(parents=True, exist_ok=True)
-        self._requests_path().write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+        return self.repository.requests()
 
     def create_request(self, user_id: str, trace_id: str, question: str, domain: str, shown: list[str],
                        note: str | None) -> dict:
-        with self._lock:
-            items = self.requests()
-            existing = next((r for r in items if r["trace_id"] == trace_id and r["user_id"] == user_id), None)
-            if existing:
-                return existing
-            req = {
-                "id": uuid.uuid4().hex[:10], "created_at": _now(), "status": "open", "user_id": user_id, "trace_id": trace_id,
-                "question": question, "domain": domain, "shown": shown, "note": (note or "")[:500] or None, "answer": None,
-            }
-            items.append(req)
-            self._save_requests(items)
-        self._notify(domain)
-        return req
-
-    def append_requests(self, new: list[dict]) -> None:
-        """Agrega solicitudes ya formadas sin notificar (historial simulado del modo demo)."""
-        if not new:
-            return
-        with self._lock:
-            self._save_requests(self.requests() + new)
+        new = {"id": uuid.uuid4().hex[:10], "created_at": _now(), "status": "open", "user_id": user_id,
+               "trace_id": trace_id, "question": question, "domain": domain, "shown": shown,
+               "note": (note or "")[:500] or None, "answer": None}
+        stored = self.repository.add_requests([new])[0]
+        if stored["id"] == new["id"]:  # si ya existía (misma respuesta y usuario), no se avisa otra vez
+            self._notify(domain)
+        return stored
 
     def answer_request(self, request_id: str, by: str, kind: str, asset_key: str | None, note: str | None) -> dict:
-        with self._lock:
-            items = self.requests()
-            req = next((r for r in items if r["id"] == request_id), None)
-            if req is None:
-                raise KeyError(request_id)
-            req["status"] = "answered" if kind == "asset" else "no_source"
-            req["answer"] = {"by": by, "at": _now(), "kind": kind, "asset_key": asset_key, "note": (note or "")[:1000] or None}
-            self._save_requests(items)
-            return req
+        answer = {"by": by, "at": _now(), "kind": kind, "asset_key": asset_key, "note": (note or "")[:1000] or None}
+        return self.repository.answer_request(request_id, "answered" if kind == "asset" else "no_source", answer)
 
     def _notify(self, domain: str) -> None:
         """Webhook (Teams u otro) con el dominio y el enlace; el texto de la pregunta se lee dentro de la aplicación."""
@@ -128,128 +99,6 @@ class CurationStore:
                 log.warning("no se pudo notificar la solicitud: %s", type(exc).__name__)
 
         threading.Thread(target=send, daemon=True).start()
-
-    # --- ediciones humanas del catálogo (F24 §Revisión del catálogo) ---------------------------------
-    def set_description(self, catalog, asset_key: str, description: str, synonyms: list[str] | None) -> int:
-        """Escribe la descripción en todas las copias físicas del activo (tabla o columna). Devuelve las copias editadas."""
-        parts = asset_key.split(".")
-        column = ".".join(parts[3:]) if len(parts) > 3 else None
-        edited = 0
-        with self._lock:
-            for obj in catalog.copies(table_key(asset_key)):
-                path = object_path(self.data_root, obj)
-                if not path.is_file():
-                    continue
-                data = yaml.safe_load(path.read_text(encoding="utf-8"))
-                target = data
-                if column:
-                    target = next((c for c in data.get("columns", []) if c["name"].lower() == column.lower()), None)
-                    if target is None:
-                        continue
-                target["description"] = description.strip()
-                target["description_source"] = "human"
-                target["reviewed"] = True
-                if synonyms is not None:
-                    target["synonyms"] = list(dict.fromkeys(s.strip() for s in synonyms if s.strip()))[:12]
-                path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
-                edited += 1
-        return edited
-
-    # --- diccionario de datos (HU-25, F23 CA1 y CA5) -------------------------------------------------
-    def _dictionary_ledger(self) -> Path:
-        return self.data_root / "knowledge" / "dictionary_hashes.json"
-
-    def apply_dictionary(self, catalog, text: str, allowed) -> dict:
-        """Aplica un diccionario CSV (`asset_key` o `database,schema,table[,column]`, `description`, `synonyms` con `;`).
-
-        Las descripciones quedan como `data_dictionary` sin pisar las `human`; el mismo archivo dos veces no hace nada (hash).
-        `allowed(asset_key) -> bool` limita el alcance al dominio del steward. No llama al LLM."""
-        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        with self._lock:
-            ledger_path = self._dictionary_ledger()
-            seen = json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.is_file() else []
-            if digest in seen:
-                return {"unchanged": True, "applied": 0, "skipped_human": 0, "same": 0, "unknown": [], "forbidden": []}
-            sample = text[:2048]
-            delimiter = ";" if sample.count(";") > sample.count(",") else ","
-            rows = list(csv.DictReader(io.StringIO(text), delimiter=delimiter))
-            report = {"unchanged": False, "applied": 0, "skipped_human": 0, "same": 0, "unknown": [], "forbidden": [],
-                      "rows": len(rows)}
-            for row in rows:
-                row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
-                key = row.get("asset_key") or ".".join(p for p in (row.get("database"), row.get("schema"), row.get("table"),
-                                                                    row.get("column")) if p)
-                description = row.get("description", "")
-                if not key or not description:
-                    continue
-                copies = catalog.copies(table_key(key))
-                if not copies or not catalog.exists(key):
-                    report["unknown"].append(key)
-                    continue
-                if not allowed(key):
-                    report["forbidden"].append(key)
-                    continue
-                synonyms = [x.strip() for x in row.get("synonyms", "").split(";") if x.strip()][:12]
-                column = ".".join(key.split(".")[3:]) or None
-                for obj in copies:
-                    path = object_path(self.data_root, obj)
-                    if not path.is_file():
-                        continue
-                    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-                    target = data if column is None else next(
-                        (c for c in data.get("columns", []) if c["name"].lower() == column.lower()), None)
-                    if target is None:
-                        continue
-                    if target.get("description_source") == "human":
-                        report["skipped_human"] += 1
-                        continue
-                    if target.get("description") == description and target.get("description_source") == "data_dictionary":
-                        report["same"] += 1
-                        continue
-                    target["description"], target["description_source"] = description, "data_dictionary"
-                    if synonyms:
-                        target["synonyms"] = list(dict.fromkeys([*(target.get("synonyms") or []), *synonyms]))[:12]
-                    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
-                    report["applied"] += 1
-            report["digest"] = digest  # quien llama lo registra con `remember_dictionary` cuando el cambio ya es firme
-            return report
-
-    def remember_dictionary(self, digest: str) -> None:
-        """Anota un diccionario como ya aplicado: aplicarlo otra vez no hace nada (F23 CA5)."""
-        with self._lock:
-            ledger_path = self._dictionary_ledger()
-            seen = json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.is_file() else []
-            if digest not in seen:
-                ledger_path.parent.mkdir(parents=True, exist_ok=True)
-                ledger_path.write_text(json.dumps([*seen, digest]), encoding="utf-8")
-
-    # --- reglas de negocio curadas (HU-28) ----------------------------------------------------------
-    def _rules_path(self) -> Path:
-        return self.data_root / "knowledge" / "rules" / CURATED_RULES
-
-    def curated_rules(self) -> list[BusinessRule]:
-        path = self._rules_path()
-        if not path.is_file():
-            return []
-        return [BusinessRule.model_validate(r) for r in (yaml.safe_load(path.read_text(encoding="utf-8")) or [])]
-
-    def upsert_rule(self, rule: BusinessRule) -> None:
-        with self._lock:
-            rules = [r for r in self.curated_rules() if r.id != rule.id] + [rule]
-            path = self._rules_path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(yaml.safe_dump([r.model_dump(exclude_none=True) for r in rules], allow_unicode=True,
-                                           sort_keys=False), encoding="utf-8")
-
-    def delete_rule(self, rule_id: str) -> bool:
-        with self._lock:
-            rules = self.curated_rules()
-            kept = [r for r in rules if r.id != rule_id]
-            if len(kept) == len(rules):
-                return False
-            self._rules_path().write_text(yaml.safe_dump([r.model_dump(exclude_none=True) for r in kept],
-                                                         allow_unicode=True, sort_keys=False), encoding="utf-8")
-            return True
 
 
 def demand_by_asset(audit_rows: list[dict]) -> Counter:

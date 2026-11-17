@@ -20,6 +20,7 @@ LAYERS = {
     "converdata.models": "domain",
     "converdata.catalog": "domain",
     "converdata.config": "domain",
+    "converdata.curation": "domain",
     "converdata.discovery": "domain",
     "converdata.graph": "domain",
     "converdata.builder": "domain",

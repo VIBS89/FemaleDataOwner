@@ -29,7 +29,6 @@ class ApiSettings:
     log_dir: Path | None = None  # logs JSON rotados sin contenido (HU-21, OP-05); None = sin archivo
     event_log: bool = True  # además, errores al Visor de eventos de Windows (origen ConverData)
     models_path: Path | None = None  # config/models.yaml; sin él, modo determinista
-    embeddings_only: bool = False
     admins: frozenset[str] = field(default_factory=frozenset)  # logins con rol admin además de sysadmin/VIEW ANY DEFINITION
     session_ttl_s: int = 8 * 3600  # OP-03: 8 h con expiración deslizante
     cookie_secure: bool = False
@@ -79,7 +78,6 @@ class ApiSettings:
             log_dir=Path(os.environ.get("CONVERDATA_LOG_DIR", "data/logs")),
             event_log=_flag("CONVERDATA_EVENT_LOG", True),
             models_path=Path(models) if models and Path(models).is_file() else None,
-            embeddings_only=_flag("CONVERDATA_EMBEDDINGS_ONLY"),
             admins=frozenset(a.strip().lower() for a in os.environ.get("CONVERDATA_ADMINS", "").split(",") if a.strip()),
             session_ttl_s=int(os.environ.get("CONVERDATA_SESSION_TTL_S", 8 * 3600)),
             cookie_secure=_flag("CONVERDATA_COOKIE_SECURE"),

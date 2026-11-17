@@ -954,11 +954,6 @@ def mentioned_objects(text: str, catalog: Catalog) -> set[str]:
     return found
 
 
-def mentioned_assets(discovery: Discovery) -> list[str]:
-    keys = [c.asset_key for c in discovery.candidates] + [a.asset_key for a in discovery.alternatives]
-    return list(dict.fromkeys(keys))
-
-
 def databases_of(discovery: Discovery) -> list[str]:
     dbs = [c.database for c in discovery.candidates] + [a.asset_key.split(".")[0] for a in discovery.alternatives]
     dbs += [r.from_.split(".")[0] for r in discovery.related] + [r.to.split(".")[0] for r in discovery.related]

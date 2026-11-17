@@ -38,17 +38,6 @@ class FakeModel:
         return type("Msg", (), {"content": f"respuesta de {self.provider}"})()
 
 
-class FakeEmbeddings:
-    def __init__(self, dim):
-        self.dim = dim
-
-    def embed_documents(self, texts):
-        return [self.embed_query(t) for t in texts]
-
-    def embed_query(self, text):
-        return [float(len(text) % 7 + 1)] * self.dim
-
-
 def make_gateway(config: dict, script=None, clock=None):
     script = {"nvidia_nim": [], "bedrock": [], **(script or {})}
     calls: list[str] = []
@@ -59,8 +48,6 @@ def make_gateway(config: dict, script=None, clock=None):
     builders = {
         ("nvidia_nim", "chat"): chat_builder("nvidia_nim"),
         ("bedrock", "chat"): chat_builder("bedrock"),
-        ("nvidia_nim", "embed"): lambda role, prov: FakeEmbeddings(role.dimensions or 8),
-        ("bedrock", "embed"): lambda role, prov: FakeEmbeddings(1024),
     }
     kwargs = {"clock": clock} if clock else {}
     return LLMGateway(ModelsConfig.model_validate(config), builders=builders, **kwargs), calls
@@ -72,7 +59,6 @@ NIM_ONLY = {
     "roles": {
         "planner": {"provider": "nvidia_nim", "model": "meta/llama-3.3-70b-instruct"},
         "fast": {"provider": "nvidia_nim", "model": "meta/llama-3.1-8b-instruct"},
-        "embed": {"provider": "nvidia_nim", "model": "nvidia/llama-nemotron-embed-1b-v2", "dimensions": 16},
     },
 }
 
@@ -94,8 +80,6 @@ def test_enruta_cada_rol_a_nim():
     gw.chat("fast").invoke([])
     assert calls == ["nvidia_nim:meta/llama-3.3-70b-instruct", "nvidia_nim:meta/llama-3.1-8b-instruct"]
     assert gw.labels["planner"] == "nvidia_nim:meta/llama-3.3-70b-instruct"
-    assert gw.embed_model == "nvidia_nim:nvidia/llama-nemotron-embed-1b-v2@16"
-    assert len(gw.embeddings().embed_query("x")) == 16
 
 
 def test_pasar_a_bedrock_es_solo_configuracion():
@@ -186,7 +170,7 @@ def test_discover_flow_con_el_gateway(analyst):
     assert steps["intent"].model == "nvidia_nim:meta/llama-3.3-70b-instruct" and steps["intent"].ok
     assert steps["respond"].model == "nvidia_nim:meta/llama-3.1-8b-instruct"
     assert "nvidia_nim:meta/llama-3.3-70b-instruct" in calls
-    assert service.deps.store.embed_model == "nvidia_nim:nvidia/llama-nemotron-embed-1b-v2@16"
+    assert steps["retrieve"].model is None  # la recuperación es léxica: no usa ningún modelo
 
 
 def test_caida_total_del_proveedor_usa_el_modo_determinista(analyst):
@@ -201,9 +185,37 @@ def test_caida_total_del_proveedor_usa_el_modo_determinista(analyst):
 def test_smoke_cli(capsys):
     from converdata.cli import llm_smoke
 
-    gw, _ = make_gateway({**NIM_ONLY, "roles": {"embed": NIM_ONLY["roles"]["embed"]}})
+    gw, _ = make_gateway({**NIM_ONLY, "roles": {"planner": {"provider": "nvidia_nim", "model": "m"}}})
+
+    class PingModel:  # el smoke pide una salida estructurada con su propio esquema
+        def with_structured_output(self, schema, **kwargs):
+            return type("M", (), {"invoke": lambda self, messages, **kw: schema(intent="discovery")})()
+
+    gw._builders[("nvidia_nim", "chat")] = lambda role, prov: PingModel()
     assert llm_smoke("unused", gateway=gw) == 0
-    assert "OK  embed" in capsys.readouterr().out
+    assert "OK  planner" in capsys.readouterr().out
+
+
+def test_un_models_yaml_con_el_rol_embed_se_carga_ignorandolo(tmp_path, caplog):
+    """El rol `embed` se retiró (PRD §13, decisión 9): un archivo antiguo que aún lo declara no rompe la carga."""
+    import logging
+
+    from converdata.llm.factory import load_models
+
+    path = tmp_path / "models.yaml"
+    path.write_text(
+        "environment: local\n"
+        "providers: {nvidia_nim: {}, ollama: {}}\n"
+        "roles:\n"
+        "  planner: {provider: nvidia_nim, model: m}\n"
+        "  embed: {provider: ollama, model: bge-m3, dimensions: 1024}\n",
+        encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="converdata.llm.factory"):
+        cfg = load_models(path)
+    assert set(cfg.roles) == {"planner"}
+    assert "embed" in caplog.text
+    gw = LLMGateway(cfg, builders={})
+    assert not gw.has_role("embed") and list(gw.labels) == ["planner"]
 
 
 def test_timeout_del_proveedor_llega_al_cliente_de_nim(monkeypatch):
@@ -230,8 +242,7 @@ def test_ejemplo_de_configuracion_es_valido():
     cfg = load_models(Path(__file__).parents[1] / "config" / "models.example.yaml")
     gw = LLMGateway(cfg, builders={})
     assert {r.provider for r in cfg.roles.values()} == {"nvidia_nim"}
-    assert set(cfg.roles) == {"planner", "fast"}  # fase 1a: sin `embed` ni `judge` (PRD §13, decisiones 9 y 13)
-    assert gw.embeddings() is None
+    assert set(cfg.roles) == {"planner", "fast"}  # fase 1a: sin `judge` (PRD §13, decisión 13)
     assert gw.labels["planner"].startswith("nvidia_nim:")
 
 

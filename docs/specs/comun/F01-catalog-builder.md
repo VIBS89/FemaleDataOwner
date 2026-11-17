@@ -102,8 +102,9 @@ Además se genera `_database.yaml` por BD con el resumen, los dominios detectado
 - `converdata catalog review --unreviewed`: lista los objetos pendientes de revisión humana.
 
 Estado: hoy existe `converdata catalog build --config <inventario> --out <dir> [--models <models.yaml>] [--db]`, que también sirve de
-refresco (con `--db` parte del catálogo publicado en la BD `ConverData` y publica el resultado), `converdata catalog publish` y
-`converdata catalog export`, y el mismo flujo bajo demanda desde Administración (`POST /admin/catalog/build`). `refresh` incremental, `review` y las opciones
+refresco (con `--db` parte del catálogo publicado en la BD `ConverData` y publica el resultado; con `--db` y sin `--config` toma el
+inventario de la BD, y sin `--out` usa un directorio temporal), `converdata catalog publish` y
+`converdata catalog export`, y el mismo caso de uso (`converdata.application.catalog_refresh`) bajo demanda desde Administración (`POST /admin/catalog/build`). `refresh` incremental, `review` y las opciones
 `--database` y `--no-llm` están pendientes; la revisión se hace en la vista Curación (F24).
 
 ## Reglas

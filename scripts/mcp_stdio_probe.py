@@ -17,7 +17,7 @@ ASSET = "VBank_ING.dbo.Users.ClientCode"
 async def main(catalog: str) -> None:
     params = StdioServerParameters(
         command=sys.executable, cwd=str(ROOT),
-        args=["-m", "converdata.cli", "mcp", "serve", "--root", catalog, "--user", "analista", "--embeddings-only"])
+        args=["-m", "converdata.cli", "mcp", "serve", "--root", catalog, "--user", "analista"])
     async with Client(params) as client:
         print("herramientas:", sorted(t.name for t in (await client.list_tools()).tools))
         envelope = (await client.call_tool("discover", {"question": QUESTION})).structured_content

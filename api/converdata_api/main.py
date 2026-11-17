@@ -22,10 +22,11 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from converdata.catalog.ids import table_key
+from converdata.curation import human_edits, plan_dictionary
 from converdata.cli import load_dotenv, use_system_certificates
 from converdata.config import ServerConfig
 from converdata.models.discovery import AnswerEnvelope
@@ -33,17 +34,16 @@ from converdata.models.knowledge import BusinessRule
 from converdata.observability.logging import configure_logging, log_event
 from converdata.observability.metrics import Metrics
 
-from converdata.catalog.store import StaleCatalog
 from converdata_api.audit import open_audit
 from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlConnector, server_from_host
-from converdata_api.curation import CurationStore, demand_by_asset, metrics_report
+from converdata_api.curation import CurationDesk, demand_by_asset, metrics_report
 from converdata_api.demo import seed_stewards
 from converdata_api.mcp_mount import build_mcp_mount
 from converdata_api.pii import find_pii
 from converdata_api.tokens import TokenLedger
 from converdata_api.runtime import AgentRuntime, ShownTrace
-from converdata_api.security import (InsecureConfiguration, LoginThrottle, SecurityMiddleware, production_violations,
-                                     valid_host, valid_identifier, valid_login)
+from converdata_api.security import (InsecureConfiguration, LoginThrottle, SecurityMiddleware, inventory_violations,
+                                     production_violations, valid_host, valid_identifier, valid_login)
 from converdata_api.settings import ApiSettings
 from converdata_api.vault import Credential, Session, SessionVault
 
@@ -94,7 +94,6 @@ class FeedbackRequest(BaseModel):
     trace_id: str = Field(max_length=64)
     asset_key: str = Field(max_length=400)
     verdict: Literal["confirm", "reject"]
-    comment: str | None = Field(None, max_length=500)
 
 
 class BuildRequest(BaseModel):
@@ -153,17 +152,20 @@ class DictionaryRequest(BaseModel):
     csv: str = Field(min_length=10, max_length=2_000_000)
 
 
-class GoldenAction(BaseModel):
-    action: Literal["approve", "retire"]
-
-
 class StewardIn(BaseModel):
     login: str = Field(min_length=1, max_length=128)
-    domains: list[str] = Field(default_factory=lambda: ["*"])
+    domains: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(default_factory=lambda: ["*"], max_length=50)
+
+    @field_validator("login")
+    @classmethod
+    def _login(cls, value: str) -> str:
+        if not valid_login(value.strip()):
+            raise ValueError("Usuario no válido")
+        return value
 
 
 class StewardsRequest(BaseModel):
-    stewards: list[StewardIn]
+    stewards: list[StewardIn] = Field(max_length=500)
 
 
 class MetricsMiddleware:
@@ -250,8 +252,11 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if not integrity.ok:
             raise InsecureConfiguration([e for f in integrity.files for e in f.errors])
     runtime = AgentRuntime(settings, connector, vault, audit)
-    curation = CurationStore(settings.curation_dir, settings.data_root, settings.notify_webhook, settings.public_url)
-    runtime.curation = curation
+    if settings.production:
+        problems = inventory_violations(runtime.inventory.servers, settings)
+        if problems:
+            raise InsecureConfiguration(problems)
+    curation = CurationDesk(runtime.curation, settings.notify_webhook, settings.public_url)
     if settings.demo:
         seed_stewards(curation)
     limiter = RateLimiter(settings.rate_limit_per_minute)
@@ -305,13 +310,6 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     # La última añadida es la más externa: cabeceras de seguridad también en errores, CORS y `/mcp`.
     app.add_middleware(SecurityMiddleware, settings=settings, on_block=metrics.increment)
 
-    @app.exception_handler(StaleCatalog)
-    async def stale_catalog(_request: Request, _exc: StaleCatalog):
-        """Otro proceso publicó el catálogo mientras se editaba: el cambio no se aplicó y hay que repetirlo."""
-        metrics.increment("catalog_stale")
-        return JSONResponse({"detail": "El catálogo se actualizó mientras editabas; vuelve a intentarlo."},
-                            status_code=status.HTTP_409_CONFLICT)
-
     # --- dependencias ------------------------------------------------------------------------------
     def current_session(request: Request) -> Session:
         token = request.cookies.get(COOKIE)
@@ -342,10 +340,20 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo un administrador de datos puede hacer esto")
         return session
 
+    def identity_trusted(server_ids) -> bool:
+        """¿Vale el nombre del login para dar un rol? Quien administra un servidor de desarrollo o de QA puede crear
+        allí un login con cualquier nombre. Por eso los roles que se asignan por nombre (lista de administradores y
+        responsables) solo cuentan si la sesión validó ese login en un servidor de producción, cuando el inventario
+        tiene alguno (F14)."""
+        production = {s.id for s in runtime.inventory.servers if s.environment == "produccion"}
+        return not production or bool(production & set(server_ids))
+
     def domains_of(session: Session) -> list[str] | None:
         """Dominios que puede curar: `["*"]` para data_admin, los suyos para un steward, None para consumer (F24)."""
         if session.is_admin:
             return ["*"]
+        if not identity_trusted(session.servers):
+            return None
         return curation.steward_domains(session.user_id)
 
     def roles_of(session: Session) -> list[str]:
@@ -370,6 +378,37 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         copies = service.deps.catalog.copies(table_key(asset_key))
         return copies[0].domain if copies else None
 
+    def require_curable(session: Session, service, asset_key: str) -> None:
+        """El activo existe y es de un dominio que la sesión cura. Si no lo cura, solo sabe que existe quien ya puede
+        verlo con sus permisos de SQL (403); para los demás responde igual que si no existiera (404, F14)."""
+        catalog = service.deps.catalog
+        if catalog.exists(asset_key):
+            if can_curate(session, domain_of(service, asset_key)):
+                return
+            if catalog.is_visible(asset_key, runtime.visible_ids(session)):
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "No eres responsable del dominio de este activo")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Activo no encontrado")
+
+    def manages_rule(session: Session, service, rule: BusinessRule) -> bool:
+        """Una regla la gestiona quien cura todos sus activos. Si sus activos ya no existen (tabla retirada o
+        renombrada), solo quien cura el dominio de la regla."""
+        keys = [k for k in rule.applies_to if service.deps.catalog.exists(k)]
+        if not keys:
+            return can_curate(session, rule.domain)
+        return all(can_curate(session, domain_of(service, k)) for k in keys)
+
+    @contextlib.contextmanager
+    def applying(kind: str, user_id: str, **data):
+        """Audita antes de aplicar (sin registro no hay cambio, F11). Si el cambio falla, deja constancia de que lo
+        anunciado no se aplicó."""
+        audit.event(kind, user_id, **data)
+        try:
+            yield
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                audit.event(f"{kind}_failed", user_id, error_type=type(exc).__name__, **data)
+            raise
+
     def check_rate(session: Session) -> None:
         if not limiter.check(f"user:{session.user_id.lower()}"):  # por usuario: abrir más sesiones no da más cupo
             metrics.increment("rate_limited")
@@ -393,7 +432,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     def require_service():
         runtime.refresh()  # si el Builder publicó un catálogo nuevo en la BD, se carga aquí (como mucho cada 15 s)
         if runtime.service is None:
-            detail = runtime.load_error or "Aún no hay catálogo: un administrador debe descubrir los esquemas"
+            detail = ("No se pudo cargar el catálogo; avisa a un administrador" if runtime.load_error
+                      else "Aún no hay catálogo: un administrador debe descubrir los esquemas")
             raise HTTPException(status.HTTP_409_CONFLICT, detail)
         return runtime.service
 
@@ -490,7 +530,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail or "No se pudo iniciar sesión")
 
         user_id = infos[0].sql_login
-        listed = user_id.lower() in settings.admins
+        listed = user_id.lower() in settings.admins and identity_trusted([s.id for s, _ in ok])
         sql_admin = any(i.can_build for i in infos)
         # Con `admins_only` (obligatorio en qa/prod) ser sysadmin de un servidor cualquiera no da el rol de administrador.
         can_build = listed if settings.admins_only else (sql_admin or listed)
@@ -498,10 +538,10 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             if not (can_build and (sql_admin or listed)):  # el primer servidor solo lo registra quien puede descubrirlo
                 raise HTTPException(status.HTTP_403_FORBIDDEN,
                                     "Para la configuración inicial se necesita un login con VIEW ANY DEFINITION o sysadmin")
-            audit.event("inventory_updated", user_id, first_run=True,
-                        servers=[{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate}
-                                 for s, _ in ok])
-            runtime.save_inventory([s for s, _ in ok])
+            with applying("inventory_updated", user_id, first_run=True,
+                          servers=[{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate}
+                                   for s, _ in ok]):
+                runtime.save_inventory([s for s, _ in ok], by=user_id)
         roles = ["consumer", "data_admin"] if can_build else ["consumer"]
         session = vault.create(user_id, [c for _, c in ok], roles)
         login_throttle.success(login_key)
@@ -595,8 +635,7 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if trace is None or trace.user_id != session.user_id or body.asset_key not in trace.asset_keys:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa respuesta ya no está disponible para calificarla")
         steward = runtime.service is not None and can_curate(session, domain_of(runtime.service, body.asset_key))
-        return runtime.record_feedback(session, body.trace_id, trace, body.asset_key, body.verdict, body.comment,
-                                       steward=steward)
+        return runtime.record_feedback(session, body.trace_id, trace, body.asset_key, body.verdict, steward=steward)
 
     # --- escalamiento al responsable (F24, HU-30) --------------------------------------------------
     @app.post("/curation/requests")
@@ -605,9 +644,9 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if trace is None or trace.user_id != session.user_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa respuesta ya no está disponible para escalarla")
         domain = trace.domain or "sin_dominio"
-        audit.event("curation_request", session.user_id, domain=domain, trace_id=body.trace_id)  # antes de aplicar (F11)
-        req = curation.create_request(session.user_id, body.trace_id, trace.question, domain,
-                                      sorted(trace.asset_keys), body.note)
+        with applying("curation_request", session.user_id, domain=domain, trace_id=body.trace_id):
+            req = curation.create_request(session.user_id, body.trace_id, trace.question, domain,
+                                          sorted(trace.asset_keys), body.note)
         return {"id": req["id"], "domain": req["domain"], "status": req["status"]}
 
     @app.get("/me/requests")
@@ -623,10 +662,12 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             if answer:
                 key = answer.get("asset_key")
                 visible = bool(key and runtime.service and runtime.service.deps.catalog.is_visible(key, ids))
+                needs_access = bool(key) and not visible
                 shown_answer = {
-                    "kind": answer["kind"], "at": answer["at"], "note": answer.get("note"),
+                    # Sin acceso al activo solo se le dice que lo pida: la nota libre podría nombrar objetos (F24).
+                    "kind": answer["kind"], "at": answer["at"], "note": None if needs_access else answer.get("note"),
                     "asset_key": key if visible else None,
-                    "needs_access": bool(key) and not visible,
+                    "needs_access": needs_access,
                 }
             out.append({"id": r["id"], "created_at": r["created_at"], "status": r["status"], "question": r["question"],
                         "domain": r["domain"], "answer": shown_answer})
@@ -652,14 +693,18 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                 continue
             if status_ == "open" and r["status"] != "open" or status_ == "answered" and r["status"] == "open":
                 continue
-            items.append({k: r.get(k) for k in ("id", "created_at", "status", "user_id", "question", "domain", "shown",
-                                                 "note", "answer")})
+            item = {k: r.get(k) for k in ("id", "created_at", "status", "user_id", "question", "domain", "shown",
+                                          "note", "answer")}
+            # Lo que vio quien preguntó puede incluir activos de otros dominios: aquí solo los que este responsable cura.
+            item["shown"] = [k for k in r.get("shown") or []
+                             if runtime.service is not None and can_curate(session, domain_of(runtime.service, k))]
+            items.append(item)
         return {"items": items}
 
     @contextlib.contextmanager
     def curating():
-        """Una edición de curación de principio a fin: las comprobaciones, el cambio y su publicación corren bajo el
-        candado de la copia de trabajo y sobre el catálogo vigente, así nadie publica el cambio a medias de otro."""
+        """Una edición de curación de principio a fin: las comprobaciones y la escritura corren bajo un solo candado
+        y sobre el catálogo vigente (si el Builder publicó entre tanto, primero se carga lo suyo)."""
         with runtime.editing() as service:
             if service is None:
                 raise HTTPException(status.HTTP_409_CONFLICT, "Aún no hay catálogo: un administrador debe descubrir los esquemas")
@@ -679,17 +724,18 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                     raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                         "Elige un activo de tus dominios que exista en el catálogo")
             reject_pii(body.description, body.note)
-            # Se audita antes de aplicar: sin registro no hay cambio (F11).
-            audit.event("curation_answer", session.user_id, request_id=request_id, answer_kind=body.kind,
-                        asset_key=body.asset_key, domain=req["domain"], described=bool(body.description))
-            if body.kind == "asset":
-                if body.description:
-                    curation.set_description(service.deps.catalog, body.asset_key, body.description, None)
-                runtime.steward_golden(req["question"], body.asset_key)  # F24 CA1: entra de inmediato
-            runtime.commit(session.user_id, "curation")  # la siguiente pregunta equivalente ya encuentra la respuesta
-            # Solo si se publicó: una solicitud no queda "respondida" con un cambio que se descartó.
-            answered = curation.answer_request(request_id, session.user_id, body.kind,
-                                               body.asset_key if body.kind == "asset" else None, body.note)
+            with applying("curation_answer", session.user_id, request_id=request_id, answer_kind=body.kind,
+                          asset_key=body.asset_key, domain=req["domain"], described=bool(body.description)):
+                if body.kind == "asset":
+                    if body.description:
+                        runtime.write_descriptions(
+                            human_edits(service.deps.catalog, body.asset_key, body.description, None),
+                            session.user_id, "curation")
+                    # F24 CA1: entra de inmediato; la siguiente pregunta equivalente ya encuentra la respuesta.
+                    runtime.steward_golden(req["question"], body.asset_key, session.user_id)
+                # Solo si lo anterior se escribió: una solicitud no queda "respondida" con un cambio que falló.
+                answered = curation.answer_request(request_id, session.user_id, body.kind,
+                                                   body.asset_key if body.kind == "asset" else None, body.note)
         return {"ok": True, "request": answered}
 
     @app.get("/curation/review")
@@ -721,15 +767,37 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     def curation_description(body: DescriptionRequest, session: Session = Depends(steward_session),
                              _service=Depends(require_service)):
         with curating() as service:
-            if not service.deps.catalog.exists(body.asset_key):
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Activo no encontrado")
-            if not can_curate(session, domain_of(service, body.asset_key)):
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "No eres responsable del dominio de este activo")
+            require_curable(session, service, body.asset_key)
             reject_pii(body.description, *(body.synonyms or []))
-            audit.event("curation_description", session.user_id, asset_key=body.asset_key)  # antes de aplicar (F11)
-            copies = curation.set_description(service.deps.catalog, body.asset_key, body.description, body.synonyms)
-            runtime.commit(session.user_id, "curation")
+            with applying("curation_description", session.user_id, asset_key=body.asset_key):
+                copies = runtime.write_descriptions(
+                    human_edits(service.deps.catalog, body.asset_key, body.description, body.synonyms),
+                    session.user_id, "curation")
         return {"ok": True, "copies": copies}
+
+    @app.get("/curation/history")
+    def curation_history(asset_key: str = Query(max_length=400), session: Session = Depends(steward_session),
+                         service=Depends(require_service)):
+        """Versiones de la descripción de un activo con su autor y su fecha (RF-34). Sale del historial temporal de la
+        BD `ConverData`; sin ella (desarrollo) no hay historial. Lo lee quien cura el activo y además puede verlo con
+        sus permisos de SQL: ser responsable no da lectura de lo que el login no alcanza (F14)."""
+        require_curable(session, service, asset_key)
+        if not service.deps.catalog.is_visible(asset_key, runtime.visible_ids(session)):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Activo no encontrado")
+        if runtime.repository is None:
+            return {"available": False, "items": []}
+        items = []
+        for row in runtime.repository.description_history(asset_key):
+            environment, _, rest = row["physical_id"].partition(":")
+            items.append({
+                "description": row["description"], "description_source": row["description_source"],
+                "modified_by": row["modified_by"], "environment": environment,
+                "server_alias": runtime.inventory.alias(rest.split(".")[0]),
+                "valid_from": row["valid_from"].isoformat(timespec="seconds") + "Z",
+                "valid_to": row["valid_to"].isoformat(timespec="seconds") + "Z" if row["valid_to"] else None,
+            })
+        items.reverse()  # lo más reciente primero
+        return {"available": True, "items": items[:200]}
 
     # --- diccionario de datos (HU-25, F23 CA1) --------------------------------------------------------
     @app.post("/curation/dictionary")
@@ -737,14 +805,18 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                             _service=Depends(require_service)):
         reject_pii(body.csv)
         with curating() as service:
-            audit.event("curation_dictionary_started", session.user_id, size=len(body.csv))  # antes de aplicar (F11)
-            report = curation.apply_dictionary(
-                service.deps.catalog, body.csv, lambda key: can_curate(session, domain_of(service, key)))
-            if report["applied"]:
-                runtime.commit(session.user_id, "dictionary")
-            digest = report.pop("digest", None)
-            if digest:  # solo tras publicar: si el cambio se descartó, el mismo archivo se puede volver a aplicar
-                curation.remember_dictionary(digest)
+            plan = plan_dictionary(service.deps.catalog, body.csv,
+                                   lambda key: can_curate(session, domain_of(service, key)))
+            # "Fuera de tu dominio" solo para lo que este login ya puede ver; lo demás, como si no existiera (F14).
+            visible = runtime.visible_ids(session)
+            hidden = [k for k in plan.forbidden if not service.deps.catalog.is_visible(k, visible)]
+            plan.forbidden = [k for k in plan.forbidden if k not in hidden]
+            plan.unknown += hidden
+            if not plan.edits:  # el mismo archivo dos veces no hace nada: ni escribe ni reindexa (F23 CA5)
+                report = plan.report(0)
+            else:
+                with applying("curation_dictionary_started", session.user_id, size=len(body.csv)):
+                    report = plan.report(runtime.write_descriptions(plan.edits, session.user_id, "dictionary"))
         audit.event("curation_dictionary", session.user_id, applied=report["applied"], skipped_human=report["skipped_human"],
                     unknown=len(report["unknown"]), unchanged=report["unchanged"])
         report["unknown"], report["forbidden"] = report["unknown"][:50], report["forbidden"][:50]
@@ -753,15 +825,11 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
     # --- reglas de negocio gestionadas (HU-28, F23 CA4) ----------------------------------------------
     def rule_scope(session: Session, service, asset_keys: list[str]) -> None:
         for key in asset_keys:
-            if not service.deps.catalog.exists(key):
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Activo no encontrado: {key}")
-            if not can_curate(session, domain_of(service, key)):
-                raise HTTPException(status.HTTP_403_FORBIDDEN, f"No eres responsable del dominio de {key}")
+            require_curable(session, service, key)
 
     @app.get("/curation/rules")
     def curation_rules(session: Session = Depends(steward_session), service=Depends(require_service)):
-        rules = [r for r in curation.curated_rules()
-                 if all(can_curate(session, domain_of(service, k)) for k in r.applies_to if service.deps.catalog.exists(k))]
+        rules = [r for r in runtime.curated_rules() if manages_rule(session, service, r)]
         return {"items": [r.model_dump(exclude_none=True) for r in rules]}
 
     @app.put("/curation/rules")
@@ -770,26 +838,24 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         reject_pii(body.text)
         with curating() as service:
             rule_scope(session, service, body.applies_to)
-            existing = next((r for r in curation.curated_rules() if r.id == body.id), None)
-            if existing is not None:  # no se pisa una regla de otro dominio
-                rule_scope(session, service, [k for k in existing.applies_to if service.deps.catalog.exists(k)])
+            existing = next((r for r in service.deps.knowledge.rules if r.id == body.id), None)
+            # No se pisa una regla de otro dominio ni una importada con el catálogo (y no se dice a qué activo aplica).
+            if existing is not None and (existing not in runtime.curated_rules() or not manages_rule(session, service, existing)):
+                raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe una regla con ese identificador")
             rule = BusinessRule(id=body.id, text=body.text, applies_to=body.applies_to, domain=body.domain,
                                 source=f"steward:{session.user_id}", owner=session.user_id, reviewed=True)
-            audit.event("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to))  # antes de aplicar
-            curation.upsert_rule(rule)
-            runtime.commit(session.user_id, "curation")
+            with applying("curation_rule", session.user_id, rule_id=body.id, assets=len(body.applies_to)):
+                runtime.upsert_rule(rule, session.user_id)
         return {"ok": True, "rule": rule.model_dump(exclude_none=True)}
 
     @app.delete("/curation/rules/{rule_id}")
     def curation_rule_delete(rule_id: str, session: Session = Depends(steward_session), _service=Depends(require_service)):
         with curating() as service:
-            rule = next((r for r in curation.curated_rules() if r.id == rule_id), None)
-            if rule is None:
+            rule = next((r for r in runtime.curated_rules() if r.id == rule_id), None)
+            if rule is None or not manages_rule(session, service, rule):  # la de otro dominio responde como inexistente
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Regla no encontrada")
-            rule_scope(session, service, [k for k in rule.applies_to if service.deps.catalog.exists(k)])
-            audit.event("curation_rule_deleted", session.user_id, rule_id=rule_id)  # antes de aplicar
-            curation.delete_rule(rule_id)
-            runtime.commit(session.user_id, "curation")
+            with applying("curation_rule_deleted", session.user_id, rule_id=rule_id):
+                runtime.delete_rule(rule_id, session.user_id)
         return {"ok": True}
 
     # --- impacto (F25, HU-23) ------------------------------------------------------------------------
@@ -907,24 +973,38 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             return [{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate} for s in items]
 
         # Cambiar un host redirige las credenciales de todos los usuarios: queda el antes y el después, y antes de aplicar.
-        audit.event("inventory_updated", session.user_id, servers=described(servers),
-                    previous=described(runtime.inventory.servers))
-        template = next((c for c in (vault.credential(session, sid) for sid in session.servers) if c), None)
-        results = {}
-        for server in servers:
-            if server.id in session.servers or template is None:
-                continue
-            cred = Credential(server.id, template.login, template.password)
-            try:
-                connector.identify(server, cred)
-                vault.add_credential(session, cred)
-                results[server.id] = "conectado"
-            except LoginFailed as exc:
-                results[server.id] = str(exc)
-        runtime.save_inventory(servers)
+        with applying("inventory_updated", session.user_id, servers=described(servers),
+                      previous=described(runtime.inventory.servers)):
+            template = next((c for c in (vault.credential(session, sid) for sid in session.servers) if c), None)
+            results = {}
+            for server in servers:
+                if server.id in session.servers or template is None:
+                    continue
+                cred = Credential(server.id, template.login, template.password)
+                try:
+                    connector.identify(server, cred)
+                    vault.add_credential(session, cred)
+                    results[server.id] = "conectado"
+                except LoginFailed as exc:
+                    results[server.id] = str(exc)
+            runtime.save_inventory(servers, by=session.user_id)
         session.servers = [s for s in session.servers if runtime.inventory.server(s)]
         runtime.forget(session)
         return {"ok": True, "connections": results}
+
+    @app.get("/admin/stewards")
+    def get_stewards(session: Session = Depends(admin_session)):
+        """Responsables de datos por login y dominio (F24; mientras no haya grupos de AD, HU-13)."""
+        domains = sorted({o.domain for o in runtime.service.deps.catalog.objects if o.domain}) if runtime.service else []
+        return {"stewards": curation.stewards(), "domains": domains}
+
+    @app.put("/admin/stewards")
+    def put_stewards(body: StewardsRequest, session: Session = Depends(admin_session)):
+        """Reemplaza la lista de responsables. Da y quita un rol: queda en la auditoría antes de aplicarse."""
+        wanted = [s.model_dump() for s in body.stewards]
+        with applying("stewards_updated", session.user_id, previous=curation.stewards(),
+                      stewards=[{"login": s["login"].strip().lower(), "domains": s["domains"]} for s in wanted]):
+            return {"ok": True, "stewards": curation.save_stewards(wanted, by=session.user_id)}
 
     @app.post("/admin/catalog/build", status_code=status.HTTP_202_ACCEPTED)
     def start_build(body: BuildRequest, session: Session = Depends(admin_session)):

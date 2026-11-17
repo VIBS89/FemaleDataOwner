@@ -69,6 +69,18 @@ def discover(directory: str | Path = DEFAULT_DIR) -> list[Migration]:
     return found
 
 
+REQUIRED_VERSION = 2  # última migración que este código necesita (002_curacion.sql); una prueba la mantiene al día
+
+
+def require_current(connect: Connect) -> None:
+    """Falla con un mensaje claro si a la BD le faltan migraciones (la API lo comprueba al arrancar)."""
+    done = applied(connect)
+    version = max(done, default=0)
+    if version < REQUIRED_VERSION:
+        raise MigrationError(f"La BD ConverData va por la migración {version} y este código necesita la "
+                             f"{REQUIRED_VERSION}: ejecuta `converdata db migrate` antes de arrancar")
+
+
 def applied(connect: Connect) -> dict[int, str]:
     """Versión → checksum de lo ya aplicado (vacío si la BD es nueva)."""
     conn = connect()

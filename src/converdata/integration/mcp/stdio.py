@@ -24,7 +24,7 @@ class DevIdentityNotAllowed(RuntimeError):
 
 def build_stdio_server(
     root: str | Path, *, models_path: str | Path | None = None, databases: list[str] | None = None,
-    user: str = "dev", groups: list[str] | None = None, embeddings_only: bool = False,
+    user: str = "dev", groups: list[str] | None = None,
 ):
     env = os.environ.get(ENV_VAR, "local").strip().lower()
     if env in BLOCKED_ENVIRONMENTS:
@@ -32,7 +32,7 @@ def build_stdio_server(
             f"{ENV_VAR}={env}: la identidad de desarrollo por stdio no se permite aquí; "
             "conecta Claude al /mcp de ConverData-API con el Bearer de /login."
         )
-    service = build_service(root, models_path=models_path, llm_nodes=not embeddings_only)
+    service = build_service(root, models_path=models_path)
     identity = user_with_databases(service, user, databases, groups)
     tools = DiscoveryTools(service)
     # Sin petición HTTP (stdio) → identidad fija; cualquier otra cosa se rechaza.
@@ -43,7 +43,7 @@ def serve(args) -> int:
     server = build_stdio_server(
         args.root, models_path=args.models, user=args.user,
         databases=args.databases.split(",") if args.databases else None,
-        groups=[g for g in args.groups.split(",") if g], embeddings_only=args.embeddings_only,
+        groups=[g for g in args.groups.split(",") if g],
     )
     server.run("stdio")
     return 0

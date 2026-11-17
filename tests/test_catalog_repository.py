@@ -11,10 +11,12 @@ import pytest
 from converdata.bootstrap import build_service, build_service_from_db
 from converdata.builder.catalog_builder import write_snapshot
 from converdata.catalog.store import CatalogSnapshot, StaleCatalog, load_snapshot
+from converdata.curation import DescriptionEdit
 from converdata.evaluation.discovery_eval import evaluate, load_cases
 from converdata.models.knowledge import BusinessRule, GoldenDiscovery
 from converdata.audit.sqlserver import SqlServerAuditSink
 from converdata.storage.catalog_repository import SqlServerCatalogRepository
+from converdata.storage.curation_repository import SqlServerCurationRepository
 from conftest import FIXTURE
 
 pytestmark = pytest.mark.sqlserver
@@ -193,7 +195,21 @@ def test_la_cuenta_de_la_api_publica_carga_audita_y_pasa_verify(db_connect, vban
     assert repo.publish(edited, published_by="steward", reason="curation", expected_version=repo.version()).changed
     assert "Edición con la cuenta de la API" in {o.description for o in repo.load()[0].objects}
     golden = GoldenDiscovery(id="u-cuenta-app", template="usuarios digitales", asset_keys=[USERS], confirmed_by="users")
-    assert repo.upsert_golden(golden, published_by="analista") == repo.version()
+    before = repo.version()
+    repo.upsert_golden(golden, by="analista", question="¿Dónde están los usuarios digitales?")
+    assert repo.version() == before + 1
+    key = edited.objects[0].id
+    assert repo.write_descriptions([DescriptionEdit(key, None, "Descripción escrita por fila", "human", True)],
+                                   by="steward", reason="curation") == 1
+    repo.upsert_rule(BusinessRule(id="BR-CUENTA-APP", text="Regla de la cuenta de la API", applies_to=[USERS],
+                                  source="steward:steward"), by="steward")
+    assert repo.delete_rule("BR-CUENTA-APP", by="steward")
+    repo.save_inventory(edited.inventory.servers, by="admin")
+    assert [s.id for s in repo.inventory()] == [s.id for s in edited.inventory.servers]
+    curation = SqlServerCurationRepository(connect)
+    curation.save_stewards([{"login": "resp", "domains": ["*"]}], by="admin")
+    assert curation.add_vote({"golden_id": "u-cuenta-app", "user_id": "analista", "trace_id": "t-app",
+                              "asset_key": USERS, "verdict": "confirm"}) == {"analista": "confirm"}
     sink.event("login", "cuenta_app_prueba", servers=["S1"])
     assert sink.recent(5, user_id="cuenta_app_prueba")[0]["type"] == "login"
     report = sink.verify()
@@ -222,21 +238,109 @@ def test_la_cuenta_del_builder_refresca_sin_leer_ni_tocar_lo_curado(db_connect, 
         builder.publish(working, published_by="builder", reason="build", scope="all")
     with pytest.raises(Exception, match="(?i)permission|permiso"):
         SqlServerAuditSink(connect).recent(5)
+    # El inventario lo lee (para saber a qué servidores conectarse) pero no lo cambia; la curación no la ve.
+    repo.save_inventory(curated.inventory.servers, by="admin")
+    assert [s.id for s in builder.inventory()] == [s.id for s in curated.inventory.servers]
+    with pytest.raises(Exception, match="(?i)permission|permiso"):
+        builder.save_inventory([], by="builder")
+    for forbidden in (lambda c: c.requests(), lambda c: c.stewards(),
+                      lambda c: c.add_vote({"golden_id": "u-b", "user_id": "b", "trace_id": "t", "asset_key": USERS,
+                                            "verdict": "confirm"})):
+        with pytest.raises(Exception, match="(?i)permission|permiso"):
+            forbidden(SqlServerCurationRepository(connect))
+    with pytest.raises(Exception, match="(?i)permission|permiso"):
+        builder.upsert_golden(GoldenDiscovery(id="u-x", template="x", asset_keys=[USERS], confirmed_by="users"), by="b")
 
     after, _ = repo.load()
     assert {r.id for r in after.knowledge.rules} == rules_before and "u-builder" in {g.id for g in after.knowledge.golden}
     assert 424242 in {o.row_count for o in after.objects}
 
 
-def test_un_voto_escribe_una_sola_fila_y_sube_la_version(repo, vbank):
+def test_un_voto_escribe_una_sola_fila_y_sube_la_version(repo, vbank, db_connect):
     before = repo.version()
     golden = GoldenDiscovery(id="u-voto", template="codigo de cliente digital", asset_keys=[USERS], confirmed_by="users")
-    assert repo.upsert_golden(golden, published_by="analista") == before + 1
-    assert repo.upsert_golden(golden.model_copy(update={"confirmations": 2}), published_by="otra") == before + 2
+    repo.upsert_golden(golden, by="analista", question="¿Cuál es el código de cliente digital 123?")
+    repo.upsert_golden(golden.model_copy(update={"confirmations": 2}), by="otra", question="otra forma de preguntarlo")
+    assert repo.version() == before + 2
     [stored] = [g for g in repo.load()[0].knowledge.golden if g.id == "u-voto"]
     assert stored.confirmations == 2
+    # El original va al esquema `golden`, una sola vez, y no vuelve con el catálogo (no entra al índice).
+    originals = _rows(db_connect, "SELECT question FROM golden.golden_discovery_original WHERE golden_id = 'u-voto'")
+    assert originals == [("¿Cuál es el código de cliente digital 123?",)]
     _same(CatalogSnapshot(vbank.inventory, vbank.objects, vbank.knowledge, vbank.owners),
           CatalogSnapshot(vbank.inventory, repo.load()[0].objects, vbank.knowledge, vbank.owners))  # el catálogo no cambió
+
+
+def _rows(connect, sql, *params):
+    conn = connect()
+    try:
+        return [tuple(r) for r in conn.cursor().execute(sql, *params).fetchall()]
+    finally:
+        conn.close()
+
+
+def test_la_curacion_escribe_filas_concretas_con_autor_e_historial(repo, vbank):
+    """C2: una edición no publica todo el catálogo; cambia su fila, sube la versión y deja la anterior en el historial."""
+    obj = next(o for o in vbank.objects if o.asset_key == USERS)
+    column = obj.columns[0].name
+    before = repo.version()
+    time.sleep(0.05)
+    edits = [DescriptionEdit(obj.id, None, "Usuarios de banca digital", "human", True, ("clientes digitales",)),
+             DescriptionEdit(obj.id, column, "Identificador del usuario", "human", True)]
+    assert repo.write_descriptions(edits, by="responsable", reason="curation") == 2
+    assert repo.version() == before + 1  # una sola versión por edición
+    loaded = next(o for o in repo.load()[0].objects if o.id == obj.id)
+    assert (loaded.description, loaded.description_source, loaded.reviewed) == ("Usuarios de banca digital", "human", True)
+    assert loaded.synonyms == ["clientes digitales"]
+    assert loaded.columns[0].description == "Identificador del usuario" and loaded.columns[0].synonyms == obj.columns[0].synonyms
+    last = repo.description_history(USERS)[-1]
+    assert (last["description"], last["modified_by"]) == ("Usuarios de banca digital", "responsable")
+    # Un diccionario no pisa lo que escribió una persona, ni una copia que ya no existe cuenta como escrita.
+    dictionary = [DescriptionEdit(obj.id, None, "Texto del diccionario", "data_dictionary", False, keep_human=True),
+                  DescriptionEdit("produccion:NO.Existe.dbo.T", None, "x", "data_dictionary", False, keep_human=True)]
+    assert repo.write_descriptions(dictionary, by="responsable", reason="dictionary") == 0
+    assert repo.version() == before + 1  # nada cambió: la versión no sube
+
+
+def test_el_historial_atribuye_la_descripcion_a_quien_la_escribio_no_a_quien_toco_la_fila(repo, vbank):
+    """RF-34: un refresco del Builder que solo cambia el número de filas no aparece como autor de la descripción."""
+    obj = next(o for o in vbank.objects if o.asset_key == USERS)
+    time.sleep(0.05)
+    repo.write_descriptions([DescriptionEdit(obj.id, None, "Texto de la responsable", "human", True)],
+                            by="responsable", reason="curation")
+    for rows in (111, 222):  # dos refrescos posteriores que no tocan la descripción
+        time.sleep(0.05)
+        working, _ = repo.load("build")
+        next(o for o in working.objects if o.id == obj.id).row_count = rows
+        assert repo.publish(working, published_by="builder", reason="build", scope="build").changed
+    mine = [v for v in repo.description_history(USERS) if v["physical_id"] == obj.id]
+    assert [v["description"] for v in mine][-2:] == [obj.description, "Texto de la responsable"]
+    last = mine[-1]
+    assert last["modified_by"] == "responsable" and last["valid_to"] is None  # vigente, y a su nombre
+    assert "builder" not in {v["modified_by"] for v in mine}
+    assert mine[-2]["valid_to"] == last["valid_from"]  # sin huecos entre una versión y la siguiente
+
+
+def test_las_reglas_curadas_se_escriben_y_borran_por_fila(repo, vbank):
+    rule = BusinessRule(id="BR-FILA", text="Solo usuarios activos", applies_to=[USERS], source="steward:ana", reviewed=True)
+    before = repo.version()
+    repo.upsert_rule(rule, by="ana")
+    repo.upsert_rule(rule.model_copy(update={"text": "Solo usuarios activos y verificados"}), by="luis")
+    stored = next(r for r in repo.load()[0].knowledge.rules if r.id == "BR-FILA")
+    assert stored.text == "Solo usuarios activos y verificados" and stored.source == "steward:ana"
+    assert repo.delete_rule("BR-FILA", by="luis") and not repo.delete_rule("BR-FILA", by="luis")
+    assert repo.version() == before + 3
+    assert {r.id for r in repo.load()[0].knowledge.rules} == {r.id for r in vbank.knowledge.rules}
+
+
+def test_el_inventario_con_hosts_vive_aparte_del_catalogo(repo, vbank):
+    """`catalog.inventory_server` es el inventario que usa la API para conectarse; lo escribe solo ella."""
+    servers = [s.model_copy(update={"host": f"{s.id.lower()}.banco.local", "auth": "sql"}) for s in vbank.inventory.servers]
+    repo.save_inventory(servers, by="admin")
+    assert [(s.id, s.host) for s in repo.inventory()] == [(s.id, s.host) for s in servers]
+    repo.save_inventory(servers[:1], by="otro_admin")  # reemplaza: los que sobran se quitan
+    assert [s.id for s in repo.inventory()] == [servers[0].id]
+    repo.save_inventory([], by="admin")
 
 
 def test_la_exportacion_para_git_no_lleva_preguntas(repo, vbank, tmp_path):
@@ -245,3 +349,60 @@ def test_la_exportacion_para_git_no_lleva_preguntas(repo, vbank, tmp_path):
     write_snapshot(tmp_path / "git", loaded, include_questions=False)
     assert not list((tmp_path / "git" / "knowledge" / "golden").glob("*.yaml"))
     assert load_snapshot(tmp_path / "git").knowledge.rules
+
+
+def test_el_refresco_no_revierte_una_correccion_humana_hecha_durante_el_build(repo, vbank):
+    """F24 CA3: el Builder cargó la descripción humana anterior; la persona la corrigió mientras corría; gana la persona."""
+    obj = next(o for o in vbank.objects if o.asset_key == USERS)
+    column = obj.columns[0].name
+    repo.write_descriptions([DescriptionEdit(obj.id, None, "Versión 1 de la responsable", "human", True),
+                             DescriptionEdit(obj.id, column, "Columna, versión 1", "human", True)],
+                            by="responsable", reason="curation")
+    working, _ = repo.load("build")  # el Builder arranca con la versión 1
+    repo.write_descriptions([DescriptionEdit(obj.id, None, "Versión 2: retira un texto indebido", "human", True,
+                                             ("usuarios",)),
+                             DescriptionEdit(obj.id, column, "Columna, versión 2", "human", True)],
+                            by="responsable", reason="curation")
+    next(o for o in working.objects if o.id == obj.id).row_count = 31415
+    assert repo.publish(working, published_by="builder", reason="build", scope="build").changed
+    after = next(o for o in repo.load()[0].objects if o.id == obj.id)
+    assert (after.description, after.synonyms, after.row_count) == ("Versión 2: retira un texto indebido", ["usuarios"], 31415)
+    assert after.columns[0].description == "Columna, versión 2"
+    assert repo.description_history(USERS)[-1]["modified_by"] == "responsable"
+
+
+def test_la_purga_alcanza_las_dudas_y_los_originales_pero_no_los_votos(repo, vbank, db_connect):
+    """OP-05: lo que guarda preguntas fuera de la auditoría se purga con ella; los votos no llevan texto libre."""
+    curation = SqlServerCurationRepository(db_connect)
+    old = {"id": "purga-vieja", "created_at": "2020-01-01T00:00:00+00:00", "status": "answered", "user_id": "ana",
+           "trace_id": "t-purga-vieja", "question": "¿Dónde está el saldo?", "domain": "prestamos", "shown": [],
+           "note": None, "answer": None}
+    curation.add_requests([old, {**old, "id": "purga-nueva", "trace_id": "t-purga-nueva",
+                                 "created_at": "2100-01-01T00:00:00+00:00"}])
+    golden = GoldenDiscovery(id="u-purga", template="donde esta el saldo", asset_keys=[USERS], confirmed_by="users")
+    repo.upsert_golden(golden, by="ana", question="¿Dónde está el saldo?")
+    curation.add_vote({"golden_id": "u-purga", "user_id": "ana", "trace_id": "t", "asset_key": USERS, "verdict": "confirm"})
+    conn = db_connect()
+    conn.autocommit = True
+    conn.execute("UPDATE golden.golden_discovery_original SET created_at = '2020-01-01' WHERE golden_id = 'u-purga'")
+    row = conn.execute("EXEC audit.usp_purge @keep_days = 180").fetchone()
+    conn.close()
+    assert row.requests >= 1 and row.originals >= 1
+    assert {r["id"] for r in curation.requests()} & {"purga-vieja", "purga-nueva"} == {"purga-nueva"}
+    assert _rows(db_connect, "SELECT COUNT(*) FROM golden.golden_discovery_original WHERE golden_id = 'u-purga'") == [(0,)]
+    assert _rows(db_connect, "SELECT COUNT(*) FROM curation.vote WHERE golden_id = 'u-purga'") == [(1,)]
+    assert "u-purga" in {g.id for g in repo.load()[0].knowledge.golden}  # la plantilla anónima se conserva
+
+
+def test_la_cuenta_de_la_api_no_puede_cambiar_ni_borrar_votos_ni_originales(db_connect, repo, vbank):
+    connect = acting_as(db_connect, "converdata_app")
+    SqlServerCurationRepository(connect).add_vote(
+        {"golden_id": "u-fijo", "user_id": "ana", "trace_id": "t", "asset_key": USERS, "verdict": "confirm"})
+    for sql in ("UPDATE curation.vote SET verdict = 'reject' WHERE golden_id = 'u-fijo'",
+                "DELETE FROM curation.vote WHERE golden_id = 'u-fijo'",
+                "DELETE FROM golden.golden_discovery_original",
+                "ALTER TABLE curation.steward SET (SYSTEM_VERSIONING = OFF)"):
+        conn = connect()
+        with pytest.raises(Exception, match="(?i)permission|permiso"):
+            conn.execute(sql)
+        conn.close()

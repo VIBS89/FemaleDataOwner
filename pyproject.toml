@@ -21,7 +21,7 @@ dependencies = [
 nim = ["langchain-nvidia-ai-endpoints>=1.0"]
 ollama = ["langchain-ollama>=1.0"]  # solo environment: local
 bedrock = ["langchain-aws>=0.2"]
-# VisibilityResolver, migraciones, auditoría y catálogo en la BD ConverData (OP-02, OP-03, OP-05).
+# Permisos de cada login, migraciones, auditoría, catálogo y curación en la BD ConverData (OP-02, OP-03, OP-05).
 sqlserver = ["pyodbc>=5.1"]
 # ConverData-API para el frontend web (api/, web/).
 api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "cryptography>=43", "pyodbc>=5.1", "mcp>=2.3,<3"]

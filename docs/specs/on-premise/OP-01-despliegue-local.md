@@ -29,8 +29,8 @@ Las de 2026-10-14, con los cambios del 2026-11-16 (PRD §13, decisiones 9–16):
 ## Estado (2026-11-16)
 | | |
 |---|---|
-| **Construido** | `ConverData-API` (rutas de OP-04, DiscoverFlow, `/mcp`, SessionVault, controles de [calidad bancaria §3](../../calidad-bancaria.md)); web Next.js (`web/`); `converdata catalog build`; índice léxico en memoria; compuerta `converdata eval gate`; **BD `ConverData`** por migraciones (`converdata db migrate`) con catálogo, conocimiento y auditoría, probada contra SQL Server 2022 (OP-02, OP-05). Desarrollo con `docker compose` y LLM local (Ollama) o NIM |
-| **Pendiente** | Llevar a la BD lo que sigue en archivos: responsables, solicitudes escaladas, votos e inventario de la API (OP-02 §Estado); Bedrock de punta a punta (HU-35); scripts de instalación en IIS y tareas programadas (HU-37, HU-24); documentos con redacción de PII (HU-26) y linaje SSIS (HU-27); grupos de AD (HU-13) |
+| **Construido** | `ConverData-API` (rutas de OP-04, DiscoverFlow, `/mcp`, SessionVault, controles de [calidad bancaria §3](../../calidad-bancaria.md)); web Next.js (`web/`); `converdata catalog build`; índice léxico en memoria; compuerta `converdata eval gate`; **BD `ConverData`** por migraciones (`converdata db migrate`) con catálogo, conocimiento, auditoría y, desde el 2026-11-17, inventario de servidores, responsables, dudas escaladas y votos, probada contra SQL Server 2022 (OP-02, OP-05); con ella la API no guarda estado en disco. Desarrollo con `docker compose` y LLM local (Ollama) o NIM |
+| **Pendiente** | Bedrock de punta a punta (HU-35); scripts de instalación en IIS y tareas programadas (HU-37, HU-24); documentos con redacción de PII (HU-26) y linaje SSIS (HU-27); grupos de AD (HU-13) |
 
 ## Componentes
 | Pieza | Cloud native (CN), posterior al piloto | On-premise Microsoft (OP) |
@@ -43,7 +43,7 @@ Las de 2026-10-14, con los cambios del 2026-11-16 (PRD §13, decisiones 9–16):
 | Ingesta y refresco | Builder como tarea lanzada por EventBridge Scheduler | **`converdata catalog build`** lanzado por el **Programador de tareas de Windows** cada noche, y `POST /admin/catalog/build` bajo demanda |
 | Búsqueda | El mismo índice léxico en memoria de la API | **Índice léxico en memoria (BM25)** de `ConverData-API`, cargado al arrancar y filtrado por `visible_ids` (OP-02) |
 | Grafo entre BDs (F19) | En memoria, igual | Entidades, FKs y aristas de linaje en **tablas normales**; el grafo se construye **en memoria** al cargar |
-| Catálogo fuente | BD `ConverData`, que sigue on-premise | **Tablas de la BD `ConverData` con *system-versioned temporal tables*** (historial de cada cambio). Hoy: archivos YAML |
+| Catálogo fuente | BD `ConverData`, que sigue on-premise | **Tablas de la BD `ConverData` con *system-versioned temporal tables*** (historial de cada cambio). Archivos YAML solo en desarrollo, sin `CONVERDATA_DB` |
 | Auditoría + golden | BD `ConverData`, que sigue on-premise | **Esquemas `audit` y `golden` de la BD `ConverData`** (modelo de F11). Hoy: JSONL con cadena de hashes |
 | LLM | Bedrock por VPC endpoint | **Bedrock, un modelo** por HTTPS a través del proxy corporativo; NIM y Ollama solo con datos de prueba. Bedrock Guardrails no es requisito de la fase 1a: lo decide Seguridad de la Información, y mientras tanto las guardas son las del código ([calidad bancaria §3](../../calidad-bancaria.md)) |
 | Credenciales SQL de usuarios | SessionVault en memoria de la API, igual | **SessionVault en memoria** de `ConverData-API` (OP-03) |
@@ -114,7 +114,7 @@ Estado: el gateway de LLM soporta Bedrock, pero no se ha probado de punta a punt
 
 ## Residencia de datos en el MVP
 Se cumple F17 de forma natural:
-- Catálogo, conocimiento, auditoría y sesiones viven en la red corporativa (BD `ConverData`, o archivos mientras no se migre, y memoria de la API).
+- Catálogo, conocimiento, auditoría y sesiones viven en la red corporativa (BD `ConverData` y memoria de la API; archivos solo en desarrollo, sin `CONVERDATA_DB`).
 - Bedrock solo procesa (sin logging).
 - El catálogo no lleva valores.
 

@@ -1,6 +1,6 @@
 # OP-06 — Residencia de datos: inventario de controles · on-premise
 
-> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Actualizado el 2026-11-17: la API ya no guarda estado en disco.
 >
 > Aplica en on-premise Microsoft el principio de [F17](../comun/F17-data-residency.md). Todo vive en la red corporativa; lo único que sale es el contexto enviado a Bedrock en cada llamada.
 > Qué controles están implementados, con qué prueba, y cuáles faltan: [calidad bancaria §3 y §5](../../calidad-bancaria.md).
@@ -8,14 +8,13 @@
 | Componente | Riesgo | Control |
 |---|---|---|
 | BD `ConverData`: esquema `catalog` (y `semantic` en la fase 1b) | Valores de columnas | El catálogo nunca lleva valores (F1); no existe índice de valores; los sketches de F19 no se guardan |
-| Copia de trabajo del catálogo en el disco del servidor de aplicación (`CONVERDATA_DATA_ROOT`) | Es una copia de `catalog` y `knowledge`, incluidas las preguntas confirmadas (D2) | Se reconstruye desde la BD y se puede borrar con la API parada; ACL solo para la gMSA de la API y los administradores. Deja de hacer falta cuando la curación escriba filas en la BD (plan, bloque C2) |
-| Archivos de curación (`CONVERDATA_CURATION_DIR`): responsables, solicitudes escaladas y votos | Las solicitudes contienen la pregunta (D2) | Misma ACL; pendientes de pasar al esquema `curation` (migración `002`) |
-| Sin `CONVERDATA_DB` (solo desarrollo): catálogo y auditoría en archivos | Lo mismo que los esquemas equivalentes | No se admite en qa ni en prod: la API no arranca sin `CONVERDATA_DB` |
+| Estado de la API en el disco del servidor de aplicación | Copias del catálogo, del inventario o de la curación (D2) fuera de la BD | Con `CONVERDATA_DB` no hay: el catálogo y el conocimiento se cargan de la BD en memoria, y el inventario, los responsables, las dudas escaladas y los votos se leen y escriben en la BD. El build bajo demanda usa un directorio temporal que se borra al terminar (`test_el_servidor_no_guarda_estado_en_disco`) |
+| Sin `CONVERDATA_DB` (solo desarrollo y modo demo): catálogo, inventario, curación y auditoría en archivos | Lo mismo que los esquemas equivalentes | No se admite en qa ni en prod: la API no arranca sin `CONVERDATA_DB` |
 | Índice léxico en memoria de `ConverData-API` | Copia del catálogo y del conocimiento en RAM | Solo metadatos y fragmentos ya redactados (D3) y plantillas (D4); filtrado por `visible_ids` antes del ranking; no se escribe a disco |
-| BD `ConverData`: esquemas `golden` y `audit` | Pregunta y SQL con literales | Quedan on-prem, con los permisos, el cifrado (TDE si se usa) y el respaldo del DBA; en el índice de búsqueda, las preguntas confirmadas normalizadas (aún sin anonimizar, OP-02) |
+| BD `ConverData`: esquemas `golden` y `audit` | Pregunta y SQL con literales | Quedan on-prem, con los permisos, el cifrado (TDE si se usa) y el respaldo del DBA; en el índice de búsqueda solo entra la plantilla anónima de cada pregunta confirmada (sin números sueltos, correos ni identificadores alfanuméricos; no detecta nombres de personas, OP-02). El original va a `golden` solo si la pregunta no traía ningún literal ni parece llevar datos personales; la API no puede cambiarlo ni borrarlo y la purga de retención lo alcanza |
 | Historial temporal del catálogo | Versiones antiguas de descripciones | Solo metadatos (D3) |
 | BD `ConverData`: esquema `knowledge` | Datos de clientes dentro de documentos y diccionarios | Redacción de PII antes de indexar; fragmentos con más del 20 % de PII se descartan; el original no se copia (F23). Pendiente con la ingesta de documentos (HU-26) |
-| BD `ConverData`: esquema `curation` | Preguntas escaladas (D2) | On-prem con los permisos del DBA; notificaciones sin el texto de la pregunta |
+| BD `ConverData`: esquema `curation` | Preguntas escaladas y sus notas (`request.question`, `request.note`): texto libre (D2). Los votos no llevan texto libre | On-prem con los permisos del DBA; el Builder no lee el esquema; notificaciones sin el texto de la pregunta. La purga de retención (`audit.usp_purge`, 180 días) borra también las dudas escaladas anteriores al corte; los votos se conservan y la API no puede cambiarlos ni borrarlos |
 | Ediciones de curación (F24) | Descripciones o reglas con datos pegados por un steward | Pasan por un detector de PII antes de escribirse; si detecta valores, la edición se rechaza con un aviso. Hoy es un detector de cinco patrones (DUI, NIT, correo, teléfono, tarjeta; `api/converdata_api/pii.py`); el de F23 (Presidio) llega con HU-26 |
 | Respaldos de la BD `ConverData` | Copias de `audit`, `golden` y `curation` (D2) | `BACKUP ... WITH ENCRYPTION`, acceso solo del DBA y retención no mayor que la de la auditoría (OP-07) |
 | Historial de conversación | Respuestas con datos | Solo en la memoria del proceso; se pierde al cerrar la sesión o reiniciar. El historial de preguntas del usuario (`/me/history`) se lee de la auditoría |
@@ -31,11 +30,11 @@
 | Secretos de servicio | Login de metadatos, código de instalación, sal de MinHash, certificado de Bedrock | DPAPI con ámbito de la cuenta de servicio y almacén de certificados con clave no exportable. Pendiente (HU-37); en desarrollo llegan por variables de entorno |
 
 ## Criterios de aceptación
-1. La prueba del literal marcado de F17 encuentra el literal solo en los esquemas `audit`, `golden` y `curation` de la BD `ConverData` (o en sus archivos equivalentes mientras no se migren).
+1. La prueba del literal marcado de F17 encuentra el literal solo en los esquemas `audit`, `golden` y `curation` de la BD `ConverData` (o en sus archivos equivalentes en desarrollo, sin `CONVERDATA_DB`).
 2. Ninguna tabla de `catalog` (ni de `semantic` en la fase 1b) contiene valores de datos de prueba.
 3. Ningún fragmento de `knowledge` contiene los DUI ni números de cuenta de prueba sembrados en los documentos.
 4. La prueba del literal marcado no encuentra el literal en el disco del servidor de aplicación (logs, `TEMP` de las gMSA, carpetas de IIS) ni en volcados de memoria, porque no se generan (OP-03 CA6).
 5. Una edición de curación con un DUI de prueba se rechaza y el literal no llega a ninguna tabla.
 6. Con `data_mode: real`, la API no arranca si `config/models.yaml` apunta algún rol a NIM alojado u Ollama (test del gateway).
 
-Estado de los criterios: 5 y 6 se cumplen hoy (`api/tests/test_security.py`, `tests/test_llm_gateway.py`); 1, 2 y 4 dependen de la BD y de la instalación (HU-04, HU-20, HU-37); 3 de HU-26.
+Estado de los criterios (2026-11-17): 5 y 6 se cumplen (`api/tests/test_security.py`, `tests/test_llm_gateway.py`); 2 se comprueba en `tests/test_catalog_repository.py` (`test_el_catalogo_de_la_bd_no_contiene_valores_de_datos`); de 1 hay pruebas con un documento y una cuenta marcados en una confirmación (`test_la_confirmacion_guarda_una_plantilla_sin_literales`, `test_un_identificador_alfanumerico_tampoco_llega_a_la_plantilla`), no la de 100 preguntas de F17; 4 depende de la instalación (HU-37), aunque ya se prueba que la API no deja archivos de estado ni directorios temporales del build; 3 de HU-26.

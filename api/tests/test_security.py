@@ -10,12 +10,13 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+from converdata.bootstrap import open_stores
 from converdata.evaluation.gate import LeakScanner
 from converdata_api.audit import FileAuditSink
 from converdata_api.connector import DemoConnector, LoginFailed, SqlConnector, _FixtureLister
 from converdata_api.main import create_app
 from converdata_api.pii import find_pii
-from converdata_api.security import (InsecureConfiguration, LoginThrottle, production_violations, valid_host,
+from converdata_api.security import (InsecureConfiguration, LoginThrottle, inventory_violations, production_violations, valid_host,
                                      valid_identifier, valid_login)
 from converdata_api.settings import ApiSettings
 from converdata_api.vault import Credential, SessionVault
@@ -303,7 +304,9 @@ def prod(tmp_path, monkeypatch):
     # La BD `ConverData` es obligatoria en producción; aquí la auditoría se queda en archivos para no exigir un
     # SQL Server (api/tests/test_audit_db.py la prueba contra uno real).
     monkeypatch.setattr("converdata_api.main.open_audit", lambda s: FileAuditSink(s.audit_dir))
-    monkeypatch.setattr("converdata_api.runtime.open_repository", lambda s: None)
+    monkeypatch.setattr("converdata_api.runtime.open_api_stores",
+                        lambda s: open_stores(None, data_root=s.data_root, curation_dir=s.curation_dir,
+                                              inventory_path=s.inventory_path))
     return ApiSettings(
         db="SERVER=sql-converdata;DATABASE=ConverData;Trusted_Connection=yes",
         data_root=tmp_path / "catalog", inventory_path=tmp_path / "inventory.yaml", audit_dir=tmp_path / "audit",
@@ -343,7 +346,7 @@ def test_la_configuracion_de_produccion_valida_arranca(prod):
 def test_la_api_no_arranca_en_produccion_con_ajustes_inseguros(prod, change, expected):
     for key, value in change.items():
         setattr(prod, key, value)
-    problems = production_violations(prod)
+    problems = production_violations(prod) + inventory_violations([], prod)
     assert any(expected in p for p in problems), problems
     with pytest.raises(InsecureConfiguration):
         create_app(prod, DemoConnector(FIXTURE))
@@ -352,13 +355,15 @@ def test_la_api_no_arranca_en_produccion_con_ajustes_inseguros(prod, change, exp
 def test_produccion_revisa_inventario_modelos_y_auditoria_del_catalogo(prod, tmp_path):
     prod.inventory_path.write_text("servers:\n- {id: S1, host: sql01, alias: SQL, environment: produccion, "
                                    "trust_server_certificate: true}\n", encoding="utf-8")
+    with pytest.raises(InsecureConfiguration, match="trust_server_certificate"):  # el inventario se revisa ya cargado
+        create_app(prod, DemoConnector(FIXTURE))
     (prod.data_root / "config").mkdir(parents=True)
     (prod.data_root / "config" / "settings.yaml").write_text("audit: {fail_open: true}\n", encoding="utf-8")
     models = tmp_path / "models.yaml"
     models.write_text("data_mode: test\n", encoding="utf-8")
     prod.models_path = models
     text = "\n".join(production_violations(prod))
-    assert "trust_server_certificate" in text and "fail_open" in text and "data_mode: real" in text
+    assert "fail_open" in text and "data_mode: real" in text
     models.write_text("data_mode: real\n", encoding="utf-8")
     assert "data_mode" not in "\n".join(production_violations(prod))
     models.write_text("data_mode: real\nroles: {planner: {provider: bedrock, model: m}, embed: {provider: bedrock, model: e}}\n",
@@ -481,7 +486,7 @@ def test_la_visibilidad_se_vuelve_a_leer_de_sql_server(settings):
 
 # --- curación ------------------------------------------------------------------------------------------
 def test_un_responsable_no_documenta_activos_de_otro_dominio_al_responder(ready):
-    ready.app.state.curation.save_stewards([{"login": "responsable", "domains": ["prestamos"]}])
+    ready.app.state.curation.save_stewards([{"login": "responsable", "domains": ["prestamos"]}], by="prueba")
     analyst = analyst_client(ready.app)
     env = analyst.post("/discover", json={"question": "¿Dónde está el saldo del préstamo?"}).json()
     request = analyst.post("/curation/requests", json={"trace_id": env["trace_id"]}).json()
@@ -604,3 +609,117 @@ def test_el_error_de_carga_del_catalogo_no_se_publica(ready, settings):
     status = TestClient(ready.app).get("/setup/status").json()
     assert status["load_error"] == "No se pudo cargar el catálogo; revisa el log del servidor"
     assert str(settings.data_root) not in json.dumps(status) and "yaml" not in json.dumps(status).lower()
+
+
+# --- roles por nombre de login, alcance de la curación y coherencia tras un fallo (revisión del bloque C2) ---
+def two_environments(admin) -> None:
+    """Inventario con un servidor de producción y uno de desarrollo; el admin queda conectado a los dos."""
+    servers = [{"id": "PROD", "host": "prod-sql", "alias": "Producción", "environment": "produccion"},
+               {"id": "DEV", "host": "dev-sql", "alias": "Desarrollo", "environment": "desarrollo"}]
+    assert admin.put("/admin/inventory", json={"servers": servers}).status_code == 200
+
+
+def roles_with(app, user: str, servers: list[str]) -> list[str]:
+    client = TestClient(app)
+    r = client.post("/auth/login", json={"login": user, "password": "demo", "servers": servers})
+    assert r.status_code == 200, r.text
+    return r.json()["user"]["roles"]
+
+
+def test_un_login_validado_solo_en_desarrollo_no_hereda_roles_por_su_nombre(settings):
+    """F14: quien administra un servidor de desarrollo puede crear allí un login llamado como un responsable o un
+    administrador. El nombre solo da el rol si se validó en producción."""
+    settings.admins_only, settings.admins = True, frozenset({"demo"})
+    admin = make_client(settings)
+    login(admin, host="demo-sql", alias="SQL demo")
+    two_environments(admin)
+    assert admin.put("/admin/stewards", json={"stewards": [{"login": "responsable", "domains": ["*"]}]}).status_code == 200
+    app = admin.app
+    assert roles_with(app, "responsable", ["DEV"]) == ["consumer"]
+    assert "steward" in roles_with(app, "responsable", ["PROD"]) and "steward" in roles_with(app, "responsable", ["PROD", "DEV"])
+    assert roles_with(app, "demo", ["DEV"]) == ["consumer"]
+    assert "data_admin" in roles_with(app, "demo", ["PROD"])
+    impostor = TestClient(app)
+    impostor.post("/auth/login", json={"login": "responsable", "password": "demo", "servers": ["DEV"]})
+    assert impostor.get("/curation/requests").status_code == 403
+
+
+def test_curar_no_revela_activos_que_el_login_no_puede_ver(ready):
+    """F14 en la vista Curación: fuera de sus dominios, un responsable solo sabe que existe lo que ya puede leer."""
+    hidden, other, mine = "BancaLeasing.dbo.Activos", "BancaCuentasDebito.dbo.Agencias", "BancaPrestamos.dbo.Prestamos"
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "analista", "domains": ["prestamos"]}]}).status_code == 200
+    analyst = analyst_client(ready.app)  # no lee BancaLeasing
+    def put(key):
+        return analyst.put("/curation/description", json={"asset_key": key, "description": "Texto de prueba"})
+    assert put(mine).status_code == 200
+    assert put(other).status_code == 403  # lo ve con su login, pero no es de su dominio
+    assert put(hidden).status_code == 404 and put("BancaLeasing.dbo.NoExiste").status_code == 404  # indistinguibles
+    rule = {"id": "BR-OCULTA", "text": "Regla sobre un activo que no ve", "applies_to": [hidden]}
+    assert analyst.put("/curation/rules", json=rule).status_code == 404
+    csv = f"asset_key,description\n{mine},Préstamos\n{other},Agencias\n{hidden},Activos\nNo.Existe.Tabla,Nada\n"
+    report = analyst.post("/curation/dictionary", json={"csv": csv}).json()
+    assert report["forbidden"] == [other] and sorted(report["unknown"]) == sorted([hidden, "No.Existe.Tabla"])
+    # Ser responsable de todo tampoco da lectura de lo que el login no alcanza.
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "analista", "domains": ["*"]}]}).status_code == 200
+    assert analyst.get("/curation/history", params={"asset_key": hidden}).status_code == 404
+    assert analyst.get("/curation/history", params={"asset_key": mine}).status_code == 200
+
+
+def test_la_bandeja_y_la_respuesta_de_una_duda_no_filtran_otros_dominios(ready):
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "responsable", "domains": ["prestamos"]}]}).status_code == 200
+    env = ready.post("/discover", json={"question": "¿Dónde está el saldo del préstamo?"}).json()
+    request = ready.post("/curation/requests", json={"trace_id": env["trace_id"]}).json()
+    assert request["domain"] == "prestamos"
+    steward = TestClient(ready.app)
+    login(steward, user="responsable")
+    [item] = steward.get("/curation/requests").json()["items"]
+    assert item["shown"] and all(key.startswith("BancaPrestamos.") for key in item["shown"])
+    # La respuesta apunta a un activo que quien preguntó no puede leer: se le dice que pida acceso, sin la nota libre.
+    analyst = analyst_client(ready.app)
+    env = analyst.post("/discover", json={"question": "¿Dónde está el saldo del préstamo?"}).json()
+    mine = analyst.post("/curation/requests", json={"trace_id": env["trace_id"]}).json()
+    answer = {"kind": "asset", "asset_key": "BancaLeasing.dbo.Activos", "note": "Está en BancaLeasing.dbo.Activos"}
+    assert ready.post(f"/curation/requests/{mine['id']}/answer", json=answer).status_code == 200
+    [shown] = analyst.get("/me/requests").json()["items"]
+    assert shown["answer"] == {"kind": "asset", "at": shown["answer"]["at"], "note": None, "asset_key": None,
+                               "needs_access": True}
+
+
+def test_una_regla_sin_activos_vigentes_solo_la_gestiona_su_dominio(ready, settings):
+    """Si el Builder retira la tabla de una regla, la regla no queda a merced de cualquier responsable."""
+    import yaml
+
+    rule = {"id": "BR-HUERFANA", "text": "Regla cuyo activo desaparecerá", "domain": "prestamos",
+            "applies_to": ["BancaPrestamos.dbo.Prestamos"]}
+    assert ready.put("/curation/rules", json=rule).status_code == 200
+    path = settings.data_root / "knowledge" / "rules" / "curadas.yaml"
+    stored = yaml.safe_load(path.read_text(encoding="utf-8"))
+    stored[0]["applies_to"] = ["BancaPrestamos.dbo.TablaRetirada"]
+    path.write_text(yaml.safe_dump(stored, allow_unicode=True), encoding="utf-8")
+    ready.app.state.runtime.reload()
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "responsable", "domains": ["leasing"]}]}).status_code == 200
+    other = TestClient(ready.app)
+    login(other, user="responsable")
+    assert other.get("/curation/rules").json()["items"] == []
+    assert other.delete("/curation/rules/BR-HUERFANA").status_code == 404
+    overwrite = {"id": "BR-HUERFANA", "text": "Intento de reescribirla", "applies_to": ["BancaLeasing.dbo.Activos"]}
+    r = other.put("/curation/rules", json=overwrite)
+    assert r.status_code == 409 and "TablaRetirada" not in r.text
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "responsable", "domains": ["prestamos"]}]}).status_code == 200
+    assert [r["id"] for r in other.get("/curation/rules").json()["items"]] == ["BR-HUERFANA"]
+    assert other.delete("/curation/rules/BR-HUERFANA").status_code == 200
+
+
+def test_el_diccionario_de_un_responsable_no_bloquea_el_de_otro(ready):
+    """El mismo archivo aplicado por dos responsables: cada uno escribe las filas de su dominio."""
+    mine, other = "BancaPrestamos.dbo.Prestamos.MontoDesembolsado", "BancaCuentasDebito.dbo.Agencias.Nombre"
+    csv = f"asset_key,description\n{mine},Monto desembolsado al cliente\n{other},Nombre comercial de la agencia\n"
+    assert ready.put("/admin/stewards", json={"stewards": [{"login": "responsable", "domains": ["prestamos"]}]}).status_code == 200
+    steward = TestClient(ready.app)
+    login(steward, user="responsable")
+    first = steward.post("/curation/dictionary", json={"csv": csv}).json()
+    assert (first["applied"], first["forbidden"], first["unchanged"]) == (1, [other], False)
+    second = ready.post("/curation/dictionary", json={"csv": csv}).json()  # el administrador, con el mismo archivo
+    assert (second["applied"], second["same"], second["unchanged"]) == (1, 1, False)
+    third = ready.post("/curation/dictionary", json={"csv": csv}).json()
+    assert (third["applied"], third["unchanged"]) == (0, True)  # ahora sí: no queda nada que escribir

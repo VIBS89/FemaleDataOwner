@@ -44,7 +44,8 @@ audit_query, audit_feedback, golden                            -- AskFlow, fase 
 ## Estado (2026-11-16)
 Con `CONVERDATA_DB` definida la auditoría se escribe en las tablas del esquema `audit` de la BD `ConverData`
 (`converdata.audit.sqlserver`), una transacción por pregunta, fail-closed, con una cuenta que no puede modificarla ni borrarla; la purga es
-`audit.usp_purge` (`converdata audit purge`). Sin la variable, en desarrollo, va a **archivos JSONL con cadena de hashes**
+`audit.usp_purge` (`converdata audit purge`), que desde el 2026-11-17 alcanza también las dudas escaladas y los originales de las
+confirmaciones. Un cambio anunciado que falla deja además un evento `<evento>_failed` con el tipo del error. Sin la variable, en desarrollo, va a **archivos JSONL con cadena de hashes**
 (`api/converdata_api/audit.py`, `converdata.audit.chain`) con el mismo modelo lógico. Detalle en
 [OP-05](../on-premise/OP-05-auditoria-observabilidad.md) y [calidad bancaria](../../calidad-bancaria.md).
 

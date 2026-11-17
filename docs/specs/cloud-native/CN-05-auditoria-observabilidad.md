@@ -12,8 +12,9 @@
 - Lectura: `/admin/audit` (rol `data_admin`), en vivo contra la BD on-premise.
 - Respaldo, retención (180 días) y purga: los del DBA para la BD `ConverData`, igual que on-premise.
 
-Pendiente en el código (dependencia de [CN-01](CN-01-despliegue-aws.md)): hoy la auditoría se escribe en archivos JSONL con cadena de hashes
-(`CONVERDATA_AUDIT_DIR`); el escritor a SQL Server existe y no se usa todavía (HU-20). Este despliegue lo exige, porque la tarea no tiene disco persistente.
+Estado del código: con `CONVERDATA_DB` la API escribe la auditoría en el esquema `audit` de la BD `ConverData` (`SqlServerAuditSink`,
+HU-20); los archivos JSONL con cadena de hashes (`CONVERDATA_AUDIT_DIR`) quedan solo para desarrollo. Este despliegue exige la BD,
+porque la tarea no tiene disco persistente.
 
 ## Observabilidad: CloudWatch Logs, sin contenido
 - Logs JSON de la tarea y del Builder en **CloudWatch Logs** (PRD §13, decisión 14): sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver; de los errores, solo el tipo de excepción. Equivale a los logs rotados y al Visor de eventos on-premise (`CONVERDATA_EVENT_LOG=0` en el contenedor).

@@ -241,3 +241,20 @@ def test_la_purga_exige_180_dias_y_solo_la_ejecuta_mantenimiento(db_connect):
     assert _as_role(db_connect, "converdata_maintenance", "EXEC audit.usp_purge @keep_days = 180") is None
     assert _as_role(db_connect, "converdata_maintenance", "DELETE FROM audit.audit_event") is not None
     assert _as_role(db_connect, "converdata_maintenance", "SELECT TOP 1 * FROM audit.audit_question") is not None
+
+
+def test_la_version_que_exige_el_codigo_es_la_ultima_migracion():
+    from converdata.storage.migrations import REQUIRED_VERSION
+
+    assert REQUIRED_VERSION == discover(MIGRATIONS)[-1].version
+
+
+def test_la_api_no_arranca_con_migraciones_pendientes_y_lo_dice_claro():
+    from converdata.storage.migrations import REQUIRED_VERSION, require_current
+
+    behind = FakeDb(results={r"SELECT OBJECT_ID": [(1,)], r"FROM dbo\.schema_version": [(1, "a" * 64)]})
+    with pytest.raises(MigrationError, match="converdata db migrate"):
+        require_current(behind.connect)
+    current = FakeDb(results={r"SELECT OBJECT_ID": [(1,)],
+                              r"FROM dbo\.schema_version": [(v, "a" * 64) for v in range(1, REQUIRED_VERSION + 1)]})
+    require_current(current.connect)  # al día: no lanza

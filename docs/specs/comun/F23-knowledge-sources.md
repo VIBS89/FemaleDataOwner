@@ -95,4 +95,4 @@ Si dos fuentes describen el mismo activo de forma contradictoria (por ejemplo, e
 2. Un paquete `.dtsx` de prueba produce las aristas de linaje esperadas (origen, destino, paquete y job).
 3. Un documento con un DUI y un número de cuenta de prueba queda indexado con ambos valores redactados (búsqueda del literal en el índice = 0).
 4. La pregunta "¿qué reglas aplican al ClientCode?" devuelve `BR-ONB-004` con su fuente.
-5. Una segunda ingesta sin cambios no llama al LLM ni reindexa.
+5. Una segunda ingesta sin cambios no llama al LLM ni reindexa. (Diccionario CSV desde Curación: se cumple sin registro de archivos aplicados; la segunda vez no queda nada que escribir y la respuesta lleva `unchanged`. Un registro por hash del archivo habría bloqueado a otro responsable que aplicara las filas de su dominio.)

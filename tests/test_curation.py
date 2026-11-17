@@ -1,0 +1,212 @@
+"""Bloque C2 · Reglas de la curación (F24) y sus dos almacenamientos: archivos (desarrollo) y la BD `ConverData`.
+
+Las pruebas marcadas `sqlserver` necesitan `CONVERDATA_TEST_DB` (ver `conftest.py` de la raíz).
+"""
+
+import uuid
+
+import pytest
+
+from converdata.catalog.store import load_snapshot
+from converdata.curation import (DescriptionEdit, golden_id, has_literals, human_edits, plan_dictionary,
+                                 question_template, resolve_golden, steward_rules)
+from converdata.config import ServerConfig
+from converdata.models.knowledge import BusinessRule, GoldenDiscovery
+from converdata.storage.curation_repository import SqlServerCurationRepository
+from converdata.storage.files import FileCurationRepository, FileInventoryStore, FileKnowledgeWriter
+from converdata.builder.catalog_builder import write_snapshot
+from conftest import FIXTURE
+
+USERS = "VBank_ING.dbo.Users"
+
+
+# --- plantilla anónima ---------------------------------------------------------------------------------
+@pytest.mark.parametrize("question, template", [
+    ("¿Dónde está el DUI del cliente 01234567-8?", "donde esta el dui del cliente"),
+    ("¿Dónde está el DUI del cliente?", "donde esta el dui del cliente"),
+    ("Saldo de la cuenta 1234 5678 9012 al 31/12/2025", "saldo de la cuenta al"),
+    ("¿Quién es el dueño de juan.perez@banco.com.sv?", "quien es el dueno de"),
+    ("Clientes con mora mayor a 90 días", "clientes con mora mayor a dias"),
+    ("¿Qué tabla de T24 alimenta el formulario F14?", "que tabla de t24 alimenta el formulario f14"),
+    ("¿De quién es el pasaporte A01234567?", "de quien es el pasaporte"),
+    ("Movimientos de la cuenta CA00123456789", "movimientos de la cuenta"),
+    ("Columnas de vw_Cartera90dias y Clientes2", "columnas de vw cartera90dias y clientes2"),
+])
+def test_la_plantilla_no_conserva_literales(question, template):
+    assert question_template(question) == template
+
+
+def test_dos_preguntas_que_solo_difieren_en_el_literal_son_la_misma_confirmacion():
+    a = question_template("¿Dónde está el DUI del cliente 01234567-8?")
+    b = question_template("¿dónde está el DUI del cliente 98765432-1?")
+    assert golden_id(a, USERS) == golden_id(b, USERS)
+    assert golden_id(a, USERS) != golden_id(a, "Otra.dbo.Tabla")
+
+
+@pytest.mark.parametrize("question, literal", [
+    ("¿Dónde está el DUI del cliente 71234567?", True),  # un documento sin guion: ningún detector lo reconoce
+    ("¿De quién es el pasaporte A01234567?", True),
+    ("escríbeme a ana@banco.com.sv", True),
+    ("¿Dónde está el DUI del cliente?", False),
+    ("¿Qué tabla de T24 alimenta el formulario F14?", False),
+])
+def test_una_pregunta_con_literales_se_reconoce_para_no_guardar_su_texto(question, literal):
+    assert has_literals(question) is literal
+
+
+# --- regla de votos ------------------------------------------------------------------------------------
+def _resolve(votes, steward=False, verdict="confirm", current=None):
+    return resolve_golden("plantilla", USERS, votes, steward=steward, verdict=verdict, current=current)
+
+
+def test_los_usuarios_cuentan_confirmaciones_netas():
+    assert _resolve({"ana": "confirm"}).confirmations == 1  # una sola no pesa todavía en la confianza (F22: ≥ 2)
+    two = _resolve({"ana": "confirm", "luis": "confirm"})
+    assert (two.confirmed_by, two.confirmations, two.rejected) == ("users", 2, False)
+
+
+def test_un_solo_rechazo_no_retira_lo_que_confirmaron_varios():
+    kept = _resolve({"ana": "confirm", "luis": "confirm", "eva": "confirm", "raul": "reject"}, verdict="reject")
+    assert (kept.confirmations, kept.rejected) == (2, False)
+    weaker = _resolve({"ana": "confirm", "luis": "confirm", "raul": "reject"}, verdict="reject")
+    assert (weaker.confirmations, weaker.rejected) == (1, False)  # sigue en el índice, pero ya sin el peso de 2
+    retired = _resolve({"ana": "confirm", "raul": "reject"}, verdict="reject")
+    assert retired.rejected is True
+    assert _resolve({"raul": "reject"}, verdict="reject").rejected is True
+
+
+def test_el_responsable_manda_sobre_los_usuarios():
+    approved = _resolve({"resp": "confirm"}, steward=True)
+    assert (approved.confirmed_by, approved.rejected) == ("steward", False)
+    # Un "✖" de un usuario no cambia lo que confirmó el responsable.
+    after = _resolve({"resp": "confirm", "raul": "reject"}, verdict="reject", current=approved)
+    assert (after.confirmed_by, after.rejected) == ("steward", False)
+    # El "✖" del responsable sí retira la pareja, aunque la hayan confirmado usuarios (F24 CA2).
+    retired = _resolve({"ana": "confirm", "luis": "confirm", "resp": "reject"}, steward=True, verdict="reject")
+    assert retired.rejected is True
+
+
+# --- ediciones de descripciones ------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def catalog():
+    return load_snapshot(FIXTURE).catalog()
+
+
+def test_una_edicion_humana_va_a_todas_las_copias_fisicas(catalog):
+    copies = catalog.copies(USERS)
+    edits = human_edits(catalog, USERS, "  Usuarios de banca digital ", ["clientes", "clientes", " "])
+    assert {e.physical_id for e in edits} == {o.id for o in copies} and len(copies) > 1
+    assert all((e.description, e.source, e.reviewed, e.synonyms, e.column) ==
+               ("Usuarios de banca digital", "human", True, ("clientes",), None) for e in edits)
+    column = copies[0].columns[0].name
+    by_column = human_edits(catalog, f"{USERS}.{column.upper()}", "Identificador", None)
+    assert by_column and all(e.column == column and e.synonyms is None for e in by_column)
+    assert human_edits(catalog, f"{USERS}.NoExiste", "x", None) == []
+
+
+def test_el_diccionario_no_pisa_lo_humano_ni_sale_del_dominio(catalog):
+    human = next(o for o in catalog.objects if o.description_source == "human")
+    other = next(o for o in catalog.objects if o.description_source != "human" and o.asset_key != human.asset_key)
+    text = ("asset_key,description,synonyms\n"
+            f"{human.asset_key},Texto del diccionario,\n"
+            f"{other.asset_key},Descripción del diccionario,alias uno;alias dos\n"
+            "No.Existe.Tabla,Algo,\n"
+            f"{USERS},Fuera del dominio,\n")
+    plan = plan_dictionary(catalog, text, lambda key: not key.startswith(USERS))
+    assert plan.unknown == ["No.Existe.Tabla"] and plan.forbidden == [USERS] and plan.rows == 4
+    assert plan.skipped_human == len(catalog.copies(human.asset_key))
+    assert {e.physical_id for e in plan.edits} == {o.id for o in catalog.copies(other.asset_key)}
+    assert all(e.source == "data_dictionary" and e.keep_human and "alias dos" in e.synonyms for e in plan.edits)
+    assert plan.report(2) == {"unchanged": False, "applied": 2, "skipped_human": plan.skipped_human, "same": 0,
+                              "unknown": ["No.Existe.Tabla"], "forbidden": [USERS], "rows": 4}
+    # Sin nada que escribir y con filas ya iguales, el informe dice que el diccionario ya estaba aplicado (F23 CA5).
+    done = plan_dictionary(catalog, f"asset_key,description\n{human.asset_key},{human.description}\n", lambda key: True)
+    assert done.edits == [] and done.report(0)["unchanged"] is False  # lo humano se respeta: no es "ya aplicado"
+
+
+def test_solo_las_reglas_de_responsables_se_gestionan_en_curacion():
+    rules = [BusinessRule(id="A", text="importada", applies_to=[USERS], source="knowledge/rules"),
+             BusinessRule(id="B", text="curada", applies_to=[USERS], source="steward:ana"),
+             BusinessRule(id="C", text="sin origen", applies_to=[USERS])]
+    assert [r.id for r in steward_rules(rules)] == ["B"]
+
+
+# --- almacenamiento en archivos (desarrollo) -----------------------------------------------------------
+def test_el_escritor_de_archivos_edita_el_directorio_del_catalogo(tmp_path):
+    write_snapshot(tmp_path, load_snapshot(FIXTURE))
+    writer = FileKnowledgeWriter(tmp_path)
+    catalog = load_snapshot(tmp_path).catalog()
+    assert writer.write_descriptions(human_edits(catalog, USERS, "Editada en archivos", None), by="ana",
+                                     reason="curation") == len(catalog.copies(USERS))
+    writer.upsert_rule(BusinessRule(id="BR-ARCHIVO", text="Regla", applies_to=[USERS], source="steward:ana"), by="ana")
+    writer.upsert_golden(GoldenDiscovery(id="u-archivo", template="plantilla", asset_keys=[USERS], confirmed_by="users"),
+                         by="ana", question="la pregunta original no se guarda en archivos")
+    after = load_snapshot(tmp_path)
+    assert {o.description for o in after.catalog().copies(USERS)} == {"Editada en archivos"}
+    assert "BR-ARCHIVO" in {r.id for r in after.knowledge.rules} and "u-archivo" in {g.id for g in after.knowledge.golden}
+    assert "pregunta original" not in "".join(p.read_text(encoding="utf-8") for p in tmp_path.rglob("*.yaml"))
+    assert writer.delete_rule("BR-ARCHIVO", by="ana") and not writer.delete_rule("BR-ARCHIVO", by="ana")
+
+
+# --- el mismo contrato en archivos y en la BD ----------------------------------------------------------
+@pytest.fixture(params=["archivos", pytest.param("sqlserver", marks=pytest.mark.sqlserver)])
+def curation(request, tmp_path):
+    if request.param == "archivos":
+        return FileCurationRepository(tmp_path / "curation")
+    return SqlServerCurationRepository(request.getfixturevalue("db_connect"))
+
+
+def _request(trace: str, user: str = "ana", **extra) -> dict:
+    return {"id": uuid.uuid4().hex[:10], "created_at": "2026-11-17T10:00:00+00:00", "status": "open", "user_id": user,
+            "trace_id": trace, "question": "¿Dónde está el saldo del préstamo?", "domain": "prestamos",
+            "shown": ["BancaPrestamos.dbo.Prestamos.Saldo"], "note": None, "answer": None, **extra}
+
+
+def test_los_responsables_se_reemplazan_enteros(curation):
+    curation.save_stewards([{"login": "ana", "domains": ["prestamos"]}, {"login": "luis", "domains": ["*"]}], by="admin")
+    curation.save_stewards([{"login": "ana", "domains": ["prestamos", "tarjetas"]}], by="admin")
+    assert curation.stewards() == [{"login": "ana", "domains": ["prestamos", "tarjetas"]}]
+    curation.save_stewards([], by="admin")
+    assert curation.stewards() == []
+
+
+def test_una_duda_escalada_se_guarda_una_vez_y_se_responde(curation):
+    trace = uuid.uuid4().hex
+    first = curation.add_requests([_request(trace)])[0]
+    again = curation.add_requests([_request(trace)])[0]  # misma respuesta y mismo usuario: no se duplica
+    assert again["id"] == first["id"]
+    other = curation.add_requests([_request(trace, user="luis", simulated=True)])[0]
+    assert other["id"] != first["id"] and other.get("simulated") is True
+    mine = [r for r in curation.requests() if r["trace_id"] == trace]
+    assert [r["user_id"] for r in mine] == ["ana", "luis"]  # en orden de creación
+    assert mine[0]["shown"] == ["BancaPrestamos.dbo.Prestamos.Saldo"] and mine[0]["answer"] is None
+    answer = {"by": "resp", "at": "2026-11-17T11:00:00+00:00", "kind": "asset",
+              "asset_key": "BancaPrestamos.dbo.Prestamos.Saldo", "note": None}
+    answered = curation.answer_request(first["id"], "answered", answer)
+    assert (answered["status"], answered["answer"]) == ("answered", answer)
+    assert next(r for r in curation.requests() if r["id"] == first["id"])["answer"]["by"] == "resp"
+    with pytest.raises(KeyError):
+        curation.answer_request("no-existe", "answered", answer)
+
+
+def test_el_recuento_usa_el_ultimo_voto_de_cada_usuario(curation):
+    gid = "u-" + uuid.uuid4().hex[:12]
+
+    def vote(user, verdict):
+        return curation.add_vote({"golden_id": gid, "user_id": user, "trace_id": "t1", "asset_key": USERS,
+                                  "verdict": verdict, "steward": False})
+
+    assert vote("ana", "confirm") == {"ana": "confirm"}
+    assert vote("luis", "confirm") == {"ana": "confirm", "luis": "confirm"}
+    assert vote("ana", "reject") == {"ana": "reject", "luis": "confirm"}  # cambió de opinión
+    other = curation.add_vote({"golden_id": gid + "x", "user_id": "eva", "trace_id": "t2", "asset_key": USERS,
+                               "verdict": "confirm"})
+    assert other == {"eva": "confirm"}  # los votos de otra pareja no se mezclan
+
+
+def test_el_inventario_en_archivos_guarda_los_hosts(tmp_path):
+    store = FileInventoryStore(tmp_path / "datos" / "inventory.yaml")
+    assert store.inventory() == []
+    servers = [ServerConfig(id="S1", host="sql01.banco.local", alias="SQL 1", environment="produccion", databases=["*"])]
+    store.save_inventory(servers, by="admin")
+    assert [(s.id, s.host, s.databases) for s in store.inventory()] == [("S1", "sql01.banco.local", ["*"])]

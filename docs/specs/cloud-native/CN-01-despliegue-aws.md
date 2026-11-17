@@ -67,9 +67,9 @@ Con `qa` o `prod` la API no arranca si falta algo de `docs/calidad-bancaria.md` 
 - **Coste**: etiquetas `app=converdata` y `env`; tope diario de tokens por usuario en la API.
 
 ## Dependencias del código (pendientes)
-1. Persistir catálogo, curación y auditoría en la BD `ConverData` (HU-04, HU-06, HU-09, HU-20). Hoy viven en archivos bajo `/app/data`, y Fargate no tiene disco persistente.
+1. ~~Persistir catálogo, curación y auditoría en la BD `ConverData`~~ Hecho (HU-04, HU-06, HU-09, HU-20; 2026-11-17): con `CONVERDATA_DB` la API no guarda estado en disco, que es lo que Fargate necesita. Falta probarlo en una tarea real.
 2. Logs JSON a la salida estándar: hoy se escriben en un archivo rotado (`CONVERDATA_LOG_DIR`) y en el Visor de eventos.
-3. Recarga del catálogo en la API cuando el Builder corre en otra tarea, y dónde vive el inventario de servidores (`CONVERDATA_INVENTORY`): por confirmar.
+3. ~~Recarga del catálogo cuando el Builder corre en otra tarea, e inventario de servidores~~ Hecho: la API comprueba la versión publicada como mucho cada 15 s, y el inventario vive en la BD (`catalog.inventory_server`). Por confirmar: con qué identidad entra el Builder a los SQL Server desde AWS (`catalog build --db` usa la cuenta del proceso salvo `metadata_user_env`).
 4. Probar el gateway de LLM con Bedrock (HU-35).
 
 ## IaC

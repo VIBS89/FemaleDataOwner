@@ -113,9 +113,6 @@ class EstateGraph:
         return dist
 
     # --- caminos ---------------------------------------------------------------------------
-    def neighbors(self, table: str, vis) -> list[Edge]:
-        return [e for e in self._adj.get(table_key(table), []) if self._visible(e.other(table_key(table)), vis)]
-
     def join_path(self, source: str, target: str, vis, max_hops: int = 3) -> list[Edge] | None:
         """Camino de menor costo entre dos tablas (Dijkstra sobre pocas aristas), solo por tablas visibles."""
         src, dst = table_key(source), table_key(target)

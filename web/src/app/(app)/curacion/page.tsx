@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Flame, Inbox, FileSpreadsheet, Loader2, PenLine, Plus, Scale, Trash2, Search, SearchX, Sparkles, User } from "lucide-react";
+import { CheckCircle2, Clock, Flame, History, Inbox, FileSpreadsheet, Loader2, PenLine, Plus, Scale, Trash2, Search, SearchX, Sparkles, User } from "lucide-react";
 import { toast } from "sonner";
 
+import { DescriptionHistory } from "@/components/description-history";
 import { PageHeader } from "@/components/page-header";
 import { useSession } from "@/components/session-provider";
 import { SourceBadge } from "@/components/source-badge";
@@ -301,6 +302,7 @@ function ReviewPanel() {
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState("");
+  const [history, setHistory] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api
@@ -383,6 +385,9 @@ function ReviewPanel() {
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <p className="text-muted-foreground flex-1 text-sm">{item.description ?? "Sin descripción."}</p>
                   <SourceBadge source={item.description_source} />
+                  <Button size="sm" variant="ghost" onClick={() => setHistory(item.asset_key)}>
+                    <History /> Historial
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -399,11 +404,10 @@ function ReviewPanel() {
           ))
         )}
       </CardContent>
+      <DescriptionHistory assetKey={history} onClose={() => setHistory(null)} />
     </Card>
   );
 }
-
-
 
 // --- Reglas de negocio vinculadas a activos (HU-28, F23 CA4) --------------------------------------------
 function RulesPanel() {

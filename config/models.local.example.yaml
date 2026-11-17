@@ -17,9 +17,6 @@ roles:
   planner: {provider: ollama, model: "qwen3.6:35b-a3b", temperature: 0.0, reasoning: false, num_ctx: 16384}
   fast:    {provider: ollama, model: "qwen3.6:35b-a3b", temperature: 0.0, reasoning: false, num_ctx: 8192, max_tokens: 400}
   judge:   {provider: ollama, model: "qwen3.6:35b-a3b", temperature: 0.0, reasoning: false}
-  # Sin modelo de embeddings local la búsqueda es solo léxica. Para la parte semántica:
-  #   ollama pull bge-m3      (multilingüe; solo para experimentar: no mejoró el acierto y no se despliega)
-  # embed: {provider: ollama, model: bge-m3}
 
 fallback: null
 # fallback: {provider: nvidia_nim, models: {planner: meta/llama-3.3-70b-instruct, fast: meta/llama-3.1-8b-instruct}}

@@ -8,21 +8,25 @@ Reglas:
 - Todo ocurre en una transacción bajo un bloqueo de aplicación, así dos procesos (API y Builder) no se pisan.
 - `scope="build"` (refrescos del Builder): solo toca lo que el Builder deriva de los metadatos (servidores, objetos,
   columnas, FKs, entidades y linaje). No toca reglas, fragmentos, confirmaciones ni responsables, y una descripción
-  `human` o `data_dictionary` que ya está en la BD no se reemplaza por una que no lo sea (F1, F24 CA3), aunque el
-  Builder haya partido de una copia anterior.
+  `human` o `data_dictionary` que ya está en la BD no se reemplaza (F1, F24 CA3), aunque el Builder haya partido de
+  una copia anterior, humana o no.
 - `scope="all"` (la API tras una edición de curación, o una importación): la BD queda igual a la foto.
 - `expected_version`: quien edita declara sobre qué versión trabajó; si la BD ya va por otra, `StaleCatalog`.
-- `load(scope="build")` y `upsert_golden`: el Builder no lee lo curado (las confirmaciones llevan el texto de la
-  pregunta, D2) y un voto escribe una sola fila en vez de publicar todo el catálogo.
+- `load(scope="build")`: el Builder no lee lo curado (las confirmaciones salen de preguntas de usuarios).
+- La curación de ConverData-API no publica fotos: escribe filas concretas (`write_descriptions`, `upsert_rule`,
+  `delete_rule`, `upsert_golden`), cada una en su transacción y subiendo la versión (puerto `KnowledgeWriter`).
+- `inventory()` / `save_inventory()`: el inventario de servidores con sus hosts, que solo escribe la API.
 - Nunca hay valores de datos: el modelo `CatalogObject` los rechaza antes de llegar aquí (F1, F17).
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import Callable, Iterable
 
 from converdata.catalog.store import CatalogSnapshot, KnowledgeBase, PublishResult, StaleCatalog
+from converdata.curation import DescriptionEdit
 from converdata.config import DomainOwners, Inventory, OwnerRef, OwnersDirectory, ServerConfig
 from converdata.models.catalog import CatalogObject, Column, ForeignKey
 from converdata.models.knowledge import BusinessEntity, BusinessRule, GoldenDiscovery, KnowledgeItem, LineageEdge
@@ -110,6 +114,7 @@ GOLDEN = _Table("knowledge.golden_discovery", [
     "golden_id", "template", "asset_keys_json", "confirmed_by", "confirmations", "rejected"])
 OWNERS = _Table("curation.owners", [
     "domain", "assets_json", "business_owner", "business_group", "technical_owner", "technical_group"])
+INVENTORY = _Table("catalog.inventory_server", ["server_id", "position", "config_json"], stamp=True)
 LINEAGE_COLUMNS = ["from_asset", "to_asset", "via_kind", "via_name", "via_job", "via_schedule", "edge_level"]
 
 
@@ -126,9 +131,11 @@ def _column_row(o: CatalogObject, ordinal: int, c: Column) -> tuple:
 
 
 def _protect(row: tuple, old: tuple | None, fields: tuple[int, int, int, int]) -> tuple:
-    """Conserva descripción, fuente, revisado y sinónimos de la BD si allí son humanos y en la foto no."""
-    source_at = fields[1]
-    if old is None or old[source_at] not in PROTECTED_SOURCES or row[source_at] in PROTECTED_SOURCES:
+    """Conserva descripción, fuente, revisado y sinónimos de la BD si allí son humanos.
+
+    También cuando la foto trae otra versión humana: el Builder no escribe descripciones humanas, solo arrastra la que
+    leyó al empezar, y entre tanto una persona pudo corregirla."""
+    if old is None or old[fields[1]] not in PROTECTED_SOURCES:
         return row
     return tuple(old[i] if i in fields else value for i, value in enumerate(row))
 
@@ -245,30 +252,100 @@ class SqlServerCatalogRepository:
         return (d.domain, _j(d.assets), business.name if business else None, business.group if business else None,
                 technical.name if technical else None, technical.group if technical else None)
 
-    def upsert_golden(self, golden: GoldenDiscovery, *, published_by: str) -> int:
-        """Escribe una sola confirmación (un voto) y sube la versión, sin comparar el resto del catálogo."""
-        row = (golden.template, _j(golden.asset_keys), golden.confirmed_by, golden.confirmations, int(golden.rejected),
-               golden.id)
+    # --- escrituras puntuales de la curación (puerto `KnowledgeWriter`) -----------------------------
+    @contextlib.contextmanager
+    def _writing(self):
+        """Una transacción bajo el bloqueo del catálogo; se confirma al salir sin error."""
         conn = self._connect()
         try:
             conn.autocommit = False
             cur = conn.cursor()
             _lock(cur, "Exclusive")
-            cur.execute("UPDATE knowledge.golden_discovery SET template = ?, asset_keys_json = ?, confirmed_by = ?, "
-                        "confirmations = ?, rejected = ? WHERE golden_id = ?", *row)
-            if cur.rowcount == 0:
-                cur.execute("INSERT INTO knowledge.golden_discovery (template, asset_keys_json, confirmed_by, "
-                            "confirmations, rejected, golden_id) VALUES (?, ?, ?, ?, ?, ?)", *row)
-            cur.execute("INSERT INTO catalog.catalog_version (published_by, reason) OUTPUT INSERTED.version "
-                        "VALUES (?, 'feedback')", published_by[:128])
-            version = int(cur.fetchone()[0])
+            yield cur
             conn.commit()
-            return version
         except Exception:
             conn.rollback()
             raise
         finally:
             conn.close()
+
+    @staticmethod
+    def _bump(cur, who: str, reason: str) -> None:
+        cur.execute("INSERT INTO catalog.catalog_version (published_by, reason) VALUES (?, ?)", who[:128], reason[:60])
+
+    def write_descriptions(self, edits: list[DescriptionEdit], *, by: str, reason: str) -> int:
+        """Escribe cada descripción en su fila; el historial temporal guarda la anterior con su autor (RF-34)."""
+        who, changed = by[:128], 0
+        with self._writing() as cur:
+            for e in edits:
+                sets, params = ["description = ?", "description_source = ?", "reviewed = ?", "modified_by = ?"], [
+                    e.description, e.source, int(e.reviewed), who]
+                if e.synonyms is not None:
+                    sets.append("synonyms_json = ?")
+                    params.append(_j(list(e.synonyms)))
+                if e.column is None:
+                    sql, key = f"UPDATE catalog.object SET {', '.join(sets)} WHERE physical_id = ?", [e.physical_id]
+                else:
+                    sql = f"UPDATE catalog.[column] SET {', '.join(sets)} WHERE physical_id = ? AND column_name = ?"
+                    key = [e.physical_id, e.column]
+                if e.keep_human:  # otro proceso pudo dejarla como humana después de leer el catálogo
+                    sql += " AND description_source <> 'human'"
+                cur.execute(sql, *params, *key)
+                changed += max(cur.rowcount, 0)
+            if changed:
+                self._bump(cur, who, reason)
+        return changed
+
+    def upsert_rule(self, rule: BusinessRule, *, by: str) -> None:
+        who = by[:128]
+        row = (rule.text, rule.domain, _j(rule.applies_to), rule.source, rule.owner, int(rule.reviewed), who, rule.id)
+        with self._writing() as cur:
+            cur.execute("UPDATE knowledge.business_rule SET content = ?, domain = ?, applies_to_json = ?, source = ?, "
+                        "owner = ?, reviewed = ?, modified_by = ? WHERE rule_id = ?", *row)
+            if cur.rowcount == 0:
+                cur.execute("INSERT INTO knowledge.business_rule (content, domain, applies_to_json, source, owner, "
+                            "reviewed, modified_by, rule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", *row)
+            self._bump(cur, who, "curation")
+
+    def delete_rule(self, rule_id: str, *, by: str) -> bool:
+        with self._writing() as cur:
+            cur.execute("DELETE FROM knowledge.business_rule WHERE rule_id = ?", rule_id)
+            deleted = cur.rowcount > 0
+            if deleted:
+                self._bump(cur, by[:128], "curation")
+        return deleted
+
+    def upsert_golden(self, golden: GoldenDiscovery, *, by: str, question: str | None = None) -> None:
+        """Una confirmación (un voto o la respuesta de un responsable). `question` es el texto original (D2): va al
+        esquema `golden`, solo la primera vez, y nunca al índice."""
+        row = (golden.template, _j(golden.asset_keys), golden.confirmed_by, golden.confirmations, int(golden.rejected),
+               golden.id)
+        with self._writing() as cur:
+            cur.execute("UPDATE knowledge.golden_discovery SET template = ?, asset_keys_json = ?, confirmed_by = ?, "
+                        "confirmations = ?, rejected = ? WHERE golden_id = ?", *row)
+            if cur.rowcount == 0:
+                cur.execute("INSERT INTO knowledge.golden_discovery (template, asset_keys_json, confirmed_by, "
+                            "confirmations, rejected, golden_id) VALUES (?, ?, ?, ?, ?, ?)", *row)
+            if question:
+                cur.execute("INSERT INTO golden.golden_discovery_original (golden_id, question) SELECT ?, ? "
+                            "WHERE NOT EXISTS (SELECT 1 FROM golden.golden_discovery_original WHERE golden_id = ?)",
+                            golden.id, question[:2000], golden.id)
+            self._bump(cur, by[:128], "feedback")
+
+    # --- inventario de servidores (con hosts; `catalog.server` es la copia sin ellos) --------------
+    def inventory(self) -> list[ServerConfig]:
+        conn = self._connect()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT config_json FROM catalog.inventory_server ORDER BY position, server_id")
+            return [ServerConfig.model_validate(json.loads(row[0])) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def save_inventory(self, servers: list[ServerConfig], *, by: str) -> None:
+        rows = [(s.id, n, _j(s.model_dump(exclude_none=True))) for n, s in enumerate(servers)]
+        with self._writing() as cur:
+            INVENTORY.sync(cur, rows, by[:128], {})
 
     # --- cargar ------------------------------------------------------------------------------------
     def load(self, scope: str = "all") -> tuple[CatalogSnapshot, int] | None:
@@ -373,7 +450,11 @@ class SqlServerCatalogRepository:
     # --- historial ---------------------------------------------------------------------------------
     def description_history(self, asset_key: str) -> list[dict]:
         """Versiones de la descripción de una tabla o columna en orden cronológico, de todas sus copias físicas,
-        incluidas las que ya no existen (RF-34). La última fila es el cambio más reciente."""
+        incluidas las que ya no existen (RF-34). La última fila es el cambio más reciente.
+
+        El historial temporal guarda una versión por cada cambio de la fila, también los que no tocan la descripción
+        (un refresco que actualiza el número de filas). Esas versiones se funden con la anterior: cada entrada es un
+        cambio real de la descripción, con quien lo hizo y desde cuándo, no con quien tocó la fila después."""
         parts = asset_key.split(".")
         table, column = ".".join(parts[:3]), ".".join(parts[3:]) or None
         conn = self._connect()
@@ -389,8 +470,20 @@ class SqlServerCatalogRepository:
                     "FROM catalog.[column] FOR SYSTEM_TIME ALL c WHERE c.column_name = ? AND c.physical_id IN "
                     "(SELECT physical_id FROM catalog.object FOR SYSTEM_TIME ALL WHERE asset_key = ?) "
                     "ORDER BY c.valid_from, c.physical_id", column, table)
-            return [{"physical_id": pid, "description": description, "description_source": source,
-                     "modified_by": who, "valid_from": start, "valid_to": end}
-                    for pid, description, source, who, start, end in cur.fetchall()]
+            versions: list[dict] = []
+            latest: dict[str, dict] = {}  # copia física → su última versión distinta
+            for pid, description, source, who, start, end in cur.fetchall():
+                previous = latest.get(pid)
+                if previous and (previous["description"], previous["description_source"]) == (description, source) \
+                        and previous["valid_to"] == start:
+                    previous["valid_to"] = end  # misma descripción, sin interrupción: sigue siendo la misma versión
+                    continue
+                latest[pid] = {"physical_id": pid, "description": description, "description_source": source,
+                               "modified_by": who, "valid_from": start, "valid_to": end}
+                versions.append(latest[pid])
+            for version in versions:  # la fila vigente de una tabla temporal termina en el año 9999
+                if version["valid_to"].year >= 9999:
+                    version["valid_to"] = None
+            return versions
         finally:
             conn.close()

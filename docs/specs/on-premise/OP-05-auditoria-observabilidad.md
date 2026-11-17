@@ -20,7 +20,13 @@
 - La cuenta de la API pertenece a `converdata_app`: **inserta y lee, pero no puede modificar ni borrar** (`DENY UPDATE, DELETE, ALTER`).
   En qa y prod la API no arranca si su cuenta sí puede; `converdata audit verify --db` y `GET /admin/audit/verify` lo comprueban.
 - La **purga** es el procedimiento `audit.usp_purge` (se niega con menos de 180 días y deja el evento `audit_purged`); solo la ejecuta
-  el rol `converdata_maintenance`, con `converdata audit purge`. Falta programarla (HU-37).
+  el rol `converdata_maintenance`, con `converdata audit purge`. Desde la migración `002` borra también lo que guarda preguntas
+  fuera de la auditoría: las dudas escaladas (`curation.request`) y los originales de las confirmaciones
+  (`golden.golden_discovery_original`) anteriores al corte; los votos y las plantillas, sin texto libre, se conservan. Falta
+  programarla (HU-37).
+- **Cambios que fallan**: cada cambio se audita antes de aplicarse; si después falla, queda `<evento>_failed` con el tipo del error
+  (`feedback_failed` para un voto). `catalog_build_finished` no lleva el texto del error, solo los ids de los servidores que fallaron.
+- La comprobación de permisos (`verify`) incluye que la cuenta no pueda alterar los esquemas `catalog`, `knowledge` ni `curation`.
 - La consulta es `GET /admin/audit` (rol `data_admin`; la propia lectura queda auditada) y, para un auditor, `SELECT` directo con el
   rol `converdata_auditor`.
 

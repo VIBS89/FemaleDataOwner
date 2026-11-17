@@ -19,8 +19,8 @@ Usa el intérprete del venv (`.venv/Scripts/python`, o `.venv/bin/python` si no 
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/vbank
 ```
 Si el cambio afecta a un patrón concreto, añade la ablación correspondiente con `--patterns` (p. ej.
-`query_expansion,grade,review,cascade` para medir sin grafo). Solo usa `--models` (gateway de LLM, embeddings) si te lo
-piden o si el cambio es del canal semántico, y avisa que depende de Ollama/NIM disponibles.
+`query_expansion,grade,review,cascade` para medir sin grafo). Solo usa `--models` (gateway de LLM) si te lo piden o si el cambio
+toca los nodos de LLM (`intent`, `rerank`, `respond`), y avisa que depende de Ollama/NIM disponibles.
 
 Para comparar contra el commit anterior sin tocar el árbol de trabajo, usa `git stash` **solo si te lo autorizan**;
 en su lugar prefiere `git worktree add <scratch> HEAD` y corre ahí la misma evaluación.

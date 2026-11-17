@@ -15,6 +15,7 @@ import {
   Server,
   Sparkles,
   Trash2,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,7 +36,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { dateTime, ENV_LABEL, number, pct } from "@/lib/format";
-import type { AuditRow, BuildJob, ServerConfig } from "@/lib/types";
+import type { AuditRow, BuildJob, ServerConfig, Steward } from "@/lib/types";
 
 export default function AdminPage() {
   const { isAdmin } = useSession();
@@ -57,6 +58,9 @@ export default function AdminPage() {
             <TabsTrigger value="servers">
               <Server /> Servidores
             </TabsTrigger>
+            <TabsTrigger value="stewards">
+              <UserCheck /> Responsables
+            </TabsTrigger>
             <TabsTrigger value="audit">
               <Network /> Auditoría
             </TabsTrigger>
@@ -66,6 +70,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="servers" className="mt-5">
             <ServersPanel />
+          </TabsContent>
+          <TabsContent value="stewards" className="mt-5">
+            <StewardsPanel />
           </TabsContent>
           <TabsContent value="audit" className="mt-5">
             <AuditPanel />
@@ -255,6 +262,7 @@ function BuildPanel() {
                         {k}: {v}
                       </div>
                     ))}
+                    {r.kept_from_failed > 0 && <div>Se conservaron {number(r.kept_from_failed)} objetos de su último catálogo.</div>}
                   </AlertDescription>
                 </Alert>
               )}
@@ -492,6 +500,180 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+// --- Responsables de datos (F24) ---------------------------------------------------------------------
+function StewardsPanel() {
+  const [stewards, setStewards] = useState<Steward[] | null>(null);
+  const [domains, setDomains] = useState<string[]>([]);
+  const [login, setLogin] = useState("");
+  const [scope, setScope] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(
+    () =>
+      api.stewards().then((d) => {
+        setStewards(d.stewards);
+        setDomains(d.domains);
+      }),
+    [],
+  );
+  const [failed, setFailed] = useState(false);
+  const reload = useCallback(() => {
+    setFailed(false);
+    // Si la lista no se pudo leer se queda sin cargar: guardar la reemplaza entera y borraría a los demás.
+    load().catch((e: Error) => {
+      setFailed(true);
+      toast.error(e.message);
+    });
+  }, [load]);
+  useEffect(reload, [reload]);
+
+  async function save(next: Steward[], message: string) {
+    setSaving(true);
+    try {
+      const res = await api.saveStewards(next);
+      setStewards(res.stewards);
+      toast.success(message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function add() {
+    if (!stewards) return;
+    const name = login.trim().toLowerCase();
+    const wanted = scope
+      .split(",")
+      .map((d) => d.trim())
+      .filter(Boolean);
+    const next = [...stewards.filter((s) => s.login !== name), { login: name, domains: wanted.length ? wanted : ["*"] }];
+    setLogin("");
+    setScope("");
+    save(next, `${name} es responsable de ${wanted.length ? wanted.join(", ") : "todos los dominios"}`);
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Responsables de datos</CardTitle>
+          <CardDescription>
+            Quién puede revisar descripciones, reglas y dudas escaladas de cada dominio. Se asignan por usuario de base de datos; cada cambio
+            queda en la auditoría.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Dominios</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stewards === null ? (
+                  <TableRow>
+                    <TableCell colSpan={3}>
+                      {failed ? (
+                        <div className="text-muted-foreground flex items-center justify-between gap-3 py-2 text-sm">
+                          No se pudo leer la lista de responsables.
+                          <Button size="sm" variant="outline" onClick={reload}>
+                            <RefreshCw /> Reintentar
+                          </Button>
+                        </div>
+                      ) : (
+                        <Skeleton className="h-8 w-full" />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : stewards.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-muted-foreground py-8 text-center">
+                      Aún no hay responsables: solo los administradores de datos pueden curar.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  stewards.map((s) => (
+                    <TableRow key={s.login}>
+                      <TableCell className="font-mono text-sm">{s.login}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1.5">
+                          {s.domains.map((d) => (
+                            <Badge key={d} variant={d === "*" ? "default" : "outline"} className="font-normal">
+                              {d === "*" ? "Todos" : d}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Quitar a ${s.login}`}
+                          disabled={saving}
+                          onClick={() =>
+                            save(
+                              stewards.filter((x) => x.login !== s.login),
+                              `${s.login} ya no es responsable`,
+                            )
+                          }
+                        >
+                          <Trash2 />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Asignar responsable</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
+          >
+            <Field label="Usuario de base de datos">
+              <Input required value={login} onChange={(e) => setLogin(e.target.value)} placeholder="jperez" />
+            </Field>
+            <Field label="Dominios (coma; vacío = todos)">
+              <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder={domains.slice(0, 2).join(", ") || "prestamos"} />
+            </Field>
+            {domains.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {domains.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className="hover:bg-accent rounded-md border px-2 py-0.5 text-xs"
+                    onClick={() => setScope((prev) => (prev.trim() ? `${prev.replace(/,\s*$/, "")}, ${d}` : d))}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={saving || stewards === null || !login.trim()}>
+              {saving ? <Loader2 className="animate-spin" /> : <Plus />} Asignar
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // --- Auditoría -------------------------------------------------------------------------------------
 const AUDIT_KIND: Record<string, string> = {
   question: "Pregunta",
@@ -502,6 +684,17 @@ const AUDIT_KIND: Record<string, string> = {
   catalog_build_started: "Construcción iniciada",
   catalog_build_finished: "Construcción terminada",
   inventory_updated: "Inventario",
+  stewards_updated: "Responsables",
+  curation_description: "Descripción editada",
+  curation_rule: "Regla guardada",
+  curation_rule_deleted: "Regla eliminada",
+  curation_request: "Duda escalada",
+  curation_answer: "Duda respondida",
+  curation_dictionary: "Diccionario cargado",
+  access_denied: "Acceso denegado",
+  login_locked: "Login bloqueado",
+  sessions_revoked: "Sesiones cerradas",
+  audit_read: "Consulta de auditoría",
 };
 
 function AuditPanel() {
@@ -600,7 +793,21 @@ function describe(r: AuditRow): string {
     case "login":
       return `Servidores: ${(r.servers as string[] | undefined)?.join(", ") ?? "—"}`;
     case "inventory_updated":
-      return `Servidores: ${(r.servers as string[] | undefined)?.join(", ") ?? "—"}`;
+      return `Servidores: ${((r.servers as { id: string }[] | undefined) ?? []).map((s) => s.id).join(", ") || "—"}`;
+    case "stewards_updated":
+      return `Responsables: ${((r.stewards as Steward[] | undefined) ?? []).map((s) => s.login).join(", ") || "ninguno"}`;
+    case "curation_description":
+      return String(r.asset_key ?? "");
+    case "curation_rule":
+    case "curation_rule_deleted":
+      return String(r.rule_id ?? "");
+    case "curation_request":
+    case "curation_answer":
+      return `Dominio: ${String(r.domain ?? "—")}`;
+    case "curation_dictionary":
+      return `${String(r.applied ?? 0)} descripciones aplicadas`;
+    case "access_denied":
+      return `${String(r.method ?? "")} ${String(r.route ?? "")}`;
     default:
       return "";
   }

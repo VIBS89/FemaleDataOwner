@@ -29,9 +29,9 @@ HISTORY_MARKER = ".demo_history.json"
 SEED_CLIENT = "demo-seed"
 
 
-def seed_history(service, audit, curation, fixtures: list[Path], *, days: int = 30, users: int = 7, seed: int = 7,
-                 now: dt.datetime | None = None) -> dict | None:
-    marker = Path(curation.dir) / HISTORY_MARKER
+def seed_history(service, audit, curation, fixtures: list[Path], *, marker: Path, days: int = 30, users: int = 7,
+                 seed: int = 7, now: dt.datetime | None = None) -> dict | None:
+    """`marker`: archivo que deja constancia de que ya se sembró (el modo demo nunca maneja datos reales)."""
     if marker.exists():
         return None
     questions = eval_questions(fixtures)
@@ -82,7 +82,7 @@ def seed_history(service, audit, curation, fixtures: list[Path], *, days: int = 
                 gaps.append((when, user, {"trace_id": trace_id, "question": question,
                                           "shown": sorted(c.asset_key for c in disc.candidates)}))
     requests = seed_requests(rng, gaps, service)
-    curation.append_requests(requests)
+    curation.add_requests(requests)
     summary = {"days": days, "users": len(names), "questions": n_questions, "feedback": n_feedback,
                "requests": len(requests), "seeded_at": now.isoformat(timespec="seconds")}
     marker.parent.mkdir(parents=True, exist_ok=True)

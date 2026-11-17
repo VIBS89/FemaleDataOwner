@@ -368,7 +368,7 @@ def build_discover_graph(deps: DiscoverDeps):
 
     g = StateGraph(DiscoverState)
     g.add_node("intent", _timed("intent", "planner", deps, intent_node))
-    g.add_node("retrieve", _timed("retrieve", "embed", deps, retrieve_node, "retrieval_attempt"))
+    g.add_node("retrieve", _timed("retrieve", None, deps, retrieve_node, "retrieval_attempt"))
     g.add_node("grade", _timed("grade", "fast", deps, grade_node, None))
     g.add_node("rerank", _timed("rerank", "planner", deps, rerank_node))
     g.add_node("expand", _timed("expand", None, deps, expand_node))

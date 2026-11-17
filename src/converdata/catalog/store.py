@@ -15,7 +15,7 @@ from typing import Protocol
 import yaml
 
 from converdata.catalog.ids import is_column_key, short_name, table_key
-from converdata.config import Inventory, OwnersDirectory, load_inventory, load_owners
+from converdata.config import Inventory, OwnersDirectory, ServerConfig, load_inventory, load_owners
 from converdata.models.catalog import CatalogObject, Column
 from converdata.models.knowledge import BusinessEntity, BusinessRule, GoldenDiscovery, KnowledgeItem, LineageEdge
 
@@ -56,10 +56,6 @@ class Catalog:
 
     def copies(self, asset_key: str) -> list[CatalogObject]:
         return list(self._copies.get(table_key(asset_key), []))
-
-    def physical_ids(self, asset_key: str) -> set[str]:
-        """Ids físicos que dan acceso a un activo (para una columna, los de su tabla)."""
-        return {o.id for o in self.copies(asset_key)}
 
     def exists(self, asset_key: str) -> bool:
         copies = self.copies(asset_key)
@@ -200,13 +196,24 @@ class PublishResult:
 
 
 class CatalogRepository(Protocol):
-    """Almacén durable del catálogo (OP-02). Publicar es dejar el almacén igual a la foto, conservando el historial."""
+    """Almacén durable del catálogo (OP-02). Publicar es dejar el almacén igual a la foto, conservando el historial.
+    Las escrituras puntuales de la curación son el puerto `converdata.curation.KnowledgeWriter`."""
 
     def version(self) -> int | None: ...
 
     def load(self, scope: str = "all") -> tuple[CatalogSnapshot, int] | None: ...
 
-    def upsert_golden(self, golden: GoldenDiscovery, *, published_by: str) -> int: ...
-
     def publish(self, snapshot: CatalogSnapshot, *, published_by: str, reason: str, scope: str = "all",
                 expected_version: int | None = None) -> PublishResult: ...
+
+    def description_history(self, asset_key: str) -> list[dict]:
+        """Cambios de la descripción de un activo, del más antiguo al más reciente: `physical_id`, `description`,
+        `description_source`, `modified_by`, `valid_from` y `valid_to` (None en la versión vigente)."""
+
+
+class InventoryStore(Protocol):
+    """Inventario de servidores con sus hosts: a dónde se conecta ConverData con la credencial de cada usuario."""
+
+    def inventory(self) -> list[ServerConfig]: ...
+
+    def save_inventory(self, servers: list[ServerConfig], *, by: str) -> None: ...

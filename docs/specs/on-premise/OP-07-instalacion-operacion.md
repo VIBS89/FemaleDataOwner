@@ -30,7 +30,13 @@ desactivado y **reciclaje superpuesto desactivado** en `ConverData-API` (`disall
 habría dos procesos con dos SessionVault distintos durante unos segundos.
 
 Tras un build hecho por la tarea programada (`converdata catalog build --db`), la API carga el catálogo nuevo sin reiniciar: comprueba
-`catalog.catalog_version` como mucho cada 15 s y, si cambió, reconstruye su copia de trabajo y su índice en memoria.
+`catalog.catalog_version` como mucho cada 15 s y, si cambió, vuelve a cargar el catálogo de la BD y reconstruye su índice en memoria
+(no hay copia de trabajo en disco). Sin `--config`, el comando toma el inventario de servidores de la BD (el que administra la API
+desde Administración) y entra a cada servidor con la cuenta del proceso (la gMSA del Builder) aunque el inventario diga login SQL, salvo que el servidor
+declare `metadata_user_env`; sin `--out` trabaja en un directorio temporal que borra al terminar. Como ese inventario lo edita un
+administrador desde la web, la tarea debe llevar **`CONVERDATA_BUILDER_HOSTS`** (hosts o sufijos de dominio como `.banco.local`,
+separados por coma): el comando no se conecta a ningún servidor si alguno queda fuera de la lista, y con `CONVERDATA_ENV=qa|prod`
+se niega a correr sin ella.
 
 ## Entornos
 | Entorno | Servidor de aplicación | BD `ConverData` | BDs de datos | LLM | Datos |
@@ -43,7 +49,7 @@ Reglas:
 - Un cambio llega a piloto solo después de pasar en qa los tests y **`converdata eval gate`** (7 suites, [calidad bancaria §2](../../calidad-bancaria.md)) sin regresión frente a la línea base (F25 CA3).
 - qa y piloto no comparten BD `ConverData`, gMSA ni certificado.
 - NIM alojado y Ollama están bloqueados por configuración fuera de dev (`data_mode: real`, guarda de residencia de F16).
-- El instalador **debe fijar `CONVERDATA_ENV`**: sin ella vale `dev` y no se exige ninguno de los ajustes de [calidad bancaria §4](../../calidad-bancaria.md). Con `qa` o `prod` la API no arranca si falta alguno (cookie segura, orígenes `https`, `CONVERDATA_MCP_HOSTS`, lista de administradores, código de instalación mientras no haya inventario, directorio de logs, `CONVERDATA_DB` sin contraseña y con TLS validado, `data_mode: real` y sin rol `embed`, sin `trust_server_certificate` ni `audit.fail_open`), ni si su cuenta en la BD `ConverData` puede modificar o borrar la auditoría.
+- El instalador **debe fijar `CONVERDATA_ENV`**: sin ella vale `dev` y no se exige ninguno de los ajustes de [calidad bancaria §4](../../calidad-bancaria.md). Con `qa` o `prod` la API no arranca si falta alguno (cookie segura, orígenes `https`, `CONVERDATA_MCP_HOSTS`, lista de administradores, código de instalación mientras no haya inventario, directorio de logs, `CONVERDATA_DB` sin contraseña y con TLS validado, `data_mode: real` y sin rol `embed`, sin `audit.fail_open`, y sin `trust_server_certificate` en el inventario, que se revisa ya cargado de la BD), ni si su cuenta en la BD `ConverData` puede modificar o borrar la auditoría.
 
 ## Requisitos no funcionales
 | Área | Requisito | Origen |
@@ -51,7 +57,7 @@ Reglas:
 | Latencia | Descubrimiento p50 < 5 s y p95 < 10 s; consulta de datos (fase 1b) p50 < 15 s y p95 < 40 s en el MVP | OP-01, F22 |
 | Disponibilidad del piloto | **99 % en horario laboral** (lunes a viernes, 7:00–19:00); fuera de ese horario, sin compromiso. Un solo servidor de aplicación (sin alta disponibilidad, OP-01 §Fuera del alcance) | ⚠️ propuesto |
 | Recuperación de la BD `ConverData` | **RPO 15 min** (modelo de recuperación completo y respaldo de log cada 15 min) y **RTO 4 h** | ⚠️ propuesto |
-| Recuperación del servidor de aplicación | Reinstalación con los scripts en ≤ 1 día laboral. Con la BD en uso no guarda estado propio (las sesiones se pierden por diseño, OP-03); mientras catálogo, curación y auditoría sigan en archivos, `%ProgramData%\ConverData\data\` **sí es estado** y hay que respaldarlo | ⚠️ propuesto |
+| Recuperación del servidor de aplicación | Reinstalación con los scripts en ≤ 1 día laboral. Con `CONVERDATA_DB` (obligatoria en qa y prod) no guarda estado propio: catálogo, inventario, curación y auditoría están en la BD (las sesiones se pierden por diseño, OP-03). Solo hay que reponer la configuración | ⚠️ propuesto |
 | Capacidad | 3–20 usuarios simultáneos en el piloto; 30 preguntas por minuto y usuario; tope diario de tokens por usuario (OP-04) | OP-01, OP-04 |
 | Coste | Coste de Bedrock por pregunta medido y reportado cada semana (tokens en `/admin/metrics`, F25) | OP-01 criterio 6 |
 | Seguridad | TLS con la PKI corporativa en IIS y `Encrypt=yes` en SQL Server; sin secretos en archivos; gMSA para todos los procesos; ajustes de [calidad bancaria §4](../../calidad-bancaria.md) | OP-03, OP-04 |
@@ -84,7 +90,7 @@ Rutas en el servidor:
 |---|---|
 | `%ProgramFiles%\ConverData\releases\<versión>\` y `current` | Código de la API y de la web, con sus entornos, de cada versión |
 | `%ProgramData%\ConverData\config\` | `models.yaml` y los parámetros del entorno (sin secretos) |
-| `%ProgramData%\ConverData\data\` | Mientras no se migre a la BD: inventario de servidores, catálogo (`config/`, `catalog/`, `knowledge/`), curación y auditoría JSONL (`CONVERDATA_INVENTORY`, `CONVERDATA_DATA_ROOT`, `CONVERDATA_CURATION_DIR`, `CONVERDATA_AUDIT_DIR`); ACL solo para las gMSA y los administradores |
+| `%ProgramData%\ConverData\data\` | Con `CONVERDATA_DB` solo contiene configuración: los ajustes del descubrimiento en `config/settings.yaml` bajo `CONVERDATA_DATA_ROOT`. El inventario, el catálogo, la curación y la auditoría están en la BD; `CONVERDATA_INVENTORY`, `CONVERDATA_CURATION_DIR` y `CONVERDATA_AUDIT_DIR` solo se usan sin BD (desarrollo). ACL solo para las gMSA y los administradores |
 | `%ProgramData%\ConverData\secrets\` | Blobs cifrados con DPAPI; ACL solo para las gMSA y los administradores |
 | `%ProgramData%\ConverData\logs\` | Logs JSON rotados (`CONVERDATA_LOG_DIR`, OP-05) |
 
@@ -96,8 +102,12 @@ Rutas en el servidor:
 - **`converdata db migrate`** (lee `CONVERDATA_DB`) aplica lo pendiente: cada script corre entero en una transacción junto con su fila de
   `dbo.schema_version` (o queda aplicado y registrado, o no cambia nada); `--status` solo lista lo pendiente. Un script ya aplicado no se
   puede editar (se compara su SHA-256): los cambios van en un script nuevo. La BD vacía la crea el DBA.
-- Estado: existe `001_esquemas.sql`, aplicado y probado contra SQL Server 2022 (`tests/test_storage_migrations.py`); usa solo lo que
-  admite SQL Server 2016 (tablas temporales, `ISJSON`), pero no se ha probado en una instancia 2016.
+- **La API exige la BD al día**: con `CONVERDATA_DB`, no arranca si falta alguna migración y el error dice que se ejecute
+  `converdata db migrate` (`require_current`). Por eso el orden de una actualización es migrar y después desplegar.
+- Estado: existen `001_esquemas.sql` (esquemas, roles, catálogo, conocimiento y auditoría) y `002_curacion.sql` (inventario de
+  servidores, responsables por login, dudas escaladas y votos; purga ampliada a dudas y originales; 2026-11-17), aplicados y probados contra
+  SQL Server 2022 (`tests/test_storage_migrations.py`, `tests/test_catalog_refresh.py` para el comando). Usan solo lo que admite
+  SQL Server 2016 (tablas temporales, `ISJSON`), pero no se han probado en una instancia 2016.
 
 ## Actualización y rollback
 1. Aplicar en qa y pasar los tests, `10-verificar.ps1` y `converdata eval gate` sin regresión.
@@ -109,8 +119,8 @@ Rutas en el servidor:
 ## Respaldo y recuperación
 - BD `ConverData`: completo diario, diferencial cada 6 h y log cada 15 min, con **`BACKUP ... WITH ENCRYPTION`** (contiene preguntas,
   D2) y acceso solo para el DBA. La retención de los respaldos no puede superar la de la auditoría (180 días, OP-05).
-- Mientras catálogo, curación y auditoría sigan en archivos: copia diaria cifrada de `%ProgramData%\ConverData\data\`, con el mismo
-  acceso y la misma retención, y el hash de cabeza de la auditoría exportado a diario (OP-05).
+- Con `CONVERDATA_DB` no hay archivos de estado que respaldar en el servidor de aplicación: catálogo, inventario, curación y auditoría
+  van en el respaldo de la BD.
 - Configuración (`%ProgramData%\ConverData\config\`): versionada en un repositorio interno; los secretos no se respaldan, se vuelven a cargar.
 - No se respalda: SessionVault (por diseño), índice léxico (se reconstruye al arrancar), logs (se rotan), sketches de F19 (no existen fuera de memoria).
 - **Prueba de restauración** antes del piloto y cada trimestre: restaurar en otra instancia, apuntar un servidor de qa a ella y repetir el

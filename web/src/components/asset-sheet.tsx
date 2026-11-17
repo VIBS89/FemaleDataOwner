@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Copy, KeyRound, Link2, Server, ShieldAlert, Users } from "lucide-react";
+import { ArrowRight, Copy, History, KeyRound, Link2, Server, ShieldAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 
+import { DescriptionHistory } from "@/components/description-history";
+import { useSession } from "@/components/session-provider";
 import { SourceBadge } from "@/components/source-badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +26,8 @@ export type AssetRef = ({ assetKey: string } | { id: string }) & { tab?: AssetTa
 export function AssetSheet({ target, onClose }: { target: AssetRef | null; onClose: () => void }) {
   const [data, setData] = useState<ObjectDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<string | null>(null);
+  const { isSteward } = useSession();
   const highlight = target && "assetKey" in target && target.assetKey.split(".").length > 3 ? target.assetKey.split(".").slice(3).join(".") : null;
 
   useEffect(() => {
@@ -90,7 +94,14 @@ export function AssetSheet({ target, onClose }: { target: AssetRef | null; onClo
             <div className="space-y-5 p-5">
               <div className="space-y-2">
                 <p className="text-sm leading-relaxed">{data.description || <span className="text-muted-foreground">Sin descripción todavía.</span>}</p>
-                <SourceBadge source={data.description_source} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <SourceBadge source={data.description_source} />
+                  {isSteward && (
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => setHistory(data.asset_key)}>
+                      <History /> Historial
+                    </Button>
+                  )}
+                </div>
                 {data.synonyms.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">
                     {data.synonyms.map((s) => (
@@ -203,6 +214,7 @@ export function AssetSheet({ target, onClose }: { target: AssetRef | null; onClo
             </div>
           </ScrollArea>
         )}
+        <DescriptionHistory assetKey={history} onClose={() => setHistory(null)} />
       </SheetContent>
     </Sheet>
   );
