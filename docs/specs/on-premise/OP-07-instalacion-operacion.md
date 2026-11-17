@@ -1,6 +1,6 @@
 # OP-07 — Instalación, entornos y operación · on-premise
 
-> Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Actualizado el 2026-11-17: dependencias fijadas, imágenes por digest y trabajos de la CI.
 >
 > Completa [OP-01](OP-01-despliegue-local.md) con la instalación, los entornos y los requisitos no funcionales del despliegue
 > on-premise. Specs relacionadas: [OP-04](OP-04-interfaces.md) IIS · [OP-05](OP-05-auditoria-observabilidad.md) alertas · [OP-06](OP-06-residencia-datos.md) residencia de datos · [calidad bancaria §4](../../calidad-bancaria.md) configuración obligatoria en qa y prod.
@@ -15,6 +15,35 @@ Que cualquier administrador de Plataformas pueda montar, actualizar, respaldar y
 la aplicación es `docker-compose.yml` (web y API, la API sin publicar), que se usa en desarrollo y demostraciones, y la CI
 (`.github/workflows/calidad.yml`). La BD `ConverData` se crea y actualiza con `converdata db migrate` (§Migraciones) y la API la usa
 cuando `CONVERDATA_DB` está definida (OP-02).
+
+**Dependencias e imágenes fijadas (2026-11-17).** Lo que se instala no depende del día en que se instala:
+- **Python**: `pyproject.toml` declara rangos; lo que se instala sale de `requirements/runtime.lock` (extras `api`, `mcp`,
+  `sqlserver` y `bedrock`: lo que se despliega), `dev.lock` (todos los extras: CI y desarrollo), `build.lock` (`setuptools`) y `tools.lock` (`pip-audit` y `cyclonedx-bom`, para
+  el trabajo `cadena-de-suministro`), con la versión exacta y el hash de cada paquete. Son bloqueos universales (Linux y Windows) generados con `uv pip compile
+  --generate-hashes`; cómo regenerarlos está en [`requirements/README.md`](../../../requirements/README.md). Se instala con
+  `pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/<runtime|dev>.lock` y después el
+  paquete con `pip install --no-deps --no-build-isolation --no-index .`, que no resuelve ni descarga nada más. `--only-binary
+  :all:` va en todos los `pip install` de la imagen y de la CI: compilar un paquete desde su código descargaría sus herramientas
+  de construcción sin hash.
+- **Imagen de la API** (`api/Dockerfile`): imagen base por digest e instalación con esos bloqueos. La clave con la que Microsoft
+  firma su repositorio (para `msodbcsql18`) se acepta solo si es una sola y su huella es la fijada (`MICROSOFT_KEY_FINGERPRINT`). El argumento de build `EXTRAS`
+  ya no existe: ahora es `REQUIREMENTS` (por defecto `requirements/runtime.lock`; en `docker-compose.yml`, la variable
+  `CONVERDATA_REQUIREMENTS`). Para NVIDIA NIM u Ollama, solo en desarrollo: `CONVERDATA_REQUIREMENTS=requirements/dev.lock`.
+- **Imagen de la web** (`web/Dockerfile`): imagen base por digest y `npm ci`, que instala exactamente lo de `package-lock.json`.
+- **CI** (`.github/workflows/calidad.yml`), con las acciones fijadas por commit, en cada push y PR y además cada lunes (`schedule`:
+  una vulnerabilidad nueva en algo ya fijado se detecta aunque nadie haga push). El trabajo `cadena-de-suministro` instala sus
+  herramientas de `tools.lock`, con hashes. Tres trabajos: `backend` (pruebas y compuerta),
+  `web` (tipos, lint y build) y `cadena-de-suministro` (`pip-audit` sobre `runtime.lock`, `npm audit --omit=dev
+  --audit-level=high` y SBOM CycloneDX de la API y de la web como artefacto). `.github/dependabot.yml` propone cada semana las
+  actualizaciones de imágenes, acciones y npm; los bloqueos de Python se regeneran a mano.
+- `tests/test_supply_chain.py` falla si una dependencia, una imagen o una acción deja de estar fijada, o si algún `pip install` de
+  la imagen o de la CI no lleva hashes y `--only-binary :all:` (o `--no-index`).
+
+Pendiente: la imagen de la API no se construyó con los bloqueos el 2026-11-17 (Docker no estaba en marcha; sus pasos de instalación
+se simularon en un entorno limpio); las versiones de los paquetes del sistema de la imagen (`msodbcsql18`, `unixodbc`) no van
+fijadas (sí la clave del repositorio de Microsoft); no hay firma ni análisis de la imagen construida; el bloqueo de Python se
+actualiza a mano; la CI no construye las imágenes
+([calidad bancaria §5](../../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)).
 
 ## Decisión (2026-11-16): modelo de procesos
 Dos procesos detrás de IIS y un comando; **ningún servicio de Windows propio** (PRD §13, decisiones 11 y 12).
@@ -69,10 +98,10 @@ huellas de certificado y nombres de gMSA). Pendientes de escribir (HU-37).
 
 | Paso | Script | Qué hace |
 |---|---|---|
-| 1 | `01-prerrequisitos.ps1` | Roles de IIS, HttpPlatformHandler, ODBC Driver 18 for SQL Server, Python 3.12 y uv, Node.js LTS |
+| 1 | `01-prerrequisitos.ps1` | Roles de IIS, HttpPlatformHandler, ODBC Driver 18 for SQL Server, Python 3.12 (con `pip`; `uv` solo hace falta para regenerar los bloqueos, no para instalar), Node.js LTS |
 | 2 | `02-cuentas.ps1` | Instala y prueba las gMSA (`Install-ADServiceAccount`, `Test-ADServiceAccount`) |
 | 3 | `03-bd.ps1` | Con la cuenta del DBA: crea la BD `ConverData` si no existe, ejecuta `converdata db migrate` (que aplica los scripts de `db/converdata/` y registra versión y SHA-256 en `dbo.schema_version`, ver §Migraciones) y agrega cada gMSA a su rol: la de la API a `converdata_app`, la del Builder a `converdata_builder` y la de mantenimiento a `converdata_maintenance` |
-| 4 | `04-aplicacion.ps1` | Despliega la versión en `%ProgramFiles%\ConverData\releases\<versión>` (API con `uv sync --frozen`; web con `npm ci` y `npm run build`, o el paquete ya compilado) y apunta el enlace `current` a ella |
+| 4 | `04-aplicacion.ps1` | Despliega la versión en `%ProgramFiles%\ConverData\releases\<versión>` (API con `pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/runtime.lock` y el paquete con `--no-deps --no-build-isolation --no-index`, en un entorno virtual por versión; el repo no tiene `uv.lock`, así que `uv sync --frozen` no aplica; web con `npm ci` y `npm run build`, o el paquete ya compilado) y apunta el enlace `current` a ella |
 | 5 | `05-iis.ps1` | Sitio HTTPS, grupos de aplicaciones (§Decisión), `web.config` de la web (`/`) y de la API (`/mcp`) con sus variables de entorno (`CONVERDATA_ENV` y las de calidad bancaria §4; `API_URL` en la web), enlace del certificado, HSTS, Request Filtering, logs W3C sin cuerpos |
 | 6 | `06-tareas.ps1` | Tareas del Programador de tareas de Windows. Con la gMSA del Builder: build nocturno (`converdata catalog build --db`) seguido de la evaluación de regresión (`converdata eval gate --db --root <casos>`, que sale con código distinto de 0 si algo baja de la línea base). Con la gMSA de mantenimiento: purga de la auditoría (`converdata audit purge`, 180 días). La integridad de la auditoría la comprueba la API al arrancar y `GET /admin/audit/verify` |
 | 7 | `07-firewall.ps1` | Reglas de entrada y salida de OP-04 §IIS |

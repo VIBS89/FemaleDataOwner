@@ -1,0 +1,40 @@
+# Preguntas de reporte sobre BancosSQL: normativas (N), de tablero (T) y de estudio (S).
+#
+# Miden cuánto aportan las fuentes de conocimiento (glosario, manual de reportes, normativa) frente al catálogo solo.
+# Se corre dos veces con el mismo catálogo:
+#   converdata eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
+#   converdata eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml \
+#       --knowledge tests/fixtures/bancos/eval/conocimiento
+#
+# Sustituye a la prueba de 25 preguntas que citaba el diagrama on-premise y cuyo set nunca se versionó. Las preguntas
+# y el conocimiento los escribió el equipo de desarrollo (primero las preguntas, después el glosario): el resultado
+# muestra el sentido del efecto, no predice el acierto con los documentos y las preguntas reales del banco (HU-26, HU-33).
+cases:
+  # N — normativas: lo que pide un regulador o una política interna
+  - {id: N1, type: N, question: "¿Qué datos necesito para el reporte de cartera en mora mayor a 90 días que pide la Superintendencia?", expected: [BancaPrestamos.dbo.Prestamos.DiasMora, BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.vw_CarteraPorCategoria, BancaPrestamos.dbo.CuotasPrestamo.DiasMora]}
+  - {id: N2, type: N, question: "¿De dónde sale la clasificación de deudores por categoría de riesgo de la NCB-022?", expected: [BancaPrestamos.dbo.Prestamos.CategoriaRiesgo, BancaPrestamos.dbo.vw_CarteraPorCategoria.CategoriaRiesgo, BancaPrestamos.dbo.vw_CarteraPorCategoria]}
+  - {id: N3, type: N, question: "¿Qué información uso para el reporte de reservas de saneamiento de la cartera crediticia?", expected: [BancaPrestamos.dbo.Prestamos.CategoriaRiesgo, BancaPrestamos.dbo.Prestamos.SaldoCapital, BancaPrestamos.dbo.vw_CarteraPorCategoria, BancaPrestamos.dbo.Prestamos]}
+  - {id: N4, type: N, question: "¿Dónde está el dato para identificar operaciones en efectivo superiores a 10,000 dólares para la ley contra el lavado de dinero?", expected: [BancaCuentasDebito.dbo.MovimientosCuenta.Monto, BancaCuentasDebito.dbo.MovimientosCuenta]}
+  - {id: N5, type: N, question: "¿Qué datos se usan para el informe de quejas por tarjetas bloqueadas que exige la defensoría del consumidor?", expected: [BancaCuentasDebito.dbo.BloqueosTarjeta, BancaCuentasDebito.dbo.BloqueosTarjeta.Motivo]}
+  - {id: N6, type: N, question: "¿Con qué datos se calcula la relación de endeudamiento del solicitante que exige la política de crédito?", expected: [BancaPrestamos.dbo.SolicitudesCredito.RelacionCuotaIngreso]}
+  - {id: N7, type: N, question: "¿De dónde obtengo las garantías reales con su avalúo vigente para el informe al regulador?", expected: [BancaPrestamos.dbo.Garantias, BancaPrestamos.dbo.Garantias.ValorAvaluo, BancaPrestamos.dbo.Garantias.FechaAvaluo]}
+  - {id: N8, type: N, question: "¿Qué datos respaldan el cumplimiento de PCI sobre el almacenamiento del número de tarjeta?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito.PANEnmascarado, BancaCuentasDebito.dbo.TarjetasDebito.PANEnmascarado, BancaTokenizacion.dbo.TarjetasOrigen.PANEnmascarado, BancaTokenizacion.dbo.Tokens.TokenEnmascarado]}
+  - {id: N9, type: N, question: "¿Qué datos necesito para el reporte de depósitos garantizados por el IGD?", expected: [BancaCuentasDebito.dbo.CuentasDeposito, BancaCuentasDebito.dbo.CuentasDeposito.SaldoDisponible, BancaCuentasDebito.dbo.vw_ResumenCuentas]}
+  # T — de tablero: de dónde sale un indicador
+  - {id: T1, type: T, question: "¿Qué datos alimentan el indicador de índice de morosidad de la cartera de préstamos?", expected: [BancaPrestamos.dbo.Prestamos.DiasMora, BancaPrestamos.dbo.Prestamos.SaldoCapital, BancaPrestamos.dbo.vw_CarteraPorCategoria, BancaPrestamos.dbo.Prestamos]}
+  - {id: T2, type: T, question: "¿De dónde sale el KPI de tasa de aprobación de solicitudes de crédito?", expected: [BancaPrestamos.dbo.SolicitudesCredito.Estado, BancaPrestamos.dbo.SolicitudesCredito]}
+  - {id: T3, type: T, question: "¿Qué datos necesito para el tablero de utilización de la línea de las tarjetas de crédito?", expected: [BancaTarjetasCredito.dbo.vw_CarteraTarjetas.PorcentajeUso, BancaTarjetasCredito.dbo.TarjetasCredito.SaldoActual, BancaTarjetasCredito.dbo.TarjetasCredito.LimiteCredito, BancaTarjetasCredito.dbo.vw_CarteraTarjetas]}
+  - {id: T4, type: T, question: "¿Con qué datos se arma el tablero de efectividad de la cobranza?", expected: [BancaPrestamos.dbo.GestionesCobro, BancaPrestamos.dbo.GestionesCobro.Resultado]}
+  - {id: T5, type: T, question: "¿Qué datos alimentan el indicador de tokens activos por billetera digital?", expected: [BancaTokenizacion.dbo.vw_TokensPorWallet, BancaTokenizacion.dbo.Tokens.Estado, BancaTokenizacion.dbo.vw_TokensPorWallet.Tokens]}
+  - {id: T6, type: T, question: "¿De dónde sale el indicador de transacciones rechazadas por fraude en compras con tarjeta?", expected: [BancaTarjetasCredito.dbo.TransaccionesTC.MotivoRechazo, BancaTarjetasCredito.dbo.TransaccionesTC.Estado, BancaTarjetasCredito.dbo.TransaccionesTC]}
+  - {id: T7, type: T, question: "¿Qué datos necesito para el tablero de colocación mensual de créditos por ejecutivo?", expected: [BancaPrestamos.dbo.Prestamos.MontoDesembolsado, BancaPrestamos.dbo.Prestamos.EjecutivoID, BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.Prestamos.FechaDesembolso]}
+  - {id: T8, type: T, question: "¿Qué datos alimentan el indicador de disponibilidad de la red de cajeros?", expected: [BancaCuentasDebito.dbo.CajerosATM, BancaCuentasDebito.dbo.CajerosATM.Red]}
+  # S — de estudio: qué datos hay para un análisis
+  - {id: S1, type: S, question: "Para un estudio de deserción de clientes, ¿dónde veo las cuentas inactivas?", expected: [BancaCuentasDebito.dbo.CuentasDeposito.FechaUltimoMovimiento, BancaCuentasDebito.dbo.CuentasDeposito.Estado, BancaCuentasDebito.dbo.CuentasDeposito]}
+  - {id: S2, type: S, question: "Quiero analizar el comportamiento de pago de los tarjetahabientes, ¿qué datos hay?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito.PerfilPago, BancaTarjetasCredito.dbo.PagosTC, BancaTarjetasCredito.dbo.EstadosCuentaTC, BancaTarjetasCredito.dbo.EstadosCuentaTC.PagoMinimo]}
+  - {id: S3, type: S, question: "Para un estudio de rentabilidad por segmento, ¿dónde está la segmentación comercial del cliente?", expected: [BancaPrestamos.dbo.Clientes.Segmento, BancaTarjetasCredito.dbo.vw_CarteraTarjetas.Segmento]}
+  - {id: S4, type: S, question: "¿Qué datos sirven para estudiar el consumo por rubro de comercio?", expected: [BancaTarjetasCredito.dbo.Comercios.CategoriaMCC, BancaTarjetasCredito.dbo.Comercios.MCC, BancaTarjetasCredito.dbo.Comercios]}
+  - {id: S5, type: S, question: "Para un análisis de riesgo de crédito, ¿dónde está la calificación del buró del solicitante?", expected: [BancaPrestamos.dbo.SolicitudesCredito.ScoreBuro]}
+  - {id: S6, type: S, question: "Quiero estudiar la adopción de pagos sin contacto, ¿qué datos tenemos?", expected: [BancaCuentasDebito.dbo.TarjetasDebito.Contactless, BancaTokenizacion.dbo.TransaccionesTokenizadas, BancaTokenizacion.dbo.Tokens]}
+  - {id: S7, type: S, question: "Para un estudio de valor residual de la flota arrendada, ¿qué datos uso?", expected: [BancaLeasing.dbo.ContratosLeasing.ValorResidual, BancaLeasing.dbo.Activos, BancaLeasing.dbo.ContratosLeasing]}
+  - {id: S8, type: S, question: "¿Qué datos hay para analizar las promesas de pago incumplidas?", expected: [BancaPrestamos.dbo.GestionesCobro.FechaPromesaPago, BancaPrestamos.dbo.GestionesCobro.MontoPromesa, BancaPrestamos.dbo.GestionesCobro]}

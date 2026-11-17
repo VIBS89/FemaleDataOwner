@@ -1,7 +1,7 @@
 """Reglas de la curación (F24) y puertos de su almacenamiento. Sin E/S: lo usan la API y los repositorios.
 
-- Plantilla de una pregunta confirmada: la pregunta normalizada y sin literales (números, fechas, documentos, correos,
-  identificadores alfanuméricos). Es lo único que entra al índice y a `knowledge.golden_discovery` (F17, clase D4).
+- Plantilla de una pregunta confirmada: la pregunta normalizada y sin literales (toda palabra con dígitos o arroba
+  que no sea vocabulario del banco; `converdata.memory.text.strip_literals`). Es lo único que entra al índice y a `knowledge.golden_discovery` (F17, clase D4).
   No reconoce nombres de personas: eso lo cubre la retención, no la plantilla.
 - Regla de votos: qué confirmación resulta de los votos de los usuarios y de los responsables.
 - Ediciones de descripciones: de una edición humana o de un diccionario CSV salen `DescriptionEdit`, una por copia física.
@@ -22,18 +22,11 @@ from typing import Callable, Protocol
 
 from converdata.catalog.ids import table_key
 from converdata.catalog.store import Catalog
+from converdata.memory.text import has_literals, strip_literals  # noqa: F401  (parte de la interfaz de la curación)
 from converdata.models.knowledge import BusinessRule, GoldenDiscovery
 
 MAX_SYNONYMS = 12
 STEWARD_SOURCE = "steward:"  # `source` de las reglas que gestionan los responsables desde la vista Curación
-
-_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-# Números sueltos y sus separadores (documentos, teléfonos, fechas, montos). Los dígitos pegados a letras son nombres
-# (T24, F14, tabla_2) y se conservan.
-_NUMBER = re.compile(r"(?<![A-Za-z_\d])\d(?:[\d.,/:\- ]*\d)?(?![A-Za-z_\d])")
-# Una palabra con 5 o más dígitos es un identificador (pasaporte A01234567, cuenta CA00123456789), no un nombre de objeto.
-_IDENTIFIER = re.compile(r"\b(?=(?:[A-Za-z_]*\d){5})[A-Za-z0-9_]+\b")
-
 
 def normalize_question(text: str) -> str:
     """Minúsculas, sin tildes ni puntuación y con un solo espacio entre palabras."""
@@ -42,20 +35,11 @@ def normalize_question(text: str) -> str:
     return " ".join("".join(ch if ch.isalnum() else " " for ch in text).split())
 
 
-def strip_literals(question: str) -> str:
-    """La pregunta sin correos, identificadores alfanuméricos ni números sueltos, antes de normalizarla."""
-    return _NUMBER.sub(" ", _IDENTIFIER.sub(" ", _EMAIL.sub(" ", question)))
-
-
-def has_literals(question: str) -> bool:
-    """¿La pregunta trae algo que la plantilla descarta? Entonces su texto original no se guarda fuera de la auditoría."""
-    return strip_literals(question) != question
-
-
-def question_template(question: str) -> str:
+def question_template(question: str, known=frozenset()) -> str:
     """Plantilla anonimizada: la pregunta normalizada sin sus literales. Dos preguntas que solo difieren en el número de
-    documento o en la fecha dan la misma plantilla."""
-    return normalize_question(strip_literals(question))
+    documento o en la fecha dan la misma plantilla. `known`: el vocabulario con dígitos del banco (nombres del
+    catálogo y códigos del glosario), que sí se conserva."""
+    return normalize_question(strip_literals(question, known))
 
 
 def golden_id(template: str, asset_key: str) -> str:

@@ -50,6 +50,43 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
+# --- literales de una pregunta ---------------------------------------------------------------------------
+# Un literal es un valor concreto que alguien escribe al preguntar: un documento, una cuenta, una fecha, un monto, un
+# correo, un código de cliente. No describe qué dato se busca, así que ni cuenta para medir si un activo responde la
+# pregunta ni se guarda en la plantilla de una confirmación (F17, clase D4).
+#
+# La regla es deliberadamente estricta: toda palabra con algún dígito o con una arroba es un literal, salvo que sea
+# vocabulario conocido del banco (el nombre de un objeto del catálogo como `Ultimos4`, o un código del glosario como
+# `NCB-022`). Las listas de formatos concretos (DUI, cuenta, IBAN) siempre se dejan alguno; "tiene un dígito" no.
+_EDGE = "¿?¡!.,;:()[]{}\"'«»“”‘’<>"
+_SPACED_AT = re.compile(r"\S+\s+@\s+\S+")  # "juan.perez @ banco.com"
+
+
+def _is_literal(word: str, known) -> bool:
+    core = strip_accents(word).lower()
+    if "@" in core:
+        return True
+    if not any(ch.isdigit() for ch in core):
+        return False
+    if core in known:
+        return False
+    # Una referencia con puntos (`BD.esquema.Tabla2`) vale si cada parte con dígitos es un nombre conocido.
+    parts = [part for part in core.split(".") if part]
+    return not (len(parts) > 1 and all(part in known for part in parts if any(ch.isdigit() for ch in part)))
+
+
+def strip_literals(question: str, known=frozenset()) -> str:
+    """La pregunta sin sus literales. `known`: palabras con dígitos que son vocabulario y no valores (en minúsculas y
+    sin tildes). Normaliza antes con NFKC: los dígitos en superíndice, de ancho completo o en círculo son dígitos."""
+    text = _SPACED_AT.sub(" ", unicodedata.normalize("NFKC", question))
+    return " ".join(word for word in text.split() if not _is_literal(word.strip(_EDGE), known))
+
+
+def has_literals(question: str, known=frozenset()) -> bool:
+    """¿La pregunta trae algo que la plantilla descarta? Entonces su texto original no se guarda fuera de la auditoría."""
+    return strip_literals(question, known) != " ".join(unicodedata.normalize("NFKC", question).split())
+
+
 def normalized_name(name: str) -> str:
     """`Client_Code` / `ClientCode` / `clientcode` → `clientcode` (para alternativas por nombre)."""
     return re.sub(r"[^a-z0-9]", "", strip_accents(name).lower())

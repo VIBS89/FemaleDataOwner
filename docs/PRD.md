@@ -295,7 +295,7 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 | Descripciones generadas por IA de baja calidad | Recomendaciones erróneas, pérdida de confianza | Fuente visible, tope de confianza 0.6 sin evidencia humana, curación inicial de los 100 activos más relevantes |
 | Documentos con datos personales | Incumplimiento de residencia y privacidad | Redacción con Presidio y patrones locales; descarte de fragmentos con alta densidad de PII |
 | El set de evaluación lo escribió el equipo de desarrollo | Los porcentajes no predicen el uso real | 50–80 preguntas reales validadas por un experto antes de declarar resultados (HU-33) |
-| Las preguntas de reporte, tablero o estudio aciertan mucho menos que las de "¿dónde está X?" | Expectativas no cumplidas en el piloto | Ingesta de diccionarios, documentos y reglas antes del piloto; medir con LLM real (HU-35) |
+| Las preguntas de reporte, tablero o estudio aciertan mucho menos que las de "¿dónde está X?" | Expectativas no cumplidas en el piloto. Medido el 2026-11-17 con 25 preguntas de reporte y un glosario de prueba, ambos escritos por el equipo: Hit@1 16 % solo con catálogo y 60 % con conocimiento (F23); muestra el sentido del efecto, no el acierto con documentos reales | Ingesta de diccionarios, documentos y reglas antes del piloto; medir con LLM real (HU-35) |
 | Permisos heredados limitan la "democratización" | Usuarios sin acceso no descubren datos que existen | Escalamiento al responsable sin revelar nombres; revisar la política tras el piloto |
 | Sin línea base | No se pueden demostrar los objetivos | Semana 0–1 dedicada a medirla |
 | Baja adopción | No se capturan confirmaciones | Dominio piloto con dolor real, campeones por equipo, métricas semanales visibles |
@@ -360,9 +360,17 @@ Notas del 2026-11-17 (precisan las decisiones anteriores; no añaden numeración
 - **Decisión 12, Builder**: la tarea programada entra a los servidores con autenticación de Windows (la cuenta del proceso) aunque el
   inventario diga login SQL, salvo que el servidor declare `metadata_user_env`. El inventario describe cómo entran los usuarios. La
   tarea solo va a los hosts de `CONVERDATA_BUILDER_HOSTS`, obligatoria en qa y prod (OP-07).
-- **Decisión 8, plantilla de las confirmaciones**: se quitan todos los números sueltos, también los umbrales de negocio ("mora mayor
-  a 90 días" y "a 30 días" son la misma confirmación), además de correos e identificadores alfanuméricos. Se prefiere perder ese
-  matiz a guardar un documento o una cuenta (F24, OP-02).
+- **Decisión 8, plantilla de las confirmaciones**: se quita toda palabra con algún dígito o con arroba, también los umbrales de
+  negocio ("mora mayor a 90 días" y "a 30 días" son la misma confirmación), salvo el vocabulario conocido del banco: nombres del
+  catálogo con dígitos y códigos del conocimiento con letras y dígitos ("NCB-022" se conserva solo si el glosario lo nombra). La
+  regla por formatos se abandonó tras la revisión de seguridad, que reprodujo literales realistas que la pasaban. Se prefiere
+  perder ese matiz a guardar un documento o una cuenta (F24, OP-02).
+- **Decisión 9, cifra de la medición**: el 93,1 % es la medición histórica de HU-34, con el set de 31 casos de BancosSQL. La línea
+  base vigente desde el 2026-11-17 es Hit@1 y Hit@3 98,0 % con 58 casos (BancosSQL) y 96,2 % con 31 (VBank), sin embeddings y con
+  preguntas escritas por el equipo ([plan de desarrollo §2](PLAN-desarrollo.md#2-resultados-medidos)). La decisión no cambia.
+- **Decisión 16, compuerta y CI**: la CI corre además un trabajo `web` (tipos, lint y build) y otro `cadena-de-suministro`
+  (`pip-audit`, `npm audit` y SBOM), y el workflow corre también cada lunes; las dependencias de Python se instalan con versión y hash fijados y las imágenes base van por
+  digest (OP-07, [calidad bancaria](calidad-bancaria.md)).
 - **Decisión 10, versión del catálogo**: cada edición de curación y cada voto aprendido suben `catalog.catalog_version`. La versión
   significa "algo cambió", no "publicación".
 - **Un solo proceso de API**: sesiones, trazas de respuestas, inventario y confirmaciones recientes viven en la memoria de
@@ -535,6 +543,6 @@ Fase: **1a** piloto de descubrimiento · **1b** consulta de datos (sin implement
 - **Visibilidad**: conjunto de objetos que el login del usuario puede leer o ejecutar, según SQL Server.
 - **Confidence**: puntuación de 0 a 1. En el AskFlow combina los chequeos deterministas con el veredicto del LLM-judge (F9); en el DiscoverFlow combina relevancia, evidencia, confirmaciones y acuerdo entre fuentes (F22).
 - **`asset_key`**: identificador lógico de un objeto (`db.schema.objeto[.columna]`) que agrupa sus copias en todos los ambientes (F1).
-- **Golden discovery**: pregunta de descubrimiento (plantilla sin literales: números y correos; no detecta nombres de personas) confirmada por usuarios o por un responsable, ligada a los activos correctos (F24).
+- **Golden discovery**: pregunta de descubrimiento (plantilla sin literales: toda palabra con un dígito o una arroba que no sea vocabulario del banco; no detecta nombres de personas) confirmada por usuarios o por un responsable, ligada a los activos correctos (F24).
 - **Steward / responsable**: grupo funcional o técnico dueño de un dominio de datos (`config/owners.yaml`, F24).
 - **Brecha de conocimiento**: pregunta sin candidato con confianza suficiente, o activo muy consultado sin descripción revisada (F24).

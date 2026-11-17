@@ -102,7 +102,7 @@
       "pos": [1240, 360],
       "size": [160, 64],
       "tag": "palanca principal",
-      "description": "Diccionarios de datos, manuales de reportes, políticas, glosarios y reglas de negocio que hoy están dispersos. Son lo que más mejora las respuestas a preguntas de reporte: en la prueba con 25 preguntas normativas, de tablero y de estudio, el acierto pasó de 4 % a 40 % al añadirlas. Implementado: diccionario en CSV (HU-25) y reglas. Pendiente: documentos con redacción de datos personales (HU-26) y linaje SSIS (HU-27). (F23, OP-02)"
+      "description": "Diccionarios de datos, manuales de reportes, políticas, glosarios y reglas de negocio que hoy están dispersos. Son lo que más mejora las respuestas a preguntas de reporte: en la prueba con 25 preguntas normativas, de tablero y de estudio sobre BancosSQL, el acierto pasó de 16 % a 60 % al añadir un glosario y un manual de indicadores (set del equipo, versionado). Implementado: diccionario en CSV (HU-25) y reglas. Pendiente: documentos con redacción de datos personales (HU-26) y linaje SSIS (HU-27). (F23, OP-02)"
     },
     {
       "id": "scheduler",
@@ -149,8 +149,8 @@
       "dot": "violet",
       "title": "De qué depende el acierto",
       "items": [
-        "Preguntas cortas «¿dónde está X?»: 93 % sin LLM",
-        "Preguntas de reporte, tablero o estudio: 4 % solo con catálogo, 40 % con fuentes de conocimiento; con LLM aún sin medir",
+        "Preguntas cortas «¿dónde está X?»: 98 % sin LLM (58 casos del equipo)",
+        "Preguntas de reporte, tablero o estudio: 16 % solo con catálogo, 60 % con glosario y manual de indicadores (set del equipo); con LLM aún sin medir",
         "Por eso el LLM (intención y orden) y la ingesta de conocimiento van primero"
       ]
     },

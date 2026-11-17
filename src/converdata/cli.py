@@ -8,7 +8,8 @@ import os
 import sys
 from pathlib import Path
 
-from converdata.bootstrap import build_service, build_service_from_db, user_with_databases
+from converdata.bootstrap import (build_service, build_service_from_db, build_service_with_knowledge,
+                                  user_with_databases)
 
 GATE_SUITES = ("calidad", "permisos", "inyeccion", "guardas", "robustez", "determinismo", "auditoria")
 DEFAULT_GATE_ROOTS = ("tests/fixtures/vbank", "tests/fixtures/bancos")
@@ -111,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
         "--patterns", default="all",
         help="Patrones activos: all | none | lista separada por comas (query_expansion,grade,review,cascade)",
     )
+    evd.add_argument("--knowledge", help="Directorio con fuentes de conocimiento (items/, rules/, golden/, lineage/) que se "
+                                         "añaden al catálogo de --root: mide cuánto aportan sin tocar el catálogo")
     evd.add_argument("--min-hit3", type=float, help="Sale con código 1 si Hit@3 queda por debajo (alerta de regresión, OP-05)")
     evg = ev_sub.add_parser("gate", help="Compuerta de calidad: calidad, permisos, inyección, robustez, determinismo y auditoría")
     evg.add_argument("--root", action="append", help="Directorio de catálogo; se puede repetir. Por defecto los dos fixtures")
@@ -366,9 +369,13 @@ def eval_discovery(args) -> int:
 
     from converdata.evaluation.discovery_eval import evaluate, load_cases
 
+    if args.db and args.knowledge:
+        raise SystemExit("--knowledge se usa con el catálogo de --root, sin --db")
     if args.db:
         service = build_service_from_db(db_connect(), settings_path=Path(args.root) / "config" / "settings.yaml",
                                         models_path=args.models)
+    elif args.knowledge:
+        service = build_service_with_knowledge(args.root, args.knowledge, models_path=args.models)
     else:
         service = build_service(args.root, models_path=args.models)
     apply_patterns(service, args.patterns)

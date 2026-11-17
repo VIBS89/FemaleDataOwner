@@ -15,7 +15,7 @@ persistir y puede contener datos vive **on-premise**.
 | **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición |
 | **D2: texto derivado del usuario** | Pregunta, pregunta reescrita, SQL con literales, narrativa, historial | Solo en la auditoría on-premise (F11) |
 | **D3: metadatos estructurales** | Nombres y descripciones de BDs, tablas y columnas, tipos, FKs, conteos, parámetros de SPs; reglas de negocio, linaje ETL y fragmentos de documentos **ya redactados** (F23) | Catálogo e índice (cloud u on-prem) |
-| **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders (fase 1b) y golden discovery como plantilla sin literales: la pregunta normalizada sin números sueltos (documentos, teléfonos, fechas, montos), correos ni identificadores alfanuméricos con 5 o más dígitos (F24). Limitación: la plantilla no detecta nombres de personas ni texto entre comillas | Índice (cloud u on-prem). El original queda en la auditoría on-prem y, solo si la pregunta no traía ningún literal ni parece llevar datos personales, en el esquema `golden` on-prem, con la misma retención |
+| **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders (fase 1b) y golden discovery como plantilla sin literales: la pregunta normalizada sin ninguna palabra que lleve un dígito o una arroba (tras normalizar con NFKC), salvo el vocabulario conocido del banco: nombres del catálogo con dígitos (`Ultimos4`) y códigos del conocimiento con letras y dígitos (`NCB-022`, `BR-ONB-004`) (F24; `converdata.memory.text.strip_literals`). Limitación: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido por espacios | Índice (cloud u on-prem). El original queda en la auditoría on-prem y, solo si la pregunta no traía ningún literal ni parece llevar datos personales, en el esquema `golden` on-prem, con la misma retención |
 | **D5: telemetría sin contenido** | Latencias, tokens, códigos de error, ids de traza, nombres de tablas usadas | Logs y métricas (cloud u on-prem) |
 | **C: credenciales** | Login SQL por usuario | Custodia cifrada según F14 (CN-03 / OP-03) |
 
@@ -37,3 +37,16 @@ persistir y puede contener datos vive **on-premise**.
 2. *Model invocation logging* de Bedrock desactivado (verificado).
 3. El indexador rechaza un YAML de catálogo con valores.
 4. Al cerrar la sesión, el historial deja de existir.
+
+Estado del criterio 1 (2026-11-17, on-premise): se cumple en lo que cubre `api/tests/test_marked_literals.py`. Son 100 preguntas
+con 100 literales distintos en 10 formas (códigos `ACME-TEST-nnn`, documentos, cuentas alfanuméricas, correos, números y, tras la
+revisión de seguridad, alfanumérico corto, dígitos en superíndice, raya en vez de guion, guion bajo con guion final y ancho
+completo), hechas por la API con tres usuarios (el literal va también en `history` de `/discover`), votadas, 20 escaladas con nota
+y varias respondidas por un responsable. El literal se busca después, también transformado (minúsculas, normalizado con NFKC y
+recortado a los 6 caracteres del stemmer), en el índice en memoria, en todo el disco del servidor (logs incluidos) y en toda
+columna de toda tabla de la BD `ConverData` que no sea número, fecha, bit o `uniqueidentifier`, convertida a texto (historial
+incluido). Comprueba además que las plantillas solo contienen palabras de las preguntas base. Solo aparece en `audit.audit_question.question`, `curation.request.question` y `curation.request.note` (en
+modo archivos, en `audit/*.jsonl` y `curation/requests.json`): las dudas escaladas son texto D2 on-premise con la retención de la
+auditoría (OP-06). Corre en archivos y, con `CONVERDATA_TEST_DB`, en SQL Server real. No cubre el cliente MCP, `/discover/stream`, el Visor de eventos de Windows (`event_log` va apagado en la prueba), `TEMP` de las
+cuentas de servicio, las carpetas de IIS ni los volcados de memoria (servidor del piloto, HU-37), ni el despliegue cloud (CN-06),
+y los nombres de personas siguen sin detectarse.

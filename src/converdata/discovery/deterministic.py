@@ -77,11 +77,20 @@ class RuleBasedIntentClassifier:
 
 
 _ETL = re.compile(r"\b(etl|ssis|linaje|llena|alimenta|carga|cargan|que proceso|que job)\b")
+# "¿Cómo relaciono A con B?": se piden las tablas y el camino para unirlas, no una columna suelta. El verbo va tras
+# "cómo" (o es inequívoco): "cada uno de los clientes" no es un cruce.
+_JOIN = re.compile(r"\bcomo (?:se |puedo |podemos )?(?:relacion\w+|cruz\w+|un[oe]|unir|unen|unimos|junt\w+)\b"
+                   r"|\b(?:relacion(?:o|ar|an|amos)|cruz(?:o|ar|an|amos)|unir|join)\b.*\bcon\b")
+_ASKS_FIELD = re.compile(r"\b(?:que|cual|cuales) (?:campos?|columnas?|llaves?)\b")
 
 
 def _kind_hint(q: str, intent: str):
     # Exploración, cifras (en fase 1a se responde qué tabla consultar) y preguntas de ETL piden tablas.
     if intent in ("exploration", "data_query") or re.search(r"\btablas?\b", q) or _ETL.search(q):
+        return "table"
+    if _ASKS_FIELD.search(q):  # "¿con qué campo cruzo…?" pide la columna, aunque hable de cruzar
+        return "column"
+    if _JOIN.search(q):
         return "table"
     if re.search(r"\b(indicador|metrica|kpi)", q):
         return "indicator"

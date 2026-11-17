@@ -96,3 +96,25 @@ Si dos fuentes describen el mismo activo de forma contradictoria (por ejemplo, e
 3. Un documento con un DUI y un número de cuenta de prueba queda indexado con ambos valores redactados (búsqueda del literal en el índice = 0).
 4. La pregunta "¿qué reglas aplican al ClientCode?" devuelve `BR-ONB-004` con su fuente.
 5. Una segunda ingesta sin cambios no llama al LLM ni reindexa. (Diccionario CSV desde Curación: se cumple sin registro de archivos aplicados; la segunda vez no queda nada que escribir y la respuesta lleva `unchanged`. Un registro por hash del archivo habría bloqueado a otro responsable que aplicara las filas de su dominio.)
+
+## Medición: cuánto aportan las fuentes de conocimiento (2026-11-17)
+`converdata eval discovery --knowledge <dir>` añade al catálogo de `--root` las fuentes de `<dir>` (misma estructura que
+`knowledge/`: `items/`, `rules/`, `golden/`, `lineage/`) sin tocar el catálogo (`bootstrap.build_service_with_knowledge`; no se
+combina con `--db`). Así se mide el mismo set dos veces, con el catálogo solo y con conocimiento.
+
+Set versionado: `tests/fixtures/bancos/eval/reportes.yaml`, 25 preguntas de reporte sobre BancosSQL (9 normativas, 8 de tablero,
+8 de estudio), y `tests/fixtures/bancos/eval/conocimiento/items/glosario.yaml`, un glosario y manual de indicadores de prueba de
+20 entradas, cada una vinculada a su activo (`linked_assets`) y sin valores de datos. El catálogo de BancosSQL de la línea base
+sigue crudo: el glosario solo entra cuando se pide.
+
+| 25 preguntas de reporte | Hit@1 | Hit@3 | Normativas (9) | Tablero (8) | Estudio (8) |
+|---|---|---|---|---|---|
+| Solo catálogo | 16 % | 16 % | 0 % | 25 % | 25 % |
+| Catálogo + glosario de prueba | 60 % | 64 % | 66,7 % | 75 % | 37,5 % |
+
+Modo determinista (sin LLM), 0 fugas y 0 objetos inventados. Prueba:
+`tests/test_graph_rag.py::test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte`.
+
+**Qué no dice esta medición.** Las preguntas y el glosario los escribió el equipo de desarrollo (primero las preguntas, después el
+glosario): el resultado muestra el sentido del efecto, no predice el acierto con los documentos y las preguntas reales del banco
+(HU-26, HU-33). Sustituye a la cifra "4 % → 40 %" que citaba el diagrama on-premise, cuyo set nunca estuvo en el repo.

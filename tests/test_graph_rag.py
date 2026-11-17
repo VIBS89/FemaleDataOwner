@@ -4,9 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from converdata.bootstrap import build_service, user_with_databases
+from converdata.bootstrap import build_service, build_service_with_knowledge, user_with_databases
+from converdata.discovery import engine
+from converdata.discovery.deterministic import RuleBasedIntentClassifier
 from converdata.discovery.expansion import decompose, plan_query
 from converdata.evaluation.discovery_eval import evaluate, load_cases
+from converdata.models.identity import UserContext
 
 BANCOS = Path(__file__).parent / "fixtures" / "bancos"
 
@@ -100,3 +103,114 @@ def test_parte_resuelta_por_el_grafo_conserva_la_confianza(bancos, everyone):
     env = bancos.run(CARDS_Q, everyone)
     assert env.discovery.join_paths and env.discovery.join_paths[0].tables[-1] == "BancaTarjetasCredito.dbo.TarjetasCredito"
     assert env.discovery.knowledge_gap is False
+
+
+# --- preguntas por una entidad y preguntas de cruce (2026-11-17) -----------------------------------------
+def _hint(service, user, question):
+    intent = service.deps.intent_classifier.classify(question, [])
+    return engine.entity_kind_hint(question, intent, service.deps.catalog, user.visible_ids) or intent.asset_kind_hint
+
+
+def test_un_plural_que_nombra_una_tabla_pide_la_tabla(bancos, everyone):
+    assert _hint(bancos, everyone, "¿Dónde están los arrendamientos financieros de vehículos?") == "table"
+    assert _hint(bancos, everyone, "¿Dónde están los cajeros automáticos de San Salvador?") == "table"
+    # El plural no basta: "días" o "montos" no son tablas, y lo que no existe en el catálogo no se adivina.
+    assert _hint(bancos, everyone, "¿Dónde están los días de mora del préstamo?") is None
+    assert _hint(bancos, everyone, "¿Dónde están las inversiones en bolsa del cliente?") is None
+    # Tampoco si una columna se llama así ("pagos mínimos" es `PagoMinimo`, no la tabla de pagos), ni en una pregunta
+    # compuesta, que además pide un dato concreto.
+    assert _hint(bancos, everyone, "¿Dónde están los pagos mínimos de las tarjetas de crédito?") is None
+    assert _hint(bancos, everyone, "¿Dónde están las cuotas mensuales de los préstamos?") is None
+    assert _hint(bancos, everyone, "¿Dónde están las transacciones rechazadas y su motivo?") is None
+    # Lo decide lo que el usuario ve (F14): sin acceso a BancaLeasing, "arrendamientos" no nombra ninguna tabla suya.
+    only_loans = user_with_databases(bancos, "prestamos", ["BancaPrestamos"])
+    assert _hint(bancos, only_loans, "¿Dónde están los arrendamientos financieros de vehículos?") is None
+
+
+def test_una_pregunta_de_cruce_pide_tablas():
+    classify = RuleBasedIntentClassifier().classify
+    for question in ("¿Cómo relaciono las transacciones de tarjeta con el DUI del cliente?",
+                     "¿Cómo cruzo los préstamos con sus garantías?", "¿Cómo se relacionan los tokens con los dispositivos?",
+                     "¿Cómo uno las cuotas con los arrendatarios?"):
+        assert classify(question, []).asset_kind_hint == "table", question
+    assert classify("¿Dónde está el saldo de la cuenta?", []).asset_kind_hint == "column"
+    # "Cada uno de" no es un cruce, y quien pregunta con qué campo se cruza pide la columna.
+    assert classify("¿Dónde está el saldo de cada uno de los clientes?", []).asset_kind_hint == "column"
+    assert classify("¿Con qué campo cruzo las tarjetas de crédito con los clientes?", []).asset_kind_hint == "column"
+
+
+def test_un_calificativo_que_nadie_conoce_pesa_menos_pero_la_entidad_no():
+    leasing, financ, vehiculo = frozenset({"leasin"}), frozenset({"financ"}), frozenset({"vehicu"})
+    known = [{"leasin", "contra"}, {"financ", "monto"}]
+    assert engine.qualifier_weights([leasing, financ, vehiculo], known) == [1.0, 1.0, engine.UNKNOWN_QUALIFIER_WEIGHT]
+    # La entidad que se pide nunca se descuenta: si nadie la conoce, es una brecha y no una respuesta segura.
+    assert engine.qualifier_weights([vehiculo, leasing], known) == [1.0, 1.0]
+    weights = [1.0, 1.0, 0.25]
+    assert engine.weighted_coverage([leasing, financ, vehiculo], {"leasin"}, {"financ"}, weights) == pytest.approx(1.5 / 2.25)
+    assert engine.weighted_coverage([leasing, financ, vehiculo], {"leasin"}, set()) == pytest.approx(1 / 3)
+
+
+def test_una_entidad_con_calificativos_desconocidos_se_responde_con_confianza_baja(bancos, everyone):
+    """El catálogo no guarda valores (F1): no puede conocer "de vehículos". Muestra la tabla, sin presumir."""
+    env = bancos.run("¿Dónde están los arrendamientos financieros de vehículos?", everyone, client="api")
+    top = env.discovery.candidates[0]
+    assert top.asset_key in ("BancaLeasing.dbo.ContratosLeasing", "BancaLeasing.dbo.vw_CarteraLeasing")
+    assert all(c.kind != "column" for c in env.discovery.candidates)
+    assert top.confidence < 0.6 and env.discovery.knowledge_gap  # se ofrece preguntar al responsable
+
+
+def test_lo_que_el_banco_no_tiene_nunca_sale_como_respuesta_segura(bancos, everyone):
+    """"Tarjetas de regalo": hay tarjetas, pero no de regalo. El catálogo no distingue ese caso del anterior, así que
+    una respuesta que descontó calificativos queda siempre bajo el umbral de brecha, con la confirmación que tenga."""
+    env = bancos.run("¿Dónde están las tarjetas de regalo?", everyone, client="api")
+    assert env.discovery.knowledge_gap and all(c.confidence < 0.6 for c in env.discovery.candidates)
+    settings = bancos.deps.settings.discovery
+    confirmed = engine.Draft("X.dbo.T", "table", relevance=1.0, retrieval_norm=1.0, description_source="human",
+                             golden_confirmation=1.0, sources={"catalog", "golden", "data_dictionary"})
+    assert engine.compute_confidence(confirmed, settings) == 1.0
+    confirmed.unknown_qualifiers = True
+    assert engine.compute_confidence(confirmed, settings) < settings.gap_threshold
+
+
+def test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte():
+    """Medición reproducible que sustituye a la del set de 25 preguntas que no estaba versionado: las mismas preguntas
+    normativas, de tablero y de estudio, con el catálogo solo y con un glosario y un manual de indicadores."""
+    cases = load_cases(BANCOS / "eval" / "reportes.yaml")
+    assert len(cases) == 25
+    alone = evaluate(build_service(BANCOS), cases).metrics
+    informed = evaluate(build_service_with_knowledge(BANCOS, BANCOS / "eval" / "conocimiento"), cases).metrics
+    assert alone["hit@1"] <= 20.0 and informed["hit@1"] >= 55.0  # medido el 2026-11-17: 16 % → 60 %
+    assert informed["leaks"] == 0 and informed["invented"] == 0
+    # El catálogo de la línea base sigue crudo: el glosario solo entra cuando se pide.
+    assert build_service(BANCOS).deps.knowledge.items == []
+
+
+def test_la_cli_mide_con_y_sin_conocimiento(capsys):
+    from converdata import cli
+
+    base = ["eval", "discovery", "--root", str(BANCOS), "--cases", str(BANCOS / "eval" / "reportes.yaml")]
+    assert cli.main(base) == 0
+    alone = capsys.readouterr().out
+    assert cli.main([*base, "--knowledge", str(BANCOS / "eval" / "conocimiento")]) == 0
+    informed = capsys.readouterr().out
+    assert "Casos: 25 · Hit@1 16.0 %" in alone and "Casos: 25 · Hit@1 60.0 %" in informed
+    with pytest.raises(SystemExit, match="--knowledge"):
+        cli.main([*base, "--knowledge", str(BANCOS / "eval" / "conocimiento"), "--db"])
+
+
+def test_el_nombre_de_una_tabla_que_no_se_ve_no_mueve_la_confianza(bancos):
+    """F14: `Prestamos` tiene una llave foránea a `EjecutivosNegocio`. Quien no ve esa tabla no puede averiguar su
+    nombre probando palabras: "de negocio" pesa igual que cualquier otra palabra que el catálogo no conoce."""
+    catalog = bancos.deps.catalog
+    hidden = "BancaPrestamos.dbo.EjecutivosNegocio"
+    visible = frozenset(o.id for o in catalog.objects if o.database == "BancaPrestamos" and o.asset_key != hidden)
+    user = UserContext(user_id="sin_ejecutivos", visible_ids=visible)
+
+    def top(question):
+        candidate = bancos.run(question, user, client="api").discovery.candidates[0]
+        return candidate.asset_key, candidate.confidence
+
+    assert top("¿Dónde están los préstamos de negocio?") == top("¿Dónde están los préstamos de zanahorias?")
+    everyone = user_with_databases(bancos, "todo", None)
+    seen = bancos.run("¿Dónde están los préstamos de negocio?", everyone, client="api").discovery.candidates[0]
+    assert seen.confidence > top("¿Dónde están los préstamos de negocio?")[1]  # a quien sí la ve, sí le cuenta

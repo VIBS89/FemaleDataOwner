@@ -1,8 +1,8 @@
 # Línea base de `converdata eval gate`: resultado aceptado de la última medición. La compuerta falla si un
 # indicador baja de aquí. Se regenera con `converdata eval gate --root <dir> --write-baseline` tras revisar la mejora.
-measured_at: '2026-11-15'
-cases: 25
-hit1: 100.0
-hit3: 100.0
+measured_at: '2026-11-17'
+cases: 31
+hit1: 96.2
+hit3: 96.2
 by_type:
-  A: 100.0
+  A: 96.8

@@ -27,9 +27,30 @@ sobre la BD `ConverData` en SQL Server 2016 o posterior, con 10–15 usuarios re
 | Database Mail | Webhook de Teams | HU-18, HU-24, HU-30 |
 
 ### Estado al 2026-11-17
-**420 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella pasan 339 y se omiten las 81
-de SQL Server) y compuerta `converdata eval gate` aprobada en los dos catálogos de prueba, también con el catálogo cargado desde la BD (modo
-determinista). El 2026-11-17 se cerró el bloque C2 del plan: curación e inventario en la BD.
+**449 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella
+las de SQL Server se omiten) y compuerta `converdata eval gate` aprobada en los dos catálogos de prueba, también con el catálogo cargado desde la BD
+(modo determinista; `eval gate --db --root tests/fixtures/bancos` repetido con el set de 58 casos). El
+2026-11-17 se cerró el bloque C2 del plan: curación e inventario en la BD.
+
+Segunda tanda del 2026-11-17 (deudas técnicas; detalle en el [plan de desarrollo §3](../PLAN-desarrollo.md#3-próximos-pasos-en-orden)):
+- **Descubrimiento**: resueltos los dos fallos de orden de BancosSQL (B4 y C2). Los sets crecieron a 58 casos (BancosSQL) y 31
+  (VBank): Hit@1 y Hit@3 98,0 % y 96,2 %, con un fallo en cada uno (B14 y eng-06). Las líneas base se regeneraron.
+- **Preguntas de reporte**: set de 25 versionado (`tests/fixtures/bancos/eval/reportes.yaml`) y medido con y sin un glosario de
+  prueba (`eval discovery --knowledge`): Hit@1 16 % → 60 %. Ver el bloque **Estado** de HU-33.
+- **Cadena de suministro**: dependencias de Python con versión y hash (`requirements/*.lock`, también las herramientas de análisis
+  en `tools.lock`), instaladas con `--require-hashes --only-binary :all:`; imágenes base por digest; huella fijada de la clave del
+  repositorio de Microsoft; acciones por commit; y `pip-audit`, `npm audit` y SBOM en la CI, en cada push y PR y cada lunes.
+  Next.js se actualizó de 15.5.4 a 15.5.29 por vulnerabilidades reales. Queda construir la imagen (no se pudo ese día), fijar las
+  versiones de `msodbcsql18` y `unixodbc`, firmar y analizar la imagen, y el bloqueo de Python se actualiza a mano
+  ([calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)).
+- **Literales marcados**: prueba de punta a punta con 100 preguntas y 10 formas de literal (`api/tests/test_marked_literals.py`),
+  en archivos y en SQL Server real. Cierra el criterio 4 de HU-06 en lo que cubre (no el cliente MCP, `/discover/stream`, el Visor
+  de eventos, el `TEMP` de las gMSA, IIS ni los volcados de memoria: HU-37).
+- **Revisión de seguridad de la tanda**: la regla de literales pasó de una lista de formatos a "toda palabra con algún dígito o
+  con arroba, salvo el vocabulario del banco" (F24, OP-02), porque formas realistas (`ACME090`, dígitos en superíndice, guion
+  final, raya) llegaban a la plantilla y al texto original; y el nombre de una tabla referenciada por llave foránea ya solo
+  cuenta como término de un activo si el usuario también la ve (F22). Deudas anotadas en calidad bancaria §5: estadísticas BM25
+  globales y plantilla compartida entre preguntas que solo difieren en un código que el glosario no tiene.
 
 | Estado | Historias |
 |---|---|
@@ -53,7 +74,7 @@ El detalle de cada una está en su bloque **Estado** de la §4. Los pendientes d
 | **O5** | Toda pregunta queda auditada en SQL Server y el servicio es observable sin contenido | CA 1–5 de OP-05 y CA 1, 3, 4 y 5 de F11 en verde; test de logs con 0 preguntas, SQL o filas | El modelo de F11 ya está en el DDL | RF-53; base de las métricas de F25 | 2027-01-08 ⚠️ S2 | OP-05, F11, F17 |
 | **O6** | El conocimiento del dominio clientes / onboarding digital está ingerido con PII redactada | CA 1–5 de F23 y CA 7 de OP-02; CA 3 de OP-06 (0 DUI ni cuentas de prueba en `knowledge`) | Presidio y los conectores son piezas acotadas; el dominio piloto es pequeño | RF-22, RF-23, RF-25; sin ellos la confianza depende de texto IA (tope 0.6) | Semana 3 del piloto (2027-02-26) ⚠️ S2, S6 | F23, OP-02, OP-06 |
 | **O7** | El conocimiento de los expertos se captura desde el uso | CA 1–5 de F24 y CA 6–7 de OP-04 en verde | El ciclo ✔/✖ y `golden_discovery` ya tienen tablas | RF-30 a RF-33; objetivo de negocio −30 % consultas a expertos | 2027-01-22 ⚠️ S2 | F24, OP-04 |
-| **O8** | Calidad del descubrimiento lista para el piloto con el LLM real | En un set de 50–80 preguntas reales: Hit@3 ≥ 85 %, Hit@1 ≥ 65 %, calibración ≥ 85 %, 0 inventados, p50 < 5 s y p95 < 10 s con Bedrock; compuerta `eval gate` aprobada con `--models` | Hoy: Hit@1 y Hit@3 93,1 % en 31 casos escritos por el equipo, sin LLM; faltan las preguntas reales y Bedrock | D1, D2 y D5 de OP-01 | Inicio del piloto (2027-02-08) ⚠️ S2, S7 | F22, F25, OP-01 |
+| **O8** | Calidad del descubrimiento lista para el piloto con el LLM real | En un set de 50–80 preguntas reales: Hit@3 ≥ 85 %, Hit@1 ≥ 65 %, calibración ≥ 85 %, 0 inventados, p50 < 5 s y p95 < 10 s con Bedrock; compuerta `eval gate` aprobada con `--models` | Hoy (2026-11-17): Hit@1 y Hit@3 98,0 % en 58 casos de BancosSQL y 96,2 % en 31 de VBank, todos escritos por el equipo y sin LLM; faltan las preguntas reales y Bedrock | D1, D2 y D5 de OP-01 | Inicio del piloto (2027-02-08) ⚠️ S2, S7 | F22, F25, OP-01 |
 | **O9** | Instalación y operación reproducibles en Windows Server | Instalación desde cero en un servidor limpio con los scripts de OP-07 en ≤ 1 día laboral ⚠️ S8; restauración de la BD `ConverData` probada; un proceso caído se reinicia solo (OP-04 CA5) | Todo es stack Microsoft que el equipo ya opera | Sin esto no hay entorno de piloto ni camino a producción on-premise | 2027-02-05 ⚠️ S2 | OP-01, OP-07 |
 | **O10** | Piloto de 8 semanas ejecutado y decisión de escalar tomada | Línea base firmada antes de empezar; informe con D1–D7 de OP-01 y las 4 métricas de negocio de F25 | Plan de 8 semanas ya definido en F25 | Es la hipótesis central de OP-01 | Línea base: 2027-02-05 · Decisión: 2027-04-09 ⚠️ S2, S9 | OP-01, F25 |
 
@@ -225,13 +246,17 @@ piloto con scripts revisables.
 > `delete_rule`, `upsert_golden`), cada una con su autor y en el historial temporal. El historial se ve en la vista Curación y en la
 > ficha del activo (`GET /curation/history`, botón "Historial"), con cada cambio atribuido a quien escribió la descripción
 > (`test_el_historial_atribuye_la_descripcion_a_quien_la_escribio_no_a_quien_toco_la_fila`). `knowledge.golden_discovery` guarda
-> una plantilla anónima (sin números sueltos, correos ni identificadores alfanuméricos) y el original va a
-> `golden.golden_discovery_original` solo si la pregunta no traía ningún literal ni parece llevar datos personales. Pruebas:
+> una plantilla anónima (sin ninguna palabra con un dígito o una arroba, salvo nombres del catálogo y códigos del glosario; regla
+> endurecida tras la revisión de seguridad del 2026-11-17) y el original va a
+> `golden.golden_discovery_original` solo si la pregunta no tiene ningún literal con esa regla ni dispara `find_pii`. Pruebas:
 > `tests/test_catalog_repository.py`, `tests/test_curation.py`, `tests/test_catalog_refresh.py` (incluye `catalog build --db` por la
-> CLI) y `api/tests/test_catalog_db.py`. Salvedades: del criterio 4 hay pruebas con un documento y una cuenta marcados en una
-> confirmación (`test_la_confirmacion_guarda_una_plantilla_sin_literales`,
-> `test_un_identificador_alfanumerico_tampoco_llega_a_la_plantilla`) y la de columnas de valores en `catalog` y `knowledge`, no una que
-> recorra todas las tablas; la plantilla no detecta nombres de personas ni texto entre comillas
+> CLI) y `api/tests/test_catalog_db.py`. El criterio 4 lo cubre desde la segunda tanda del 2026-11-17
+> `api/tests/test_marked_literals.py`: 100 preguntas con 100 literales distintos en 10 formas, votadas y en parte escaladas y
+> respondidas, y después una búsqueda del literal (también transformado) en toda columna de toda tabla que no sea número, fecha,
+> bit o `uniqueidentifier` (historial incluido), en el índice en memoria y
+> en el disco del servidor; solo aparece en `audit.audit_question.question`, `curation.request.question` y `curation.request.note`.
+> Salvedades: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido
+> por espacios
 > ([calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)); no se ha probado en SQL Server 2016 ni en la CI.
 
 #### HU-07 · Grafo del patrimonio en tablas de grafo — retirada
@@ -521,6 +546,10 @@ responsables y confianza **para** entender un dato sin depender de TI.
 > **Estado (2026-10-27):** hecho en `ConverData-API` (`CONVERDATA_LOG_DIR`, `CONVERDATA_EVENT_LOG`): un evento `http.request` por petición con ruta,
 > método, estado y duración (lista blanca D5), archivo JSON rotado y Visor de eventos en Windows. Test: `test_logs_json_sin_contenido`. Falta comprobar los logs
 > de IIS y el origen `ConverData` en un servidor Windows real (HU-37).
+>
+> **Nota (2026-11-17, segunda tanda):** `api/tests/test_marked_literals.py` busca además 100 literales marcados en el directorio de
+> logs de la API tras 100 preguntas, votos y dudas escaladas: 0 coincidencias. El Visor de eventos (`event_log` va apagado en la
+> prueba) y los logs de IIS siguen sin comprobar.
 
 #### HU-22 · Contadores en `/health/metrics`
 **Como** administrador de Plataformas **quiero** peticiones, latencia p50/p95, errores y tokens en `/health/metrics` **para** integrarlos en
@@ -564,7 +593,7 @@ regresiones sin acordarme de lanzarlas.
 - **Dado** una evaluación semanal por debajo de la línea base, **cuando** termina, **entonces** `converdata eval gate` sale con código ≠ 0 y el
   webhook de Teams avisa.
 
-> **Estado (2026-11-16):** la regresión ya la detecta `converdata eval gate` contra `eval/baseline.yaml` (código ≠ 0) y corre en la CI. La
+> **Estado (2026-11-16):** la regresión ya la detecta `converdata eval gate` contra `eval/baseline.yaml` (código ≠ 0; líneas base regeneradas el 2026-11-17 con los sets de 58 y 31 casos) y corre en la CI. La
 > purga existe (`audit.usp_purge`, `converdata audit purge`, rol `converdata_maintenance`, mínimo 180 días, deja el evento `audit_purged`).
 > Faltan las tareas programadas y el aviso por webhook (HU-37).
 
@@ -655,9 +684,9 @@ regresiones sin acordarme de lanzarlas.
 > más dan el bonus, con 0 o menos la pareja se retira, y un solo "✖" ya no retira lo que confirmaron varios; si ya la confirmó un
 > responsable, los usuarios no cambian su decisión. El voto del responsable reindexa antes de responder y rige en la siguiente
 > búsqueda (`test_el_voto_del_responsable_rige_en_la_siguiente_busqueda`); el de un usuario, en segundo plano. La plantilla es
-> anónima (`question_template`: sin números sueltos, correos ni identificadores alfanuméricos; también se quitan los umbrales de
-> negocio) y el original va a `golden.golden_discovery_original` solo si la pregunta no traía ningún literal ni parece llevar datos
-> personales (criterio 3). Cada voto escribe una sola fila.
+> anónima (`question_template`: sin ninguna palabra con un dígito o una arroba, salvo nombres del catálogo y códigos del glosario; también se quitan los umbrales de
+> negocio, y dos preguntas que solo difieren en un código que el glosario no tiene comparten confirmación) y el original va a
+> `golden.golden_discovery_original` solo si la pregunta no tiene ningún literal con esa regla ni dispara `find_pii` (criterio 3). Cada voto escribe una sola fila.
 > Pruebas: `tests/test_curation.py`, `api/tests/test_catalog_db.py`. Salvedades: la plantilla no detecta nombres de personas ni texto
 > entre comillas; tras cada voto se recarga todo el índice
 > ([calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)).
@@ -735,6 +764,19 @@ medir la calidad sin el sesgo del set del equipo de desarrollo.
 > BancosSQL) los escribió el equipo de desarrollo. Existe además una medición con 25 preguntas normativas, de tablero y de estudio
 > citada en el diagrama on-premise (4 % solo con catálogo, 40 % con fuentes de conocimiento) cuyo set no está en el repo: hay que
 > versionarlo o repetirla.
+>
+> **Estado (2026-11-17, segunda tanda):** sigue pendiente; nada de lo siguiente sustituye a las preguntas reales. Los sets del equipo
+> crecieron a 89 casos (58 de BancosSQL y 31 de VBank) con casos de entidad con calificativos desconocidos, de cruce, de plurales
+> que piden una columna, de "cada uno de" y de brechas donde la entidad existe pero lo pedido no; parte los propuso un evaluador
+> independiente tras encontrar tres clases de pregunta que una primera versión del cambio de orden empeoraba. Resultado: 98,0 % y
+> 96,2 % de Hit@1 y Hit@3, con los fallos B14 y eng-06 (una entidad con un calificativo que conoce otra tabla: sin candidatos).
+> La medición de las 25 preguntas de reporte ya está en el repo y se repitió: `tests/fixtures/bancos/eval/reportes.yaml` (9
+> normativas, 8 de tablero, 8 de estudio) con un glosario y manual de indicadores de prueba de 20 entradas
+> (`eval/conocimiento/items/glosario.yaml`, cargado con `converdata eval discovery --knowledge`). Hit@1 16 % solo con catálogo →
+> 60 % con conocimiento (Hit@3 16 % → 64 %; normativas 0 → 66,7 %, tablero 25 → 75 %, estudio 25 → 37,5 %). Sustituye a la cifra
+> "4 % → 40 %", que ya no se usa. **Aviso:** las preguntas y el glosario los escribió el equipo (primero las preguntas, después el
+> glosario); el resultado muestra el sentido del efecto, no predice el acierto con documentos y preguntas reales. Prueba:
+> `tests/test_graph_rag.py::test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte`.
 
 #### HU-34 · Medir y ajustar el canal semántico
 **Como** desarrollador **quiero** medir el impacto de los embeddings en las 4 combinaciones del plan de desarrollo **para** subir el tipo B
@@ -755,6 +797,11 @@ medir la calidad sin el sesgo del set del equipo de desarrollo.
 > **Nota (2026-11-17):** el canal de embeddings usado en esta medición se retiró del código (rol `embed`, `--embeddings-only`,
 > `config/models.embed.yaml`). El resultado sigue valiendo, pero la medición ya no se puede repetir con este código, solo desde el
 > historial de git.
+>
+> **Nota (2026-11-17, segunda tanda):** los fallos de orden B4 y C2 se resolvieron sin cobertura semántica, con reglas deterministas
+> (preguntas de cruce y por una entidad, calificativos desconocidos, literales; F22). El 93,1 % de esta historia es la medición
+> histórica con 31 casos; la línea base vigente es 98,0 % con 58 casos
+> ([PLAN-desarrollo §2](../PLAN-desarrollo.md#2-resultados-medidos)).
 
 #### HU-35 · Bedrock probado de punta a punta
 **Como** desarrollador **quiero** probar el modelo del piloto (intención y orden) contra Bedrock por el proxy corporativo **para**
@@ -787,6 +834,9 @@ que no revela objetos fuera de la visibilidad ni inventa activos.
 >
 > **Estado (2026-11-16):** la compuerta añade la suite `inyeccion` (25 inyecciones que nombran un activo oculto real) y `guardas` (un LLM
 > simulado y hostil). Guardrails pasó a ser decisión de Seguridad (PRD §13, decisión 13).
+>
+> **Nota (2026-11-17, segunda tanda):** la suite `permisos` de la compuerta recorre ahora los sets ampliados (58 y 31 casos): 0 fugas
+> en 1 065 preguntas × usuario y 4 862 llamadas a herramientas. La batería de inyección no cambió.
 
 ---
 
@@ -808,6 +858,11 @@ el `web.config`, el certificado, el firewall y las tareas programadas **para** m
 - **Dado** la instalación, **cuando** termina, **entonces** `CONVERDATA_ENV` queda fijado en `qa` o `prod` (sin él no se exige ningún ajuste seguro).
 
 > **Estado (2026-11-16):** pendiente. Hoy el despliegue de desarrollo es `docker compose`; no hay `deploy/windows/`.
+>
+> **Nota (2026-11-17, segunda tanda):** lo que los scripts instalen ya tiene de dónde salir fijado: `requirements/runtime.lock` y
+> `build.lock` (versión y hash de cada dependencia de Python, `pip install --require-hashes --only-binary :all:`) y `web/package-lock.json` (`npm ci`).
+> La imagen de desarrollo usa los mismos bloqueos, con la imagen base por digest; no se pudo construir ese día (Docker no estaba en
+> marcha). Quedan para esta historia la búsqueda del literal marcado en `TEMP` de las gMSA y en las carpetas de IIS (OP-06 CA4).
 
 #### HU-38 · Secretos de servicio sin contraseñas en claro
 **Como** responsable de Seguridad de la Información **quiero** el login de metadatos con DPAPI y Bedrock con IAM Roles Anywhere **para** no

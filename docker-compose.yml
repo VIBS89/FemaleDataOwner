@@ -12,7 +12,8 @@ services:
       context: .
       dockerfile: api/Dockerfile
       args:
-        EXTRAS: ${CONVERDATA_EXTRAS:-api}  # api,nim | api,bedrock | api,ollama para el gateway de LLM
+        # runtime.lock: API, MCP, SQL Server y Bedrock. Para NVIDIA NIM u Ollama (desarrollo): requirements/dev.lock
+        REQUIREMENTS: ${CONVERDATA_REQUIREMENTS:-requirements/runtime.lock}
     environment:
       CONVERDATA_DATA_ROOT: /app/data/catalog
       CONVERDATA_INVENTORY: /app/data/inventory.yaml

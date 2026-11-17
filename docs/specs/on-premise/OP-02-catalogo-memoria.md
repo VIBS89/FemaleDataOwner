@@ -53,16 +53,24 @@ Siguen siendo archivos de configuración, no estado: los ajustes del descubrimie
 `CONVERDATA_DATA_ROOT/config/`) y `config/models.yaml`. `curation.user_directory` no existe (HU-13).
 
 **Confirmaciones y datos personales.** `knowledge.golden_discovery.template` es una **plantilla anónima**
-(`converdata.curation.question_template`): la pregunta normalizada (minúsculas, sin tildes ni puntuación) y sin números sueltos
-(documentos, teléfonos, fechas, montos), correos ni identificadores alfanuméricos con 5 o más dígitos (pasaporte, cuenta, IBAN). Los
-dígitos pegados a letras en nombres cortos se conservan (`T24`, `F14`). Dos preguntas que solo difieren en el literal son la misma
-confirmación. Decisión (2026-11-17): se quitan todos los números sueltos, también los umbrales de negocio; "mora mayor a 90 días" y
+(`converdata.curation.question_template`): la pregunta normalizada (minúsculas, sin tildes ni puntuación) y sin literales.
+Regla (`converdata.memory.text.strip_literals(question, known)`, endurecida tras la revisión de seguridad del 2026-11-17; ya no
+hay lista de formatos): tras normalizar con NFKC (los dígitos en superíndice, de ancho completo o en círculo cuentan como dígitos),
+**toda palabra con algún dígito o con arroba es un literal**, salvo que sea vocabulario conocido del banco: un nombre del catálogo
+con dígitos (`Catalog.names_with_digits`, p. ej. `Ultimos4`) o un código del conocimiento con letras y dígitos
+(`KnowledgeBase.codes`, p. ej. `NCB-022`, `BR-ONB-004`). El vocabulario de la plantilla es el del catálogo entero más los códigos
+del conocimiento (`AgentRuntime._vocabulary`); el descubrimiento usa la misma función con el vocabulario de lo que el usuario ve
+(F22). `T24` o `F14` salen de la plantilla si no son nombres del catálogo ni códigos del glosario (antes se conservaban), y
+`NCB-022` se conserva solo si el glosario del banco lo nombra. Dos preguntas que solo difieren en el literal son la misma
+confirmación; también las que solo difieren en un código que el banco no tiene en su glosario. Decisión (2026-11-17): se quitan
+todos los números, también los umbrales de negocio; "mora mayor a 90 días" y
 "mora mayor a 30 días" son la misma confirmación.
 - Si tras quitar los literales la pregunta aún parece llevar datos personales (detector de cinco patrones), el voto cuenta y se audita,
   pero no se guarda como confirmación.
 - El texto original va a `golden.golden_discovery_original` solo si la pregunta no traía ningún literal (`has_literals`) ni parece
   llevar datos personales; en otro caso queda únicamente en la auditoría. Los dos tienen la misma retención (OP-05).
-- **Limitación**: la plantilla no detecta nombres de personas ni texto entre comillas. Por eso se mantienen las otras barreras: el
+- **Limitación**: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código
+  partido por espacios (un IBAN escrito con espacios deja sus grupos de letras). Por eso se mantienen las otras barreras: el
   Builder no puede leer la tabla (rol `converdata_builder`) y no se exporta con `catalog export` (salvo `--with-questions`).
 
 Sin `CONVERDATA_DB` (desarrollo y modo demo) todo vive en archivos (`converdata.storage.files`): YAML bajo `CONVERDATA_DATA_ROOT`,
@@ -71,7 +79,7 @@ cadena de hashes en `data/audit/`.
 
 ## Búsqueda léxica en memoria (implementa la interfaz `VectorStore` de F2)
 Decisión (PRD §13, decisión 9): **BM25 en memoria como único canal de la fase 1a**.
-- **Motivo**: en la medición HU-34 (2026-10-29) el canal léxico solo dio Hit@1 93,1 % y Hit@3 93,1 %; añadir embeddings `bge-m3` no
+- **Motivo**: en la medición HU-34 (2026-10-29, set de 31 casos) el canal léxico solo dio Hit@1 93,1 % y Hit@3 93,1 %; añadir embeddings `bge-m3` no
   cambió ningún caso y subió el p95 de 73 ms a 4,6 s.
 - **Cómo funciona**: `ConverData-API` carga el catálogo y el conocimiento al arrancar en un índice léxico en memoria
   (`InMemoryVectorStore`, `src/converdata/memory/memory_store.py`) y lo recarga tras cada build, cada confirmación y cada cambio de curación.
@@ -110,9 +118,10 @@ Decisión (PRD §13, decisión 9): **BM25 en memoria como único canal de la fas
 
 Estado de los criterios (2026-11-17): 2 se cumple y el historial se ve en la vista Curación (`tests/test_catalog_repository.py`,
 `api/tests/test_catalog_db.py`); 3 y 8, con la suite `permisos` de `converdata eval gate`, también con el catálogo cargado de la BD
-(`eval gate --db`); 4 se cumple en la forma "el descubrimiento responde igual desde la BD que desde YAML" sobre los dos catálogos de
-prueba; 5 está cubierto para `catalog` y `knowledge` en cuanto a columnas de valores, y para `knowledge.golden_discovery` y
-`curation.vote` con un documento o una cuenta marcados en la pregunta (`test_la_confirmacion_guarda_una_plantilla_sin_literales`,
-`test_un_identificador_alfanumerico_tampoco_llega_a_la_plantilla`), con la limitación
-de los nombres de personas descrita arriba; no hay una prueba de literales marcados que recorra todas las tablas; 1 usa BancosSQL en
-vez de AdventureWorks; 6 depende de HU-37 y 7 de HU-26.
+(`eval gate --db`, repetido el 2026-11-17 con el set de 58 casos de BancosSQL: 0 fugas en 737 preguntas × usuario y 4 309 llamadas); 4 se cumple en la forma "el descubrimiento responde igual desde la BD que desde YAML" sobre los dos catálogos de
+prueba; 5 se cumple desde la segunda tanda del 2026-11-17 con `api/tests/test_marked_literals.py`: tras 100 preguntas con 100
+literales distintos en 10 formas (también en `history`), votadas y en parte escaladas y respondidas, busca el literal, también
+transformado (minúsculas, NFKC, recortado a los 6 caracteres del stemmer), en toda columna de toda tabla que no sea número, fecha,
+bit o `uniqueidentifier`, convertida a texto (historial incluido), y solo lo encuentra en `audit.audit_question.question`, `curation.request.question` y `curation.request.note`
+(necesita `CONVERDATA_TEST_DB`, así que no corre en la CI), con la limitación de los nombres de personas descrita arriba; 1 usa
+BancosSQL en vez de AdventureWorks; 6 depende de HU-37 y 7 de HU-26.

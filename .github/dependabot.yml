@@ -1,0 +1,16 @@
+# Mantiene al día lo que está fijado: imágenes por digest, acciones por commit y dependencias de la web.
+# Los bloqueos de Python (requirements/*.lock) se regeneran a mano: requirements/README.md.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directories: ["/api", "/web"]
+    schedule: {interval: weekly}
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: {interval: weekly}
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule: {interval: weekly}
+    groups:
+      web:
+        update-types: [minor, patch]

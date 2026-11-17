@@ -72,7 +72,7 @@ def test_la_cli_escribe_la_evidencia_y_sale_con_cero(tmp_path, capsys):
 # --- y falla cuando debe -------------------------------------------------------------------------------
 def test_calidad_falla_si_baja_de_la_linea_base_o_del_umbral(cases):
     service = build_service(VBANK)
-    strict = gate.Baseline(measured_at="2026-01-01", hit1=100.0, hit3=100.0, by_type={"A": 100.0})
+    strict = gate.load_baseline(VBANK)  # la medición aceptada: el producto actual la iguala
     assert failed_checks(run(service, cases, "calidad", baseline=strict)) == set()
     service.deps.settings.discovery.min_relevance = 0.99  # degradar el producto: casi nada supera el corte
     service.rebuild()

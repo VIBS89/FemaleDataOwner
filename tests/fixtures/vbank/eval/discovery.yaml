@@ -27,8 +27,14 @@ cases:
   - {id: eng-02, question: "¿Dónde están los consentimientos aceptados por el cliente?", expected: [VBank_ING.dbo.CustomerConsents, VBank_ING.dbo.CustomerConsents.AcceptedAt]}
   - {id: eng-03, question: "¿Qué tipo de consentimiento firmó el usuario?", expected: [VBank_ING.dbo.CustomerConsents.ConsentType]}
   - {id: eng-04, question: "¿En qué fecha aceptó el cliente el consentimiento?", expected: [VBank_ING.dbo.CustomerConsents.AcceptedAt]}
+  - {id: eng-05, question: "¿Dónde están las solicitudes de onboarding rechazadas?", expected: [Onboarding.dbo.Solicitud, Onboarding.dbo.Solicitud.Estado]}
+  - {id: eng-06, question: "¿Dónde están los dispositivos iOS de clientes premium?", expected: [VBank_ING.dbo.UserDevices]}
+  - {id: eng-07, question: "¿Dónde están los usuarios bloqueados por fraude?", expected: [VBank_ING.dbo.Users]}
+  - {id: eng-08, question: "¿Cómo relaciono los consentimientos con los usuarios?", expected: [VBank_ING.dbo.CustomerConsents, VBank_ING.dbo.Users]}
+  - {id: eng-09, question: "¿Dónde están los códigos de cliente del onboarding?", expected: [VBank_ING.dbo.Users.ClientCode]}
   # Sin respuesta disponible (brecha) y permisos
   - {id: gap-01, question: "¿Dónde está el salario de los empleados?", expect_gap: true, forbidden: [RRHH, Salario, Empleado]}
   - {id: gap-02, question: "Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital.", databases: [RRHH], expect_gap: true, forbidden: [VBank_ING, Onboarding, DWH, ClientCode]}
   - {id: gap-03, question: "¿Dónde está el saldo de las cuentas de ahorro?", expect_gap: true}
   - {id: gap-04, question: "¿Dónde está la tasa de interés de los préstamos?", expect_gap: true}
+  - {id: gap-05, question: "¿Dónde están las pólizas de seguro vencidas?", expect_gap: true}

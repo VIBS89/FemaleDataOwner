@@ -40,6 +40,13 @@ class IntentResult(BaseModel):
 - `data_query` y `procedure` (piden cifras o filas) se enrutan al AskFlow (F4–F10). Si el despliegue no tiene habilitado el AskFlow
   (`features.ask_flow: false`, fase 1 del piloto), se responden como `discovery` y se indica qué tabla o SP usar.
 - Ante la duda entre `discovery` y `data_query`, gana `discovery` (no ejecuta nada y es más barato).
+- **`asset_kind_hint`** (actualizado el 2026-11-17). Sin LLM lo fija el clasificador por reglas
+  (`discovery/deterministic.py: _kind_hint`), en este orden: `table` para exploración, cifras, preguntas que nombran "tabla" y
+  preguntas de ETL; `column` si se pregunta "¿qué / cuál campo, columna o llave…?" (`_ASKS_FIELD`); `table` para las preguntas de
+  cruce "¿cómo relaciono / cruzo / uno A con B?" (`_JOIN`; "cada uno de" no es un cruce); después `indicator` y `rule`. Si la
+  intención (con o sin LLM) no trae tipo y el intent es `discovery`, el nodo `intent` del DiscoverFlow lo completa con el catálogo
+  (`engine.entity_kind_hint`): un plural que nombra una tabla o vista visible para el usuario pide `table` (F22, §Qué tipo de
+  activo se pide).
 - Con `confidence < 0.6` o el intent `ambiguous`, el flow termina con `status=needs_clarification` y hasta cuatro opciones concretas.
 - `out_of_scope` cubre saludos, preguntas generales o peticiones de escritura no permitidas. Devuelve una respuesta educada sin ejecutar nada.
 

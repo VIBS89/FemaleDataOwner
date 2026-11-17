@@ -154,6 +154,11 @@ def build_discover_graph(deps: DiscoverDeps):
             result = result.model_copy(update={"intent": "discovery"})
         else:
             route = "discover"
+        if route == "discover" and result.asset_kind_hint is None:
+            # Lo que la pregunta no dice lo aclara el catálogo: un plural que nombra una tabla visible pide esa tabla.
+            hint = engine.entity_kind_hint(state["question"], result, deps.catalog, state["user"].visible_ids)
+            if hint:
+                result = result.model_copy(update={"asset_kind_hint": hint})
         return {"intent": result, "route": route, "assumptions": assumptions}, error
 
     # --- D: recuperación con plan de consultas ---------------------------------------------
@@ -162,6 +167,7 @@ def build_discover_graph(deps: DiscoverDeps):
         plan = state.get("plan") or plan_query(
             intent.rewritten_question or state["question"], intent.business_context,
             patterns().query_expansion, ds().variant_weight,
+            known=deps.catalog.names_with_digits(state["user"].visible_ids),
         )
         retrieval = engine.retrieve(
             state["question"], intent, state["user"], deps.store, deps.catalog, deps.knowledge, ds(), plan,

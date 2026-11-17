@@ -1,0 +1,143 @@
+# Glosario y manual de reportes de prueba para BancosSQL. Solo lo carga `converdata eval discovery --knowledge`:
+# el catálogo de `tests/fixtures/bancos` sigue crudo, sin fuentes de conocimiento (es la línea base).
+# Sin valores de datos ni ejemplos reales: cada entrada define un término y lo vincula a su activo (F23).
+- id: glo-cartera-vencida
+  kind: glossary
+  text: "Cartera vencida o en mora: préstamos con atraso en el pago; la Superintendencia pide separar la mora mayor a 90 días. Se mide con los días de mora de cada préstamo."
+  source: "Glosario_Riesgos.docx#cartera-vencida"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.Prestamos.DiasMora}]
+  reviewed: true
+- id: glo-categoria-riesgo
+  kind: glossary
+  text: "Categoría de riesgo: clasificación del deudor, de A1 a E, según la norma NCB-022 de la Superintendencia del Sistema Financiero."
+  source: "Glosario_Riesgos.docx#categoria-riesgo"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.Prestamos.CategoriaRiesgo}]
+  reviewed: true
+- id: glo-reservas-saneamiento
+  kind: glossary
+  text: "Reservas de saneamiento: provisión que se constituye sobre el saldo de capital de cada crédito según la categoría de riesgo del deudor."
+  source: "Glosario_Riesgos.docx#reservas"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.Prestamos.SaldoCapital}, {asset_key: BancaPrestamos.dbo.Prestamos.CategoriaRiesgo}]
+  reviewed: true
+- id: man-indice-morosidad
+  kind: document
+  text: "Índice de morosidad: saldo de la cartera vencida dividido entre el saldo total de la cartera de préstamos. Se publica por tipo de crédito y categoría."
+  source: "Manual_Indicadores.pdf#p4"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.vw_CarteraPorCategoria}]
+  reviewed: true
+- id: glo-operacion-efectivo
+  kind: glossary
+  text: "Operación en efectivo: depósito o retiro en ventanilla o cajero. Las que superan el umbral legal se reportan a la UIF por la ley contra el lavado de dinero."
+  source: "Politica_Cumplimiento.pdf#p12"
+  domain: cuentas_debito
+  linked_assets: [{asset_key: BancaCuentasDebito.dbo.MovimientosCuenta.Monto}]
+  reviewed: true
+- id: glo-relacion-cuota-ingreso
+  kind: glossary
+  text: "Relación cuota-ingreso o nivel de endeudamiento: parte del ingreso mensual del solicitante que se destina al pago de cuotas. La política de crédito fija su máximo."
+  source: "Politica_Credito.pdf#p7"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.SolicitudesCredito.RelacionCuotaIngreso}]
+  reviewed: true
+- id: glo-garantia-real
+  kind: glossary
+  text: "Garantía real: bien hipotecado o dado en prenda que respalda un crédito. Su valor es el del último avalúo."
+  source: "Glosario_Riesgos.docx#garantias"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.Garantias.ValorAvaluo}]
+  reviewed: true
+- id: glo-pan-enmascarado
+  kind: glossary
+  text: "PAN enmascarado: número de tarjeta que solo deja ver los primeros seis y los últimos cuatro dígitos, como exige PCI DSS. El número completo no se almacena."
+  source: "Politica_Seguridad_Tarjetas.pdf#p3"
+  domain: tarjetas_credito
+  linked_assets: [{asset_key: BancaTarjetasCredito.dbo.TarjetasCredito.PANEnmascarado}]
+  reviewed: true
+- id: man-tasa-aprobacion
+  kind: document
+  text: "Tasa de aprobación: solicitudes de crédito aprobadas entre solicitudes recibidas en el periodo."
+  source: "Manual_Indicadores.pdf#p9"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.SolicitudesCredito.Estado}]
+  reviewed: true
+- id: man-utilizacion-linea
+  kind: document
+  text: "Utilización de la línea: saldo actual de la tarjeta de crédito dividido entre su límite de crédito."
+  source: "Manual_Indicadores.pdf#p11"
+  domain: tarjetas_credito
+  linked_assets: [{asset_key: BancaTarjetasCredito.dbo.vw_CarteraTarjetas.PorcentajeUso}]
+  reviewed: true
+- id: glo-gestion-cobro
+  kind: glossary
+  text: "Gestión de cobro: contacto de cobranza con el cliente en mora y su resultado. Una promesa de pago registra la fecha y el monto comprometidos."
+  source: "Manual_Cobranza.docx#gestiones"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.GestionesCobro}]
+  reviewed: true
+- id: glo-billetera-digital
+  kind: glossary
+  text: "Billetera digital: aplicación del teléfono donde el cliente registra su tarjeta y recibe un token para pagar."
+  source: "Glosario_Canales.docx#billetera"
+  domain: tokenizacion
+  linked_assets: [{asset_key: BancaTokenizacion.dbo.vw_TokensPorWallet}]
+  reviewed: true
+- id: glo-colocacion
+  kind: glossary
+  text: "Colocación: monto de créditos desembolsados en un periodo."
+  source: "Manual_Indicadores.pdf#p2"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.Prestamos.MontoDesembolsado}]
+  reviewed: true
+- id: glo-cuenta-inactiva
+  kind: glossary
+  text: "Cuenta inactiva: cuenta de depósito sin movimientos del cliente en los últimos doce meses."
+  source: "Politica_Cuentas.pdf#p5"
+  domain: cuentas_debito
+  linked_assets: [{asset_key: BancaCuentasDebito.dbo.CuentasDeposito.FechaUltimoMovimiento}]
+  reviewed: true
+- id: glo-perfil-pago
+  kind: glossary
+  text: "Perfil de pago del tarjetahabiente: totalero si paga el saldo de corte, revolvente si paga entre el mínimo y el total, moroso si no llega al mínimo."
+  source: "Glosario_Tarjetas.docx#perfil-pago"
+  domain: tarjetas_credito
+  linked_assets: [{asset_key: BancaTarjetasCredito.dbo.TarjetasCredito.PerfilPago}]
+  reviewed: true
+- id: glo-rubro-comercio
+  kind: glossary
+  text: "Rubro del comercio: categoría del comercio afiliado según el código MCC que asigna la marca de la tarjeta."
+  source: "Glosario_Tarjetas.docx#mcc"
+  domain: tarjetas_credito
+  linked_assets: [{asset_key: BancaTarjetasCredito.dbo.Comercios.CategoriaMCC}]
+  reviewed: true
+- id: glo-score-buro
+  kind: glossary
+  text: "Score de buró: calificación de riesgo del solicitante que entrega el buró de crédito."
+  source: "Politica_Credito.pdf#p9"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.SolicitudesCredito.ScoreBuro}]
+  reviewed: true
+- id: glo-pago-sin-contacto
+  kind: glossary
+  text: "Pago sin contacto: pago que se hace acercando la tarjeta o el teléfono al terminal."
+  source: "Glosario_Canales.docx#contactless"
+  domain: cuentas_debito
+  linked_assets: [{asset_key: BancaCuentasDebito.dbo.TarjetasDebito.Contactless}]
+  reviewed: true
+- id: glo-segmento
+  kind: glossary
+  text: "Segmento: clasificación comercial del cliente que define su oferta y el ejecutivo que lo atiende."
+  source: "Glosario_Comercial.docx#segmento"
+  domain: prestamos
+  linked_assets: [{asset_key: BancaPrestamos.dbo.Clientes.Segmento}]
+  reviewed: true
+- id: glo-depositos-garantizados
+  kind: glossary
+  text: "Depósitos garantizados: saldos de cuentas de ahorro, corrientes y a plazo que cubre el Instituto de Garantía de Depósitos (IGD) hasta el límite legal."
+  source: "Politica_Cuentas.pdf#p8"
+  domain: cuentas_debito
+  linked_assets: [{asset_key: BancaCuentasDebito.dbo.CuentasDeposito.SaldoDisponible}]
+  reviewed: true

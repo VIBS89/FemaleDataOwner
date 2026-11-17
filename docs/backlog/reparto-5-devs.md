@@ -1,93 +1,118 @@
-# Reparto del backlog on-premise entre 5 desarrolladores
+# Reparto del trabajo pendiente entre 5 desarrolladores
 
-> 2026-10-27. Parte del [backlog on-premise](on-premise.md) (42 historias, 194 puntos) y del [orden de desarrollo](../PLAN-desarrollo.md#3-próximos-pasos-en-orden).
+> Actualizado el 2026-11-17. Sustituye al reparto del 2026-10-27, que era anterior a la arquitectura simplificada
+> ([PRD §13](../PRD.md#13-decisiones-y-preguntas-abiertas), decisiones 9–16) y repartía historias que ya están hechas.
+> Parte del estado del [backlog on-premise §1](on-premise.md#estado-al-2026-11-17) y del orden del
+> [plan de desarrollo §3](../PLAN-desarrollo.md#3-próximos-pasos-en-orden).
 >
-> **Aviso (2026-11-16):** este reparto es anterior a la arquitectura simplificada ([PRD §13](../PRD.md#13-decisiones-y-preguntas-abiertas), decisiones 9–16). Los carriles y
-> la regla de dueños por archivo siguen sirviendo, pero cambia el contenido: HU-04 y HU-05 ya no necesitan SQL Server 2025 ni
-> `SqlServerVectorStore`; HU-07 (tablas de grafo) se retiró; HU-17 es la web Next.js ya construida; HU-18 es una tarea programada, no un
-> servicio `ConverData-Builder`; las rutas quedan como en el código. El estado al día de cada historia está en el
-> [backlog §1](on-premise.md#estado-al-2026-11-16) y el orden vigente en su [§3](on-premise.md#3-plan-de-entregas).
-> Criterio: las historias que dependen una de otra las lleva **la misma persona**; los carriles se tocan entre sí solo por **interfaces ya existentes**
-> (puertos en `src/converdata/`), no por archivos compartidos.
+> Criterio, el mismo de antes: las historias que dependen una de otra las lleva **la misma persona**, y los carriles se tocan
+> entre sí solo por **interfaces ya existentes** (puertos en `src/converdata/`), no por archivos compartidos.
 
-## 1. Estado real de partida
-La demo (modo `CONVERDATA_DEMO=1`) ya recorre los 8 pasos del [guion](../demo-inversionistas.md) con **almacenamiento en archivos y memoria**
-(`api/converdata_api/`: vault, auditoría `FileAuditSink`, curación, feedback → golden YAML) y `/mcp` montado (HU-16, 154 tests en verde).
-Por eso muchas historias de E2, E3 y E6 no empiezan de cero: su trabajo pendiente es **llevarlas a SQL Server, a la identidad real y a producción**.
-Lo que no existe todavía: persistencia en la BD `ConverData` (E1), AD, ingesta de fuentes (E5), Bedrock probado, instalación y piloto.
+## 1. De dónde se parte
+Lo que el reparto anterior daba por pendiente y ya está hecho:
+
+| Entonces | Hoy |
+|---|---|
+| Persistencia en SQL Server (carril del Dev 1, camino crítico) | Hecha: con `CONVERDATA_DB` todo el estado vive en la BD `ConverData` (catálogo con historial, conocimiento, curación, inventario y auditoría); migraciones `001` y `002`; SQL Server 2016+, sin `VECTOR` ni tablas de grafo |
+| HU-07, grafo en tablas `NODE`/`EDGE` | Retirada: el grafo se arma en memoria |
+| HU-17, Chainlit | Sustituida por la web Next.js, ya construida |
+| HU-18, servicio `ConverData-Builder` | Es el comando `converdata catalog build --db`; falta programarlo como tarea |
+| HU-34, medir embeddings | Medido: no mejoran el acierto. El canal se retiró del código |
+| Auditoría, curación, feedback y golden en archivos | En la BD; los archivos quedan solo para desarrollo y el modo demo |
+| Rutas `/discover` frente a `/api/discover` | Cerrado: valen las del código (PRD §13, decisión 15) |
+| `VisibilityResolver`, `SqlServerVectorStore` | Eliminados |
+
+Lo que queda son 16 historias (76 puntos nominales; seis ya están a medias, así que el trabajo real es menor) y las deudas
+de [calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto). Siete historias no se pueden cerrar sin el
+banco o un tercero (⛔).
+
+| Estado | Historias |
+|---|---|
+| 🟡 A medias | HU-18 (falta la tarea programada), HU-23 (falta `converdata metrics report`), HU-24 (faltan las tareas), HU-25 (falta Excel), HU-32 (falta el reporte por dominio), HU-36 (falta repetirla con el LLM real) |
+| ⏳ Sin empezar, sin dependencias externas | HU-26, HU-37 (scripts), HU-39 |
+| ⛔ Dependen del banco o de terceros | HU-13 (LDAP), HU-27 (SSISDB y msdb), HU-33 (preguntas reales y steward), HU-35 (cuenta AWS), HU-38 (gMSA y certificados), HU-40, HU-41 |
 
 ## 2. Carriles
 
-| Dev | Carril | Historias | Puntos | Camino crítico |
-|---|---|---|---|---|
-| **1** | Persistencia en la BD `ConverData` | HU-04 → HU-05 → HU-06 → HU-09 → HU-07 → HU-08 → HU-39 | 36 | **Sí**: HU-05 desbloquea a 3 carriles |
-| **2** | Identidad, API y MCP (+ pantallas de login y chat) | HU-11 → HU-12 → HU-10 → HU-13, HU-14 → HU-15 → HU-16 (cierre) → HU-19 | 31 | HU-14 necesita HU-09 y HU-20 en producción |
-| **3** | Auditoría, observabilidad, instalación | HU-20 → HU-21 → HU-22 → HU-23 → HU-24, HU-01/02/03 (revisión), HU-37, HU-38 | 39 | HU-20 necesita HU-05; HU-37 va al final |
-| **4** | Curación, aprendizaje y piloto | HU-28 → HU-29 → HU-30 → HU-31 → HU-32, HU-33, HU-40, HU-41 | 32 | HU-31 necesita HU-06; HU-41 cierra todo |
-| **5** | Fuentes de conocimiento y calidad del agente | HU-34 → HU-35 → HU-36, HU-18 → HU-25 → HU-26 → HU-27 | 35 | HU-18/25/26 necesitan HU-06; HU-27 necesita HU-07 |
-
-Los puntos son aproximados: no cuentan HU-16 (casi hecha), HU-17 (pendiente de decisión), HU-41 (cierre compartido) ni HU-42 (hecha), así que no suman exactamente los 194 del backlog.
-
-### Dev 1 — Persistencia (dueño de `db/`, `memory/`, `catalog/store.py`, `bootstrap.py`)
-- **HU-04** DDL completo (`estate`, `semantic`), **HU-05** validación en SQL Server 2025 (`SqlServerVectorStore`), **HU-06** escribir el catálogo con historial,
-  **HU-09** arrancar el DiscoverFlow desde la BD, **HU-07** grafo en tablas `NODE`/`EDGE`, **HU-08** exportar a YAML, **HU-39** respaldo y restauración.
-- Es una cadena estricta (cada una depende de la anterior), por eso es de una sola persona.
-- **Bloqueo externo:** instancia de SQL Server 2025 de desarrollo (⚠️ S5). Sin ella, empezar por HU-04 y por pruebas contra Express.
-- **Entrega temprana:** publicar el puerto `CatalogStore` y una BD de desarrollo compartida en cuanto HU-05 pase; los demás carriles trabajan con los adaptadores de archivos hasta entonces.
-
-### Dev 2 — Identidad y API (dueño de `api/converdata_api/main.py`, `vault.py`, `connector.py`, `integration/mcp/`, `web/src/app/login`, `web/src/app/(app)/page.tsx`)
-- **HU-11/12/10**: custodia en `SessionVault`, conexiones con la credencial del usuario y login por servidor. La versión de demo ya existe; falta el login real de SQL Server y quitar `host.docker.internal` del camino de producción.
-- **HU-13** grupos y roles desde AD (⚠️ S10: acceso LDAP de solo lectura).
-- **HU-14/15** API REST y feedback. Decisión previa: rutas actuales (`/discover`) frente a las de OP-04 (`/api/discover`); el proxy de Next ya añade `/api`, así que lo más barato es documentar la equivalencia.
-- **HU-16** cierre del MCP: fijar `CONVERDATA_MCP_HOSTS` para IIS, límite de preguntas por minuto en `/mcp` y revisar el fallo de respuestas truncadas de `mcp 2.3.0` bajo uvicorn con el cliente Python (los tests en memoria pasan).
-- **HU-19** límite de tokens por usuario y día.
-- **Primer encargo, antes de cualquier ruta nueva:** partir `main.py` en `routers/` (uno por área). Es el archivo donde más chocarían los carriles 3, 4 y 5.
-- **HU-17 (Chainlit)**: ya existe el chat web en Next.js; decidir con el Product Owner si HU-17 se sustituye por él. Mi recomendación: sustituirla y reescribir los criterios de aceptación sobre `web/`.
-
-### Dev 3 — Auditoría, observabilidad e instalación (dueño de `audit/`, `observability/`, `scripts/`, `docs/specs/on-premise/OP-05,07`)
-- **HU-20** auditoría fail-closed en SQL Server. Hoy existe `FileAuditSink` y `audit/sqlserver.py`; programar contra el puerto actual y cambiar el adaptador cuando HU-05 esté.
-- **HU-21/22** logs JSON sin contenido y `/health/metrics`; **HU-23/24** scorecard, jobs de mantenimiento y regresión (HU-24 necesita el set de HU-33 del Dev 4).
-- **HU-01/02/03**: revisar y cerrar las specs hechas el 2026-10-27 (OP-07, parches de OP-03 a OP-06, modelo de procesos en IIS). Quien instala debe validarlas.
-- **HU-37/38** instalación en Windows Server y secretos de servicio; van al final porque dependen de HU-14, HU-18 y HU-35 (gMSA: ⚠️ S10).
-
-### Dev 4 — Curación, aprendizaje y piloto (dueño de `api/converdata_api/curation.py`, `web/src/app/(app)/curacion`, `solicitudes`, `metricas`)
-- **HU-28** reglas gestionadas, **HU-29** golden discovery, **HU-30** preguntar al responsable, **HU-31** vista Curación, **HU-32** brechas. La demo ya cubre HU-29 a HU-31 con archivos; falta persistirlas en la BD tras HU-06 y conectar la asignación de responsables a AD (HU-13).
-- **HU-30** necesita el canal de notificación (⚠️ S12; hoy hay webhook de Teams opcional).
-- **HU-33** set de evaluación con 50–80 preguntas reales (⚠️ S9: steward asignado). Es lo que hace creíbles las cifras de la demo; empezar ya, es trabajo de personas, no de código.
-- **HU-40/41** línea base firmada (⚠️ S13) e informe del piloto; HU-41 es el cierre de todo y lo coordina esta persona con el líder técnico.
-
-### Dev 5 — Fuentes de conocimiento y calidad del agente (dueño de `builder/`, `llm/`, `discovery/`, `evaluation/`, `knowledge/`)
-- **HU-34** medir embeddings (4 combinaciones del plan §3), **HU-35** Bedrock de punta a punta (⚠️ S4: cuenta AWS), **HU-36** batería de inyección de prompt. Es una cadena corta y no depende de nadie: arranca el día 1.
-- **HU-18** administración de ingesta en `ConverData-Builder` (necesita HU-03 y HU-06), luego **HU-25** diccionarios, **HU-26** documentos con redacción de PII (⚠️ S6: ubicación de los documentos) y **HU-27** linaje desde SSIS y SQL Agent (necesita HU-07 y acceso a `SSISDB` y `msdb`).
-- Regla del plan: todo cambio de lógica se acepta solo si mejora el set de evaluación sin bajar otros tipos ni crear fugas.
-
-## 3. Orden por sprint
-
-| Sprint | Dev 1 | Dev 2 | Dev 3 | Dev 4 | Dev 5 |
+| Dev | Carril | Historias | Puntos | Empieza hoy con | Espera a |
 |---|---|---|---|---|---|
-| **0** (2–3 días) | Acordar puertos (`CatalogStore`, `AuditSink`, `VisibilityResolver`, `SessionVault`) y pedir la instancia SQL Server 2025 | Partir `main.py` en `routers/` | Cerrar la revisión de HU-01/02/03 | Convocar al steward y fijar canal (S9, S12) | Instalar `bge-m3`, arrancar HU-34 |
-| **1** | HU-04, HU-05 | HU-11, HU-12, HU-10 | HU-21, HU-20 sobre el adaptador de archivos | HU-28, HU-29, empezar HU-33 | HU-34, HU-35 |
-| **2** | HU-06, HU-09 | HU-14, HU-15 (con HU-20 listo) | HU-20 sobre SQL Server, HU-22 | HU-30, HU-33 | HU-36, HU-18 |
-| **3** | HU-07, HU-08 | HU-13, HU-16 cierre, HU-19 | HU-23, HU-24 | HU-31, HU-32 | HU-25, HU-26 |
-| **4** | HU-39, apoyo a HU-27 | Soporte de pantallas | HU-37, HU-38 | HU-40, ensayo del piloto | HU-27 |
-| **5** | Estabilización | Estabilización | Estabilización | HU-41 piloto e informe | Ajustes de calidad |
+| **1** | Instalación y operación (bloque F) | HU-37, HU-18, HU-24, HU-39, HU-38 | 23 | Scripts de `deploy/windows/` y SQL Server en la CI | Windows Server del piloto, gMSA (⚠️ S10) |
+| **2** | Métricas y auditoría (bloque D) | HU-23, HU-32, HU-40 | 11 | `converdata metrics report` y vistas SQL | Gestor de requerimientos para la línea base (⚠️ S13) |
+| **3** | Fuentes de conocimiento (bloque E) | HU-25, HU-26, HU-27 | 21 | Excel y redacción de datos personales | Documentos del dominio, SSISDB y msdb (⚠️ S6) |
+| **4** | Calidad del agente y LLM (bloque G) | HU-35, HU-36, HU-33 | 11 | Deudas de orden del descubrimiento y recarga del índice | Cuenta AWS (⚠️ S4), steward (⚠️ S9) |
+| **5** | API, identidad y web | HU-13, y el piloto HU-41 con el líder técnico | 10 | Partir `main.py`, capas de la API, decisiones abiertas 7 a 9 | LDAP de solo lectura (⚠️ S10) |
+
+Los puntos son los nominales del backlog. Los carriles 2, 4 y 5 llevan menos historias porque cargan con las deudas
+técnicas, que no tienen puntos asignados.
+
+### Dev 1 — Instalación y operación (dueño de `deploy/`, `.github/`, `requirements/`, `db/converdata/`, `docs/specs/on-premise/OP-07`)
+- **HU-37** scripts PowerShell: IIS con HttpPlatformHandler para la web y la API, firewall, certificado y verificación. Hoy solo hay `docker compose`.
+- **HU-18** y **HU-24**: tareas programadas del refresco (`catalog build --db`, con `CONVERDATA_BUILDER_HOSTS`), de la purga (`audit purge`, rol `converdata_maintenance`) y de la evaluación semanal (`eval gate`).
+- **HU-39** respaldo y restauración de la BD `ConverData` en otra instancia, con el servicio arrancando contra ella.
+- **HU-38** login de metadatos y Bedrock sin claves de larga duración (⛔ gMSA, IAM Roles Anywhere).
+- Deudas suyas: SQL Server en la CI (las pruebas de BD hoy se omiten ahí), probar el DDL en la versión de la instancia del piloto (se probó en 2022, no en 2016), y mantener los bloqueos de dependencias y los digests de las imágenes ([`requirements/README.md`](../../requirements/README.md)).
+- Es el único que añade migraciones (`003_…`): quien necesite un cambio de esquema se lo pide.
+
+### Dev 2 — Métricas y auditoría (dueño de `audit/`, `observability/`, el reporte de métricas, `web/src/app/(app)/metricas`)
+- **HU-23** `converdata metrics report` y vistas SQL del scorecard sobre el esquema `audit`; **HU-32** brechas abiertas y cerradas por dominio.
+- **HU-40** línea base de las cuatro métricas de negocio, con la Gerencia de Datos (⛔ S13).
+- Deudas suyas: la fecha de un registro de auditoría la fija quien lo inserta (columna `recorded_at`, migración con el Dev 1); decidir con Seguridad qué lecturas se auditan además de las preguntas (PRD §13, pregunta 8); la alerta de auditoría en el monitoreo.
+
+### Dev 3 — Fuentes de conocimiento (dueño de `builder/`, `api/converdata_api/pii.py`, la ingesta de documentos, `knowledge/`)
+- **HU-25** diccionario en Excel (el CSV ya funciona y escribe en la BD).
+- **HU-26** documentos con redacción de datos personales (Presidio). El detector actual tiene cinco patrones y no reconoce nombres ni direcciones; de él depende también la plantilla de las confirmaciones.
+- **HU-27** linaje desde SSIS y SQL Server Agent (⛔ acceso a `SSISDB` y `msdb`).
+- La medición con el glosario de prueba (`tests/fixtures/bancos/eval/reportes.yaml`) da la referencia: 16 % solo con catálogo, 60 % con conocimiento. Repetirla con los documentos reales es parte de su entrega.
+
+### Dev 4 — Calidad del agente y LLM (dueño de `discovery/`, `flows/discover.py`, `llm/`, `evaluation/`, `tests/fixtures/*/eval/`)
+- **HU-35** Bedrock de punta a punta (⛔ cuenta AWS); **HU-36** repetir la compuerta con el modelo real, sobre todo `inyeccion` y `guardas`, y ampliarla con Seguridad (⚠️ S7).
+- **HU-33** set de 50–80 preguntas reales validadas por un experto (⛔ steward). Los 89 casos de hoy los escribió el equipo.
+- Deudas suyas: los dos fallos que quedan en los sets (B14 y eng-06: una entidad con un calificativo que otra tabla sí conoce); actualizar solo la parte del índice que cambia en vez de reconstruirlo en cada escritura de curación.
+- Es el único que regenera las líneas base (`eval gate --write-baseline`). Regla del plan: un cambio de lógica se acepta solo si la compuerta no baja, y se comprueba con preguntas que no se usaron para ajustarlo.
+
+### Dev 5 — API, identidad y web (dueño de `api/converdata_api/main.py`, `runtime.py`, `curation.py`, `vault.py`, `integration/mcp/`, `web/`)
+- **Primer encargo:** partir `main.py` en `routers/` (uno por área). Sigue siendo el archivo donde más chocan los carriles 2, 3 y 4.
+- Deudas suyas: llevar la orquestación de votos (`record_feedback`, `steward_golden`) a un caso de uso de `converdata.application` y extender `tests/test_architecture.py` a `api/converdata_api`; que la CLI use `open_stores`; emitir el token de sesión en el cuerpo del login solo a quien lo pide.
+- Implementar lo que el banco decida en las preguntas abiertas 7 (qué ve un responsable dentro de sus dominios) y 9 (validación del login para dar un rol por su nombre).
+- **HU-13** roles desde grupos de Active Directory (⛔ LDAP de solo lectura); sustituye a la lista de responsables por login.
+- **HU-41** piloto de 8 semanas e informe: lo coordina con el líder técnico; el soporte de pantallas durante el piloto es suyo.
+
+## 3. Orden
+El calendario del backlog (seis sprints desde el 2026-11-02) hay que volver a confirmarlo (⚠️ S2): se hizo antes de la
+simplificación. Mientras tanto, el orden es por lo que desbloquea cada cosa.
+
+| Etapa | Dev 1 | Dev 2 | Dev 3 | Dev 4 | Dev 5 |
+|---|---|---|---|---|---|
+| **1 · Sin dependencias externas** | Scripts de HU-37, tareas de HU-18 y HU-24, SQL Server en la CI | HU-23, HU-32, `recorded_at` | HU-25 (Excel), conector y redacción de HU-26 con documentos de prueba | Fallos B14 y eng-06, recarga parcial del índice, batería de HU-36 en modo determinista | Partir `main.py`, capas de la API, token de sesión |
+| **2 · Cuando llegue lo del banco** | Validar los scripts en el Windows Server del piloto, HU-39, HU-38 | HU-40 | HU-26 con los documentos reales, HU-27 | HU-35, HU-36 con Bedrock, HU-33 | HU-13, decisiones 7 a 9 |
+| **3 · Piloto** | Operación y respaldo | Scorecard del piloto | Ingesta del dominio piloto | Regresión semanal con el set real | HU-41 |
+
+Lo que hay que pedir al banco desde el primer día, porque es lo que más tarda: la cuenta AWS con Bedrock (S4), el steward y
+las preguntas reales (S9), los documentos y el acceso a SSISDB (S6), el servidor con sus gMSA y LDAP (S10) y el gestor de
+requerimientos para la línea base (S13).
 
 ## 4. Cómo evitar que choquen
-1. **Contratos primero:** los puertos ya existen en `src/converdata/` (`audit/recorder.py`, `memory/base.py`, `catalog/store.py`, `identity/visibility.py`, `api/.../vault.py`). Nadie cambia una firma sin avisar; los adaptadores SQL sustituyen a los de archivos sin tocar a quien los usa.
-2. **Archivos calientes:**
-   - `api/converdata_api/main.py`: lo parte el Dev 2 en el sprint 0; después cada quien añade rutas solo en su `routers/<área>.py`.
-   - `web/src/lib/api.ts` y `types.ts`: separar por área (`api/discover.ts`, `api/curation.ts`, `api/admin.ts`) antes del sprint 1, para que cada pantalla tenga un solo dueño.
+1. **Contratos primero.** Los puertos están en `src/converdata/`: `catalog/store.py` (`CatalogRepository`, `InventoryStore`), `curation.py` (`KnowledgeWriter`, `CurationRepository`), `audit/recorder.py`, `memory/base.py`, `metadata/ports.py`. Nadie cambia una firma sin avisar; cada puerto tiene su adaptador de SQL Server y su adaptador de archivos, y las pruebas de contrato corren contra los dos.
+2. **Archivos calientes.**
+   - `api/converdata_api/main.py`: lo parte el Dev 5 en la etapa 1; después cada quien añade rutas solo en su `routers/<área>.py`.
+   - `web/src/lib/api.ts` y `types.ts`: separar por área antes de que dos carriles toquen la web. Tras cambiar una ruta se pasa el subagente `verificador-contrato-web-api`.
+   - `db/converdata/`: solo el Dev 1 añade migraciones, numeradas y sin editar las ya aplicadas.
+   - `tests/fixtures/*/eval/` y sus `baseline.yaml`: solo el Dev 4.
+   - `requirements/*.lock` y `web/package-lock.json`: se regeneran en un PR propio, nunca mezclados con cambios de lógica.
    - `docs/PLAN-desarrollo.md` y `on-premise.md`: cada dev actualiza solo el estado de sus historias, en su propio PR.
-3. **Un PR por historia**, con sus tests; el repo exige `pytest` en verde (154 hoy) y `tsc --noEmit` limpio. El repo aún no tiene commits: el líder técnico hace el primer commit antes de repartir y las ramas parten de ahí.
-4. **Dependencias entre carriles = fechas, no esperas:** cada carril trabaja contra el adaptador de archivos y cambia al de SQL Server cuando Dev 1 publique HU-05 (sprint 1) y HU-06/HU-09 (sprint 2).
+3. **Un PR por historia**, con sus pruebas. La CI exige `pytest`, la compuerta `eval gate`, tipos, lint y build de la web, y el análisis de dependencias. Las pruebas contra SQL Server no corren en la CI todavía: quien toque `storage/`, `audit/` o `db/` las corre a mano con `CONVERDATA_TEST_DB` antes de pedir revisión.
+4. **Revisión antes del commit.** Tras tocar `identity/`, `audit/`, `storage/`, `curation.py` o `api/`, pasar los subagentes `revisor-seguridad-datos` y `revisor-arquitectura-specs`; tras tocar `discovery/` o los sets, `evaluador-descubrimiento`. En las sesiones del 2026-11-16 y 17 encontraron fallos que las pruebas no veían.
+5. **Dependencias entre carriles = fechas, no esperas.** Cada carril trabaja contra el adaptador de archivos o contra una BD `ConverData` local (`converdata db migrate`) y no espera al servidor del piloto.
 
 ## 5. Riesgos y decisiones abiertas
 | # | Qué | Quién decide | Afecta |
 |---|---|---|---|
-| 1 | Instancia SQL Server 2025 de desarrollo (S5) | Infraestructura | Dev 1 y, por cascada, a Dev 2, 3, 4 y 5 |
-| 2 | HU-17: Chainlit frente al chat Next.js ya hecho | Product Owner | Dev 2 (8 puntos) |
-| 3 | Rutas `/discover` frente a `/api/discover` | Dev 2 con el líder técnico | MCP, chat, scripts de instalación |
-| 4 | LDAP de solo lectura y gMSA (S10) | Seguridad / AD | HU-13, HU-31, HU-38 |
-| 5 | Cuenta AWS con Bedrock (S4) y documentos fuente (S6) | Nube / Gerencia de Datos | HU-35, HU-26, HU-27 |
-| 6 | Steward asignado (S9) y línea base (S13) | Gerencia de Datos | HU-33, HU-40, HU-41 |
-| 7 | `BancosSQL.zip` (13 MB) está versionado en `main`; sacarlo o usar Git LFS antes del primer commit | Líder técnico | Todos |
+| 1 | Calendario y capacidad: el plan de seis sprints es anterior a la simplificación (S2, S3) | Líder técnico y Gerencia de Datos | Todos |
+| 2 | Cuenta AWS con Bedrock (S4) | Nube | HU-35, HU-36, HU-38, objetivo O8 |
+| 3 | Steward asignado, preguntas reales (S9) y línea base (S13) | Gerencia de Datos | HU-33, HU-40, HU-41 |
+| 4 | Documentos del dominio piloto y acceso a SSISDB y msdb (S6) | Gerencia de Datos | HU-26, HU-27 |
+| 5 | Windows Server del piloto, gMSA y LDAP de solo lectura (S10) | Plataformas y Seguridad | HU-37, HU-38, HU-13 |
+| 6 | Preguntas abiertas 7, 8 y 9 del PRD: qué ve un responsable en sus dominios, qué lecturas se auditan, cómo se valida el login para dar un rol | Seguridad y Gerencia de Datos | Dev 5, Dev 2 |
+| 7 | Guardrails de Bedrock y revisión de la batería de inyección (S7) | Seguridad | HU-36 |
+| 8 | `BancosSQL.zip` (13 MB) sigue versionado; sacarlo del repositorio o pasarlo a Git LFS | Líder técnico | Todos |
+| 9 | La rama `feat/congruencia-y-persistencia` no está publicada: hasta que se integre en `main`, los carriles no tienen base común | Líder técnico | Todos |

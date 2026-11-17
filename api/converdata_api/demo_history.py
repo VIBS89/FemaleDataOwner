@@ -65,9 +65,12 @@ def seed_history(service, audit, curation, fixtures: list[Path], *, marker: Path
             audit.append(row, when)
             n_questions += 1
             disc = env.discovery
-            if disc and disc.candidates and not disc.knowledge_gap:
+            if disc and disc.candidates:
+                # Con una respuesta segura casi todos confirman; con una de baja confianza (el candidato se muestra,
+                # pero se ofrece preguntar al responsable) opina menos gente y hay más "no es".
+                confirm, reject = (0.8, 0.07) if not disc.knowledge_gap else (0.35, 0.15)
                 roll = rng.random()
-                verdict = "confirm" if roll < 0.8 else "reject" if roll < 0.87 else None
+                verdict = "confirm" if roll < confirm else "reject" if roll < confirm + reject else None
                 if verdict:
                     delay = rng.uniform(20, 90)
                     fb_when = when + dt.timedelta(seconds=delay)
@@ -78,7 +81,7 @@ def seed_history(service, audit, curation, fixtures: list[Path], *, marker: Path
                         "simulated": True,
                     }, fb_when)
                     n_feedback += 1
-            elif disc is not None:
+            if disc is not None and (disc.knowledge_gap or not disc.candidates):
                 gaps.append((when, user, {"trace_id": trace_id, "question": question,
                                           "shown": sorted(c.asset_key for c in disc.candidates)}))
     requests = seed_requests(rng, gaps, service)
@@ -96,7 +99,10 @@ def eval_questions(fixtures: list[Path]) -> list[str]:
         path = fixture / "eval" / "discovery.yaml"
         if path.is_file():
             data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            out += [c["question"] for c in data.get("cases", []) if c.get("question")]
+            # Sin las preguntas que el set pone a propósito para comprobar brechas y permisos: un piloto real
+            # pregunta sobre todo por datos que existen. Las brechas del historial salen de las respuestas de baja
+            # confianza.
+            out += [c["question"] for c in data.get("cases", []) if c.get("question") and not c.get("expect_gap")]
     return list(dict.fromkeys(out))
 
 

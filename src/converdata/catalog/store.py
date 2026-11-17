@@ -16,6 +16,7 @@ import yaml
 
 from converdata.catalog.ids import is_column_key, short_name, table_key
 from converdata.config import Inventory, OwnersDirectory, ServerConfig, load_inventory, load_owners
+from converdata.memory.text import strip_accents
 from converdata.models.catalog import CatalogObject, Column
 from converdata.models.knowledge import BusinessEntity, BusinessRule, GoldenDiscovery, KnowledgeItem, LineageEdge
 
@@ -90,6 +91,19 @@ class Catalog:
                 edges[(edge.from_table, edge.to_table, edge.on)] = edge
         return list(edges.values())
 
+    def names_with_digits(self, visible_ids=None) -> frozenset[str]:
+        """Nombres de BDs, esquemas, objetos y columnas que llevan algún dígito (`Ultimos4`, `T24`), en minúsculas y
+        sin tildes: en una pregunta son vocabulario, no literales. Con `visible_ids`, solo los de objetos visibles."""
+        if not hasattr(self, "_digit_names"):
+            found: dict[str, set[str]] = defaultdict(set)
+            for obj in self._by_id.values():
+                for name in (obj.database, obj.schema_, obj.name, *(c.name for c in obj.columns)):
+                    if any(ch.isdigit() for ch in name):
+                        found[strip_accents(name).lower()].add(obj.id)
+            self._digit_names = dict(found)
+        return frozenset(name for name, ids in self._digit_names.items()
+                         if visible_ids is None or not ids.isdisjoint(visible_ids))
+
     def all_names(self) -> set[str]:
         """Nombres de objetos y columnas de todo el catálogo (para la guarda de la narrativa)."""
         names: set[str] = set()
@@ -114,6 +128,18 @@ class KnowledgeBase:
     def all_items(self) -> list[KnowledgeItem]:
         """Todo lo que se indexa en las colecciones de conocimiento de F2."""
         return [*self.items, *(r.as_item() for r in self.rules), *(e.as_item() for e in self.lineage)]
+
+    def codes(self) -> frozenset[str]:
+        """Códigos del conocimiento del banco: palabras con letras y dígitos de los fragmentos y las reglas (`NCB-022`,
+        `BR-ONB-004`), en minúsculas y sin tildes. Los números sueltos no cuentan: un fragmento mal redactado no
+        puede convertir un documento o una cuenta en vocabulario."""
+        if not hasattr(self, "_codes"):
+            words = [w for item in self.items for w in item.text.split()]
+            words += [w for rule in self.rules for w in (rule.id, *rule.text.split())]
+            edge = "¿?¡!.,;:()[]{}\"'«»“”‘’<>"
+            cores = (strip_accents(w.strip(edge)).lower() for w in words)
+            self._codes = frozenset(c for c in cores if any(ch.isdigit() for ch in c) and any(ch.isalpha() for ch in c))
+        return self._codes
 
     def rules_for(self, asset_key: str) -> list[BusinessRule]:
         return [r for r in self.rules if asset_key in r.applies_to or table_key(asset_key) in r.applies_to]

@@ -9,7 +9,10 @@ del conocimiento tribal y convertir la experiencia de los expertos en conocimien
 
 ## Desarrollo
 ```bash
-python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim,bedrock,sqlserver]"
+# Dependencias con versión y hash fijados (requirements/README.md); `pip install -e ".[api,mcp,dev,sqlserver]"` también vale en desarrollo
+python -m venv .venv
+.venv/Scripts/python -m pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/dev.lock
+.venv/Scripts/python -m pip install --no-deps --no-build-isolation --no-index -e .
 .venv/Scripts/python -m pytest -q
 
 # 1. El agente de esquemas descubre las BDs con su acceso (sin catálogo previo) y escribe el catálogo
@@ -23,6 +26,9 @@ python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev,ollama,nim
 # 3. Medir: set de evaluación por tipo de pregunta y ablación de patrones
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --patterns query_expansion,grade,review,cascade  # sin grafo
+#    cuánto aportan las fuentes de conocimiento: 25 preguntas de reporte, con el catálogo solo y con un glosario de prueba
+.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
+.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml --knowledge tests/fixtures/bancos/eval/conocimiento
 
 # Gateway de LLM
 cp config/models.local.example.yaml config/models.yaml  # Ollama local (o models.example.yaml para NVIDIA NIM)

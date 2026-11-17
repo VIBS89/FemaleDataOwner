@@ -12,10 +12,10 @@ from dataclasses import dataclass, field
 from converdata.catalog.ids import is_column_key, short_name, table_key
 from converdata.catalog.store import Catalog, KnowledgeBase
 from converdata.config import DiscoverySettings, OwnersDirectory
-from converdata.discovery.expansion import QueryPlan, plan_query
+from converdata.discovery.expansion import QueryPlan, concepts_of, decompose, plan_query
 from converdata.discovery.ports import RerankItem, RerankScore
 from converdata.memory.base import VectorStore
-from converdata.memory.text import normalized_name, tokenize
+from converdata.memory.text import normalized_name, strip_accents, tokenize
 from converdata.models.discovery import (
     Alternative,
     Candidate,
@@ -58,6 +58,7 @@ class Draft:
     sources: set[str] = field(default_factory=set)
     evidence: list[Evidence] = field(default_factory=list)
     golden_confirmation: float = 0.0
+    unknown_qualifiers: bool = False  # parte de la pregunta que nadie conoce se descontó: nunca es una respuesta segura
     retrieval_norm: float = 0.0
     coverage: float = 0.0  # fracción de los términos de la pregunta que cubre el activo
     graph_coverage: float = 0.0  # cobertura contando tablas unidas por FK a 1–2 saltos (no ordena; ver _graph_coverage)
@@ -82,6 +83,35 @@ class Retrieval:
     secondary_texts: list[str] = field(default_factory=list)
 
 
+# --- paso 1b: ¿la pregunta nombra una entidad? ------------------------------------------------------
+_PLURAL_SUBJECT = re.compile(r"\bdonde (?:estan|se guardan|se encuentran|quedan) (?:los|las|todos los|todas las)\s+(.+)")
+
+
+def entity_kind_hint(question: str, intent: IntentResult, catalog: Catalog, vis) -> str | None:
+    """"¿Dónde están los arrendamientos financieros de vehículos?" pide la tabla de arrendamientos; "¿dónde están los
+    días de mora?", una columna. La diferencia la da el catálogo: si lo primero que se nombra en plural es el nombre de
+    una tabla o vista que el usuario ve, se pide esa entidad. Solo decide cuando la intención no trajo ya un tipo."""
+    if intent.asset_kind_hint is not None or intent.intent != "discovery":
+        return intent.asset_kind_hint
+    match = _PLURAL_SUBJECT.search(strip_accents(question).lower())
+    # Una pregunta compuesta ("las transacciones rechazadas y su motivo") pide además un dato concreto: no se fuerza.
+    if not match or len(decompose(question)) > 1:
+        return None
+    subject = concepts_of(match.group(1), True, catalog.names_with_digits(vis))[:2]
+    if not subject:
+        return None
+    visible = [obj for obj in catalog.objects if obj.id in vis]
+    # "Los pagos mínimos", "las cuotas mensuales": si una columna se llama así, se pide ese atributo y no la entidad.
+    if len(subject) == 2 and any(
+        subject[0] & tokens and subject[1] & tokens
+        for obj in visible for tokens in (set(tokenize(c.name)) for c in obj.columns)
+    ):
+        return None
+    if any(obj.kind in ("table", "view") and subject[0] & set(tokenize(obj.name)) for obj in visible):
+        return "table"
+    return None
+
+
 # --- paso 2: recuperación híbrida filtrada por visibilidad --------------------------------------
 def retrieve(
     question: str,
@@ -98,7 +128,8 @@ def retrieve(
     Sin plan, una sola consulta y conceptos = stems de la pregunta (comportamiento base)."""
     vis = user.visible_ids
     if plan is None:
-        plan = plan_query(intent.rewritten_question or question, intent.business_context, False, 0.0)
+        plan = plan_query(intent.rewritten_question or question, intent.business_context, False, 0.0,
+                          known=catalog.names_with_digits(vis))
     concepts = plan.concepts
     drafts: dict[str, Draft] = {}
 
@@ -185,12 +216,20 @@ def retrieve(
             d.context_text.append(" ".join(names))
 
     best = max((d.raw for d in drafts.values()), default=0.0)
+    # Pregunta compuesta: el orden lo decide la primera sub-pregunta; el resto lo resuelven los caminos de unión.
+    asked = plan.primary_concepts or concepts
+    # Cuando se pide una tabla, sus columnas también la describen (con menos peso que su nombre y su descripción).
+    wants_table = intent.asset_kind_hint == "table"
+    terms = {}
     for d in drafts.values():
         d.retrieval_norm = d.raw / best if best else 0.0
         _set_description(d, catalog, vis)
-        # Pregunta compuesta: el orden lo decide la primera sub-pregunta; el resto lo resuelven los caminos de unión.
-        strong, weak = _asset_terms_split(d, catalog, vis)
-        d.coverage = round(weighted_coverage(plan.primary_concepts or concepts, strong, weak), 4)
+        terms[d.asset_key] = _asset_terms_split(d, catalog, vis, columns_as_weak=wants_table)
+    weights = qualifier_weights(asked, [s | w for s, w in terms.values()]) if wants_table else None
+    for d in drafts.values():
+        strong, weak = terms[d.asset_key]
+        d.coverage = round(weighted_coverage(asked, strong, weak, weights), 4)
+        d.unknown_qualifiers = bool(weights) and any(w < 1.0 for w in weights)
     if graph is not None:
         _graph_coverage(drafts.values(), concepts, graph, catalog, vis)
     return Retrieval(drafts, entity_tables, concepts, plan.secondary_parts, plan.secondary_texts)
@@ -254,23 +293,41 @@ def grade_retrieval(retrieval: Retrieval, top: int = 5) -> float:
 WEAK_TERM_WEIGHT = 0.5
 
 
-def weighted_coverage(concepts: list[frozenset[str]], strong: set[str], weak: set[str]) -> float:
-    """Cobertura donde un concepto que solo aparece en texto generado por IA sin revisar cuenta la mitad."""
+UNKNOWN_QUALIFIER_WEIGHT = 0.25
+
+
+def qualifier_weights(concepts: list[frozenset[str]], known_terms: list[set[str]]) -> list[float]:
+    """Peso de cada concepto cuando se pide una tabla. El catálogo no guarda valores de datos (F1), así que no puede
+    conocer los calificativos que en realidad son valores: "platino", "de vehículos", "de San Salvador". Un concepto
+    que ningún activo recuperado nombra pesa la cuarta parte: no sirve para elegir entre ellos, pero sigue contando como
+    parte de la pregunta sin cubrir. El primero (la entidad que se pide) nunca se descuenta: si nadie lo conoce, es
+    una brecha."""
+    return [1.0 if i == 0 or any(c & terms for terms in known_terms) else UNKNOWN_QUALIFIER_WEIGHT
+            for i, c in enumerate(concepts)]
+
+
+def weighted_coverage(concepts: list[frozenset[str]], strong: set[str], weak: set[str],
+                      weights: list[float] | None = None) -> float:
+    """Cobertura donde un concepto que solo aparece en texto débil (generado por IA sin revisar, o el nombre de una
+    columna cuando se pide su tabla) cuenta la mitad. `weights`: peso de cada concepto (por defecto, todos igual)."""
     if not concepts:
         return 0.0
-    total = sum(1.0 if c & strong else WEAK_TERM_WEIGHT if c & weak else 0.0 for c in concepts)
-    return total / len(concepts)
+    weights = weights or [1.0] * len(concepts)
+    total = sum(w * (1.0 if c & strong else WEAK_TERM_WEIGHT if c & weak else 0.0) for c, w in zip(concepts, weights))
+    return total / sum(weights)
 
 
-def _asset_terms_split(d: Draft, catalog: Catalog, vis) -> tuple[set[str], set[str]]:
-    """(términos fuertes, términos débiles). Débiles: descripciones `generated` (sugeridas por IA, sin revisar)."""
+def _asset_terms_split(d: Draft, catalog: Catalog, vis, columns_as_weak: bool = False) -> tuple[set[str], set[str]]:
+    """(términos fuertes, términos débiles). Débiles: descripciones `generated` (sugeridas por IA, sin revisar) y, con
+    `columns_as_weak`, los nombres y sinónimos de las columnas de una tabla."""
     strong_texts = list(d.context_text)
     weak_texts: list[str] = []
     copies = catalog.visible_copies(d.asset_key, vis)
     if copies:
         t = copies[0]
         strong_texts += [t.name, " ".join(t.synonyms)]
-        strong_texts += [fk.ref.split(".")[-1] for fk in t.foreign_keys]
+        # Solo si también ve la tabla referenciada: si no, la confianza delataría su nombre (F14).
+        strong_texts += [fk.ref.split(".")[-1] for fk in t.foreign_keys if catalog.is_visible(fk.ref, vis)]
         if d.kind == "column":
             found = catalog.column(d.asset_key, vis)
             if found:
@@ -280,6 +337,8 @@ def _asset_terms_split(d: Draft, catalog: Catalog, vis) -> tuple[set[str], set[s
             weak_texts.append(t.description or "")  # el contexto de la tabla ayuda a la columna, pero no decide
         else:
             (weak_texts if t.description_source == "generated" else strong_texts).append(t.description or "")
+            if columns_as_weak:
+                weak_texts += [text for c in t.columns for text in (c.name, " ".join(c.synonyms))]
     strong = set(tokenize(" ".join(strong_texts)))
     return strong, set(tokenize(" ".join(weak_texts))) - strong
 
@@ -291,7 +350,7 @@ def _asset_terms(d: Draft, catalog: Catalog, vis) -> set[str]:
         t = copies[0]
         texts += [t.name, " ".join(t.synonyms)]
         # Las tablas que referencia por FK también la describen (CustomerConsents → Users: "del usuario").
-        texts += [fk.ref.split(".")[-1] for fk in t.foreign_keys]
+        texts += [fk.ref.split(".")[-1] for fk in t.foreign_keys if catalog.is_visible(fk.ref, vis)]
         if d.kind == "column":
             found = catalog.column(d.asset_key, vis)
             if found:
@@ -382,6 +441,12 @@ def role_factor(d: Draft, role: str | None) -> float:
 def shortlist(retrieval: Retrieval, intent: IntentResult, settings: DiscoverySettings) -> list[Draft]:
     exploration = intent.intent == "exploration"
     pool = [d for d in retrieval.drafts.values() if not (exploration and d.kind == "column")]
+    if intent.asset_kind_hint == "table" and any(
+        d.kind != "column" and d.coverage**1.5 * kind_factor(d.kind, "table") >= settings.min_relevance for d in pool
+    ):
+        # Se pide una tabla y hay al menos una que responde: sus columnas no compiten con ella. Si ninguna tabla
+        # alcanza, las columnas se conservan (la pregunta pudo clasificarse mal).
+        pool = [d for d in pool if d.kind != "column"]
     role = requested_role(intent)
 
     def score(d: Draft) -> float:
@@ -528,6 +593,10 @@ def compute_confidence(d: Draft, settings: DiscoverySettings) -> float:
     only_generated = d.description_source == "generated" and d.sources <= {"catalog", "estate"}
     if only_generated:
         value = min(value, settings.generated_only_cap)
+    if d.unknown_qualifiers:
+        # "Tarjetas de regalo" o "contratos de trabajo": el catálogo no sabe si el calificativo es un valor de la tabla
+        # o un dato que el banco no tiene. Se muestra la tabla, siempre por debajo del umbral de brecha.
+        value = min(value, settings.gap_threshold - 0.01)
     return round(min(max(value, 0.0), 1.0), 4)
 
 

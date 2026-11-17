@@ -31,13 +31,27 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
 ## Captura desde el uso
 1. **Confirmación de candidatos**: cada candidato de F22 tiene "✔ Es este", "✖ No es" y "El correcto es…" (búsqueda en el catálogo).
 2. **Golden discovery**: una confirmación genera un par `plantilla de la pregunta → asset_key`.
-   - **Plantilla anónima** (`converdata.curation.question_template`): la pregunta normalizada y sin números sueltos (documentos,
-     teléfonos, fechas, montos), correos ni identificadores alfanuméricos con 5 o más dígitos (pasaporte, cuenta, IBAN); los
-     dígitos pegados a letras en nombres cortos (`T24`, `F14`) se conservan. Se quitan todos los números sueltos, también los
+   - **Plantilla anónima** (`converdata.curation.question_template`): la pregunta normalizada y sin literales. Regla
+     (`converdata.memory.text.strip_literals(question, known)`, endurecida tras la revisión de seguridad del 2026-11-17; ya no hay
+     lista de formatos): la pregunta se normaliza con NFKC (los dígitos en superíndice, de ancho completo o en círculo cuentan como
+     dígitos) y **toda palabra con algún dígito o con arroba es un literal**, salvo que sea vocabulario conocido del banco: un
+     nombre del catálogo con dígitos (`Catalog.names_with_digits`, p. ej. `Ultimos4`) o un código del conocimiento con letras y
+     dígitos (`KnowledgeBase.codes`, p. ej. `NCB-022`, `BR-ONB-004`). Para la plantilla y para decidir si se guarda el original, el
+     vocabulario es el del catálogo entero más los códigos del conocimiento (`AgentRuntime._vocabulary`). Consecuencias: `T24` o
+     `F14` salen de la plantilla si no son nombres del catálogo ni códigos del glosario (antes se conservaban); `NCB-022` se
+     conserva solo si el glosario del banco lo nombra; `ACME090`, `ACME_TEST_123`, `AB12CD34`, los correos con tildes y los números
+     con formatos raros ya no pasan. Motivo: la revisión reprodujo que formas realistas (`ACME090`, dígitos en superíndice, guion
+     final, raya) llegaban a la plantilla y al texto original con la regla por formatos. Es la misma función con la que el
+     descubrimiento deja de contar los literales como conceptos (F22). Dos preguntas que solo difieren en un código que el banco
+     no tiene en su glosario comparten plantilla y confirmación.
+     Se quitan todos los números, también los
      umbrales de negocio: "mora mayor a 90 días" y "a 30 días" son la misma confirmación (decisión del 2026-11-17). Si tras quitar
      los literales aún parece llevar datos personales, el voto cuenta y se audita, pero no se aprende. El texto original se guarda
-     aparte (on-premise, `golden.golden_discovery_original`) solo si la pregunta no traía ningún literal ni parece llevar datos
-     personales. Limitación: no detecta nombres de personas ni texto entre comillas (F17).
+     aparte (on-premise, `golden.golden_discovery_original`) solo si la pregunta no tiene ningún literal con esta regla (`has_literals`)
+     ni dispara el detector de datos personales (`find_pii`). Limitaciones: no detecta nombres de personas, texto entre comillas
+     ni los trozos solo de letras de un código partido por espacios (un IBAN escrito con espacios deja sus grupos de letras) (F17).
+     Prueba de punta a punta con 100 literales distintos en 10 formas: `api/tests/test_marked_literals.py` (ninguno llega a las
+     plantillas, a los votos ni al índice, y las plantillas solo contienen palabras de las preguntas base).
    - El voto no lleva comentario ni otro texto libre.
    - **Regla de votos** (`converdata.curation.resolve_golden`):
      - Voto de un `steward` del dominio: entra al índice de inmediato (`confirmation_score = 1.0`), y su "✖" retira el par. El

@@ -23,12 +23,38 @@ cases:
   - {id: B6, type: B, question: "¿Dónde está el número de póliza del seguro del bien arrendado?", expected: [BancaLeasing.dbo.SegurosActivo.NumeroPoliza]}
   - {id: B7, type: B, question: "¿Dónde está el sueldo del cliente?", expected: [BancaPrestamos.dbo.Clientes.IngresoMensual, BancaCuentasDebito.dbo.Clientes.IngresoMensual, BancaTarjetasCredito.dbo.Clientes.IngresoMensual, BancaTokenizacion.dbo.Clientes.IngresoMensual]}
   - {id: B8, type: B, question: "¿Dónde está la fecha de expiración de la tarjeta de débito?", expected: [BancaCuentasDebito.dbo.TarjetasDebito.FechaVencimiento]}
+  # A (2026-11-17) — "cada uno de" no es una pregunta de cruce
+  - {id: A9, type: A, question: "¿Dónde está el saldo de cada uno de los clientes?", expected: [BancaCuentasDebito.dbo.CuentasDeposito.SaldoDisponible]}
+  - {id: A10, type: A, question: "¿Dónde está el límite de crédito de cada uno de los tarjetahabientes?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito.LimiteCredito]}
+  # B (2026-11-17) — se pregunta por una entidad con calificativos que el catálogo no puede conocer (son valores de datos)
+  - {id: B9, type: B, question: "¿Dónde están las tarjetas de crédito platino?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito, BancaTarjetasCredito.dbo.vw_CarteraTarjetas]}
+  - {id: B10, type: B, question: "¿Dónde están los cajeros automáticos de San Salvador?", expected: [BancaCuentasDebito.dbo.CajerosATM]}
+  - {id: B11, type: B, question: "¿Dónde están los préstamos hipotecarios vencidos?", expected: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.vw_CarteraPorCategoria]}
+  - {id: B12, type: B, question: "¿Dónde están los contratos de leasing cancelados en 2025?", expected: [BancaLeasing.dbo.ContratosLeasing, BancaLeasing.dbo.vw_CarteraLeasing]}
+  - {id: B13, type: B, question: "¿Dónde están las garantías hipotecarias de San Miguel?", expected: [BancaPrestamos.dbo.Garantias]}
+  - {id: B14, type: B, question: "¿Dónde están los dispositivos Android bloqueados?", expected: [BancaTokenizacion.dbo.Dispositivos]}
+  - {id: B15, type: B, question: "¿Dónde están los comercios afiliados de restaurantes?", expected: [BancaTarjetasCredito.dbo.Comercios]}
+  - {id: B16, type: B, question: "¿Dónde están las agencias de la zona oriental?", expected: [BancaCuentasDebito.dbo.Agencias]}
+  # B — el plural no siempre es una entidad: aquí se pide una columna
+  - {id: B17, type: B, question: "¿Dónde están los días de mora del préstamo?", expected: [BancaPrestamos.dbo.Prestamos.DiasMora, BancaPrestamos.dbo.CuotasPrestamo.DiasMora]}
+  - {id: B18, type: B, question: "¿Dónde están los montos desembolsados de los préstamos?", expected: [BancaPrestamos.dbo.Prestamos.MontoDesembolsado]}
+  - {id: B19, type: B, question: "¿Dónde están las fechas de vencimiento de las tarjetas de débito?", expected: [BancaCuentasDebito.dbo.TarjetasDebito.FechaVencimiento]}
+  # B — un plural que coincide con el nombre de una tabla pero pide un atributo (del evaluador independiente)
+  - {id: B20, type: B, question: "¿Dónde están los pagos mínimos de las tarjetas de crédito?", expected: [BancaTarjetasCredito.dbo.EstadosCuentaTC.PagoMinimo]}
+  - {id: B21, type: B, question: "¿Dónde están las cuotas mensuales de los préstamos?", expected: [BancaPrestamos.dbo.Prestamos.CuotaMensual]}
+  - {id: B22, type: B, question: "¿Dónde están los estados de las cuentas de depósito?", expected: [BancaCuentasDebito.dbo.CuentasDeposito.Estado]}
+  - {id: B23, type: B, question: "¿Dónde están las transacciones rechazadas y su motivo?", expected: [BancaTarjetasCredito.dbo.TransaccionesTC.MotivoRechazo, BancaTokenizacion.dbo.TransaccionesTokenizadas.MotivoRechazo]}
   # C — varios saltos: el dato y cómo se cruza con otra tabla
   - {id: C1, type: C, question: "¿Dónde están los días de mora de las cuotas de préstamo y el DUI del cliente?", expected: [BancaPrestamos.dbo.CuotasPrestamo.DiasMora], expected_related: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.Clientes]}
   - {id: C2, type: C, question: "¿Cómo relaciono las transacciones de tarjeta de crédito con el DUI del cliente?", expected: [BancaTarjetasCredito.dbo.TransaccionesTC, BancaTarjetasCredito.dbo.Clientes.DUI], expected_related: [BancaTarjetasCredito.dbo.TarjetasCredito]}
   - {id: C3, type: C, question: "¿Dónde está el valor de avalúo de las garantías y el nombre del cliente?", expected: [BancaPrestamos.dbo.Garantias.ValorAvaluo], expected_related: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.Clientes]}
   - {id: C4, type: C, question: "¿Dónde está el saldo de la cuenta y el nombre de la agencia donde se abrió?", expected: [BancaCuentasDebito.dbo.CuentasDeposito.SaldoDisponible], expected_related: [BancaCuentasDebito.dbo.Agencias]}
   - {id: C5, type: C, question: "¿Dónde está el estado del token y el sistema operativo del dispositivo?", expected: [BancaTokenizacion.dbo.Tokens.Estado], expected_related: [BancaTokenizacion.dbo.Dispositivos]}
+  - {id: C6, type: C, question: "¿Cómo cruzo los préstamos con sus garantías?", expected: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.Garantias], expected_related: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.Garantias]}
+  - {id: C7, type: C, question: "¿Cómo se relacionan los tokens con los dispositivos?", expected: [BancaTokenizacion.dbo.Tokens, BancaTokenizacion.dbo.Dispositivos], expected_related: [BancaTokenizacion.dbo.Tokens, BancaTokenizacion.dbo.Dispositivos]}
+  - {id: C8, type: C, question: "¿Cómo uno las cuotas de leasing con los arrendatarios?", expected: [BancaLeasing.dbo.CuotasLeasing, BancaLeasing.dbo.Arrendatarios], expected_related: [BancaLeasing.dbo.CuotasLeasing, BancaLeasing.dbo.Arrendatarios]}
+  - {id: C9, type: C, question: "¿Cómo se cruzan los movimientos de cuenta con las agencias?", expected: [BancaCuentasDebito.dbo.MovimientosCuenta, BancaCuentasDebito.dbo.Agencias], expected_related: [BancaCuentasDebito.dbo.MovimientosCuenta, BancaCuentasDebito.dbo.Agencias]}
+  - {id: C10, type: C, question: "¿Con qué campo cruzo las tarjetas de crédito con los clientes?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito.ClienteID]}
   # D — la misma entidad en varias BDs: una sola respuesta, la canónica primero
   - {id: D1, type: D, question: "¿Dónde está el DUI del cliente?", expected: [BancaPrestamos.dbo.Clientes.DUI]}
   - {id: D2, type: D, question: "¿Dónde está el correo electrónico del cliente?", expected: [BancaPrestamos.dbo.Clientes.Email]}
@@ -41,4 +67,10 @@ cases:
   - {id: E4, type: E, question: "¿Qué datos tenemos de tokenización?", expected: [BancaTokenizacion.dbo.Tokens, BancaTokenizacion.dbo.vw_TokensPorWallet, BancaTokenizacion.dbo.EventosCicloVidaToken]}
   # G — sin respuesta disponible y permisos
   - {id: G1, type: G, question: "¿Dónde están las inversiones en bolsa del cliente?", expect_gap: true}
+  - {id: G3, type: G, question: "¿Dónde están las acciones bursátiles de la tesorería?", expect_gap: true}
+  - {id: G4, type: G, question: "¿Dónde están los empleados despedidos en 2024?", expect_gap: true}
+  - {id: G5, type: G, question: "¿Cómo relaciono las pólizas de vida con los siniestros?", expect_gap: true}
+  # G — la entidad existe pero lo que se pide no: se puede mostrar la tabla, nunca como respuesta segura
+  - {id: G6, type: G, question: "¿Dónde están los contratos de trabajo de los empleados?", expect_gap: true}
+  - {id: G7, type: G, question: "¿Dónde están las tarjetas de regalo?", expect_gap: true}
   - {id: G2, type: G, question: "¿Dónde está el DUI del cliente?", databases: [BancaLeasing], expect_gap: true, forbidden: [BancaPrestamos, BancaTarjetasCredito, BancaCuentasDebito, BancaTokenizacion]}

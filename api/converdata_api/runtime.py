@@ -324,8 +324,9 @@ class AgentRuntime:
 
         La plantilla es la pregunta sin literales. Si aun así parece llevar datos personales, el voto cuenta pero no se
         convierte en conocimiento reutilizable (F17)."""
-        safe = strip_literals(trace.question)
-        template = question_template(trace.question)
+        known = self._vocabulary()
+        safe = strip_literals(trace.question, known)
+        template = question_template(trace.question, known)
         gid = golden_id(template, asset_key)
         elapsed_ms = int((time.time() - trace.asked_at) * 1000)
         learnable = bool(template) and not find_pii(safe)
@@ -356,8 +357,9 @@ class AgentRuntime:
     def steward_golden(self, question: str, asset_key: str, user_id: str) -> GoldenDiscovery | None:
         """Respuesta de un responsable a una duda escalada: entra de inmediato al índice (F24 CA1). None si la pregunta
         parece llevar datos personales: la respuesta queda en la solicitud, pero no como conocimiento reutilizable."""
-        template = question_template(question)
-        if not template or find_pii(strip_literals(question)):
+        known = self._vocabulary()
+        template = question_template(question, known)
+        if not template or find_pii(strip_literals(question, known)):
             return None
         golden = GoldenDiscovery(id=golden_id(template, asset_key), template=template, asset_keys=[asset_key],
                                  confirmed_by="steward")
@@ -366,10 +368,17 @@ class AgentRuntime:
             self._written()
         return golden
 
+    def _vocabulary(self) -> frozenset[str]:
+        """Palabras con dígitos que no son literales: nombres del catálogo y códigos del glosario y de las reglas."""
+        if self.service is None:
+            return frozenset()
+        deps = self.service.deps
+        return deps.catalog.names_with_digits() | deps.knowledge.codes()
+
     def _store_golden(self, golden: GoldenDiscovery, user_id: str, question: str) -> None:
         """Con el candado tomado: una sola fila. El texto original solo se guarda si no traía ningún literal (nada que
         la plantilla descartara) ni parece llevar datos personales; la pregunta completa ya está en la auditoría."""
-        keep = not has_literals(question) and not find_pii(question)
+        keep = not has_literals(question, self._vocabulary()) and not find_pii(question)
         self.writer.upsert_golden(golden, by=user_id, question=question if keep else None)
         self._fresh_golden[golden.id] = golden
 

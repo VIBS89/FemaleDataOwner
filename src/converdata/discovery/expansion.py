@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from converdata.memory.text import strip_accents, tokenize
+from converdata.memory.text import strip_accents, strip_literals, tokenize
 
 # Términos de negocio en español → nombres técnicos habituales en inglés. Genérico de datos, no del fixture.
 LEXICON: dict[str, list[str]] = {
@@ -92,8 +92,11 @@ def _translations(word: str) -> list[str]:
     return []
 
 
-def _words(text: str) -> list[str]:
-    return [w for w in re.findall(r"[a-z0-9]+", strip_accents(text).lower()) if w not in META_TERMS]
+def _words(text: str, known=frozenset()) -> list[str]:
+    """Palabras con contenido de la pregunta. Sin sus literales: "el DUI del cliente 01234567-8" pregunta por el DUI
+    del cliente; el número no es algo que un activo del catálogo deba nombrar. `known`: nombres del catálogo con
+    dígitos que el usuario ve (`Ultimos4`), que sí son parte de lo que se pregunta."""
+    return [w for w in re.findall(r"[a-z0-9]+", strip_accents(strip_literals(text, known)).lower()) if w not in META_TERMS]
 
 
 # Conjunción que separa dos datos pedidos: "… de las cuotas y el DUI del cliente", "… del token con el dispositivo".
@@ -124,25 +127,26 @@ class QueryPlan:
         return new
 
 
-def concepts_of(text: str, expand: bool) -> list[frozenset[str]]:
+def concepts_of(text: str, expand: bool, known=frozenset()) -> list[frozenset[str]]:
     """Un concepto por palabra con contenido: su stem más (si `expand`) los stems de sus traducciones."""
     if not expand:
-        return [frozenset({t}) for t in dict.fromkeys(tokenize(text))]
+        return [frozenset({t}) for t in dict.fromkeys(tokenize(strip_literals(text, known)))]
     out: dict[frozenset[str], None] = {}
-    for word in _words(text):
+    for word in _words(text, known):
         stems = set(tokenize(word)) | {s for en in _translations(word) for s in tokenize(en)}
         if stems:
             out[frozenset(stems)] = None
     return list(out)
 
 
-def plan_query(question: str, business_context: str | None, expand: bool, variant_weight: float) -> QueryPlan:
+def plan_query(question: str, business_context: str | None, expand: bool, variant_weight: float,
+               known=frozenset()) -> QueryPlan:
     base = " ".join(filter(None, [question, business_context]))
-    plan = QueryPlan(queries=[(base, 1.0)], concepts=concepts_of(base, expand))
+    plan = QueryPlan(queries=[(base, 1.0)], concepts=concepts_of(base, expand, known))
     parts = decompose(question)
     if len(parts) > 1:
-        plan.primary_concepts = concepts_of(parts[0], expand)
-        plan.secondary_parts = [concepts_of(p, expand) for p in parts[1:]]
+        plan.primary_concepts = concepts_of(parts[0], expand, known)
+        plan.secondary_parts = [concepts_of(p, expand, known) for p in parts[1:]]
         plan.secondary_texts = list(parts[1:])
     if expand:
         translated = lexicon_variant(base)

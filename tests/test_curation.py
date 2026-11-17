@@ -7,17 +7,18 @@ import uuid
 
 import pytest
 
-from converdata.catalog.store import load_snapshot
+from converdata.catalog.store import KnowledgeBase, load_snapshot
 from converdata.curation import (DescriptionEdit, golden_id, has_literals, human_edits, plan_dictionary,
                                  question_template, resolve_golden, steward_rules)
 from converdata.config import ServerConfig
-from converdata.models.knowledge import BusinessRule, GoldenDiscovery
+from converdata.models.knowledge import BusinessRule, GoldenDiscovery, KnowledgeItem
 from converdata.storage.curation_repository import SqlServerCurationRepository
 from converdata.storage.files import FileCurationRepository, FileInventoryStore, FileKnowledgeWriter
 from converdata.builder.catalog_builder import write_snapshot
 from conftest import FIXTURE
 
 USERS = "VBank_ING.dbo.Users"
+BANCOS = FIXTURE.parent / "bancos"
 
 
 # --- plantilla anónima ---------------------------------------------------------------------------------
@@ -27,10 +28,19 @@ USERS = "VBank_ING.dbo.Users"
     ("Saldo de la cuenta 1234 5678 9012 al 31/12/2025", "saldo de la cuenta al"),
     ("¿Quién es el dueño de juan.perez@banco.com.sv?", "quien es el dueno de"),
     ("Clientes con mora mayor a 90 días", "clientes con mora mayor a dias"),
-    ("¿Qué tabla de T24 alimenta el formulario F14?", "que tabla de t24 alimenta el formulario f14"),
     ("¿De quién es el pasaporte A01234567?", "de quien es el pasaporte"),
     ("Movimientos de la cuenta CA00123456789", "movimientos de la cuenta"),
-    ("Columnas de vw_Cartera90dias y Clientes2", "columnas de vw cartera90dias y clientes2"),
+    # Formas que una lista de formatos concretos deja pasar (revisión de seguridad del 2026-11-17)
+    ("¿Dónde está el DUI del cliente ACME090?", "donde esta el dui del cliente"),  # alfanumérico corto: código, placa
+    ("Saldo del cliente ⁷⁷³¹⁰⁰²⁴", "saldo del cliente"),  # dígitos en superíndice
+    ("Saldo del cliente ＣＴＡ７７３１０００１", "saldo del cliente"),  # ancho completo
+    ("Pedido ACME-TEST-001- del cliente", "pedido del cliente"),  # guion final
+    ("Pedido ACME–TEST–001 del cliente", "pedido del cliente"),  # raya en vez de guion
+    ("Expediente ACME_TEST_123 y CLI_0042", "expediente y"),
+    ("Códigos AB12CD34, 7731A, 1500USD y sqlprod01", "codigos y"),
+    ("Escribe a josé@correo.com o a juan＠correo.com", "escribe a o a"),
+    ("Escribe a juan.perez @ banco.com", "escribe a"),
+    ("Referencias ACME.TEST.123, ACME:TEST:123 y ACME#123", "referencias y"),
 ])
 def test_la_plantilla_no_conserva_literales(question, template):
     assert question_template(question) == template
@@ -47,11 +57,31 @@ def test_dos_preguntas_que_solo_difieren_en_el_literal_son_la_misma_confirmacion
     ("¿Dónde está el DUI del cliente 71234567?", True),  # un documento sin guion: ningún detector lo reconoce
     ("¿De quién es el pasaporte A01234567?", True),
     ("escríbeme a ana@banco.com.sv", True),
+    ("¿Dónde está el DUI del cliente ACME090?", True),
+    ("Saldo del cliente ⁷⁷³¹⁰⁰²⁴", True),
+    ("Escribe a josé@correo.com", True),
     ("¿Dónde está el DUI del cliente?", False),
-    ("¿Qué tabla de T24 alimenta el formulario F14?", False),
+    ("¿Dónde están los   consentimientos\naceptados?", False),  # los espacios no son literales
 ])
 def test_una_pregunta_con_literales_se_reconoce_para_no_guardar_su_texto(question, literal):
     assert has_literals(question) is literal
+
+
+def test_el_vocabulario_del_banco_no_es_un_literal(catalog):
+    """Una palabra con dígitos es un literal salvo que sea un nombre del catálogo o un código del glosario."""
+    question = "¿Qué columna Ultimos4 exige la norma NCB-022 en T24 para el cliente 4111?"
+    assert question_template(question) == "que columna exige la norma en para el cliente"
+    known = frozenset({"ultimos4", "ncb-022", "t24"})
+    assert question_template(question, known) == "que columna ultimos4 exige la norma ncb 022 en t24 para el cliente"
+    assert has_literals("¿Dónde está Ultimos4?", known) is False and has_literals("¿Dónde está Ultimos4?") is True
+    assert question_template("¿Dónde está BancaTarjetasCredito.dbo.TarjetasCredito.Ultimos4?", known).endswith("ultimos4")
+    # El vocabulario sale del catálogo y del conocimiento, no de una lista escrita a mano.
+    assert "ultimos4" in load_snapshot(BANCOS).catalog().names_with_digits()
+    assert catalog.names_with_digits(frozenset()) == frozenset()  # sin objetos visibles, ningún nombre
+    kb = KnowledgeBase(
+        items=[KnowledgeItem(id="g1", kind="glossary", source="glosario", text="Categoría de riesgo según la NCB-022. Ver cuenta 0012345678.")],
+        rules=[BusinessRule(id="BR-ONB-004", text="Solo clientes activos", applies_to=[USERS])])
+    assert kb.codes() == {"ncb-022", "br-onb-004"}  # un número suelto de un fragmento no se vuelve vocabulario
 
 
 # --- regla de votos ------------------------------------------------------------------------------------

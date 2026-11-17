@@ -57,6 +57,19 @@ def build_service(
         gateway=gateway, **overrides)
 
 
+def build_service_with_knowledge(root: str | Path, knowledge_dir: str | Path, **kwargs) -> DiscoverService:
+    """El catálogo de `root` más las fuentes de conocimiento de `knowledge_dir` (misma estructura que `knowledge/`).
+    Sirve para medir qué aporta el conocimiento sobre un catálogo sin tocarlo (`eval discovery --knowledge`)."""
+    from converdata.catalog.store import load_knowledge
+
+    root = Path(root)
+    snapshot, extra = load_snapshot(root), load_knowledge(knowledge_dir)
+    kb = snapshot.knowledge
+    for name in ("items", "rules", "golden", "lineage", "entities"):
+        getattr(kb, name).extend(getattr(extra, name))
+    return build_service_from_snapshot(snapshot, settings_path=root / "config" / "settings.yaml", **kwargs)
+
+
 def build_service_from_db(connect, **kwargs) -> DiscoverService:
     """Lo mismo, con el catálogo publicado en la BD `ConverData` (OP-02, HU-09). `connect` abre una conexión."""
     from converdata.storage.catalog_repository import SqlServerCatalogRepository
