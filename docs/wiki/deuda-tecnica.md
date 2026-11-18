@@ -2,26 +2,23 @@
 
 Actualizado el 2026-11-17.
 
-Este registro tiene **70 deudas abiertas**: 12 de gravedad alta, 30 media y 28 baja. Las 14 últimas (§3.9) salieron al escribir las páginas de componentes de la wiki. Cada una se comprobó en el código de la
-rama `feat/congruencia-y-persistencia` (árbol de trabajo del 2026-11-17, con cambios sin commit en `main.py`, `settings.py`,
-`route.ts` y `api.ts`: sus números de línea pueden moverse). Lo ya resuelto está en la §4 y no debe reabrirse.
+Este registro tiene **66 deudas abiertas**: 8 de gravedad alta, 30 media y 28 baja. Las 13 de la §3.9 salieron al escribir las páginas de componentes de la wiki (DT-57 y DT-67 ya están cerradas) y DT-71 salió al cerrar DT-03. Cada una se comprobó en el código de la
+rama `feat/congruencia-y-persistencia` (árbol de trabajo del 2026-11-17, con cambios sin commit en `route.ts`, `next.config.ts`, `session-provider.tsx` y `visibility.py`: sus números de línea pueden moverse). Lo ya resuelto está en la §4 y no debe reabrirse.
 
 Las 5 que más importan:
 
-1. **DT-02 · Un solo atacante bloquea el login de todos.** Detrás del proxy de la web, el bloqueo "por origen" cuenta los
-   fallos de todos los usuarios juntos: 30 contraseñas malas en 10 minutos cierran el acceso al piloto durante 15 minutos.
-2. **DT-01 · El control CSRF por `Origin` no se aplica a la web.** El proxy no reenvía `Origin` y la API deja pasar lo que
-   llega sin esa cabecera. Hoy solo protege la cookie `SameSite=lax`.
-3. **DT-39 · 82 de las 452 pruebas (las de SQL Server) no corren en la CI.** Con 5 personas tocando a la vez `storage/`,
+1. **DT-39 · 83 de las 458 pruebas (las de SQL Server) no corren en la CI.** Con 5 personas tocando a la vez `storage/`,
    `audit/` y `db/`, una regresión de esquema o de permisos entra sin que nadie la vea.
-4. **DT-04 · La fecha de un registro de auditoría la pone quien lo inserta.** Una cuenta de la API comprometida puede
+2. **DT-04 · La fecha de un registro de auditoría la pone quien lo inserta.** Una cuenta de la API comprometida puede
    antedatar filas para que la purga las borre. Ataca la regla "auditoría antes de responder".
-5. **DT-30 · Nada se ha medido con el LLM real.** Las suites `inyeccion` y `guardas` solo corrieron en modo determinista y
+3. **DT-30 · Nada se ha medido con el LLM real.** Las suites `inyeccion` y `guardas` solo corrieron en modo determinista y
    Bedrock no se ha probado de punta a punta. Bloquea el piloto.
+4. **DT-44 · No hay instalación para Windows Server.** Sin los scripts de `deploy/windows/` no hay piloto.
+5. **DT-02 · El bloqueo de login por origen sigue sin activarse detrás de IIS.** El código ya reenvía la dirección del
+   cliente, pero con `TRUST_FORWARDED_FOR` y `CONVERDATA_TRUST_PROXY` apagadas un solo atacante puede bloquear el login de todos.
+   Está mitigada (Media): falta activarla y probarla en la instalación del bloque F.
 
-Además, **DT-57** puede dejar a un analista sin ver bases de datos a las que sí tiene acceso; está sin verificar contra un SQL Server real y conviene probarlo antes del piloto.
-
-DT-01, DT-02 y DT-03 viven en el mismo archivo (`web/src/app/api/[...path]/route.ts`) y se cierran en menos de un día.
+El 2026-11-17 se cerraron DT-01, DT-03, DT-08, DT-57 y DT-67 (§4). DT-02 bajó de Alta a Media.
 
 ## 2. Cómo leer el registro
 
@@ -40,14 +37,11 @@ Una deuda marcada **(nueva)** no estaba en ningún documento del repositorio.
 
 | ID | Deuda | Evidencia | Consecuencia | Grav. | Esf. | Cómo se cierra | Plan / HU |
 |---|---|---|---|---|---|---|---|
-| DT-01 | **(nueva)** El proxy de la web no reenvía `Origin` ni `X-Forwarded-Host`; la API acepta sin comprobar lo que llega sin `Origin` | `web/src/app/api/[...path]/route.ts:6`; `api/converdata_api/security.py:202-212` | El control "CSRF por `Origin`" de `calidad-bancaria.md` §3 no protege a la web. Solo queda `SameSite=lax` (`main.py:554`), que no frena a otro sitio del mismo dominio (`*.banco.local`) | Alta | S | Reenviar `origin` en el proxy (o comprobarlo en el propio `route.ts`) y añadir una prueba que pase por el proxy | OP-04, HU-37 |
-| DT-02 | **(nueva)** El bloqueo de 30 fallos "por origen" ve una sola IP: la del proxy. El proxy no reenvía `X-Forwarded-For` y `CONVERDATA_TRUST_PROXY` no tiene nada que leer | `route.ts:6`; `main.py:330-335`, `481-482`, `526` | 30 contraseñas erróneas de cualquiera bloquean el login de todos durante 15 min (`login_lockout_s`) | Alta | S | El proxy pone el origen real en `X-Forwarded-For` (sin copiar el del navegador) y la API lo usa con `CONVERDATA_TRUST_PROXY=1`; prueba de punta a punta | OP-03, HU-37 |
-| DT-03 | **(nueva)** Las páginas de la web no llevan cabeceras de seguridad (CSP, `frame-ancestors`, HSTS, `nosniff`), y el proxy descarta las de la API salvo `content-type`, `cache-control` y `set-cookie` | `web/next.config.ts` (sin `headers()`); `route.ts:28-33`; las cabeceras solo existen en `security.py:124` | La pantalla de Administración se puede incrustar en otro sitio (clickjacking). Lo que dice `calidad-bancaria.md` §3 de las cabeceras vale para la API, no para lo que ve el navegador | Alta | S | `headers()` en `next.config.ts` o en IIS, con prueba; reenviar las de la API | OP-04, HU-37 |
+| DT-02 | **(nueva, mitigada)** El bloqueo de 30 fallos "por origen" ve una sola IP, la del proxy, mientras `TRUST_FORWARDED_FOR` (web) y `CONVERDATA_TRUST_PROXY` (API) sigan apagadas. El proxy ya reenvía la dirección del cliente (último valor de `X-Forwarded-For`) y la API ya la usa, pero ninguna de las dos se ha activado ni probado detrás de un proxy inverso | `web/src/app/api/[...path]/route.ts:8-10`, `28-31`; `api/converdata_api/main.py:330-335`, `481-482`, `526` | Con las variables apagadas (el valor por defecto, porque sin un proxy propio delante el cliente escribe la cabecera), 30 contraseñas erróneas de cualquiera bloquean el login de todos durante 15 min (`login_lockout_s`) | Media | S | Activar las dos variables en la instalación detrás de IIS y probarlo de punta a punta con dos orígenes distintos | OP-03, OP-07, bloque F, HU-37 |
 | DT-04 | La fecha (`ts`) de un registro de auditoría la puede fijar quien inserta | `src/converdata/audit/sqlserver.py:30`, `39`, `41` (`COALESCE(?, SYSUTCDATETIME())`); la purga borra por `ts` (`db/converdata/001_esquemas.sql:295-302`) | Una cuenta de la API comprometida antedata filas para que caigan en la purga | Alta | M | Migración `003`: columna `recorded_at` con valor por defecto y sin permiso de escritura; la purga usa esa columna | Sin bloque (reparto: Dev 2 con Dev 1) |
 | DT-05 | El detector de datos personales solo reconoce DUI, NIT, correo, teléfono, IBAN y tarjeta. La plantilla de las confirmaciones quita palabras con dígitos o arroba, pero no nombres, texto entre comillas ni grupos de letras de un código partido | `api/converdata_api/pii.py:12-19`; `src/converdata/memory/text.py:78-90` | Una pregunta con un nombre propio llega a `knowledge.golden_discovery` y al índice. Lo que escribe un responsable puede llevar un nombre o una dirección | Alta | L | Presidio o equivalente para la redacción, revisión del responsable antes de reutilizar | Bloque E, HU-26 |
 | DT-06 | **(nueva)** "`CONVERDATA_LOG_DIR` es obligatorio en qa y prod" no se exige nunca: `from_env` pone `data/logs` por defecto, así que `log_dir` nunca es `None` | `api/converdata_api/settings.py:80`; `security.py:263`; la prueba fija `log_dir=None` a mano (`api/tests/test_security.py:341`) | En producción los logs pueden acabar en un directorio relativo al proceso, fuera del monitoreo, sin que la API se niegue a arrancar | Media | S | Quitar el valor por defecto en qa y prod, o exigir una ruta absoluta; probar desde variables de entorno | OP-05 |
 | DT-07 | **(nueva)** Si `CONVERDATA_MODELS` apunta a un archivo que no existe, se ignora sin avisar y el flujo pasa a modo determinista, también en qa y prod | `settings.py:82`; `security.py:231` solo revisa el archivo si existe | Un error de ruta en la instalación apaga el LLM sin que nadie lo note | Media | S | Si la variable está definida y el archivo no existe, error al arrancar (o violación en qa y prod) | HU-35, HU-37 |
-| DT-08 | **(nueva)** Las conversaciones (preguntas con sus literales y respuestas) se guardan en `localStorage` y no se borran al cerrar sesión | `web/src/components/chat/conversations.tsx:3`, `61`, `73`; `web/src/components/session-provider.tsx:71-77` | En un equipo compartido queda un documento o una cuenta escritos en una pregunta, y nombres de activos que el usuario quizá ya no puede ver. La prueba de literales no mira el navegador | Media | S | Borrar al cerrar sesión, caducar por tiempo o usar `sessionStorage`; decidirlo con Seguridad | F17, OP-06 |
 | DT-09 | El token de sesión viaja también en el cuerpo del login. La web no lo usa (solo la cookie); lo necesita el cliente MCP | `main.py:560-561`; ninguna referencia a `.token` en `web/src` | Debilita la cookie `HttpOnly`: un script inyectado en la página podría leerlo de la respuesta | Media | S | Emitirlo solo si se pide (por ejemplo `?client=mcp`) | Reparto: Dev 5 |
 | DT-10 | Lecturas sin auditar: `/catalog/*`, `/assets/*` y las herramientas MCP distintas de `discover` | `main.py:872-921`; `src/converdata/application/discovery.py:186-187` | No queda traza de quién consultó qué ficha | Media | S | Decidir el nivel de detalle (PRD §13, pregunta 8) y añadir el evento | Bloque D |
 | DT-11 | Dentro de sus dominios, un responsable ve en la cola de revisión y edita descripciones de activos que su login no puede leer | `main.py:748-749` (solo `can_curate`); `main.py:385-387` | Contradice F14 ("no hay modo de catálogo abierto") salvo que el banco lo acepte | Media | S | Decisión del banco (PRD §13, pregunta 7); después filtrar por `visible_ids` o documentar la excepción | Reparto: Dev 5 |
@@ -98,7 +92,7 @@ Una deuda marcada **(nueva)** no estaba en ningún documento del repositorio.
 
 | ID | Deuda | Evidencia | Consecuencia | Grav. | Esf. | Cómo se cierra | Plan / HU |
 |---|---|---|---|---|---|---|---|
-| DT-39 | Las pruebas marcadas `sqlserver` (82 de 452, comprobado con `pytest --collect-only`) se omiten en la CI | `.github/workflows/calidad.yml:16-43` (sin servicio de SQL Server); `conftest.py:41-45` | Migraciones, roles, auditoría, catálogo, curación y la prueba de literales en BD solo se prueban a mano | Alta | M | Servicio de SQL Server en el trabajo `backend` con `CONVERDATA_TEST_DB` | Bloque F, reparto: Dev 1 |
+| DT-39 | Las pruebas marcadas `sqlserver` (83 de 458, comprobado con `pytest --collect-only`) se omiten en la CI | `.github/workflows/calidad.yml:16-43` (sin servicio de SQL Server); `conftest.py:41-45` | Migraciones, roles, auditoría, catálogo, curación y la prueba de literales en BD solo se prueban a mano | Alta | M | Servicio de SQL Server en el trabajo `backend` con `CONVERDATA_TEST_DB` | Bloque F, reparto: Dev 1 |
 | DT-40 | **(nueva)** La web no tiene ninguna prueba (ni unitaria ni de punta a punta) | Ningún archivo de prueba en `web/`; `web/package.json:5-10` sin script `test` | Regresiones de pantallas y del proxy solo se ven a mano; DT-01 a DT-03 pasaron sin que nada fallara | Media | M | Playwright contra la API en modo demo para login, chat, curación y cabeceras del proxy | Reparto: Dev 5 |
 | DT-41 | La prueba de literales marcados no cubre el cliente MCP, `/discover/stream`, el Visor de eventos, `TEMP` de las gMSA, IIS, volcados de memoria **ni el navegador** | `api/tests/test_marked_literals.py`; `event_log` apagado en la prueba (`test_marked_literals.py:75`) | OP-06 CA4 queda cerrado solo en parte | Media | M | Repetir la búsqueda del literal en el servidor instalado y añadir MCP y streaming a la prueba | HU-37 |
 | DT-42 | **(nueva)** Solo `CurationRepository` tiene un contrato común que corre contra archivos y contra la BD. `KnowledgeWriter` e `InventoryStore` se prueban por separado | `tests/test_curation.py:182-186` (fixture parametrizado); `tests/test_curation.py:167`, `238` (solo archivos) | Los adaptadores de archivos y de BD pueden divergir sin que una prueba lo note | Baja | S | Fixture parametrizado `archivos`/`sqlserver` para los otros dos puertos | — |
@@ -138,7 +132,6 @@ Salieron al leer el código para escribir las páginas de `docs/wiki/componentes
 
 | ID | Deuda | Evidencia | Consecuencia | Grav. | Esf. | Cómo se cierra | Plan / HU |
 |---|---|---|---|---|---|---|---|
-| DT-57 | **(nueva)** La visibilidad puede perder bases de datos enteras: se abre la conexión con `DATABASE=<bd>` y solo después se pregunta `HAS_DBACCESS`. Si el login no tiene acceso a esa base, lo esperable es que falle la conexión, y la excepción corta el recorrido del resto de bases de ese servidor | `src/converdata/identity/visibility.py:43-54`; `api/converdata_api/runtime.py:283-287`. **Sin verificar** contra SQL Server real: ninguna prueba ejercita `PyodbcObjectLister` | Un usuario sin acceso a una base vería menos de lo que le corresponde (falla hacia lo cerrado, no es una fuga). En el piloto casi nadie tiene acceso a todas las bases | Alta | S | Prueba `sqlserver` con un login de acceso parcial; capturar el fallo por base y seguir con la siguiente | HU-12 |
 | DT-58 | **(nueva)** Los avisos de la API no llegan al log JSON ni al Visor de eventos: `configure_logging` configura el logger `converdata` sin propagación, y la API escribe con `converdata_api.*` | `src/converdata/observability/logging.py:54-56`; `api/converdata_api/runtime.py:45`; `api/converdata_api/curation.py:25` | Un fallo al cargar, recargar o construir el catálogo, o al leer la visibilidad, no aparece en el monitoreo | Media | S | Configurar también `converdata_api` o usar un nombre bajo `converdata` | HU-21 |
 | DT-59 | **(nueva)** Los puertos `QueryExpander` y `Reviewer` no tienen implementación con LLM ni se conectan en `bootstrap.py`. Los patrones C y B corren solo en su parte determinista, aunque el docstring del flujo los da por activos | `src/converdata/discovery/ports.py`; `src/converdata/bootstrap.py`; `src/converdata/flows/discover.py:1-16` | Lo que se espera ganar con el modelo en reformulación y revisión no existe todavía; `config/models` declara un rol `judge` sin uso | Media | M | Implementarlos al probar Bedrock, o quitar el rol y corregir el docstring | HU-35 |
 | DT-60 | **(nueva)** La pregunta de aclaración que redacta el modelo se muestra sin pasar por la guarda de texto | `src/converdata/flows/discover.py:341` | Es el único texto del modelo que llega al usuario sin comprobar que no nombra objetos ajenos | Media | S | Pasarla por la misma guarda que la narrativa, con respaldo determinista | HU-36 |
@@ -148,10 +141,10 @@ Salieron al leer el código para escribir las páginas de `docs/wiki/componentes
 | DT-64 | **(nueva)** Con el tope diario de tokens agotado, `/mcp` siempre rechaza aunque `CONVERDATA_TOKEN_LIMIT_MODE=deterministic` | `api/converdata_api/mcp_mount.py`; `api/converdata_api/tokens.py` | La web responde sin modelo y el cliente MCP no: comportamiento distinto para el mismo usuario | Baja | S | Aplicar el mismo modo en el montaje MCP | HU-19 |
 | DT-65 | **(nueva)** La cookie de sesión no se renueva aunque la sesión del servidor sí se extiende | `api/converdata_api/main.py` (`set_cookie` solo en el login); `api/converdata_api/vault.py` | En el navegador la sesión dura como máximo 8 h aunque el usuario siga activo; el tope real de 12 h no se alcanza | Baja | S | Renovar la cookie al extender la sesión, o documentar 8 h como tope | — |
 | DT-66 | **(nueva)** Ningún `GRANT` cubre `dbo.schema_version`, que la API lee al arrancar para comprobar las migraciones | `db/converdata/001_esquemas.sql`; `src/converdata/storage/migrations.py` (`require_current`). **Sin verificar** con una cuenta que solo pertenezca a `converdata_app` | En qa y prod la API podría no arrancar con la cuenta de mínimo privilegio | Media | S | Prueba `sqlserver` con ese rol; si falla, `GRANT SELECT` en una migración `003` | HU-37 |
-| DT-67 | **(nueva)** El proxy de la web reenvía cualquier ruta bajo `/api/`, sin lista de rutas permitidas | `web/src/app/api/[...path]/route.ts:9-11` | `/mcp`, `/health/metrics` o `/docs` de la API quedan alcanzables desde el origen de la web. La API sigue exigiendo sesión donde corresponde | Baja | S | Lista de prefijos permitidos en el proxy | — |
 | DT-68 | **(nueva)** La suite `auditoria` de la compuerta usa sumideros en memoria | `src/converdata/evaluation/gate.py` | La compuerta no prueba el comportamiento fail-closed del sumidero de SQL Server; eso lo cubren solo las pruebas `sqlserver`, que no corren en la CI (DT-39) | Baja | M | Variante de la suite con `--db` | HU-36 |
 | DT-69 | **(nueva)** `CONVERDATA_BUILDER_HOSTS` solo se aplica a `catalog build --db`. No se aplica con `--config` ni a la construcción lanzada desde Administración | `src/converdata/cli.py:318`, `345-363`; `api/converdata_api/runtime.py` (`_run_build`) | Desde Administración se usa la credencial del administrador, no la cuenta de servicio, así que el riesgo es menor; pero el inventario puede apuntar a cualquier host | Baja | S | Aplicar la misma lista en la API, o documentar la diferencia en OP-07 | HU-37 |
 | DT-70 | **(nueva)** Nada escribe `knowledge.item` ni `curation.owners` salvo la importación con `catalog publish` | `src/converdata/storage/catalog_repository.py`; `db/converdata/001_esquemas.sql:108`, `189` | Diccionarios, documentos y dueños de dominio no tienen camino de entrada en producción hasta el bloque E | Media | M | Ingesta de fuentes de conocimiento y edición de dueños | HU-25, HU-26 |
+| DT-71 | **(nueva)** La CSP de la web usa `'unsafe-inline'` en `script-src` y `style-src`: Next.js inyecta scripts y estilos en línea y no se usan nonces | `web/next.config.ts:9-10` | Si una página llegara a reflejar contenido sin escapar, la CSP no frenaría el script en línea. El resto de la política (`frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`) sí vale | Baja | M | Pasar a CSP con nonces (middleware de Next.js) y quitar `'unsafe-inline'` de `script-src` | OP-04 |
 
 ## 4. Deudas cerradas recientemente
 
@@ -159,6 +152,11 @@ No reabrir. Si alguna vuelve, es una regresión.
 
 | Cerrada | Cómo se comprueba |
 |---|---|
+| DT-01 · El proxy de la web no reenviaba `Origin` y la API no comprobaba el origen de lo que llegaba por la web | `web/src/app/api/[...path]/route.ts:7`, `26-27` (reenvía `origin` y envía `X-Forwarded-Host`). Comprobado en el navegador el 2026-11-17: un cambio de estado con cookie desde otro origen da 403 "Origen no permitido"; desde el mismo origen, 200. Si delante hay un proxy que cambia `Host`, el origen público va en `CONVERDATA_CORS_ORIGINS` |
+| DT-03 · Las páginas de la web no llevaban cabeceras de seguridad | `web/next.config.ts` (`headers()`): CSP con `frame-ancestors 'none'`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` y, en producción, HSTS. Comprobado en el navegador. Queda el límite de `'unsafe-inline'` (DT-71) |
+| DT-08 · Las conversaciones seguían en `localStorage` tras cerrar sesión | `web/src/components/session-provider.tsx:75-80` borra las claves `converdata:conversations:*` al cerrar sesión. Matiz: si la sesión caduca sin pulsar "Cerrar sesión", las conversaciones siguen en el navegador hasta el siguiente cierre de sesión |
+| DT-57 · La visibilidad perdía las bases siguientes de un servidor si una era inaccesible | `src/converdata/identity/visibility.py` (`PyodbcObjectLister.visible_objects`: pregunta `HAS_DBACCESS` desde `master` y solo abre las bases con acceso); `tests/test_visibility.py` (tres pruebas sin SQL Server y una `sqlserver`). Confirmado contra SQL Server real. La reproducción usó una base fuera de línea porque el SQL Server local solo admite autenticación de Windows: falta repetirla con un login SQL de acceso parcial en el servidor del banco |
+| DT-67 · El proxy de la web reenviaba cualquier ruta | `route.ts:12`, `16-18`: solo `auth`, `login`, `setup`, `me`, `discover`, `catalog`, `assets`, `curation` y `admin`; `/api/mcp`, `/api/health/metrics` y `/api/docs` responden 404 |
 | Fallos de orden B4 y C2 del descubrimiento | Commit `615d9c3`. `eval discovery` del 2026-11-17 solo falla B14 y eng-06 |
 | Dependencias de Python sin versión ni hash; imágenes por etiqueta; acciones por etiqueta | Commit `615d9c3`; `requirements/*.lock`; `tests/test_supply_chain.py` |
 | Sin análisis de vulnerabilidades ni SBOM en la CI | `calidad.yml:64-91` (`pip-audit`, `npm audit --omit=dev`, CycloneDX); corre también cada lunes (`calidad.yml:9-10`) |
@@ -179,8 +177,7 @@ No reabrir. Si alguna vuelve, es una regresión.
 | `docs/backlog/on-premise.md:453-454` | "Falta recompilar la web tras el endurecimiento" | La CI la compila en cada PR (`calidad.yml:45-62`) |
 | `docs/manual-desarrollo.md:52` | Las herramientas de descubrimiento son "las mismas para la API y el MCP" | Solo el MCP las usa; la API llama al `DiscoverService` (`main.py:598`) y tiene su propia ficha (`main.py:923-949`). `capas-backend.md:54` sí lo dice bien |
 | `docs/calidad-bancaria.md:110`, `docs/manual-desarrollo.md:155`, `docs/backlog/reparto-5-devs.md:63` | Detector de "cinco patrones (DUI, NIT, correo, teléfono, tarjeta)" | Reconoce seis tipos: también IBAN (`pii.py:12-19`) |
-| `docs/calidad-bancaria.md:76` | CSRF por `Origin` y cabeceras de seguridad como controles implementados | Ciertos en la API, pero no llegan al navegador a través del proxy (DT-01, DT-03) |
-| `api/converdata_api/security.py:209` (comentario) | "Next.js reenvía `X-Forwarded-Host`" | `route.ts:6` no lo reenvía |
+| `docs/calidad-bancaria.md:76` | CSRF por `Origin` y cabeceras de seguridad como controles implementados | Corregido el 2026-11-17: el proxy reenvía `Origin` y la web envía las cabeceras (DT-01, DT-03 cerradas); la nota ya no aplica |
 | `docs/calidad-bancaria.md:129` (§4) | `CONVERDATA_LOG_DIR` obligatorio en qa y prod | Nunca falta: `settings.py:80` pone un valor por defecto (DT-06) |
 | `docs/calidad-bancaria.md:39` | La calibración ≥ 85 % es un criterio de la suite `calidad` | En BancosSQL no es medible (n = 0) y queda informativa (DT-32) |
 | `docs/PLAN-desarrollo.md:253` | `pip install --no-deps -e .` | El manual y `requirements/README.md:39` usan `--no-deps --no-build-isolation --no-index -e .` |
@@ -189,15 +186,13 @@ No reabrir. Si alguna vuelve, es una regresión.
 
 ## 5. Orden recomendado de pago
 
-1. **DT-01, DT-02 y DT-03** (S, mismo archivo). Seguridad y disponibilidad del piloto, con el menor esfuerzo del registro. Cerrarlos con DT-40 (una prueba que pase por el proxy) para que no vuelvan.
-2. **DT-57** (S). Probar la visibilidad con un login de acceso parcial contra un SQL Server real: si el fallo existe, afecta a casi todos los usuarios del piloto.
-3. **DT-39** (M). SQL Server en la CI antes de que cinco personas cambien `storage/`, `audit/` y `db/` a la vez.
-4. **DT-17 y luego DT-16** (S + M). La fábrica primero quita efectos al importar; partir `main.py` después reduce los conflictos entre carriles.
-5. **DT-04 y DT-33** (M + S). La migración `003` con `recorded_at` y la tarea de purga van juntas: la purga debe borrar por la fecha nueva.
-6. **DT-06, DT-07 y DT-21** (S). Configuración que falla en silencio y un circuit breaker que se reinicia: baratos y evitan sorpresas en la instalación.
-7. **DT-35 y DT-27** (M + S). Antes de construir el bloque D, para que las métricas salgan de la BD y no de un tope en memoria.
-8. **DT-45 y DT-44** (M + L). La imagen en la CI y los scripts de Windows son el bloque F; empezar ya lo que no necesita el servidor.
-9. **DT-29, DT-30 y DT-05** (L). Dependen del banco (steward, cuenta AWS, documentos); pedirlos el primer día.
+1. **DT-39** (M). SQL Server en la CI antes de que cinco personas cambien `storage/`, `audit/` y `db/` a la vez. Con DT-40 (una prueba que pase por el proxy) para que las cabeceras y el control de origen no vuelvan a perderse.
+2. **DT-17 y luego DT-16** (S + M). La fábrica primero quita efectos al importar; partir `main.py` después reduce los conflictos entre carriles.
+3. **DT-04 y DT-33** (M + S). La migración `003` con `recorded_at` y la tarea de purga van juntas: la purga debe borrar por la fecha nueva.
+4. **DT-06, DT-07 y DT-21** (S). Configuración que falla en silencio y un circuit breaker que se reinicia: baratos y evitan sorpresas en la instalación.
+5. **DT-35 y DT-27** (M + S). Antes de construir el bloque D, para que las métricas salgan de la BD y no de un tope en memoria.
+6. **DT-45, DT-44 y DT-02** (M + L + S). La imagen en la CI y los scripts de Windows son el bloque F; DT-02 (activar `TRUST_FORWARDED_FOR` y `CONVERDATA_TRUST_PROXY` detrás de IIS) entra con ellos. Empezar ya lo que no necesita el servidor.
+7. **DT-29, DT-30 y DT-05** (L). Dependen del banco (steward, cuenta AWS, documentos); pedirlos el primer día.
 
 ## 6. Lo que no es deuda sino decisión
 

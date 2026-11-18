@@ -208,6 +208,40 @@ def test_cambio_de_estado_con_cookie_desde_otro_origen_se_rechaza(ready):
     assert r.status_code == 200
 
 
+def test_el_origen_del_sitio_que_reenvia_la_web_se_acepta(ready):
+    """La web reenvía `Origin` y el `Host` que ve el navegador (`X-Forwarded-Host`): con otro nombre público sigue
+    siendo el mismo sitio, y un origen distinto se sigue rechazando."""
+    analyst = analyst_client(ready.app)
+    site = {"Origin": "https://converdata.banco.example", "X-Forwarded-Host": "converdata.banco.example"}
+    assert analyst.post("/discover", json={"question": "¿Dónde está el saldo?"}, headers=site).status_code == 200
+    other = {"Origin": "https://sitio-ajeno.example", "X-Forwarded-Host": "converdata.banco.example"}
+    assert analyst.post("/discover", json={"question": "¿Dónde está el saldo?"}, headers=other).status_code == 403
+
+
+def test_el_proxy_de_la_web_no_debilita_los_controles_de_la_api():
+    """La web no tiene pruebas propias: aquí se fija lo que su proxy y su configuración deben conservar."""
+    import re
+    from pathlib import Path
+
+    web = Path(__file__).resolve().parents[2] / "web"
+    proxy = (web / "src" / "app" / "api" / "[...path]" / "route.ts").read_text(encoding="utf-8")
+    forwarded = re.search(r"FORWARD_REQUEST = \[([^\]]*)\]", proxy).group(1)
+    assert '"origin"' in forwarded and '"cookie"' in forwarded  # sin `origin` la API no puede rechazar otro sitio
+    assert 'headers.set("x-forwarded-host"' in proxy
+    assert "TRUST_FORWARDED_FOR" in proxy and 'headers.set("x-forwarded-for"' in proxy
+    assert 'out.set("cache-control"' in proxy
+    allowed = set(re.findall(r'"(\w+)"', re.search(r"const ALLOWED = \[([^\]]*)\]", proxy).group(1)))
+    assert allowed == {"auth", "login", "setup", "me", "discover", "catalog", "assets", "curation", "admin"}
+    assert not allowed & {"mcp", "health", "docs", "openapi"}
+    config = (web / "next.config.ts").read_text(encoding="utf-8")
+    for header in ("Content-Security-Policy", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy",
+                   "Strict-Transport-Security"):
+        assert header in config, header
+    assert "frame-ancestors 'none'" in config and "async headers()" in config
+    session = (web / "src" / "components" / "session-provider.tsx").read_text(encoding="utf-8")
+    assert "converdata:conversations:" in session and "removeItem" in session  # al salir no quedan preguntas
+
+
 def test_cuerpo_demasiado_grande_se_rechaza(ready, settings):
     settings.max_body_bytes = 2000
     r = ready.post("/discover", json={"question": "a" * 1500, "history": ["b" * 1500]})

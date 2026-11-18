@@ -72,6 +72,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.logout();
     } catch {}
+    // Las conversaciones llevan las preguntas tal como se escribieron: no deben quedar en el navegador al salir.
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("converdata:conversations:")) localStorage.removeItem(key);
+      }
+    } catch {}
     setUser(null);
     router.replace("/login");
   }, [router]);

@@ -15,6 +15,8 @@ El mismo 2026-11-17, en una segunda tanda ("deudas técnicas", detalle en §3), 
 descubrimiento, se versionó y midió el set de 25 preguntas de reporte, se fijó la cadena de suministro (bloqueos con hashes, imágenes
 por digest, análisis en la CI) y se escribió la prueba de literales marcados de punta a punta.
 
+Ese día se cerraron también DT-01 (el proxy de la web reenvía `Origin`), DT-03 (cabeceras de seguridad en la web), DT-08 (las conversaciones se borran al cerrar sesión), DT-57 (la visibilidad pregunta `HAS_DBACCESS` desde `master`) y DT-67 (el proxy solo reenvía las rutas que usa la web). DT-02 queda mitigada: falta activar `TRUST_FORWARDED_FOR` y `CONVERDATA_TRUST_PROXY` detrás de IIS (bloque F). Registro en [wiki/deuda-tecnica.md](wiki/deuda-tecnica.md).
+
 El 2026-11-16 se alinearon PRD, specs, backlog y diagramas con la **arquitectura simplificada** (PRD §13, decisiones 9–16): búsqueda
 léxica en memoria sin embeddings, BD `ConverData` en tablas normales (SQL Server 2016+), web Next.js en lugar de Chainlit, Builder como
 comando programado, un solo modelo de Bedrock y AWS como despliegue mínimo posterior al piloto.
@@ -252,9 +254,9 @@ cd converdata
 # Dependencias con versión y hash fijados (requirements/README.md); sin esto api/tests no carga
 .venv/Scripts/python -m pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/dev.lock
 .venv/Scripts/python -m pip install --no-deps --no-build-isolation --no-index -e .
-.venv/Scripts/python -m pytest -q                                          # 370 passed, 82 skipped: sin CONVERDATA_TEST_DB las pruebas de SQL Server se omiten
+.venv/Scripts/python -m pytest -q                                          # 375 passed, 83 skipped: sin CONVERDATA_TEST_DB las pruebas de SQL Server se omiten
 export CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes'
-.venv/Scripts/python -m pytest -q                                          # 452 passed: incluye migraciones, roles, auditoría, catálogo, curación, la CLI y los literales marcados en una BD real y desechable
+.venv/Scripts/python -m pytest -q                                          # 458 passed: incluye migraciones, roles, auditoría, catálogo, curación, la CLI y los literales marcados en una BD real y desechable
 .venv/Scripts/python -m converdata.cli eval gate --out reports             # compuerta: debe aprobar en vbank y bancos
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos   # 58 casos · Hit@1 98.0 % · Hit@3 98.0 % (falla B14)
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/vbank    # 31 casos · Hit@1 96.2 % · Hit@3 96.2 % (falla eng-06)

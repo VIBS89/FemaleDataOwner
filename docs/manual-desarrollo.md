@@ -145,26 +145,22 @@ npm --prefix web ci && npm --prefix web run build
 | **H · Piloto** | Línea base, ocho semanas con 10–15 usuarios e informe. Roles desde grupos de Active Directory | El banco |
 
 ### 5.2 Deudas técnicas
-El registro completo está en `docs/wiki/deuda-tecnica.md`: 70 deudas comprobadas contra el código, con evidencia,
-gravedad, esfuerzo y cómo se cierran. Estas son las 12 de gravedad alta:
+El registro completo está en `docs/wiki/deuda-tecnica.md`: 66 deudas abiertas comprobadas contra el código, con evidencia,
+gravedad, esfuerzo y cómo se cierran. Estas son las 8 de gravedad alta:
 
 | ID | Deuda | Por qué importa |
 |---|---|---|
-| DT-01 | El proxy de la web no reenvía `Origin` a la API | El control contra peticiones de otro sitio no se aplica a la web; hoy solo protege la cookie `SameSite` |
-| DT-02 | La API ve una sola dirección de origen, la del proxy | 30 contraseñas erróneas de cualquiera bloquean el login de todos durante 15 minutos |
-| DT-03 | Las páginas de la web no llevan cabeceras de seguridad | Sin política de contenido ni protección contra marcos ajenos en el navegador |
 | DT-04 | La fecha de un registro de auditoría la fija quien lo inserta | Una cuenta comprometida podría antedatar filas para que caigan en la purga |
 | DT-05 | El detector de datos personales reconoce seis formatos y no nombres ni direcciones | De él depende lo que escribe un responsable; la plantilla de las confirmaciones tampoco reconoce nombres |
 | DT-29 | Los sets de evaluación los escribió el equipo | Los porcentajes no predicen el uso real |
 | DT-30 | Nada se ha medido con el modelo real | Bedrock sin probar de punta a punta; las suites de inyección y guardas solo corrieron sin modelo |
 | DT-33 | La purga de 180 días existe pero no está programada | Retención |
-| DT-39 | Las pruebas de SQL Server (82 de 452) no corren en la CI | Una regresión en el esquema o en los adaptadores no se ve en un PR |
+| DT-39 | Las pruebas de SQL Server (83 de 458) no corren en la CI | Una regresión en el esquema o en los adaptadores no se ve en un PR |
 | DT-44 | No hay instalación para Windows Server | Sin IIS, tareas programadas ni respaldo no hay piloto |
 | DT-45 | La CI no construye ni analiza la imagen | Cadena de suministro |
-| DT-57 | La lectura de permisos puede perder bases de datos enteras si el login no tiene acceso a una. Sin verificar contra un SQL Server real | Un usuario vería menos de lo que le corresponde; en el piloto casi nadie tiene acceso a todas las bases |
 
-DT-01, DT-02 y DT-03 están en el mismo archivo y se cierran en menos de un día. DT-57 necesita una prueba con un login
-de acceso parcial antes de darla por cierta.
+El 2026-11-17 se cerraron DT-01, DT-03, DT-08, DT-57 y DT-67, y DT-02 bajó a gravedad media: queda activar
+`TRUST_FORWARDED_FOR` (web) y `CONVERDATA_TRUST_PROXY` (API) detrás de IIS, en el bloque F.
 
 Las brechas frente al PRD y las specs están en `docs/wiki/brechas-funcionales.md`, y el orden para cerrarlas en
 `docs/wiki/hoja-de-ruta-on-premise.md` y `docs/wiki/hoja-de-ruta-cloud.md`.

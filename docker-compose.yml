@@ -46,6 +46,9 @@ services:
     build: ./web
     environment:
       API_URL: http://api:8000
+      # Solo detrás de un proxy inverso propio (IIS, ALB) que añade la dirección del cliente a X-Forwarded-For; entonces
+      # la API necesita además CONVERDATA_TRUST_PROXY=1. Sin ese proxy, apagado: la cabecera la escribiría el cliente.
+      TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-0}
     ports:
       - "${CONVERDATA_PORT:-3000}:3000"
     depends_on:

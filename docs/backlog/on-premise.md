@@ -27,7 +27,7 @@ sobre la BD `ConverData` en SQL Server 2016 o posterior, con 10–15 usuarios re
 | Database Mail | Webhook de Teams | HU-18, HU-24, HU-30 |
 
 ### Estado al 2026-11-17
-**452 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella
+**458 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella
 las de SQL Server se omiten) y compuerta `converdata eval gate` aprobada en los dos catálogos de prueba, también con el catálogo cargado desde la BD
 (modo determinista; `eval gate --db --root tests/fixtures/bancos` repetido con el set de 58 casos). El
 2026-11-17 se cerró el bloque C2 del plan: curación e inventario en la BD.

@@ -40,13 +40,26 @@ class PyodbcObjectLister:
         self._connect = connect  # (server_id, database) -> conexión pyodbc abierta con el login del usuario
 
     def visible_objects(self, server_id: str, databases: list[str]) -> Iterable[VisibleObject]:
-        for db in databases:
-            conn = self._connect(server_id, db)
+        """Primero pregunta, desde `master`, a qué bases entra el login; solo abre esas. Abrir una base sin acceso
+        hace fallar la conexión, y ese fallo no debe ocultar las demás bases del servidor. Si el servidor no
+        responde, falla la primera conexión y quien llama no ve nada de él (fail-closed)."""
+        conn = self._connect(server_id, "master")
+        try:
+            cur = conn.cursor()
+            accessible = []
+            for db in databases:
+                cur.execute("SELECT HAS_DBACCESS(?)", db)
+                if cur.fetchone()[0] == 1:
+                    accessible.append(db)
+        finally:
+            conn.close()
+        for db in accessible:
+            try:
+                conn = self._connect(server_id, db)
+            except Exception:  # la base dejó de estar disponible entre las dos consultas: se omite solo esa base
+                continue
             try:
                 cur = conn.cursor()
-                cur.execute("SELECT HAS_DBACCESS(?)", db)
-                if cur.fetchone()[0] != 1:
-                    continue
                 cur.execute(VISIBILITY_SQL)
                 for schema, name, _type in cur.fetchall():
                     yield VisibleObject(db, schema, name)

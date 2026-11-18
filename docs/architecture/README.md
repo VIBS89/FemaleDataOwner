@@ -216,7 +216,7 @@ Cada página de la wiki baja hasta archivos y funciones.
 ## 7. Qué falta
 La arquitectura descrita está construida salvo lo que se marca como pendiente. El detalle está en tres páginas:
 
-- [Deuda técnica](../wiki/deuda-tecnica.md): 70 deudas comprobadas contra el código, 12 de gravedad alta. Las más urgentes están en el borde entre la web y la API (el proxy no reenvía `Origin` ni la dirección del cliente) y en la lectura de permisos por base de datos, que está sin verificar contra un SQL Server real.
+- [Deuda técnica](../wiki/deuda-tecnica.md): 66 deudas abiertas comprobadas contra el código, 8 de gravedad alta. El 2026-11-17 se cerraron las del borde entre la web y la API (el proxy reenvía `Origin`, la web envía cabeceras de seguridad y solo expone las rutas que usa) y la de la lectura de permisos por base de datos. Lo más urgente ahora es SQL Server en la CI (DT-39), la fecha de la auditoría (DT-04) y la instalación en Windows Server (DT-44). Queda mitigada la dirección del cliente tras el proxy (DT-02): falta activar `TRUST_FORWARDED_FOR` y `CONVERDATA_TRUST_PROXY` detrás de IIS.
 - [Brechas funcionales](../wiki/brechas-funcionales.md): lo que prometen el PRD y las specs y aún no existe.
 - Hojas de ruta [on-premise](../wiki/hoja-de-ruta-on-premise.md) y [cloud](../wiki/hoja-de-ruta-cloud.md): en qué orden se cierra.
 

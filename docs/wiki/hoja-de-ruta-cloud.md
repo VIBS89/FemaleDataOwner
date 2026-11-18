@@ -254,7 +254,7 @@ El registro completo está en [deuda técnica](deuda-tecnica.md).
 |---|---|---|
 | 1 · Prerrequisitos | DT-46 (estado en memoria) | Obliga a una sola tarea y a un despliegue que nunca deje dos a la vez |
 | 3 · Imágenes | DT-45, DT-47 y DT-50 | La imagen no se construye ni se analiza en la CI, lleva paquetes del sistema sin fijar y arrastra fixtures de prueba |
-| 4 · Tarea web + API | DT-01, DT-02 y DT-03 | Detrás del ALB el problema del origen y de la dirección del cliente se repite; hay que resolverlo en el proxy de la web antes |
+| 4 · Tarea web + API | DT-02 | El proxy de la web ya reenvía la dirección del cliente, pero solo con `TRUST_FORWARDED_FOR=1` (web) y `CONVERDATA_TRUST_PROXY=1` (API). Detrás del ALB hay que activarlas y probarlas; el origen público va en `CONVERDATA_CORS_ORIGINS` |
 | 6 · Observabilidad | DT-58 y DT-37 | Los avisos de la API no llegan al log y no hay alerta si falla la auditoría: CloudWatch no los vería |
 | 9 · Más de una tarea | DT-46 y DT-21 | Sesiones, topes y corte por fallos tendrían que compartirse entre tareas |
 

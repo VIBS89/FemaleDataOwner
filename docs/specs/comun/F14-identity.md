@@ -37,8 +37,8 @@ lo ve en ConverData.
 > **Estado al 2026-11-17:**
 > - La prueba de conexión del login ejecuta `SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION')` (`api/converdata_api/connector.py`); no usa `ORIGINAL_LOGIN()`.
 > - El login recibe una sola credencial y la prueba en cada servidor marcado (`POST /auth/login`, `api/converdata_api/main.py`); no hay una credencial distinta por servidor ni ruta para añadir credenciales después.
-> - La visibilidad se calcula servidor por servidor, en secuencia, no en paralelo (`AgentRuntime.visible_ids` en `api/converdata_api/runtime.py`; `PyodbcObjectLister` en `src/converdata/identity/visibility.py`). Si un servidor falla, el usuario no ve nada de él.
-> - `PyodbcObjectLister` comprueba `HAS_DBACCESS` y `HAS_PERMS_BY_NAME(..., 'OBJECT', ...)` por objeto; no detecta `DENY` a nivel de columna (no existe consulta con `'COLUMN'`).
+> - La visibilidad se calcula servidor por servidor, en secuencia, no en paralelo (`AgentRuntime.visible_ids` en `api/converdata_api/runtime.py`; `PyodbcObjectLister` en `src/converdata/identity/visibility.py`). `PyodbcObjectLister` pregunta `HAS_DBACCESS` desde `master` antes de abrir cada base y solo abre las que el login puede usar, así que una base inaccesible no oculta las siguientes del servidor. Si el servidor falla, el usuario no ve nada de él.
+> - `PyodbcObjectLister` usa `HAS_DBACCESS` (desde `master`) y `HAS_PERMS_BY_NAME(..., 'OBJECT', ...)` por objeto; no detecta `DENY` a nivel de columna (no existe consulta con `'COLUMN'`).
 >
 > Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 

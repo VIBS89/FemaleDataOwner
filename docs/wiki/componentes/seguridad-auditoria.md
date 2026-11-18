@@ -51,13 +51,14 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 ### 1. Herencia de permisos
 - **Protege**: que nadie vea metadatos de objetos que su login no puede leer, ni siquiera que existen.
 - **Dónde**: `VISIBILITY_SQL` (`identity/visibility.py:14`) lista `U`/`V` con `SELECT` y `P` con `EXECUTE` en cada BD del catálogo.
+  `PyodbcObjectLister` pregunta `HAS_DBACCESS` desde `master` y solo abre las bases con acceso: una base inaccesible no oculta las siguientes del servidor.
   `runtime.visible_ids` lo convierte en ids físicos, solo de servidores validados en la sesión; un servidor caído no aporta nada.
   Caché de 15 min por sesión y versión del catálogo. Se aplica en el índice (`memory_store.py:122`, `_require` obliga a pasarlo), en
   el motor (ubicaciones, reglas, linaje, FKs, grafo), en el explorador (`/catalog/*`, `/assets`), en la ficha (FKs a tablas ocultas
   se quitan, `main.py:929`) y en la curación (404 en vez de 403 si el responsable no ve el activo, `main.py:381`).
 - **Pruebas**: `api/tests/test_api.py::test_permissions_are_inherited`,
   `api/tests/test_security.py::test_barrido_de_la_api_sin_fugas_para_un_usuario_restringido`,
-  `::test_la_visibilidad_se_vuelve_a_leer_de_sql_server`, `::test_la_ficha_de_un_activo_no_revela_tablas_ocultas_por_sus_llaves_foraneas`,
+  `tests/test_visibility.py` (una base inaccesible no oculta las demás), `::test_la_visibilidad_se_vuelve_a_leer_de_sql_server`, `::test_la_ficha_de_un_activo_no_revela_tablas_ocultas_por_sus_llaves_foraneas`,
   `::test_curar_no_revela_activos_que_el_login_no_puede_ver`, `tests/test_core.py::test_visible_ids_es_obligatorio`,
   `tests/test_discover_flow_e2e.py::test_usuario_sin_permiso_no_descubre_nada_de_vbank`,
   `tests/test_graph_rag.py::test_camino_de_union_respeta_permisos`, suite `permisos` de `converdata eval gate`.
@@ -78,7 +79,10 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
   `Referrer-Policy: no-referrer`, CSP `default-src 'none'`, `Cache-Control: no-store`, `Permissions-Policy`, HSTS con cookie segura.
   En `POST/PUT/DELETE` con cookie y sin `Bearer`, rechaza (403) un `Origin` que no sea el propio, el de `X-Forwarded-Host`, el de CORS o
   el de `CONVERDATA_PUBLIC_URL`; sin `Origin`, rechaza `Sec-Fetch-Site: cross-site`. Cuerpo > `CONVERDATA_MAX_BODY_BYTES` → 413,
-  también en transferencia por trozos. Es el middleware más externo (`main.py:311`).
+  también en transferencia por trozos. Es el middleware más externo (`main.py:311`). Estas cabeceras son las de la API. Las de las páginas de la web
+  (CSP con `frame-ancestors 'none'`, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS en producción) las pone `web/next.config.ts`.
+  El proxy de la web reenvía `Origin` y envía `X-Forwarded-Host`, así que el control de origen sí alcanza al navegador; con un proxy delante que cambie `Host`,
+  el origen público va en `CONVERDATA_CORS_ORIGINS`. Verificado en el navegador el 2026-11-17: otro origen da 403 "Origen no permitido"; el mismo, 200.
 - **Pruebas**: `api/tests/test_security.py::test_cabeceras_de_seguridad_en_todas_las_respuestas`,
   `::test_cambio_de_estado_con_cookie_desde_otro_origen_se_rechaza`, `::test_cuerpo_demasiado_grande_se_rechaza`.
 
@@ -94,6 +98,8 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 - **Protege**: frente a fuerza bruta y relleno de credenciales.
 - **Dónde**: `LoginThrottle` con dos instancias (`main.py:263`): 5 fallos por login y 30 por origen en 10 min, bloqueo de 15 min.
   Bloqueado, ni se prueba la credencial contra SQL Server. Un servidor caído no cuenta. Un acierto limpia el login, no el origen.
+  El origen es la IP que ve la API. Detrás de la web, solo es la del cliente con `TRUST_FORWARDED_FOR=1` (web) y `CONVERDATA_TRUST_PROXY=1` (API); van apagadas por
+  defecto y falta activarlas y probarlas detrás de IIS (DT-02, mitigada).
   Eventos `login_failed` y `login_locked`.
 - **Pruebas**: `api/tests/test_security.py::test_el_login_se_bloquea_tras_cinco_fallos`,
   `::test_el_bloqueo_expira_y_el_exito_limpia_los_fallos`, `::test_un_servidor_caido_no_cuenta_para_el_bloqueo`.
@@ -212,22 +218,18 @@ Ver [deuda técnica](../deuda-tecnica.md) y [calidad bancaria §5](../../calidad
 - El volcado de memoria del proceso (que contiene el SessionVault) se desactiva en la instalación (HU-37), no en el código.
 
 ### Fallos encontrados al revisar el código
-1. **Visibilidad que puede perder BDs enteras** (sin verificar contra SQL Server real). `PyodbcObjectLister.visible_objects`
-   (`identity/visibility.py:44`) abre la conexión con `DATABASE=<bd>` y **después** consulta `HAS_DBACCESS`. Si el login no tiene
-   usuario en esa BD, lo esperable es que la conexión falle; la excepción sale del generador y `runtime.visible_ids`
-   (`runtime.py:284-288`) deja sin visibilidad el resto de BDs de ese servidor (se recorren en orden alfabético). Es fail-closed, pero
-   un usuario podría no ver lo que sí puede leer. Ninguna prueba ejercita `PyodbcObjectLister`. El Builder hace la comprobación desde
-   `master` (`src/converdata/metadata/sqlserver.py:24`).
-2. **Logs de la API fuera del archivo JSON y del Visor de eventos.** `configure_logging` configura el logger `converdata`
+La lectura de permisos que perdía bases (DT-57) se cerró el 2026-11-17.
+
+1. **Logs de la API fuera del archivo JSON y del Visor de eventos.** `configure_logging` configura el logger `converdata`
    (`observability/logging.py:54`), pero `runtime.py` y `curation.py` de la API usan `converdata_api.*`, que no cuelga de él.
    `catalog.load_failed`, `catalog.refresh_failed`, `catalog.build_failed`, `catalog.reload_failed`, la visibilidad no disponible y el
    aviso fallido no llegan al log del monitoreo.
-3. **Aclaración del modelo sin guarda.** Con ruta `clarify`, `finalize` muestra `intent.clarification.question` tal como la devolvió
+2. **Aclaración del modelo sin guarda.** Con ruta `clarify`, `finalize` muestra `intent.clarification.question` tal como la devolvió
    el LLM (`flows/discover.py:341`), sin `unsafe_generated_text`.
-4. **Revocación auditada después de aplicarse.** `DELETE /admin/sessions/{user_id}` (`main.py:1059-1063`) y `/auth/logout` escriben
+3. **Revocación auditada después de aplicarse.** `DELETE /admin/sessions/{user_id}` (`main.py:1059-1063`) y `/auth/logout` escriben
    el evento después de cerrar las sesiones; contradice "cada cambio se audita antes de aplicarse" (OP-04). No abre un acceso, pero si
    la auditoría falla la revocación queda sin registro.
-5. **Descripciones sugeridas por IA sin guarda.** El enriquecimiento del build (`src/converdata/flows/catalog_build.py:162-170`) guarda
+4. **Descripciones sugeridas por IA sin guarda.** El enriquecimiento del build (`src/converdata/flows/catalog_build.py:162-170`) guarda
    el texto del modelo sin `unsafe_generated_text` ni `find_pii`. Se muestra como "sugerida por IA" en fichas y tarjetas.
 
 ## Dónde cambiar qué

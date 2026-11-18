@@ -222,12 +222,12 @@ lo que conviene cerrar junto con sus entregables.
 
 | Cuándo | Deudas | Por qué entonces |
 |---|---|---|
-| Antes de repartir el trabajo | DT-01, DT-02, DT-03 (proxy de la web), DT-57 (lectura de permisos por base), DT-39 (SQL Server en la CI), DT-17 y DT-16 (partir `main.py`) | Son baratas o evitan que cinco personas choquen; DT-57 puede afectar a casi todos los usuarios del piloto |
+| Antes de repartir el trabajo | DT-39 (SQL Server en la CI), DT-17 y DT-16 (partir `main.py`) | Son baratas o evitan que cinco personas choquen |
 | Fase D | DT-04 (fecha de la auditoría, migración `003`), DT-35 y DT-27 (métricas desde la BD), DT-32 (calibración) | El informe del piloto sale de la auditoría |
 | Fase E | DT-05 y DT-61 (datos personales en textos), DT-70 (entrada de diccionarios y dueños) | Es el mismo código que la ingesta de documentos |
-| Fase F | DT-44 y DT-33 (instalación y purga programada), DT-45 y DT-47 (imagen), DT-06, DT-07 y DT-58 (configuración y logs que fallan en silencio), DT-66 y DT-69 (cuenta de mínimo privilegio y hosts del Builder), DT-36 (SQL Server 2016) | Solo se ven al instalar en un servidor real |
+| Fase F | DT-44 y DT-33 (instalación y purga programada), DT-02 (activar `TRUST_FORWARDED_FOR` en la web y `CONVERDATA_TRUST_PROXY` en la API detrás de IIS y probar el bloqueo de login por origen), DT-45 y DT-47 (imagen), DT-06, DT-07 y DT-58 (configuración y logs que fallan en silencio), DT-66 y DT-69 (cuenta de mínimo privilegio y hosts del Builder), DT-36 (SQL Server 2016) | Solo se ven al instalar en un servidor real |
 | Fase G | DT-30 y DT-29 (modelo y preguntas reales), DT-59, DT-60 y DT-63 (lo que falta del camino con modelo), DT-21 (corte por fallos) | Se cierran al probar Bedrock de punta a punta |
-| Fase H | DT-08 (conversaciones en el navegador), DT-10 y DT-11 (decisiones del banco sobre lecturas auditadas y alcance del responsable), DT-37 (alerta si falla la auditoría) | Deben estar resueltas antes de abrir el piloto a usuarios |
+| Fase H | DT-10 y DT-11 (decisiones del banco sobre lecturas auditadas y alcance del responsable), DT-37 (alerta si falla la auditoría) | Deben estar resueltas antes de abrir el piloto a usuarios |
 | Después del piloto | DT-46 (estado en memoria de un solo proceso), DT-09 (token en el cuerpo del login) | Solo pesan con más usuarios o con más de un proceso |
 
 ## Nota: contradicciones y vacíos entre las fuentes

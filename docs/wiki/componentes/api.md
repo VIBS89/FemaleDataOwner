@@ -122,8 +122,8 @@ Códigos habituales: 401 sin sesión, 403 sin rol, 404 lo que no existe o no se 
 `AgentRuntime.visible_ids` (`runtime.py:266`):
 1. Sin catálogo, conjunto vacío.
 2. Caché por sesión válida si coincide la versión del catálogo y no pasaron `CONVERDATA_VISIBILITY_TTL_S` (900 s).
-3. Por cada servidor de la sesión: BDs del catálogo en ese servidor; `PyodbcObjectLister` abre la conexión del usuario en cada BD,
-   comprueba `HAS_DBACCESS` y lista tablas/vistas con `SELECT` y SPs con `EXECUTE` (`src/converdata/identity/visibility.py:14`).
+3. Por cada servidor de la sesión: BDs del catálogo en ese servidor; `PyodbcObjectLister` usa la conexión del usuario:
+   pregunta `HAS_DBACCESS` desde `master`, abre solo las bases con acceso y lista tablas/vistas con `SELECT` y SPs con `EXECUTE` (`src/converdata/identity/visibility.py:14`).
 4. Cada objeto se convierte en id físico `<env>:<server>.<db>.<schema>.<obj>`.
 5. Si un servidor falla, no aporta nada (fail-closed) y se registra un aviso.
 Cada recarga del catálogo sube `version` y vacía la caché.
@@ -200,7 +200,7 @@ Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
 | `CONVERDATA_VISIBILITY_TTL_S` | 900 | Relectura de permisos |
 | `CONVERDATA_LOGIN_MAX_FAILURES`, `CONVERDATA_LOGIN_IP_MAX_FAILURES` | 5, 30 | Fallos antes del bloqueo; >0 en qa/prod |
 | `CONVERDATA_LOGIN_WINDOW_S`, `CONVERDATA_LOGIN_LOCKOUT_S` | 600, 900 | Ventana y duración del bloqueo |
-| `CONVERDATA_TRUST_PROXY` | `0` | Toma el origen del último valor de `X-Forwarded-For` |
+| `CONVERDATA_TRUST_PROXY` | `0` | Toma el origen del último valor de `X-Forwarded-For`. Solo detrás de un proxy propio; la web debe tener a la vez `TRUST_FORWARDED_FOR=1`, o no reenvía esa cabecera (DT-02) |
 | `CONVERDATA_RATE_LIMIT` | 30 | Preguntas por minuto y usuario (herramientas MCP de detalle: ×4) |
 | `CONVERDATA_TOKEN_LIMIT`, `CONVERDATA_TOKEN_LIMIT_MODE` | 0, `reject` | Tope diario de tokens; `deterministic` responde sin LLM |
 | `CONVERDATA_MAX_BODY_BYTES` | 4194304 | Tope del cuerpo |
