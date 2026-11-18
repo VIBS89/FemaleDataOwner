@@ -1,0 +1,539 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConverData — C4 nivel 3: componentes de ConverData-API",
+    "output": "docs/architecture/c4-componentes-api.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web",
+      "sublabel": "Next.js · /api",
+      "pos": [
+        40,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "El frontend reenvía cada llamada /api/* a la API con la cookie de sesión. La API no se publica directamente. (web/src/app/api/[...path]/route.ts)"
+    },
+    {
+      "id": "mcpclient",
+      "type": "external",
+      "label": "Cliente MCP",
+      "sublabel": "Bearer = token de sesión",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Claude Code, Claude Desktop u otro agente. Llega a /mcp con el token que el usuario obtuvo al iniciar sesión."
+    },
+    {
+      "id": "middleware",
+      "type": "security",
+      "label": "SecurityMiddleware",
+      "sublabel": "cabeceras · origen · tamaño",
+      "pos": [
+        290,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/converdata_api/security.py)"
+    },
+    {
+      "id": "routes",
+      "type": "backend",
+      "label": "Rutas REST",
+      "sublabel": "main.py · comprobación de rol",
+      "pos": [
+        290,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/converdata_api/main.py)"
+    },
+    {
+      "id": "mcpmount",
+      "type": "backend",
+      "label": "Servidor MCP",
+      "sublabel": "/mcp · mismas sesiones",
+      "pos": [
+        290,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/converdata_api/mcp_mount.py, src/converdata/integration/mcp/server.py)"
+    },
+    {
+      "id": "vault",
+      "type": "security",
+      "label": "SessionVault",
+      "sublabel": "credenciales cifradas en memoria",
+      "pos": [
+        540,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "solo memoria",
+      "description": "Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/converdata_api/vault.py)"
+    },
+    {
+      "id": "runtime",
+      "type": "backend",
+      "label": "AgentRuntime",
+      "sublabel": "estado del proceso",
+      "pos": [
+        540,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/converdata_api/runtime.py)"
+    },
+    {
+      "id": "desk",
+      "type": "backend",
+      "label": "CurationDesk",
+      "sublabel": "dudas · responsables · métricas",
+      "pos": [
+        540,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/converdata_api/curation.py, pii.py, tokens.py)"
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Herramientas",
+      "sublabel": "discover · where_is · get_asset",
+      "pos": [
+        790,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/converdata/application/discovery.py)"
+    },
+    {
+      "id": "flow",
+      "type": "backend",
+      "label": "DiscoverFlow",
+      "sublabel": "grafo LangGraph de pasos fijos",
+      "pos": [
+        790,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "núcleo",
+      "description": "Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/converdata/flows/discover.py)"
+    },
+    {
+      "id": "refresh",
+      "type": "backend",
+      "label": "Refresco del catálogo",
+      "sublabel": "CatalogBuildFlow",
+      "pos": [
+        790,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/converdata/application/catalog_refresh.py, flows/catalog_build.py, builder/)"
+    },
+    {
+      "id": "index",
+      "type": "database",
+      "label": "Catálogo e índice",
+      "sublabel": "BM25 en memoria · grafo",
+      "pos": [
+        1040,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/converdata/catalog/, memory/, graph/)"
+    },
+    {
+      "id": "engine",
+      "type": "backend",
+      "label": "Motor de descubrimiento",
+      "sublabel": "cobertura · confianza · guardas",
+      "pos": [
+        1040,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/converdata/discovery/)"
+    },
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "Reglas de curación",
+      "sublabel": "plantillas · votos",
+      "pos": [
+        1040,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/converdata/curation.py)"
+    },
+    {
+      "id": "llm",
+      "type": "backend",
+      "label": "Gateway de LLM",
+      "sublabel": "roles · respaldo · corte",
+      "pos": [
+        1290,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/converdata/llm/)"
+    },
+    {
+      "id": "connector",
+      "type": "security",
+      "label": "Conector SQL",
+      "sublabel": "login del usuario · visibilidad",
+      "pos": [
+        1290,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/converdata_api/connector.py, src/converdata/identity/visibility.py)"
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Repositorios y auditoría",
+      "sublabel": "adaptadores de la BD",
+      "pos": [
+        1290,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "fail-closed",
+      "description": "Adaptadores de la BD ConverData: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/converdata/storage/, audit/)"
+    },
+    {
+      "id": "bedrock",
+      "type": "cloud",
+      "label": "Amazon Bedrock",
+      "sublabel": "intención y orden",
+      "pos": [
+        1540,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Modelo de lenguaje. Recibe la pregunta y los metadatos ya filtrados del usuario."
+    },
+    {
+      "id": "sqldata",
+      "type": "database",
+      "label": "SQL Server de datos",
+      "sublabel": "permisos y metadatos",
+      "pos": [
+        1540,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "BDs de negocio: fuente de verdad de los permisos."
+    },
+    {
+      "id": "convdb",
+      "type": "database",
+      "label": "BD ConverData",
+      "sublabel": "catálogo · curación · auditoría",
+      "pos": [
+        1540,
+        400
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Todo el estado persistente. Detalle en modelo-datos-converdata.html."
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Borde HTTP",
+      "wraps": [
+        "middleware",
+        "routes",
+        "mcpmount"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Estado del proceso",
+      "wraps": [
+        "vault",
+        "runtime",
+        "desk"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Aplicación",
+      "wraps": [
+        "tools",
+        "flow",
+        "refresh"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Dominio",
+      "wraps": [
+        "index",
+        "engine",
+        "rules"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Infraestructura",
+      "wraps": [
+        "llm",
+        "connector",
+        "storage"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "web-routes",
+      "from": "web",
+      "to": "routes",
+      "label": "/api",
+      "variant": "emphasis"
+    },
+    {
+      "id": "mcp-mount",
+      "from": "mcpclient",
+      "to": "mcpmount",
+      "label": "/mcp"
+    },
+    {
+      "id": "mw-routes",
+      "from": "middleware",
+      "to": "routes",
+      "label": "filtra",
+      "variant": "security"
+    },
+    {
+      "id": "routes-runtime",
+      "from": "routes",
+      "to": "runtime",
+      "label": "sesión",
+      "variant": "emphasis"
+    },
+    {
+      "id": "routes-desk",
+      "from": "routes",
+      "to": "desk",
+      "label": "curación"
+    },
+    {
+      "id": "mount-runtime",
+      "from": "mcpmount",
+      "to": "runtime",
+      "label": "misma sesión"
+    },
+    {
+      "id": "mount-tools",
+      "from": "mcpmount",
+      "to": "tools",
+      "label": "herramientas"
+    },
+    {
+      "id": "runtime-vault",
+      "from": "runtime",
+      "to": "vault",
+      "label": "credencial",
+      "variant": "security"
+    },
+    {
+      "id": "tools-flow",
+      "from": "tools",
+      "to": "flow",
+      "label": "discover"
+    },
+    {
+      "id": "runtime-flow",
+      "from": "runtime",
+      "to": "flow",
+      "label": "pregunta + visible_ids",
+      "variant": "emphasis"
+    },
+    {
+      "id": "runtime-refresh",
+      "from": "runtime",
+      "to": "refresh",
+      "label": "construir"
+    },
+    {
+      "id": "flow-engine",
+      "from": "flow",
+      "to": "engine",
+      "label": "pasos",
+      "variant": "emphasis"
+    },
+    {
+      "id": "engine-index",
+      "from": "engine",
+      "to": "index",
+      "label": "busca"
+    },
+    {
+      "id": "desk-rules",
+      "from": "desk",
+      "to": "rules",
+      "label": "reglas",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow-llm",
+      "from": "flow",
+      "to": "llm",
+      "label": "intención · orden"
+    },
+    {
+      "id": "llm-bedrock",
+      "from": "llm",
+      "to": "bedrock",
+      "label": "HTTPS"
+    },
+    {
+      "id": "runtime-connector",
+      "from": "runtime",
+      "to": "connector",
+      "label": "visible_ids",
+      "variant": "security"
+    },
+    {
+      "id": "connector-sql",
+      "from": "connector",
+      "to": "sqldata",
+      "label": "login del usuario",
+      "variant": "security"
+    },
+    {
+      "id": "refresh-storage",
+      "from": "refresh",
+      "to": "storage",
+      "label": "publica"
+    },
+    {
+      "id": "flow-storage",
+      "from": "flow",
+      "to": "storage",
+      "label": "auditoría",
+      "variant": "emphasis"
+    },
+    {
+      "id": "storage-db",
+      "from": "storage",
+      "to": "convdb",
+      "label": "cuenta de servicio",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Regla de capas",
+      "items": [
+        "Integración → aplicación → dominio ← infraestructura",
+        "El dominio no importa pyodbc, LangChain ni FastAPI",
+        "Lo comprueba tests/test_architecture.py en el núcleo; en la API aún no"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Dos identidades distintas",
+      "items": [
+        "Login del usuario: solo para preguntar a SQL Server qué puede leer",
+        "Cuenta de servicio: solo para la BD ConverData",
+        "El modelo nunca recibe ninguna de las dos"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Lo que vive en memoria",
+      "items": [
+        "Sesiones, visibilidad, topes e índice de búsqueda",
+        "Por eso la API corre en un solo proceso",
+        "Un reinicio cierra las sesiones y recarga el catálogo de la BD"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Cómo leer las flechas",
+      "items": [
+        "Cada flecha es una llamada real entre componentes",
+        "El detalle está en docs/wiki/componentes/api.md",
+        "Nivel anterior: onpremise-architecture.html"
+      ]
+    }
+  ]
+}

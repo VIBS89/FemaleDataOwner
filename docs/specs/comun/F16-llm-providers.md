@@ -36,7 +36,7 @@ fallback: null             # sin respaldo en el piloto
 circuit: {errors: 3, window_s: 60, open_s: 300}
 ```
 Proveedores soportados por el gateway (`src/converdata/llm/`): `bedrock`, `nvidia_nim` y `ollama` (este solo con `environment: local`).
-El rol `judge` es de la fase 1b y no hace falta en la fase 1a; `config/models.local.example.yaml` todavía lo declara.
+El rol `judge` es de la fase 1b y no hace falta en la fase 1a; `config/models.yaml` y `config/models.local.example.yaml` todavía lo declaran (con Ollama).
 
 ## Integración con LangGraph (`langchain-aws`)
 - El gateway devuelve un chat model de LangChain por rol, usado por los nodos de LangGraph:
@@ -57,6 +57,8 @@ El rol `judge` es de la fase 1b y no hace falta en la fase 1a; `config/models.lo
 **Estado.** Construido: gateway con los tres proveedores, guarda de residencia, fallback, circuit breaker, nodos `intent`, `rerank` y
 narrativa, y `converdata llm smoke`. Pendiente: probar Bedrock de punta a punta por el proxy corporativo con IAM Roles Anywhere y
 repetir las suites `inyeccion` y `guardas` de la compuerta con el modelo real (HU-35). Hoy se desarrolla con Ollama o NIM.
+
+> **Estado al 2026-11-17:** IAM Roles Anywhere no se configura en el código. `build_bedrock_chat` (`src/converdata/llm/factory.py`) crea `ChatBedrockConverse` solo con `model`, `region_name`, `temperature` y `max_tokens`, así que usa la cadena de credenciales por defecto de AWS (variables de entorno o perfil del equipo); el perfil de `credential_process` de Roles Anywhere debe configurarse fuera de ConverData. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Residencia de datos (F17)
 - **Model invocation logging** de Bedrock desactivado en la cuenta usada (verificado antes del piloto).

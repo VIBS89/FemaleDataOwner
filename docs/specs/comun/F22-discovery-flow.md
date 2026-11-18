@@ -51,6 +51,14 @@ para no depender de expertos ni de documentación dispersa.
 8. **Brecha de conocimiento**: si ningún candidato llega a 0.6, `knowledge_gap = true` y se ofrece "Preguntar al responsable del dominio" (F24).
    Una brecha puede llevar candidatos: se muestran con su confianza baja (§Qué tipo de activo se pide).
 
+> **Estado al 2026-11-17:**
+> - Las tarjetas no salen antes que la narrativa: `DiscoverFlow.stream` (`src/converdata/flows/discover.py`) emite un evento `step` por nodo y un único `answer` al final con el sobre completo (candidatos y texto juntos).
+> - `estate_overview` existe como herramienta (`DiscoveryTools`, `/mcp`), pero el flujo no la llama: en `exploration` usa la misma recuperación y deja solo tablas (`src/converdata/discovery/engine.py`).
+> - Las relaciones (`related`) son `fk`, `same_entity`, `etl` y `view`; no hay relaciones inferidas marcadas como tales.
+> - `search_knowledge` busca también en `data_dictionary`: la lista real es `glossary`, `business_rule`, `document`, `annotation`, `etl` y `data_dictionary`.
+>
+> Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+
 ## Qué tipo de activo se pide (2026-11-17)
 Reglas deterministas. Las de `discovery/engine.py` y la del nodo `intent` del flujo se aplican con y sin LLM; las de cruce están en
 el clasificador de intención sin LLM (`RuleBasedIntentClassifier` en `discovery/deterministic.py`): con LLM, el tipo lo da el

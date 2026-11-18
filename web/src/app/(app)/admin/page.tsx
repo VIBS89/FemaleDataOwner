@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
+  BookOpen,
   CheckCircle2,
   Database,
   DatabaseZap,
   Loader2,
+  Lock,
   Network,
   Pencil,
   Plus,
@@ -19,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { headings, Markdown } from "@/components/markdown";
 import { PageHeader } from "@/components/page-header";
 import { useSession } from "@/components/session-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -64,6 +67,9 @@ export default function AdminPage() {
             <TabsTrigger value="audit">
               <Network /> Auditoría
             </TabsTrigger>
+            <TabsTrigger value="manual">
+              <BookOpen /> Manual de desarrollo
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="build" className="mt-5">
             <BuildPanel />
@@ -76,6 +82,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="audit" className="mt-5">
             <AuditPanel />
+          </TabsContent>
+          <TabsContent value="manual" className="mt-5">
+            <ManualPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -695,6 +704,7 @@ const AUDIT_KIND: Record<string, string> = {
   login_locked: "Login bloqueado",
   sessions_revoked: "Sesiones cerradas",
   audit_read: "Consulta de auditoría",
+  manual_read: "Lectura del manual",
 };
 
 function AuditPanel() {
@@ -777,6 +787,54 @@ function AuditPanel() {
             </TableBody>
           </Table>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Manual de desarrollo ----------------------------------------------------------------------------
+function ManualPanel() {
+  const [manual, setManual] = useState<{ markdown: string; updated_at: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Se pide al abrir la pestaña (Radix monta el contenido solo entonces): cada apertura es una lectura auditada.
+  useEffect(() => {
+    api
+      .manual()
+      .then(setManual)
+      .catch((e: Error) => setError(e.message));
+  }, []);
+
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertCircle />
+        <AlertTitle>No se pudo abrir el manual</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  if (!manual) return <Skeleton className="h-96 w-full" />;
+
+  const sections = headings(manual.markdown);
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <Lock className="size-3" /> Solo administradores de datos
+          </Badge>
+          <span className="text-muted-foreground text-xs">Actualizado el {dateTime(manual.updated_at)} · cada lectura queda en la auditoría</span>
+        </div>
+        <nav aria-label="Secciones del manual" className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-sm">
+          {sections.map((s) => (
+            <a key={s.id} href={`#${s.id}`} className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">
+              {s.text}
+            </a>
+          ))}
+        </nav>
+      </CardHeader>
+      <CardContent>
+        <Markdown text={manual.markdown} />
       </CardContent>
     </Card>
   );

@@ -6,8 +6,8 @@
 > Controles implementados y su prueba: [calidad bancaria §3 y §4](../../calidad-bancaria.md).
 
 ## Decisión (2026-10-14): logins SQL por usuario
-No hay IdP: la pantalla de login de la web (o `POST /auth/login`, alias `/login`) recibe `{credentials: [{server, login, password}]}`,
-con la opción "usar la misma credencial en los servidores marcados", y valida cada una abriendo una conexión de prueba (F14). El login
+No hay IdP: la pantalla de login de la web (o `POST /auth/login`, alias `/login`) recibe `{login, password, auth, servers[]}` (una sola credencial; `servers` lista los servidores donde se usa, y en el primer arranque `host`, `alias`, `environment`, `setup_token`; modelo `LoginRequest` en `api/converdata_api/main.py`),
+y valida la credencial en cada servidor marcado abriendo una conexión de prueba (F14). El login
 es a la vez la identidad de aplicación y la de datos, y también calcula los `visible_ids` del **descubrimiento** (F22): el usuario solo
 ve metadatos de lo que su login puede consultar en cada servidor.
 

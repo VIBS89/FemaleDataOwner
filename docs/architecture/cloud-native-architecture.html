@@ -5421,8 +5421,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="840" y="406" class="t-muted" font-size="9" text-anchor="middle">tarea ECS · corre y termina</text>
         </g>
 
-        <g id="node-convdb" data-node-id="convdb" data-node-label="BD ConverData" tabindex="0" role="button" aria-label="Enfocar BD ConverData, catálogo · curación · auditoría, Red del banco (on-premise)" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo · curación · auditoría" data-node-tag="on-premise" data-node-description="La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)" data-node-context="Red del banco (on-premise)">
-          <title>BD ConverData · catálogo · curación · auditoría · Red del banco (on-premise) · on-premise · La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)</title>
+        <g id="node-convdb" data-node-id="convdb" data-node-label="BD ConverData" tabindex="0" role="button" aria-label="Enfocar BD ConverData, catálogo · curación · auditoría, Red del banco (on-premise)" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo · curación · auditoría" data-node-tag="on-premise" data-node-description="La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)" data-node-context="Red del banco (on-premise)">
+          <title>BD ConverData · catálogo · curación · auditoría · Red del banco (on-premise) · on-premise · La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)</title>
           <rect x="1240" y="360" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1240" y="360" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:10" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1246 366) scale(0.6875)">
@@ -5739,7 +5739,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Mismo código que on-premise</h3>
         </div>
         <ul>
-          <li>Las dos imágenes que ya construye docker compose</li>
+          <li>Las dos imágenes que ya construye docker compose: base por digest y dependencias con hash</li>
           <li>Misma BD ConverData, mismo login SQL, mismo SessionVault</li>
           <li>Cambia solo dónde corren los procesos y quién los programa</li>
         </ul>

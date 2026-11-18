@@ -13,8 +13,14 @@
       "type": "external",
       "label": "Cliente MCP",
       "sublabel": "Claude / IDE",
-      "pos": [280, 40],
-      "size": [160, 64],
+      "pos": [
+        280,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Clientes como Claude Desktop, Claude Code o un IDE que consumen ConverData como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de ConverData-API. (F12, CN-04)"
     },
     {
@@ -22,8 +28,14 @@
       "type": "security",
       "label": "Secrets Manager",
       "sublabel": "secretos de servicio",
-      "pos": [520, 40],
-      "size": [160, 64],
+      "pos": [
+        520,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD ConverData. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de ConverData-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)"
     },
     {
@@ -31,8 +43,14 @@
       "type": "cloud",
       "label": "Amazon Bedrock",
       "sublabel": "un modelo: intención y orden",
-      "pos": [760, 40],
-      "size": [160, 64],
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
       "tag": "sin invocation logging",
       "description": "El mismo uso que on-premise: un modelo para entender qué dato pide la pregunta y para ordenar los candidatos, sin embeddings. Se llama por un VPC endpoint con el rol de la tarea, sin claves ni salida a internet, y con invocation logging desactivado. Guardrails en la fase 1a es una decisión de Seguridad pendiente. (F16, CN-06)"
     },
@@ -41,8 +59,14 @@
       "type": "cloud",
       "label": "CloudWatch Logs",
       "sublabel": "logs sin contenido",
-      "pos": [1000, 40],
-      "size": [160, 64],
+      "pos": [
+        1000,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD ConverData on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)"
     },
     {
@@ -50,8 +74,14 @@
       "type": "external",
       "label": "Usuario",
       "sublabel": "navegador · red corporativa",
-      "pos": [40, 200],
-      "size": [160, 64],
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Las mismas personas y el mismo inicio de sesión que on-premise: su propio login SQL por servidor. Llegan al balanceador interno desde la red corporativa por la VPN; la aplicación no se publica en internet, así que no necesita WAF ni un proveedor de identidad adicional. (F14, CN-03)"
     },
     {
@@ -59,8 +89,14 @@
       "type": "security",
       "label": "ALB interno",
       "sublabel": "HTTPS · certificado ACM",
-      "pos": [280, 200],
-      "size": [160, 64],
+      "pos": [
+        280,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Balanceador interno que termina TLS con un certificado de ACM y reparte / al frontend y /mcp a la API. No registra cuerpos de petición. Equivalente on-premise: IIS con el certificado de la PKI corporativa. (CN-01, CN-04)"
     },
     {
@@ -68,8 +104,14 @@
       "type": "frontend",
       "label": "Web",
       "sublabel": "contenedor Next.js",
-      "pos": [520, 200],
-      "size": [160, 64],
+      "pos": [
+        520,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a ConverData-API dentro de la misma tarea. (F12, CN-04)"
     },
     {
@@ -77,8 +119,14 @@
       "type": "backend",
       "label": "ConverData-API",
       "sublabel": "contenedor FastAPI · MCP",
-      "pos": [760, 200],
-      "size": [160, 64],
+      "pos": [
+        760,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "tag": "SessionVault en memoria",
       "description": "La misma imagen de la API (api/Dockerfile): REST, MCP y DiscoverFlow, con el catálogo cargado en un índice léxico en memoria. Sin AgentCore Runtime, OpenSearch ni Lambda: el flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea, porque las sesiones viven en memoria; si se reinicia, los usuarios vuelven a iniciar sesión. Escalar a varias tareas exigiría sesiones compartidas y no es necesario para 10–15 usuarios. (F12, F14, F22, CN-01)"
     },
@@ -87,8 +135,14 @@
       "type": "cloud",
       "label": "Site-to-Site VPN",
       "sublabel": "TDS 1433 · SMB",
-      "pos": [1000, 200],
-      "size": [160, 64],
+      "pos": [
+        1000,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Conexión privada entre la VPC y la red del banco. Por aquí pasa todo: los usuarios hacia el balanceador, la API y el Builder hacia SQL Server, y la lectura de documentos. Una sola VPC no necesita Transit Gateway. El firewall on-premise solo abre el 1433 a las subredes de la tarea. (CN-01)"
     },
     {
@@ -96,8 +150,14 @@
       "type": "database",
       "label": "SQL Server de datos",
       "sublabel": "BDs de negocio",
-      "pos": [1240, 200],
-      "size": [160, 64],
+      "pos": [
+        1240,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Las BDs de negocio, que permanecen en el banco. En la fase 1a solo se leen metadatos: qué puede ver cada login y la estructura de las BDs. Sigue siendo la fuente de verdad de los permisos. (F8, F14, CN-06)"
     },
     {
@@ -105,8 +165,14 @@
       "type": "messagebus",
       "label": "EventBridge Scheduler",
       "sublabel": "refresco nocturno",
-      "pos": [520, 360],
-      "size": [160, 64],
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Lanza cada noche el Builder como tarea de ECS (RunTask) y no mantiene nada encendido entre ejecuciones. Sin Step Functions. Equivalente on-premise: Programador de tareas de Windows. (F1, CN-02)"
     },
     {
@@ -114,8 +180,14 @@
       "type": "backend",
       "label": "Builder",
       "sublabel": "tarea ECS · corre y termina",
-      "pos": [760, 360],
-      "size": [160, 64],
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "La misma imagen de la API ejecutando el comando converdata catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD ConverData. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)"
     },
     {
@@ -123,18 +195,30 @@
       "type": "database",
       "label": "BD ConverData",
       "sublabel": "catálogo · curación · auditoría",
-      "pos": [1240, 360],
-      "size": [160, 64],
+      "pos": [
+        1240,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
       "tag": "on-premise",
-      "description": "La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)"
+      "description": "La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)"
     },
     {
       "id": "sources",
       "type": "external",
       "label": "Fuentes de conocimiento",
       "sublabel": "diccionarios · docs · reglas",
-      "pos": [1240, 520],
-      "size": [160, 64],
+      "pos": [
+        1240,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
       "description": "Diccionarios de datos, manuales, políticas, glosarios y reglas de negocio en la red del banco, que el Builder lee por la VPN. Son la palanca principal para responder preguntas de reporte. Los datos personales se redactan en memoria antes de escribir. (F23, CN-02, CN-06)"
     }
   ],
@@ -142,28 +226,111 @@
     {
       "kind": "region",
       "label": "Tarea ECS Fargate",
-      "wraps": ["web", "api"]
+      "wraps": [
+        "web",
+        "api"
+      ]
     },
     {
       "kind": "security-group",
       "label": "Red del banco (on-premise)",
-      "wraps": ["sqlserver", "convdb", "sources"]
+      "wraps": [
+        "sqlserver",
+        "convdb",
+        "sources"
+      ]
     }
   ],
   "connections": [
-    { "id": "user-alb", "from": "users", "to": "alb", "label": "HTTPS", "variant": "emphasis" },
-    { "id": "client-alb", "from": "mcpclient", "to": "alb", "label": "MCP" },
-    { "id": "alb-web", "from": "alb", "to": "web", "label": "/", "variant": "emphasis" },
-    { "id": "web-api", "from": "web", "to": "api", "label": "/api", "variant": "emphasis" },
-    { "id": "api-secrets", "from": "api", "to": "secrets", "label": "secretos", "variant": "security" },
-    { "id": "api-llm", "from": "api", "to": "bedrock", "label": "VPC endpoint" },
-    { "id": "api-logs", "from": "api", "to": "logs", "label": "logs", "variant": "dashed" },
-    { "id": "api-vpn", "from": "api", "to": "vpn", "label": "TDS 1433", "variant": "emphasis" },
-    { "id": "vpn-sql", "from": "vpn", "to": "sqlserver", "label": "visibilidad · metadatos", "variant": "emphasis" },
-    { "id": "vpn-db", "from": "vpn", "to": "convdb", "label": "catálogo · auditoría", "variant": "security" },
-    { "id": "sched-builder", "from": "scheduler", "to": "builder", "label": "RunTask", "variant": "dashed" },
-    { "id": "builder-vpn", "from": "builder", "to": "vpn", "label": "ingesta", "variant": "dashed" },
-    { "id": "vpn-sources", "from": "vpn", "to": "sources", "label": "docs", "variant": "dashed" }
+    {
+      "id": "user-alb",
+      "from": "users",
+      "to": "alb",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "client-alb",
+      "from": "mcpclient",
+      "to": "alb",
+      "label": "MCP"
+    },
+    {
+      "id": "alb-web",
+      "from": "alb",
+      "to": "web",
+      "label": "/",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-api",
+      "from": "web",
+      "to": "api",
+      "label": "/api",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-secrets",
+      "from": "api",
+      "to": "secrets",
+      "label": "secretos",
+      "variant": "security"
+    },
+    {
+      "id": "api-llm",
+      "from": "api",
+      "to": "bedrock",
+      "label": "VPC endpoint"
+    },
+    {
+      "id": "api-logs",
+      "from": "api",
+      "to": "logs",
+      "label": "logs",
+      "variant": "dashed"
+    },
+    {
+      "id": "api-vpn",
+      "from": "api",
+      "to": "vpn",
+      "label": "TDS 1433",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vpn-sql",
+      "from": "vpn",
+      "to": "sqlserver",
+      "label": "visibilidad · metadatos",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vpn-db",
+      "from": "vpn",
+      "to": "convdb",
+      "label": "catálogo · auditoría",
+      "variant": "security"
+    },
+    {
+      "id": "sched-builder",
+      "from": "scheduler",
+      "to": "builder",
+      "label": "RunTask",
+      "variant": "dashed"
+    },
+    {
+      "id": "builder-vpn",
+      "from": "builder",
+      "to": "vpn",
+      "label": "ingesta",
+      "variant": "dashed"
+    },
+    {
+      "id": "vpn-sources",
+      "from": "vpn",
+      "to": "sources",
+      "label": "docs",
+      "variant": "dashed"
+    }
   ],
   "cards": [
     {
@@ -179,7 +346,7 @@
       "dot": "emerald",
       "title": "Mismo código que on-premise",
       "items": [
-        "Las dos imágenes que ya construye docker compose",
+        "Las dos imágenes que ya construye docker compose: base por digest y dependencias con hash",
         "Misma BD ConverData, mismo login SQL, mismo SessionVault",
         "Cambia solo dónde corren los procesos y quién los programa"
       ]

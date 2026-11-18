@@ -34,6 +34,14 @@ lo ve en ConverData.
    El resultado se mapea a los `id` del catálogo y forma `visible_ids`. Los `DENY` a nivel de columna se detectan con `HAS_PERMS_BY_NAME(..., 'COLUMN')` solo en las tablas que pasan el schema linking.
 4. **Ejecución**: toda consulta (F5, F7 compilación, F8) usa una conexión abierta con la credencial del usuario.
 
+> **Estado al 2026-11-17:**
+> - La prueba de conexión del login ejecuta `SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION')` (`api/converdata_api/connector.py`); no usa `ORIGINAL_LOGIN()`.
+> - El login recibe una sola credencial y la prueba en cada servidor marcado (`POST /auth/login`, `api/converdata_api/main.py`); no hay una credencial distinta por servidor ni ruta para añadir credenciales después.
+> - La visibilidad se calcula servidor por servidor, en secuencia, no en paralelo (`AgentRuntime.visible_ids` en `api/converdata_api/runtime.py`; `PyodbcObjectLister` en `src/converdata/identity/visibility.py`). Si un servidor falla, el usuario no ve nada de él.
+> - `PyodbcObjectLister` comprueba `HAS_DBACCESS` y `HAS_PERMS_BY_NAME(..., 'OBJECT', ...)` por objeto; no detecta `DENY` a nivel de columna (no existe consulta con `'COLUMN'`).
+>
+> Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+
 ## Grupos y roles del usuario
 Los fragmentos de documentos con ACL de origen (`allowed_groups`, F23), los roles `steward`/`data_admin` (F24) y el perfil de las
 métricas (`user_group`, F25) necesitan saber a qué grupos corporativos pertenece el usuario:

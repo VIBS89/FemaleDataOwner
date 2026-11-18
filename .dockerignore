@@ -6,7 +6,8 @@
 .env
 data
 BancosSQL.zip
-docs
+docs/*
+!docs/manual-desarrollo.md
 tools
 web
 config/models.yaml

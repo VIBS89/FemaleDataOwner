@@ -56,6 +56,14 @@
 
 Todas las herramientas devuelven JSON con un `schema_version`, y paginan con `cursor` cuando hay más de 500 elementos.
 
+> **Estado al 2026-11-17:** `converdata-discovery` no es un servidor MCP: es una biblioteca con consultas fijas, `SqlServerMetadata` (`src/converdata/metadata/sqlserver.py`), que el Catalog Builder importa. No usa FastMCP ni tiene transporte HTTP, y no existen las 18 herramientas de la tabla.
+> - Lo que hace: `list_databases` (excluye las BDs del sistema y exige `HAS_DBACCESS`) y `extract_database`, que ejecuta nueve consultas (`Q_DATABASES`, `Q_OBJECTS`, `Q_COLUMNS`, `Q_PRIMARY_KEYS`, `Q_FOREIGN_KEYS`, `Q_ROW_COUNTS`, `Q_SENSITIVITY`, `Q_DEPENDENCIES`, `Q_PARAMETERS`) sobre `sys.objects`, `sys.columns`, `sys.indexes` (solo claves primarias), `sys.foreign_keys`, `sys.partitions`, `sys.sensitivity_classifications`, `sys.sql_expression_dependencies` y `sys.parameters`, con `SET LOCK_TIMEOUT 2000`, 30 s de timeout y conexión de solo lectura.
+> - No existen: Query Store, `get_column_profile`, `get_column_sketch` (MinHash), `get_linked_servers`, `get_sample_rows`, `get_object_definition`, `sys.dm_db_index_usage_stats`, ni la lectura de SSISDB y msdb (`list_ssis_packages`, `get_ssis_package`, `list_agent_jobs`). El código no lee valores de datos. El linaje entre vistas sale de `sys.sql_expression_dependencies`.
+> - `ServerConfig` (`src/converdata/config.py`) no tiene `metadata_secret`, `query_store` ni la lógica de `allow_primary_sampling`; el login de metadatos usa `auth: windows|sql` y variables de entorno (`metadata_user_env`, `metadata_password_env`). `read_replica` existe, pero nada lo usa.
+> - No hay límite de concurrencia por servidor.
+>
+> Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+
 ## Seguridad
 - Login de metadatos con `VIEW DEFINITION`, `VIEW DATABASE STATE` (para DMVs y Query Store), `SELECT` solo sobre la réplica para muestras
   y sketches, `READ` sobre las carpetas y proyectos de SSISDB y `SQLAgentReaderRole` en msdb. **Sin escritura.**

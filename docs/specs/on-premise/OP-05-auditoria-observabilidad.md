@@ -6,7 +6,7 @@
 > [calidad bancaria](../../calidad-bancaria.md).
 
 ## Auditoría en la BD `ConverData`
-- **Esquema `audit`** de la BD `ConverData` (tablas normales, SQL Server 2016 o posterior), con el modelo de tablas de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`), incluidas las tablas de descubrimiento (`audit_discovery`, `audit_discovery_feedback`) y `audit_event`; `golden_discovery` vive en `knowledge` y las solicitudes escaladas, todavía en un archivo (pasarán a `curation`).
+- **Esquema `audit`** de la BD `ConverData` (tablas normales, SQL Server 2016 o posterior), con el modelo de tablas de F11 en tipos de SQL Server (`nvarchar(max)`, `datetime2`, `uniqueidentifier`), incluidas las tablas de descubrimiento (`audit_discovery`, `audit_discovery_feedback`) y `audit_event`; `golden_discovery` vive en `knowledge` y las solicitudes escaladas viven en `curation.request` (`db/converdata/002_curacion.sql`; sin `CONVERDATA_DB`, en un archivo).
 - La escribe el proceso `ConverData-API` con su cuenta gMSA y el rol `converdata_app`: `INSERT` y `SELECT` en `audit` (la API sirve el historial propio, Administración y las métricas), nunca `UPDATE` ni `DELETE`; `SELECT` para el rol `converdata_auditor`.
 - **Fail-closed** como en F11: sin registro de auditoría no hay respuesta ni se aplica un cambio (votos, solicitudes y ediciones de curación se auditan antes de aplicarse). Un fallo de escritura deja el evento `audit.write_failed` en el log operativo, sin la pregunta.
 - Respaldo, retención y alta disponibilidad: los del plan del DBA para la BD `ConverData`. La purga por retención (180 días) es una **tarea programada de Windows** (PRD §13, decisión 12).
@@ -44,6 +44,8 @@ Sin `CONVERDATA_DB` (desarrollo) la auditoría va a `data/audit/audit-AAAA-MM-DD
 - Contadores básicos (peticiones, errores y latencia p50/p95 por ruta, tokens, y contadores de bloqueos de login, límite de ritmo, tope de tokens y cadena de auditoría rota) en `GET /health/metrics` para el monitoreo existente (por ejemplo SCOM o Zabbix). Hoy esa ruta exige una sesión `data_admin`; la credencial que usará el monitoreo está por definir (HU-37).
 - **Correlación**: cada línea de log y cada registro de auditoría llevan el mismo `trace_id`, que la API devuelve en la respuesta y, en `POST /discover`, en la cabecera `X-Trace-Id`; así se reconstruye una pregunta de punta a punta (IIS → web → API → DiscoverFlow) sin que los logs contengan su texto.
 - Construido: logs, Visor de eventos, contadores y `trace_id`. Pendiente: logs de IIS y alertas en el monitoreo del banco (HU-37).
+
+> **Estado al 2026-11-17:** las líneas `http.request` (`api/converdata_api/main.py`, `log_event(..., "http.request", ...)`) llevan ruta, método, estado y duración, pero no `trace_id`: la petición no lo conoce hasta que el flujo responde, y el `trace_id` solo viaja en los eventos del flujo (`flows/discover.py`) y en la auditoría. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Alertas
 Las recoge el monitoreo existente a partir del Visor de eventos (origen `ConverData`, un ID de evento por tipo), de `/health/metrics`

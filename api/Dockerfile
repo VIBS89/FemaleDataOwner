@@ -38,6 +38,8 @@ COPY api ./api
 COPY config ./config
 # Migraciones de la BD ConverData: `converdata db migrate` desde la misma imagen
 COPY db ./db
+# Manual de desarrollo: la web lo muestra solo a los administradores de datos (GET /admin/manual)
+COPY docs/manual-desarrollo.md ./docs/manual-desarrollo.md
 # Solo para CONVERDATA_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
 COPY tests/fixtures/bancos ./tests/fixtures/bancos
 

@@ -1,0 +1,290 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ConverData — DiscoverFlow: cómo se responde una pregunta",
+    "output": "docs/architecture/flujo-descubrimiento.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "entender",
+      "label": "1 · Entender"
+    },
+    {
+      "id": "buscar",
+      "label": "2 · Buscar"
+    },
+    {
+      "id": "ordenar",
+      "label": "3 · Ordenar y revisar"
+    },
+    {
+      "id": "responder",
+      "label": "4 · Responder y auditar"
+    }
+  ],
+  "mainPath": [
+    "pregunta",
+    "intent",
+    "retrieve",
+    "grade",
+    "rerank",
+    "expand",
+    "review",
+    "respond",
+    "finalize",
+    "respuesta"
+  ],
+  "nodes": [
+    {
+      "id": "pregunta",
+      "lane": "entender",
+      "col": 0,
+      "type": "external",
+      "label": "Pregunta",
+      "sublabel": "sesión + visible_ids",
+      "description": "Llega de la web o de un cliente MCP. La identidad sale del token de sesión. Antes de entrar al grafo la API comprueba el ritmo y el tope de tokens del usuario y lee de SQL Server qué objetos ve su login (se recuerda 15 minutos)."
+    },
+    {
+      "id": "respuesta",
+      "lane": "entender",
+      "col": 5,
+      "type": "frontend",
+      "label": "Respuesta",
+      "sublabel": "candidatos con confianza",
+      "description": "AnswerEnvelope: candidatos con base de datos, tabla, columna, ambiente, servidor, descripción con su fuente, reglas, responsables, relaciones y confianza. Si nada alcanza el umbral, se dice que no hay candidatos y se ofrece escalar la duda."
+    },
+    {
+      "id": "intent",
+      "lane": "entender",
+      "col": 1,
+      "type": "backend",
+      "label": "intent",
+      "sublabel": "qué se pide",
+      "tag": "LLM",
+      "description": "Clasifica la pregunta: qué dato se busca y de qué tipo (columna, tabla, regla, relación). Con el modelo o por reglas. Una pista determinista corrige el tipo cuando un plural nombra una tabla visible o la pregunta es de cruce. (flows/discover.py, discovery/deterministic.py, discovery/engine.py)"
+    },
+    {
+      "id": "retrieve",
+      "lane": "buscar",
+      "col": 1,
+      "type": "backend",
+      "label": "retrieve",
+      "sublabel": "búsqueda léxica",
+      "tag": "solo visible",
+      "description": "Patrón D: busca con la pregunta original y con una variante de términos técnicos es→en. Los literales se quitan de los conceptos. El índice BM25 solo ve los objetos del usuario. (discovery/expansion.py, memory/memory_store.py)"
+    },
+    {
+      "id": "grade",
+      "lane": "buscar",
+      "col": 2,
+      "type": "backend",
+      "label": "grade",
+      "sublabel": "¿cubre la pregunta?",
+      "description": "Patrón C, RAG correctivo: mide cuántos conceptos de la pregunta cubren los candidatos. Si es poco, reformula una sola vez con el léxico técnico y vuelve a buscar. La reformulación con modelo aún no se conecta (DT-59)."
+    },
+    {
+      "id": "rerank",
+      "lane": "ordenar",
+      "col": 2,
+      "type": "backend",
+      "label": "rerank",
+      "sublabel": "ordena candidatos",
+      "tag": "LLM si duda",
+      "description": "Patrón E, cascada: si el orden determinista es claro no se llama al modelo. Los calificativos que el catálogo no puede conocer pesan menos y dejan la confianza bajo el umbral de brecha."
+    },
+    {
+      "id": "expand",
+      "lane": "ordenar",
+      "col": 3,
+      "type": "backend",
+      "label": "expand",
+      "sublabel": "contexto del candidato",
+      "description": "Añade ubicaciones por ambiente, reglas, responsables, linaje y caminos para unir tablas. Todo pasa otra vez por el filtro de visibilidad. (graph/estate.py)"
+    },
+    {
+      "id": "review",
+      "lane": "ordenar",
+      "col": 4,
+      "type": "security",
+      "label": "review",
+      "sublabel": "chequeos y juez",
+      "description": "Patrón B: chequeos deterministas. Si el principal no cumple lo pedido se corrige una vez; si queda un fallo sin resolver, la confianza baja al nivel de brecha. El juez con modelo está previsto y aún no se conecta (deuda DT-59)."
+    },
+    {
+      "id": "respond",
+      "lane": "responder",
+      "col": 4,
+      "type": "backend",
+      "label": "respond",
+      "sublabel": "redacta",
+      "tag": "guarda",
+      "description": "Redacta la explicación. Si el texto del modelo nombra un objeto que no está entre los candidatos, se sustituye por el texto determinista."
+    },
+    {
+      "id": "finalize",
+      "lane": "responder",
+      "col": 5,
+      "type": "database",
+      "label": "finalize",
+      "sublabel": "auditoría",
+      "tag": "fail-closed",
+      "description": "Escribe la pregunta, los pasos y los candidatos en la auditoría en una sola transacción. Si no se puede registrar, la respuesta no se entrega. (audit/recorder.py, audit/sqlserver.py)"
+    },
+    {
+      "id": "indice",
+      "lane": "buscar",
+      "col": 0,
+      "type": "database",
+      "label": "Catálogo e índice",
+      "sublabel": "BM25 en memoria",
+      "description": "Catálogo, conocimiento (diccionarios, reglas, confirmaciones) y grafo del patrimonio cargados de la BD ConverData. Se recargan cuando el Builder publica o alguien cura."
+    },
+    {
+      "id": "llm",
+      "lane": "ordenar",
+      "col": 1,
+      "type": "cloud",
+      "label": "Gateway de LLM",
+      "sublabel": "intención · orden · texto",
+      "description": "Un modelo en el piloto. Recibe la pregunta y metadatos ya filtrados; nunca credenciales ni valores de datos. Si falla o agota el tope, el paso usa su implementación determinista."
+    },
+    {
+      "id": "aclarar",
+      "lane": "entender",
+      "col": 2,
+      "type": "security",
+      "label": "Aclaración o fuera de alcance",
+      "sublabel": "sin búsqueda",
+      "description": "Si la pregunta es ambigua o pide algo que la fase 1a no hace (por ejemplo, valores de datos), se responde sin buscar. También queda en la auditoría."
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "pregunta",
+      "to": "intent",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "intent",
+      "to": "retrieve",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "retrieve",
+      "to": "grade",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e4",
+      "from": "grade",
+      "to": "rerank",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e5",
+      "from": "rerank",
+      "to": "expand",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e6",
+      "from": "expand",
+      "to": "review",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e7",
+      "from": "review",
+      "to": "respond",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e8",
+      "from": "respond",
+      "to": "finalize",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e9",
+      "from": "finalize",
+      "to": "respuesta",
+      "label": "solo si se registró",
+      "variant": "emphasis"
+    },
+    {
+      "id": "r1",
+      "from": "grade",
+      "to": "retrieve",
+      "label": "reintento, máx. 1",
+      "variant": "dashed",
+      "role": "return"
+    },
+    {
+      "id": "r2",
+      "from": "review",
+      "to": "rerank",
+      "label": "corrección, máx. 1",
+      "variant": "dashed",
+      "role": "return"
+    },
+    {
+      "id": "b1",
+      "from": "intent",
+      "to": "aclarar",
+      "label": "ambigua",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "s1",
+      "from": "indice",
+      "to": "retrieve",
+      "label": "visible_ids",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "s2",
+      "from": "llm",
+      "to": "rerank",
+      "label": "si no es claro",
+      "variant": "default",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "El grafo manda",
+      "items": [
+        "Pasos fijos y dos ciclos acotados a una vuelta",
+        "El modelo nunca decide el orden ni qué herramienta usar",
+        "Sin modelo, cada paso tiene su versión determinista"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Dónde se aplican los permisos",
+      "items": [
+        "Antes de ordenar: el índice solo ve los objetos del usuario",
+        "Otra vez al expandir: relaciones, linaje, reglas y evidencias",
+        "El nombre de una tabla que no ve no cambia la confianza"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Cómo se mide",
+      "items": [
+        "converdata eval discovery: acierto por tipo de pregunta A–G",
+        "58 y 31 casos del equipo: 98,0 % y 96,2 % sin modelo",
+        "Un cambio de lógica entra solo si la compuerta no baja"
+      ]
+    }
+  ]
+}

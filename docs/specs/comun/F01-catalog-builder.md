@@ -43,6 +43,8 @@ servers:
    - Índices y PKs: `sys.indexes` + `sys.index_columns`
 2. **Muestras en memoria** (herramienta `get_sample_rows` de `converdata-discovery`, solo en modo biblioteca y contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad, sin columnas `pii` ni clasificadas como sensibles. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
 
+> **Estado al 2026-11-17 (Fuentes):** `converdata-discovery` es una biblioteca (`SqlServerMetadata`, `src/converdata/metadata/sqlserver.py`), no un MCP, y el código no lee valores de datos: no existen `get_sample_rows` ni las muestras en memoria. Se cuentan filas con `sys.partitions` (no `sys.dm_db_partition_stats`) y no se resuelven `sys.synonyms` (solo tablas, vistas y procedimientos). Ver [F18](F18-discovery-mcp.md) y [brechas funcionales](../../wiki/brechas-funcionales.md).
+
 ## Enriquecimiento con LLM
 Lo hace el Catalog Builder (comando batch en Python que corre y termina, separado del servicio interactivo, con llamadas directas por lotes al rol `planner` de F16; on-premise lo lanza el Programador de tareas de Windows, OP-02). Para cada tabla y columna sin `MS_Description` genera:
 - `description` (español, una o dos frases)
@@ -54,6 +56,8 @@ Todo se marca como `generated: true` hasta que un humano lo revise.
 
 Las fuentes de conocimiento no estructurales (diccionarios de datos, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio)
 se ingieren con F23 y se vinculan a este catálogo por `asset_key`.
+
+> **Estado al 2026-11-17 (Enriquecimiento):** el LLM (`LlmEnricher`, rol `planner`, lotes de 6 tablas, `src/converdata/flows/catalog_build.py`) solo propone `description` y `synonyms` de tablas y columnas. `domain` sale del nombre de la BD (`domain_of`) y `pii` de una expresión regular sobre el nombre de la columna y de `sys.sensitivity_classifications` (`src/converdata/builder/catalog_builder.py`); ninguno lo decide el LLM. Sin `--models` el Builder no enriquece.
 
 ## Salida: `<catálogo>/<environment>/<server>/<db>/<schema>.<table>.yaml`
 Este es el **formato lógico** de un objeto del catálogo. Se persiste en las tablas del esquema `catalog` de la BD `ConverData`
@@ -92,6 +96,14 @@ foreign_keys:
     ref_columns: [ClienteID]
 schema_hash: "sha256:…"
 ```
+> **Estado al 2026-11-17 (Salida):**
+> - `drift` no se escribe en el YAML: el aviso se calcula al responder, comparando el `schema_hash` de las copias entre ambientes (`drift_of` en `src/converdata/discovery/engine.py`).
+> - `low_cardinality` existe en el modelo pero ningún paso lo calcula (no hay muestras).
+> - Un objeto eliminado en la BD se borra del catálogo; no se marca `deprecated: true` (`write_output`; con la BD, la baja queda en el historial).
+> - `_database.yaml` no se genera; el cargador solo ignora los archivos que empiezan por `_`.
+> - Los procedimientos llevan `parameters` (con `direction` y `has_default`) pero no `result_shape`.
+> - `domain` sale del nombre de la BD, no de `config/owners.yaml`; los responsables viven en `curation.steward`.
+
 Para un procedimiento, la salida incluye `parameters[{name, type, direction, has_default}]` y `result_shape` (si se conoce). Los procedimientos **no** se ejecutan durante la ingesta.
 
 Además se genera `_database.yaml` por BD con el resumen, los dominios detectados y el hash global.
@@ -111,6 +123,8 @@ inventario de la BD, y sin `--out` usa un directorio temporal), `converdata cata
 - Nunca sobrescribe campos con `description_source: human`.
 - **El YAML nunca contiene valores de datos** (`sample_values` prohibido). El indexador rechaza cualquier YAML que lo tenga.
 - Concurrencia limitada (4 tablas en paralelo) y timeout de 30 s por consulta de muestra.
+
+> **Estado al 2026-11-17 (Reglas):** no hay concurrencia de 4 tablas ni consultas de muestra; el timeout de 30 s es por consulta de metadatos y el LLM recibe lotes de 6 tablas (no de 20, como dice "Casos límite"). Si un servidor falla, la ingesta sigue con los demás y conserva lo que ya había de ese servidor (`kept_from_failed`).
 - El login de metadatos necesita `VIEW DEFINITION` y el `SELECT` mínimo para las muestras; nunca escritura.
 
 ## Criterios de aceptación

@@ -28,6 +28,8 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   const out = new Headers();
   const type = upstream.headers.get("content-type");
   if (type) out.set("content-type", type);
+  // La API marca todo como no almacenable; sin esta cabecera un proxy con caché delante de la web no lo sabría.
+  out.set("cache-control", upstream.headers.get("cache-control") ?? "no-store");
   for (const cookie of upstream.headers.getSetCookie()) out.append("set-cookie", cookie);
   return new Response(upstream.body, { status: upstream.status, headers: out });
 }

@@ -34,7 +34,7 @@
       "type": "database",
       "label": "Catálogo",
       "sublabel": "filtrado por usuario",
-      "description": "Tablas, columnas, relaciones, reglas, diccionarios y documentos vinculados, cargados en un índice léxico en memoria. Cada búsqueda se limita a los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco a través de un documento o una regla que las mencione. (F2, F4, F14, F22)"
+      "description": "Tablas, columnas, relaciones, reglas, diccionarios y documentos vinculados, cargados en un índice léxico en memoria. Cada búsqueda se limita a los objetos que SQL Server dijo que este usuario puede ver, así que el agente ni siquiera conoce la existencia de tablas ajenas, tampoco a través de un documento, una regla o una llave foránea que las mencione: el nombre de una tabla que no ve no cambia la confianza de la respuesta. (F2, F4, F14, F22)"
     },
     {
       "id": "llm",
@@ -316,6 +316,15 @@
         "Credencial en SessionVault, cifrada y solo en memoria, en los dos despliegues",
         "Chat, API y MCP usan la misma sesión y el mismo filtro",
         "Hoy está construido el descubrimiento (segmentos 1, 2 y 4)"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Roles y curación",
+      "items": [
+        "Un rol dado por el nombre del login solo vale si ese login se validó en un servidor de producción",
+        "Ser responsable de un dominio no da lectura: lo que su login no ve responde como inexistente",
+        "Las confirmaciones se guardan como plantilla sin literales; el voto no lleva texto libre"
       ]
     }
   ]

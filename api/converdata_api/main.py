@@ -1032,6 +1032,19 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         return {"ok": report.ok, "head": report.head, "files": [
             {"name": f.name, "rows": f.rows, "legacy": f.legacy, "head": f.head, "errors": f.errors} for f in report.files]}
 
+    @app.get("/admin/manual")
+    def manual(session: Session = Depends(admin_session)):
+        """Manual de desarrollo: componentes, flujo y mejoras pendientes. Solo `data_admin`, porque describe los
+        controles de seguridad y lo que aún no cubren. Cada lectura se audita antes de entregar el texto (F11)."""
+        try:
+            text = settings.manual_path.read_text(encoding="utf-8")
+            modified = settings.manual_path.stat().st_mtime
+        except (OSError, UnicodeError):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "El manual de desarrollo no está instalado en este servidor")
+        audit.event("manual_read", session.user_id)  # sin registro no se entrega; un 404 no cuenta como lectura
+        return {"markdown": text,
+                "updated_at": dt.datetime.fromtimestamp(modified, dt.timezone.utc).isoformat(timespec="seconds")}
+
     @app.get("/admin/sessions")
     def sessions_list(session: Session = Depends(admin_session)):
         """Sesiones activas, sin tokens ni credenciales."""

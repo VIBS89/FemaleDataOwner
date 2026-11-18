@@ -32,6 +32,14 @@ class KnowledgeConnector(Protocol):
 | **Reglas de negocio** | Archivos `knowledge/rules/*.yaml` mantenidos por humanos + sugerencias extraídas | Colección `business_rules` |
 | **Otras plataformas** (data warehouse o data lake fuera de SQL Server) | Interfaz `MetadataConnector` (listar objetos, describir, dependencias) | Mismo formato de catálogo que F1. Fase 1: SQL Server (incluye el DWH en SQL Server). Adaptadores posteriores: Fabric/Synapse, Databricks Unity Catalog, AWS Glue, Oracle |
 
+> **Estado al 2026-11-17 (Fuentes):**
+> - No existen `KnowledgeConnector`, `DictionaryConnector`, `DocumentConnector`, `SsisConnector`, `SqlAgentConnector` ni `config/knowledge.yaml`. El diccionario CSV entra por `POST /curation/dictionary` (`plan_dictionary` en `src/converdata/curation.py`, `api/converdata_api/main.py`), con `asset_key` o `database,schema,table[,column]`, `description` y `synonyms`; Excel falta (HU-25). Documentos, SSISDB y msdb no se leen (HU-26, HU-27).
+> - El único linaje que produce el build es el de vistas, desde `sys.sql_expression_dependencies` (`LineageVia.kind: view`).
+> - El Builder no sugiere reglas de negocio. Las reglas las escriben los responsables en Curación (`KnowledgeWriter.upsert_rule`).
+> - El linaje no usa `networkx`: se carga en `EstateGraph` (`src/converdata/graph/estate.py`) como aristas `etl` y `view`.
+>
+> Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+
 ## Vinculación con el catálogo (`linked_assets`)
 Para cada `KnowledgeItem`:
 1. **Coincidencia determinista** de nombres calificados (`db.schema.tabla`, `tabla.columna`) y alias conocidos (sinónimos de F1).

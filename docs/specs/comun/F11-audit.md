@@ -27,7 +27,7 @@ Pendiente o de la fase 1b (no están en el DDL):
 ```
 audit_question: sql_login, user_group, rewritten_question      -- user_group: perfil para las métricas de F25 (HU-13)
 audit_step: prompt_tokens, completion_tokens                   -- hoy los tokens solo se cuentan en /health/metrics
-curation.curation_request(id PK, trace_id, ts, domain, assigned_group, status, answer_kind, …)  -- hoy en archivo
+curation.curation_request(id PK, trace_id, ts, domain, assigned_group, status, answer_kind, …)  -- con CONVERDATA_DB vive en curation.request (db/converdata/002_curacion.sql); sin ella, en archivo
 audit_query, audit_feedback, golden                            -- AskFlow, fase 1b
 ```
 - `user_id` es el login SQL del usuario (F14). En la fase 1b, `sql_login` será el login con el que se consultó;

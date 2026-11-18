@@ -13,7 +13,7 @@ quede disponible para todos, en lugar de contestar la misma pregunta a cada equi
 | Rol | Quién | Qué puede hacer |
 |---|---|---|
 | `consumer` | Cualquier colaborador autorizado | Descubrir, confirmar o rechazar candidatos, escalar dudas |
-| `steward` | Responsable de un dominio (funcional o técnico), en `config/owners.yaml` | Revisar descripciones, reglas y vínculos de su dominio; responder dudas escaladas |
+| `steward` | Responsable de un dominio (funcional o técnico), en `curation.steward` (por login y dominio; los dueños que se muestran por dominio salen de `owners.yaml` o `curation.owners`) | Revisar descripciones, reglas y vínculos de su dominio; responder dudas escaladas |
 | `data_admin` | Gerencia de Datos / Plataformas de Datos | Todo lo anterior, gestionar fuentes y dominios |
 
 ```yaml
@@ -72,6 +72,8 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
    - **Permisos**: la respuesta al usuario sigue filtrada por sus `visible_ids` (F14). Si el activo correcto está fuera de su visibilidad,
      el usuario solo recibe "el responsable indicó que requieres acceso; solicítalo por el proceso de accesos", sin nombres de objetos;
      el steward es quien decide si lo concede.
+
+> **Estado al 2026-11-17:** "El correcto es…" no existe: `POST /discover/feedback` acepta solo `verdict` = `confirm` o `reject` (`FeedbackRequest` en `api/converdata_api/main.py`). Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Revisión del catálogo
 - **Ser responsable no da lectura**: fuera de sus dominios, un activo que su login no puede ver responde igual que uno que no

@@ -27,7 +27,7 @@ sobre la BD `ConverData` en SQL Server 2016 o posterior, con 10–15 usuarios re
 | Database Mail | Webhook de Teams | HU-18, HU-24, HU-30 |
 
 ### Estado al 2026-11-17
-**449 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella
+**452 tests en verde** con `CONVERDATA_TEST_DB` (contra una BD `ConverData` real y desechable; sin ella
 las de SQL Server se omiten) y compuerta `converdata eval gate` aprobada en los dos catálogos de prueba, también con el catálogo cargado desde la BD
 (modo determinista; `eval gate --db --root tests/fixtures/bancos` repetido con el set de 58 casos). El
 2026-11-17 se cerró el bloque C2 del plan: curación e inventario en la BD.
@@ -88,9 +88,9 @@ Mientras tanto vale este orden, que es el del [plan de desarrollo §3](../PLAN-d
 | A | BD `ConverData`: DDL por migraciones, validado en SQL Server real | HU-04, HU-05 | — | O2 |
 | B | Auditoría fail-closed en SQL Server | HU-20 | A | O5 |
 | C | Catálogo, conocimiento y curación en la BD; la API arranca desde ella | HU-06, HU-09, y el paso a BD de HU-15, HU-25, HU-28 a HU-32 | A | O2, O6, O7 |
-| D | Métricas, purga y regresión programada | HU-23, HU-24 | B | O5, O10 |
+| D | Métricas y reporte de brechas | HU-23, HU-32 | B | O5, O10 |
 | E | Fuentes de conocimiento del dominio piloto | HU-25 (Excel), HU-26, HU-27 | C; documentos y SSISDB ⚠️ S6 | O6 |
-| F | Instalación y operación | HU-37, HU-38, HU-39, HU-18 (tarea programada) | C; gMSA ⚠️ S10 | O9 |
+| F | Instalación y operación | HU-37, HU-38, HU-39, HU-18 y HU-24 (tareas programadas) | C; gMSA ⚠️ S10 | O9 |
 | G | Bedrock y calidad con preguntas reales | HU-35, HU-36, HU-33 | cuenta AWS ⚠️ S4; steward ⚠️ S9 | O8 |
 | H | Piloto | HU-40, HU-41, HU-13 si hay LDAP | F, G | O10 |
 
@@ -396,7 +396,7 @@ descubrimiento en mis herramientas.
 
 > **Estado (2026-11-16):** hecha (`api/converdata_api/main.py`): la matriz de rutas con sesión y rol se genera de `app.routes` y se prueba
 > entera; ritmo por usuario, CORS y CSRF por `Origin`, tope de 4 MB. Deuda: la API llama al DiscoverFlow directamente en vez de pasar
-> por `DiscoveryTools` ([capas del backend](../architecture/capas-backend.md)), y arranca desde archivos hasta HU-09.
+> por `DiscoveryTools` ([capas del backend](../architecture/capas-backend.md)), y la API arranca desde la BD `ConverData` (HU-09 hecha); sin `CONVERDATA_DB` lo hace desde archivos, solo para desarrollo y demo.
 
 #### HU-15 · Confirmar o rechazar un candidato
 **Como** analista BI **quiero** marcar "✔ Es este" o "✖ No es" **para** que la próxima persona encuentre el dato más rápido.
@@ -451,9 +451,8 @@ responsables y confianza **para** entender un dato sin depender de TI.
 - **Dado** la web, **cuando** se revisa, **entonces** no guarda credenciales ni conversaciones fuera de la sesión (OP-06).
 
 > **Estado (2026-11-16):** hecha en Next.js (`web/`), en lugar de Chainlit (PRD §13, decisión 11): chat con tarjetas y pasos en vivo
-> (`/discover/stream`), ficha del activo, Catálogo, Curación, Solicitudes, Métricas y Administración. Falta recompilar la web tras el
-> endurecimiento (`npm --prefix web ci && npm --prefix web run build`; el campo "Código de instalación" del login no se verificó con
-> `tsc`) y probar el streaming a través de IIS (HU-37).
+> (`/discover/stream`), ficha del activo, Catálogo, Curación, Solicitudes, Métricas y Administración. La CI compila la web
+> (`.github/workflows/calidad.yml`: `npm ci` y `npm run build`). Falta probar el streaming a través de IIS (HU-37).
 
 #### HU-18 · Refresco programado del catálogo
 **Como** DBA **quiero** que el catálogo se refresque cada noche sin intervención manual **para** que refleje los cambios de esquema.
@@ -577,8 +576,8 @@ el monitoreo existente (SCOM o Zabbix ⚠️ S11).
 - **Dado** el reporte, **cuando** se genera, **entonces** se calcula desde vistas del esquema `audit` sin leer el texto de preguntas ni SQL.
 
 > **Estado (2026-11-16):** parcial. `GET /admin/metrics` y la vista Métricas de la web muestran uso, tiempo hasta "✔", escalamientos y
-> brechas desde la auditoría en archivos. Faltan el comando `converdata metrics report` (CSV y HTML) y calcularlo desde las vistas del
-> esquema `audit` (tras HU-20).
+> brechas desde la auditoría; con `CONVERDATA_DB` la leen de la BD (`audit.*`, bloque B). Faltan el comando `converdata metrics report` (CSV y HTML) y
+> calcularlo desde vistas SQL del esquema `audit` (bloque D).
 
 #### HU-24 · Jobs de mantenimiento y regresión
 **Como** DBA **quiero** tareas programadas para la purga de 180 días y la evaluación semanal **para** cumplir la retención y detectar
@@ -760,10 +759,9 @@ medir la calidad sin el sesgo del set del equipo de desarrollo.
 - **Dado** el set, **cuando** corre `converdata eval discovery` con Bedrock, **entonces** Hit@3 ≥ 85 %, Hit@1 ≥ 65 %, MRR ≥ 0.75, calibración ≥ 85 %,
   0 inventados y 0 fugas.
 
-> **Estado (2026-11-16):** pendiente; necesita al steward y a los usuarios del piloto (⚠️ S9). Los 56 casos actuales (25 de VBank y 31 de
-> BancosSQL) los escribió el equipo de desarrollo. Existe además una medición con 25 preguntas normativas, de tablero y de estudio
-> citada en el diagrama on-premise (4 % solo con catálogo, 40 % con fuentes de conocimiento) cuyo set no está en el repo: hay que
-> versionarlo o repetirla.
+> **Estado (2026-11-16):** pendiente; necesita al steward y a los usuarios del piloto (⚠️ S9). Los casos de descubrimiento vigentes (58 de BancosSQL y 31 de
+> VBank) los escribió el equipo de desarrollo. Existe además una medición con 25 preguntas normativas, de tablero y de estudio
+> (Hit@1 16 % solo con catálogo, 60 % con fuentes de conocimiento; ver la segunda tanda y [plan §2](../PLAN-desarrollo.md)); su set ya está en el repo.
 >
 > **Estado (2026-11-17, segunda tanda):** sigue pendiente; nada de lo siguiente sustituye a las preguntas reales. Los sets del equipo
 > crecieron a 89 casos (58 de BancosSQL y 31 de VBank) con casos de entidad con calificativos desconocidos, de cruce, de plurales

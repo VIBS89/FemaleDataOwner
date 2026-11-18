@@ -24,7 +24,7 @@ No se ha probado en una tarea de Fargate.
 - Al arrancar, `ConverData-API` carga el catálogo y el conocimiento de la BD `ConverData` en un **índice BM25 en memoria** y busca solo entre los objetos que el usuario puede ver (PRD §13, decisión 9).
 - Sin embeddings ni índice vectorial: no hay ningún almacén de búsqueda que desplegar, respaldar o proteger en AWS.
 - El índice se pierde al parar la tarea y se reconstruye al arrancar.
-- **Refresco tras el Builder**: on-premise la API recarga el catálogo cuando ella lanza la construcción (`POST /admin/catalog/build`). Con el Builder en otra tarea, la API debe recargar o reiniciarse al terminar: mecanismo por confirmar.
+- **Refresco tras el Builder**: on-premise la API recarga el catálogo cuando ella lanza la construcción (`POST /admin/catalog/build`). Con el Builder en otra tarea, la API recarga sola cuando cambia la versión del catálogo en la BD: lo comprueba al atender una petición, como mucho cada 15 s (`AgentRuntime.refresh` en `api/converdata_api/runtime.py`; `api/tests/test_catalog_db.py::test_la_api_carga_lo_que_publica_el_builder_sin_reiniciar`).
 
 ## Criterios de aceptación
 1. Un cambio de esquema on-premise aparece en las respuestas tras el siguiente ciclo nocturno, sin intervención manual.

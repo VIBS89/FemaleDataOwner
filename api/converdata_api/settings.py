@@ -60,6 +60,8 @@ class ApiSettings:
     login_lockout_s: int = 900
     trust_proxy: bool = False  # tomar el origen de X-Forwarded-For (solo detrás de un proxy inverso propio)
     max_body_bytes: int = 4 * 1024 * 1024  # el diccionario CSV admite 2 MB de texto
+    # Manual de desarrollo que la web muestra solo a `data_admin` (describe controles y sus puntos débiles).
+    manual_path: Path = Path("docs/manual-desarrollo.md")
 
     @property
     def production(self) -> bool:
@@ -110,4 +112,5 @@ class ApiSettings:
             login_lockout_s=int(os.environ.get("CONVERDATA_LOGIN_LOCKOUT_S", 900)),
             trust_proxy=_flag("CONVERDATA_TRUST_PROXY"),
             max_body_bytes=int(os.environ.get("CONVERDATA_MAX_BODY_BYTES", 4 * 1024 * 1024)),
+            manual_path=Path(os.environ.get("CONVERDATA_MANUAL", "docs/manual-desarrollo.md")),
         )

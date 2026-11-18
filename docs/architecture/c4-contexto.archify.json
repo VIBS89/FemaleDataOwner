@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConverData — C4 nivel 1: contexto del sistema",
+    "output": "docs/architecture/c4-contexto.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "analista",
+      "type": "external",
+      "label": "Analista o ingeniero",
+      "sublabel": "pregunta dónde está un dato",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Ingenieros de datos, analistas y Product Owners. Describen en lenguaje natural el dato que necesitan para un reporte, un tablero o un estudio y reciben tablas y columnas candidatas con su ubicación, significado y confianza. Entran con su propio login de SQL Server y solo descubren lo que ese login puede leer. (F14, F22)"
+    },
+    {
+      "id": "responsable",
+      "type": "external",
+      "label": "Responsable de datos",
+      "sublabel": "cura su dominio",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Persona a cargo de un dominio de negocio. Responde las dudas que le escalan, corrige descripciones, mantiene reglas de negocio y carga diccionarios. Ser responsable no le da lectura: lo que su login no ve responde como inexistente. (F24)"
+    },
+    {
+      "id": "admin",
+      "type": "external",
+      "label": "Administrador de datos",
+      "sublabel": "inventario y auditoría",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Rol data_admin. Registra los servidores, lanza la construcción del catálogo, nombra responsables, consulta la auditoría y las métricas, cierra sesiones y lee el manual de desarrollo. En qa y prod el rol se da solo por lista explícita. (OP-03, OP-04)"
+    },
+    {
+      "id": "dba",
+      "type": "external",
+      "label": "DBA y operaciones",
+      "sublabel": "instala y opera",
+      "pos": [
+        40,
+        520
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Equipo del banco que crea la BD ConverData, aplica las migraciones, asigna los cuatro roles de mínimo privilegio, programa el refresco nocturno y la purga, y respalda la BD. No usa la aplicación: trabaja con la línea de comandos y SQL Server. (OP-07)"
+    },
+    {
+      "id": "mcpclient",
+      "type": "external",
+      "label": "Cliente MCP",
+      "sublabel": "Claude Code / Desktop",
+      "pos": [
+        300,
+        40
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Agentes y asistentes que usan ConverData como herramienta (discover, where_is, get_asset, get_lineage). Se identifican con el token de sesión del usuario, así que heredan sus mismos permisos. (F12, OP-04)"
+    },
+    {
+      "id": "converdata",
+      "type": "backend",
+      "label": "ConverData",
+      "sublabel": "agente de descubrimiento de datos",
+      "pos": [
+        560,
+        264
+      ],
+      "size": [
+        220,
+        96
+      ],
+      "tag": "fase 1a",
+      "description": "El sistema. Responde dónde vive un dato, qué significa, con qué se relaciona y cuánta confianza merece la respuesta. Lee solo metadatos y el conocimiento que el banco le carga; nunca valores de datos de clientes. Por dentro son una web, una API, un constructor de catálogo y una BD de trabajo: ver el nivel 2 (onpremise-architecture.html)."
+    },
+    {
+      "id": "bedrock",
+      "type": "cloud",
+      "label": "Amazon Bedrock",
+      "sublabel": "modelo de lenguaje",
+      "pos": [
+        860,
+        40
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "único servicio externo",
+      "description": "Único servicio fuera de la red del banco. Un modelo para entender la pregunta y ordenar los candidatos. Recibe la pregunta y los metadatos que el usuario ya puede ver; nunca credenciales ni valores de datos. Sin él, el sistema responde en modo determinista. Pendiente de probar de punta a punta. (F16, HU-35)"
+    },
+    {
+      "id": "sqldata",
+      "type": "database",
+      "label": "SQL Server de datos",
+      "sublabel": "BDs de negocio del banco",
+      "pos": [
+        860,
+        280
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Las bases de datos de negocio. Son la fuente de verdad de los permisos: ConverData les pregunta qué puede leer cada login y cuál es la estructura de sus objetos. En la fase 1a no se consulta ningún dato. (F8, F14, F18)"
+    },
+    {
+      "id": "sources",
+      "type": "external",
+      "label": "Fuentes de conocimiento",
+      "sublabel": "diccionarios · documentos · reglas",
+      "pos": [
+        860,
+        520
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "palanca principal",
+      "description": "Diccionarios de datos, manuales de reportes, políticas, glosarios y paquetes SSIS que hoy están dispersos. Son lo que más mejora las respuestas a preguntas de reporte: de 16 % a 60 % de acierto en la medición del equipo. Hoy se ingieren diccionarios CSV y reglas; faltan Excel, documentos y SSIS. (F23)"
+    },
+    {
+      "id": "teams",
+      "type": "external",
+      "label": "Microsoft Teams",
+      "sublabel": "aviso de dudas (opcional)",
+      "pos": [
+        300,
+        520
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "description": "Canal donde se avisa a un responsable de que tiene una duda escalada. El aviso lleva solo el dominio y el enlace a la vista Curación; nunca el texto de la pregunta. (F24)"
+    }
+  ],
+  "connections": [
+    {
+      "id": "a-s",
+      "from": "analista",
+      "to": "converdata",
+      "label": "pregunta",
+      "variant": "emphasis"
+    },
+    {
+      "id": "a-m",
+      "from": "analista",
+      "to": "mcpclient",
+      "label": "usa"
+    },
+    {
+      "id": "m-s",
+      "from": "mcpclient",
+      "to": "converdata",
+      "label": "herramientas MCP"
+    },
+    {
+      "id": "r-s",
+      "from": "responsable",
+      "to": "converdata",
+      "label": "cura"
+    },
+    {
+      "id": "ad-s",
+      "from": "admin",
+      "to": "converdata",
+      "label": "administra"
+    },
+    {
+      "id": "d-s",
+      "from": "dba",
+      "to": "converdata",
+      "label": "instala · migra",
+      "variant": "dashed"
+    },
+    {
+      "id": "s-b",
+      "from": "converdata",
+      "to": "bedrock",
+      "label": "pregunta y metadatos visibles"
+    },
+    {
+      "id": "s-q",
+      "from": "converdata",
+      "to": "sqldata",
+      "label": "permisos y metadatos",
+      "variant": "security"
+    },
+    {
+      "id": "s-f",
+      "from": "converdata",
+      "to": "sources",
+      "label": "ingesta"
+    },
+    {
+      "id": "s-t",
+      "from": "converdata",
+      "to": "teams",
+      "label": "dominio y enlace",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Qué resuelve",
+      "items": [
+        "Encontrar un dato lleva hoy días de preguntas entre equipos",
+        "ConverData responde en segundos con tabla, columna, ambiente, significado y confianza",
+        "Lo que no sabe lo dice, y lo escala al responsable del dominio"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Límites del sistema",
+      "items": [
+        "Solo metadatos: no consulta ni guarda valores de datos",
+        "No concede permisos: usa los que ya tiene el login SQL de cada persona",
+        "Fuera de la red solo sale el contexto que se envía al modelo"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Niveles C4",
+      "items": [
+        "Nivel 2, contenedores: onpremise-architecture.html y cloud-native-architecture.html",
+        "Nivel 3, componentes de la API: c4-componentes-api.html",
+        "Detalle: flujo-descubrimiento.html, modelo-datos-converdata.html, permisos-heredados.html"
+      ]
+    }
+  ]
+}

@@ -31,12 +31,12 @@ Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15)
 
 | Grupo | Rutas |
 |---|---|
-| Sesión | `POST /auth/login` (alias `/login`): `{credentials: [{server, login, password}]}` → sesión, servidores y roles (F14, OP-03). Es la implementación on-premise de `/credentials` de F12. `POST /auth/logout` (alias `/logout`), `GET /auth/me` |
+| Sesión | `POST /auth/login` (alias `/login`): `{login, password, auth, servers[]}` (una sola credencial; `servers` lista los servidores donde se usa, y en el primer arranque `host`, `alias`, `environment`, `setup_token`; modelo `LoginRequest` en `api/converdata_api/main.py`) → sesión, servidores y roles (F14, OP-03). `POST /auth/logout` (alias `/logout`), `GET /auth/me` |
 | Descubrimiento | `POST /discover`, `POST /discover/stream` (SSE con un evento `step` por nodo y `answer` al final), `POST /discover/feedback`, `GET /assets/{asset_key}` |
 | Catálogo | `GET /catalog/databases`, `/catalog/objects`, `/catalog/object`, filtradas por la visibilidad del usuario |
 | Curación (F24) | `POST /curation/requests` (escalar una duda, cualquier usuario); `GET /curation/requests`, `POST /curation/requests/{id}/answer`, `GET /curation/review`, `PUT /curation/description`, `GET /curation/history?asset_key=` (versiones de la descripción de un activo con autor y fecha, solo para responsables de su dominio que además pueden ver el activo con su login; sale del historial temporal de la BD y sin ella responde `available: false`), `POST /curation/dictionary`, `GET`/`PUT /curation/rules`, `DELETE /curation/rules/{id}` (rol `steward` o `data_admin`) |
 | Del usuario | `GET /me/requests`, `GET /me/history` |
-| Administración (`data_admin`) | `GET`/`PUT /admin/inventory`, `GET`/`PUT /admin/stewards` (responsables de curación por login y dominio), `POST`/`GET /admin/catalog/build`, `GET /admin/audit`, `GET /admin/audit/verify`, `GET`/`DELETE /admin/sessions`, `GET /admin/metrics` |
+| Administración (`data_admin`) | `GET`/`PUT /admin/inventory`, `GET`/`PUT /admin/stewards` (responsables de curación por login y dominio), `POST`/`GET /admin/catalog/build`, `GET /admin/audit`, `GET /admin/audit/verify`, `GET /admin/sessions`, `DELETE /admin/sessions/{user_id}`, `GET /admin/metrics`, `GET /admin/manual` (manual de desarrollo; cada lectura se audita como `manual_read`) |
 | Estado | `GET /health` y `GET /setup/status` (públicas), `GET /health/metrics` |
 
 - **Toda ruta no pública exige sesión**; `/admin/*` y `/curation/*` exigen rol. Las públicas son `/health`, `/setup/status` y el login.

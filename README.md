@@ -160,7 +160,9 @@ Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredado
 | [docs/calidad-bancaria.md](docs/calidad-bancaria.md) | Controles de seguridad, compuerta de calidad y lo que falta para operar en un banco |
 | [docs/specs/cloud-native/](docs/specs/cloud-native/) | CN-01 a CN-06: despliegue mínimo en AWS, posterior al piloto |
 | [docs/architecture/capas-backend.md](docs/architecture/capas-backend.md) | Capas del backend y regla de dependencias |
-| [docs/architecture/](docs/architecture/) | Diagramas interactivos (HTML) y sus fuentes `*.archify.json` |
+| [docs/manual-desarrollo.md](docs/manual-desarrollo.md) | Manual de desarrollo: componentes, para qué sirve cada uno y mejoras que faltan. En la aplicación solo lo ven los administradores de datos (Administración → Manual de desarrollo) |
+| [docs/architecture/README.md](docs/architecture/README.md) | Enfoque y arquitectura con el modelo C4 (contexto, contenedores, componentes) y el índice de los diagramas interactivos (HTML, con sus fuentes `*.archify.json`) |
+| [docs/wiki/](docs/wiki/README.md) | Wiki interna: cada componente por dentro, deuda técnica, brechas funcionales y hojas de ruta on-premise y cloud |
 
 Los diagramas se regeneran con el fork de Archify incluido en `tools/archify` ([F13](docs/specs/comun/F13-architecture-docs.md)):
 ```bash

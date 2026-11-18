@@ -5170,7 +5170,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 971 786" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
+      <svg viewBox="0 0 1041 786" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
         <title id="archify-diagram-title">ConverData: controles de una petición y compuerta de calidad</title>
         <desc id="archify-diagram-description">Un diagrama de flujo de trabajo generado por Archify.</desc>
         <!-- Definitions -->
@@ -5217,20 +5217,20 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="915" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="985" height="106" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / Cliente</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="178" width="915" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="178" width="985" height="106" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="200" class="t-muted" font-size="10" font-weight="600">02 / Borde de la API</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="304" width="915" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="exception-lane" data-composition-frame-id="lane-2-exception" x="46" y="310" width="903" height="94" rx="8" class="c-security-group" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="304" width="985" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="exception-lane" data-composition-frame-id="lane-2-exception" x="46" y="310" width="973" height="94" rx="8" class="c-security-group" stroke-width="1"/>
         <text x="54" y="326" class="t-security" font-size="10" font-weight="600">EX / Rechazos</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="430" width="915" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="430" width="985" height="106" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="452" class="t-muted" font-size="10" font-weight="600">04 / Descubrimiento y evidencia</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="556" width="915" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="556" width="985" height="106" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="578" class="t-muted" font-size="10" font-weight="600">05 / Antes de liberar</text>
 
         <!-- Phase headers -->
@@ -5240,20 +5240,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
         <!-- Edge paths -->
-        <path data-edge-from="login" data-edge-to="denegado" data-edge-label="bloqueado" data-edge-key="0" data-edge-id="e-bloqueo" data-composition-routing="workflow-v2-auto" data-edge-role="error" data-composition-points="404.8,280;404.8,346" d="M 404.8 280 L 404.8 346" class="a-security" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="ci" data-edge-to="pruebas" data-edge-key="1" data-edge-id="e-ci" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="150,624;182,624" d="M 150 624 L 182 624" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="login" data-edge-to="sesion" data-edge-label="crea sesión" data-edge-key="2" data-edge-id="e-crea" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="450.8,246;521.6,246" d="M 450.8 246 L 521.6 246" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="usuario" data-edge-to="middleware" data-edge-key="3" data-edge-id="e-entra" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="160,120;228,120;228,220" d="M 160 120 L 220 120 Q 228 120 228 128 L 228 220" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="auditoria" data-edge-to="respuesta" data-edge-label="solo si se registró" data-edge-key="4" data-edge-id="e-entrega" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="896.8000000000001,464;896.8000000000001,146" d="M 896.8000000000001 464 L 896.8000000000001 146" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="compuerta" data-edge-to="evidencia" data-edge-label="aprobado o no" data-edge-key="5" data-edge-id="e-evid" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="450.8,624;537.6,624" d="M 450.8 624 L 537.6 624" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="pruebas" data-edge-to="compuerta" data-edge-key="6" data-edge-id="e-gate" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="274,624;358.8,624" d="M 274 624 L 358.8 624" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="visibilidad" data-edge-to="flujo" data-edge-label="visible_ids" data-edge-key="7" data-edge-id="e-ids" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="631.6,498;702.4000000000001,498" d="M 631.6 498 L 702.4000000000001 498" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="middleware" data-edge-to="login" data-edge-label="POST /login" data-edge-key="8" data-edge-id="e-login" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="288,246;358.8,246" d="M 288 246 L 358.8 246" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="limites" data-edge-to="flujo" data-edge-label="pregunta" data-edge-key="9" data-edge-id="e-pregunta" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="748.4000000000001,280;748.4000000000001,472" d="M 748.4000000000001 280 L 748.4000000000001 472" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="flujo" data-edge-to="auditoria" data-edge-label="registra" data-edge-key="10" data-edge-id="e-registra" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="794.4000000000001,498;850.8000000000001,498" d="M 794.4000000000001 498 L 850.8000000000001 498" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="sesion" data-edge-to="limites" data-edge-key="11" data-edge-id="e-rol" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="645.6,246;680.4000000000001,246" d="M 645.6 246 L 680.4000000000001 246" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="middleware" data-edge-to="sesion" data-edge-label="token" data-edge-key="12" data-edge-id="e-token" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="252,220;252,186;583.6,186;583.6,212" d="M 252 220 L 252 194 Q 252 186 260 186 L 575.6 186 Q 583.6 186 583.6 194 L 583.6 212" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="sesion" data-edge-to="visibilidad" data-edge-label="su login" data-edge-key="13" data-edge-id="e-ver" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="583.6,280;583.6,472" d="M 583.6 280 L 583.6 472" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="login" data-edge-to="denegado" data-edge-label="bloqueado" data-edge-key="0" data-edge-id="e-bloqueo" data-composition-routing="workflow-v2-auto" data-edge-role="error" data-composition-points="430.8,280;430.8,346" d="M 430.8 280 L 430.8 346" class="a-security" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="ci" data-edge-to="pruebas" data-edge-key="1" data-edge-id="e-ci" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="152,624;184,624" d="M 152 624 L 184 624" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="login" data-edge-to="sesion" data-edge-label="crea sesión" data-edge-key="2" data-edge-id="e-crea" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="476.8,246;547.6,246" d="M 476.8 246 L 547.6 246" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="usuario" data-edge-to="middleware" data-edge-key="3" data-edge-id="e-entra" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="160,120;254,120;254,220" d="M 160 120 L 246 120 Q 254 120 254 128 L 254 220" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="auditoria" data-edge-to="respuesta" data-edge-label="solo si se registró" data-edge-key="4" data-edge-id="e-entrega" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="948.8000000000001,464;948.8000000000001,146" d="M 948.8000000000001 464 L 948.8000000000001 146" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="compuerta" data-edge-to="evidencia" data-edge-label="aprobado o no" data-edge-key="5" data-edge-id="e-evid" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="478.8,624;563.6,624" d="M 478.8 624 L 563.6 624" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pruebas" data-edge-to="compuerta" data-edge-key="6" data-edge-id="e-gate" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="324,624;382.8,624" d="M 324 624 L 382.8 624" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="visibilidad" data-edge-to="flujo" data-edge-label="visible_ids" data-edge-key="7" data-edge-id="e-ids" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="661.6,498;732.4000000000001,498" d="M 661.6 498 L 732.4000000000001 498" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="middleware" data-edge-to="login" data-edge-label="POST /login" data-edge-key="8" data-edge-id="e-login" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="314,246;384.8,246" d="M 314 246 L 384.8 246" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="limites" data-edge-to="flujo" data-edge-label="pregunta" data-edge-key="9" data-edge-id="e-pregunta" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="778.4000000000001,280;778.4000000000001,472" d="M 778.4000000000001 280 L 778.4000000000001 472" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="flujo" data-edge-to="auditoria" data-edge-label="registra" data-edge-key="10" data-edge-id="e-registra" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="824.4000000000001,498;880.8000000000001,498" d="M 824.4000000000001 498 L 880.8000000000001 498" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="sesion" data-edge-to="limites" data-edge-key="11" data-edge-id="e-rol" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="671.6,246;710.4000000000001,246" d="M 671.6 246 L 710.4000000000001 246" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="evidencia" data-edge-to="suministro" data-edge-label="y además" data-edge-key="12" data-edge-id="e-sbom" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="655.6,624;726.4000000000001,624" d="M 655.6 624 L 726.4000000000001 624" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="middleware" data-edge-to="sesion" data-edge-label="token" data-edge-key="13" data-edge-id="e-token" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="278,220;278,186;609.6,186;609.6,212" d="M 278 220 L 278 194 Q 278 186 286 186 L 601.6 186 Q 609.6 186 609.6 194 L 609.6 212" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="sesion" data-edge-to="visibilidad" data-edge-label="su login" data-edge-key="14" data-edge-id="e-ver" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="609.6,280;609.6,472" d="M 609.6 280 L 609.6 472" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
 
         <!-- Nodes -->
         <g id="node-usuario" data-node-id="usuario" data-node-label="Web o cliente MCP" tabindex="0" role="button" aria-label="Enfocar Web o cliente MCP, cookie o Bearer, Cliente" aria-pressed="false" data-node-kind="external" data-node-sublabel="cookie o Bearer" data-node-context="Cliente">
@@ -5270,207 +5271,224 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-respuesta" data-node-id="respuesta" data-node-label="Respuesta" tabindex="0" role="button" aria-label="Enfocar Respuesta, X-Trace-Id, no-store, Cliente" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="X-Trace-Id, no-store" data-node-context="Cliente">
           <title>Respuesta · X-Trace-Id, no-store · Cliente</title>
-          <rect x="850.8000000000001" y="94" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="850.8000000000001" y="94" width="92" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(856.8000000000001 100) scale(0.6875)">
+          <rect x="902.8000000000001" y="94" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="902.8000000000001" y="94" width="92" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(908.8000000000001 100) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="899.5000000000001" y="115" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Respuesta</text>
-          <text data-detail="context" x="896.8000000000001" y="132" class="t-muted" font-size="7" text-anchor="middle">X-Trace-Id, no-store</text>
+          <text data-node-label="" data-detail-anchor="" x="951.5000000000001" y="115" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Respuesta</text>
+          <text data-detail="context" x="948.8000000000001" y="132" class="t-muted" font-size="7" text-anchor="middle">X-Trace-Id, no-store</text>
         </g>
 
         <g id="node-middleware" data-node-id="middleware" data-node-label="SecurityMiddleware" tabindex="0" role="button" aria-label="Enfocar SecurityMiddleware, cabeceras, Origin, tamaño, Borde de la API" aria-pressed="false" data-node-kind="security" data-node-sublabel="cabeceras, Origin, tamaño" data-node-context="Borde de la API">
           <title>SecurityMiddleware · cabeceras, Origin, tamaño · Borde de la API</title>
-          <rect x="168" y="220" width="120" height="52" rx="8" class="c-mask"/>
-          <rect x="168" y="220" width="120" height="52" rx="8" class="c-security" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(174 226) scale(0.6875)">
+          <rect x="194" y="220" width="120" height="52" rx="8" class="c-mask"/>
+          <rect x="194" y="220" width="120" height="52" rx="8" class="c-security" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(200 226) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="228" y="251.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">SecurityMiddleware</text>
-          <text data-detail="context" x="228" y="265.4" class="t-muted" font-size="7.4" text-anchor="middle">cabeceras, Origin, tamaño</text>
+          <text data-node-label="" data-detail-anchor="" x="254" y="251.4" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">SecurityMiddleware</text>
+          <text data-detail="context" x="254" y="265.4" class="t-muted" font-size="7.4" text-anchor="middle">cabeceras, Origin, tamaño</text>
         </g>
 
         <g id="node-login" data-node-id="login" data-node-label="Login SQL" tabindex="0" role="button" aria-label="Enfocar Login SQL, UID entre llaves, Borde de la API" aria-pressed="false" data-node-kind="security" data-node-sublabel="UID entre llaves" data-node-tag="5 fallos / 10 min" data-node-context="Borde de la API">
           <title>Login SQL · UID entre llaves · Borde de la API · 5 fallos / 10 min</title>
-          <rect x="358.8" y="212" width="92" height="68" rx="8" class="c-mask"/>
-          <rect x="358.8" y="212" width="92" height="68" rx="8" class="c-security" data-animate="node" style="--step:10" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(364.8 218) scale(0.6875)">
+          <rect x="384.8" y="212" width="92" height="68" rx="8" class="c-mask"/>
+          <rect x="384.8" y="212" width="92" height="68" rx="8" class="c-security" data-animate="node" style="--step:10" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(390.8 218) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="407.5" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Login SQL</text>
-          <text data-detail="context" x="404.8" y="250" class="t-muted" font-size="8" text-anchor="middle">UID entre llaves</text>
-        <text data-detail="fine" x="404.8" y="268" class="t-security" font-size="7" text-anchor="middle">5 fallos / 10 min</text>
+          <text data-node-label="" data-detail-anchor="" x="433.5" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Login SQL</text>
+          <text data-detail="context" x="430.8" y="250" class="t-muted" font-size="8" text-anchor="middle">UID entre llaves</text>
+        <text data-detail="fine" x="430.8" y="268" class="t-security" font-size="7" text-anchor="middle">5 fallos / 10 min</text>
         </g>
 
         <g id="node-sesion" data-node-id="sesion" data-node-label="SessionVault" tabindex="0" role="button" aria-label="Enfocar SessionVault, 8 h inactiva, 12 h total, Borde de la API" aria-pressed="false" data-node-kind="security" data-node-sublabel="8 h inactiva, 12 h total" data-node-tag="revocable" data-node-context="Borde de la API">
           <title>SessionVault · 8 h inactiva, 12 h total · Borde de la API · revocable</title>
-          <rect x="521.6" y="212" width="124" height="68" rx="8" class="c-mask"/>
-          <rect x="521.6" y="212" width="124" height="68" rx="8" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(527.6 218) scale(0.6875)">
+          <rect x="547.6" y="212" width="124" height="68" rx="8" class="c-mask"/>
+          <rect x="547.6" y="212" width="124" height="68" rx="8" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(553.6 218) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="583.6" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SessionVault</text>
-          <text data-detail="context" x="583.6" y="250" class="t-muted" font-size="8" text-anchor="middle">8 h inactiva, 12 h total</text>
-        <text data-detail="fine" x="583.6" y="268" class="t-security" font-size="7" text-anchor="middle">revocable</text>
+          <text data-node-label="" data-detail-anchor="" x="609.6" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SessionVault</text>
+          <text data-detail="context" x="609.6" y="250" class="t-muted" font-size="8" text-anchor="middle">8 h inactiva, 12 h total</text>
+        <text data-detail="fine" x="609.6" y="268" class="t-security" font-size="7" text-anchor="middle">revocable</text>
         </g>
 
         <g id="node-limites" data-node-id="limites" data-node-label="Rol y topes" tabindex="0" role="button" aria-label="Enfocar Rol y topes, ritmo y tokens por usuario, Borde de la API" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ritmo y tokens por usuario" data-node-tag="web y MCP" data-node-context="Borde de la API">
           <title>Rol y topes · ritmo y tokens por usuario · Borde de la API · web y MCP</title>
-          <rect x="680.4000000000001" y="212" width="136" height="68" rx="8" class="c-mask"/>
-          <rect x="680.4000000000001" y="212" width="136" height="68" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(686.4000000000001 218) scale(0.6875)">
+          <rect x="710.4000000000001" y="212" width="136" height="68" rx="8" class="c-mask"/>
+          <rect x="710.4000000000001" y="212" width="136" height="68" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(716.4000000000001 218) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="748.4000000000001" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Rol y topes</text>
-          <text data-detail="context" x="748.4000000000001" y="250" class="t-muted" font-size="8" text-anchor="middle">ritmo y tokens por usuario</text>
-        <text data-detail="fine" x="748.4000000000001" y="268" class="t-backend" font-size="7" text-anchor="middle">web y MCP</text>
+          <text data-node-label="" data-detail-anchor="" x="778.4000000000001" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Rol y topes</text>
+          <text data-detail="context" x="778.4000000000001" y="250" class="t-muted" font-size="8" text-anchor="middle">ritmo y tokens por usuario</text>
+        <text data-detail="fine" x="778.4000000000001" y="268" class="t-backend" font-size="7" text-anchor="middle">web y MCP</text>
         </g>
 
         <g id="node-denegado" data-node-id="denegado" data-node-label="401 · 403 · 413 · 429" tabindex="0" role="button" aria-label="Enfocar 401 · 403 · 413 · 429, queda en auditoría, Rechazos" aria-pressed="false" data-node-kind="security" data-node-sublabel="queda en auditoría" data-node-context="Rechazos">
           <title>401 · 403 · 413 · 429 · queda en auditoría · Rechazos</title>
-          <rect x="334.8" y="346" width="140" height="52" rx="8" class="c-mask"/>
-          <rect x="334.8" y="346" width="140" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(340.8 352) scale(0.6875)">
+          <rect x="360.8" y="346" width="140" height="52" rx="8" class="c-mask"/>
+          <rect x="360.8" y="346" width="140" height="52" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(366.8 352) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="404.8" y="377.5" class="t-primary" font-size="10.4" font-weight="600" text-anchor="middle">401 · 403 · 413 · 429</text>
-          <text data-detail="context" x="404.8" y="392.3" class="t-muted" font-size="8" text-anchor="middle">queda en auditoría</text>
+          <text data-node-label="" data-detail-anchor="" x="430.8" y="377.5" class="t-primary" font-size="10.4" font-weight="600" text-anchor="middle">401 · 403 · 413 · 429</text>
+          <text data-detail="context" x="430.8" y="392.3" class="t-muted" font-size="8" text-anchor="middle">queda en auditoría</text>
         </g>
 
         <g id="node-visibilidad" data-node-id="visibilidad" data-node-label="Permisos SQL" tabindex="0" role="button" aria-label="Enfocar Permisos SQL, visible_ids, TTL 15 min, Descubrimiento y evidencia" aria-pressed="false" data-node-kind="database" data-node-sublabel="visible_ids, TTL 15 min" data-node-context="Descubrimiento y evidencia">
           <title>Permisos SQL · visible_ids, TTL 15 min · Descubrimiento y evidencia</title>
-          <rect x="535.6" y="472" width="96" height="52" rx="8" class="c-mask"/>
-          <rect x="535.6" y="472" width="96" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(541.6 478) scale(0.6875)">
+          <rect x="557.6" y="472" width="104" height="52" rx="8" class="c-mask"/>
+          <rect x="557.6" y="472" width="104" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(563.6 478) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="583.6" y="504.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Permisos SQL</text>
-          <text data-detail="context" x="583.6" y="517.1" class="t-muted" font-size="6.3" text-anchor="middle">visible_ids, TTL 15 min</text>
+          <text data-node-label="" data-detail-anchor="" x="616.2" y="493" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Permisos SQL</text>
+          <text data-detail="context" x="609.6" y="510" class="t-muted" font-size="6.9" text-anchor="middle">visible_ids, TTL 15 min</text>
         </g>
 
         <g id="node-flujo" data-node-id="flujo" data-node-label="DiscoverFlow" tabindex="0" role="button" aria-label="Enfocar DiscoverFlow, filtro y guardas LLM, Descubrimiento y evidencia" aria-pressed="false" data-node-kind="backend" data-node-sublabel="filtro y guardas LLM" data-node-context="Descubrimiento y evidencia">
           <title>DiscoverFlow · filtro y guardas LLM · Descubrimiento y evidencia</title>
-          <rect x="702.4000000000001" y="472" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="702.4000000000001" y="472" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(708.4000000000001 478) scale(0.6875)">
+          <rect x="732.4000000000001" y="472" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="732.4000000000001" y="472" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(738.4000000000001 478) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="748.4000000000001" y="504.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">DiscoverFlow</text>
-          <text data-detail="context" x="748.4000000000001" y="517.9" class="t-muted" font-size="7" text-anchor="middle">filtro y guardas LLM</text>
+          <text data-node-label="" data-detail-anchor="" x="778.4000000000001" y="504.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">DiscoverFlow</text>
+          <text data-detail="context" x="778.4000000000001" y="517.9" class="t-muted" font-size="7" text-anchor="middle">filtro y guardas LLM</text>
         </g>
 
-        <g id="node-auditoria" data-node-id="auditoria" data-node-label="Auditoría" tabindex="0" role="button" aria-label="Enfocar Auditoría, cadena de hashes, Descubrimiento y evidencia" aria-pressed="false" data-node-kind="database" data-node-sublabel="cadena de hashes" data-node-tag="fail-closed" data-node-context="Descubrimiento y evidencia">
-          <title>Auditoría · cadena de hashes · Descubrimiento y evidencia · fail-closed</title>
-          <rect x="850.8000000000001" y="464" width="92" height="68" rx="8" class="c-mask"/>
-          <rect x="850.8000000000001" y="464" width="92" height="68" rx="8" class="c-database" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(856.8000000000001 470) scale(0.6875)">
+        <g id="node-auditoria" data-node-id="auditoria" data-node-label="Auditoría" tabindex="0" role="button" aria-label="Enfocar Auditoría, SQL Server, solo inserción, Descubrimiento y evidencia" aria-pressed="false" data-node-kind="database" data-node-sublabel="SQL Server, solo inserción" data-node-tag="fail-closed" data-node-context="Descubrimiento y evidencia">
+          <title>Auditoría · SQL Server, solo inserción · Descubrimiento y evidencia · fail-closed</title>
+          <rect x="880.8000000000001" y="464" width="136" height="68" rx="8" class="c-mask"/>
+          <rect x="880.8000000000001" y="464" width="136" height="68" rx="8" class="c-database" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(886.8000000000001 470) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="899.5000000000001" y="485" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Auditoría</text>
-          <text data-detail="context" x="896.8000000000001" y="502" class="t-muted" font-size="8" text-anchor="middle">cadena de hashes</text>
-        <text data-detail="fine" x="896.8000000000001" y="520" class="t-database" font-size="7" text-anchor="middle">fail-closed</text>
+          <text data-node-label="" data-detail-anchor="" x="948.8000000000001" y="485" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Auditoría</text>
+          <text data-detail="context" x="948.8000000000001" y="502" class="t-muted" font-size="8" text-anchor="middle">SQL Server, solo inserción</text>
+        <text data-detail="fine" x="948.8000000000001" y="520" class="t-database" font-size="7" text-anchor="middle">fail-closed</text>
         </g>
 
-        <g id="node-ci" data-node-id="ci" data-node-label="CI" tabindex="0" role="button" aria-label="Enfocar CI, cada push y PR, Antes de liberar" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="cada push y PR" data-node-context="Antes de liberar">
-          <title>CI · cada push y PR · Antes de liberar</title>
-          <rect x="58" y="598" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="58" y="598" width="92" height="52" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(64 604) scale(0.6875)">
+        <g id="node-ci" data-node-id="ci" data-node-label="CI" tabindex="0" role="button" aria-label="Enfocar CI, push, PR y cada lunes, Antes de liberar" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="push, PR y cada lunes" data-node-context="Antes de liberar">
+          <title>CI · push, PR y cada lunes · Antes de liberar</title>
+          <rect x="56" y="598" width="96" height="52" rx="8" class="c-mask"/>
+          <rect x="56" y="598" width="96" height="52" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(62 604) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="104" y="619" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">CI</text>
-          <text data-detail="context" x="104" y="636" class="t-muted" font-size="8" text-anchor="middle">cada push y PR</text>
+          <text data-detail="context" x="104" y="636" class="t-muted" font-size="6.9" text-anchor="middle">push, PR y cada lunes</text>
         </g>
 
-        <g id="node-pruebas" data-node-id="pruebas" data-node-label="pytest" tabindex="0" role="button" aria-label="Enfocar pytest, controles y capas, Antes de liberar" aria-pressed="false" data-node-kind="backend" data-node-sublabel="controles y capas" data-node-context="Antes de liberar">
-          <title>pytest · controles y capas · Antes de liberar</title>
-          <rect x="182" y="598" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="182" y="598" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(188 604) scale(0.6875)">
+        <g id="node-pruebas" data-node-id="pruebas" data-node-label="pytest" tabindex="0" role="button" aria-label="Enfocar pytest, controles, capas, literales, Antes de liberar" aria-pressed="false" data-node-kind="backend" data-node-sublabel="controles, capas, literales" data-node-context="Antes de liberar">
+          <title>pytest · controles, capas, literales · Antes de liberar</title>
+          <rect x="184" y="598" width="140" height="52" rx="8" class="c-mask"/>
+          <rect x="184" y="598" width="140" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(190 604) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="228" y="619" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">pytest</text>
-          <text data-detail="context" x="228" y="636" class="t-muted" font-size="8" text-anchor="middle">controles y capas</text>
+          <text data-node-label="" data-detail-anchor="" x="254" y="619" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">pytest</text>
+          <text data-detail="context" x="254" y="636" class="t-muted" font-size="8" text-anchor="middle">controles, capas, literales</text>
         </g>
 
         <g id="node-compuerta" data-node-id="compuerta" data-node-label="eval gate" tabindex="0" role="button" aria-label="Enfocar eval gate, 7 suites, 2 catálogos, Antes de liberar" aria-pressed="false" data-node-kind="security" data-node-sublabel="7 suites, 2 catálogos" data-node-tag="0 fugas" data-node-context="Antes de liberar">
           <title>eval gate · 7 suites, 2 catálogos · Antes de liberar · 0 fugas</title>
-          <rect x="358.8" y="590" width="92" height="68" rx="8" class="c-mask"/>
-          <rect x="358.8" y="590" width="92" height="68" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(364.8 596) scale(0.6875)">
+          <rect x="382.8" y="590" width="96" height="68" rx="8" class="c-mask"/>
+          <rect x="382.8" y="590" width="96" height="68" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(388.8 596) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="407.5" y="611" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">eval gate</text>
-          <text data-detail="context" x="404.8" y="628" class="t-muted" font-size="6.6" text-anchor="middle">7 suites, 2 catálogos</text>
-        <text data-detail="fine" x="404.8" y="646" class="t-security" font-size="7" text-anchor="middle">0 fugas</text>
+          <text data-node-label="" data-detail-anchor="" x="431.5" y="611" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">eval gate</text>
+          <text data-detail="context" x="430.8" y="628" class="t-muted" font-size="6.9" text-anchor="middle">7 suites, 2 catálogos</text>
+        <text data-detail="fine" x="430.8" y="646" class="t-security" font-size="7" text-anchor="middle">0 fugas</text>
         </g>
 
         <g id="node-evidencia" data-node-id="evidencia" data-node-label="Evidencia" tabindex="0" role="button" aria-label="Enfocar Evidencia, gate-*.json y .md, Antes de liberar" aria-pressed="false" data-node-kind="database" data-node-sublabel="gate-*.json y .md" data-node-context="Antes de liberar">
           <title>Evidencia · gate-*.json y .md · Antes de liberar</title>
-          <rect x="537.6" y="598" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="537.6" y="598" width="92" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(543.6 604) scale(0.6875)">
+          <rect x="563.6" y="598" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="563.6" y="598" width="92" height="52" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(569.6 604) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="586.3000000000001" y="619" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Evidencia</text>
-          <text data-detail="context" x="583.6" y="636" class="t-muted" font-size="8" text-anchor="middle">gate-*.json y .md</text>
+          <text data-node-label="" data-detail-anchor="" x="612.3000000000001" y="619" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Evidencia</text>
+          <text data-detail="context" x="609.6" y="636" class="t-muted" font-size="8" text-anchor="middle">gate-*.json y .md</text>
+        </g>
+
+        <g id="node-suministro" data-node-id="suministro" data-node-label="Dependencias" tabindex="0" role="button" aria-label="Enfocar Dependencias, hashes, auditoría, SBOM, Antes de liberar" aria-pressed="false" data-node-kind="security" data-node-sublabel="hashes, auditoría, SBOM" data-node-tag="0 conocidas" data-node-context="Antes de liberar">
+          <title>Dependencias · hashes, auditoría, SBOM · Antes de liberar · 0 conocidas</title>
+          <rect x="726.4000000000001" y="590" width="104" height="68" rx="8" class="c-mask"/>
+          <rect x="726.4000000000001" y="590" width="104" height="68" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(732.4000000000001 596) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="785.0000000000001" y="611" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Dependencias</text>
+          <text data-detail="context" x="778.4000000000001" y="628" class="t-muted" font-size="6.9" text-anchor="middle">hashes, auditoría, SBOM</text>
+        <text data-detail="fine" x="778.4000000000001" y="646" class="t-security" font-size="7" text-anchor="middle">0 conocidas</text>
         </g>
 
         <!-- Edge labels -->
         <g data-detail="context" data-edge-from="login" data-edge-to="denegado" data-edge-label="bloqueado" data-edge-key="0" data-edge-id="e-bloqueo">
-          <rect x="378.2" y="303" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="404.8" y="313" class="t-edge-security" font-size="8" text-anchor="middle">bloqueado</text>
+          <rect x="404.2" y="303" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="430.8" y="313" class="t-edge-security" font-size="8" text-anchor="middle">bloqueado</text>
         </g>
 
         <g data-detail="context" data-edge-from="login" data-edge-to="sesion" data-edge-label="crea sesión" data-edge-key="2" data-edge-id="e-crea">
-          <rect x="454.80000000000007" y="226" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="486.20000000000005" y="236" class="t-muted" font-size="8" text-anchor="middle">crea sesión</text>
+          <rect x="480.80000000000007" y="226" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="512.2" y="236" class="t-muted" font-size="8" text-anchor="middle">crea sesión</text>
         </g>
 
         <g data-detail="context" data-edge-from="auditoria" data-edge-to="respuesta" data-edge-label="solo si se registró" data-edge-key="4" data-edge-id="e-entrega">
-          <rect x="846.2" y="295" width="101.2" height="14" rx="3" class="c-mask"/>
-          <text x="896.8000000000001" y="305" class="t-edge-emphasis" font-size="8" text-anchor="middle">solo si se registró</text>
+          <rect x="898.2" y="295" width="101.2" height="14" rx="3" class="c-mask"/>
+          <text x="948.8000000000001" y="305" class="t-edge-emphasis" font-size="8" text-anchor="middle">solo si se registró</text>
         </g>
         <g data-detail="context" data-edge-from="compuerta" data-edge-to="evidencia" data-edge-label="aprobado o no" data-edge-key="5" data-edge-id="e-evid">
-          <rect x="458.00000000000006" y="604" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="494.20000000000005" y="614" class="t-muted" font-size="8" text-anchor="middle">aprobado o no</text>
+          <rect x="485.00000000000006" y="604" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="521.2" y="614" class="t-muted" font-size="8" text-anchor="middle">aprobado o no</text>
         </g>
 
         <g data-detail="context" data-edge-from="visibilidad" data-edge-to="flujo" data-edge-label="visible_ids" data-edge-key="7" data-edge-id="e-ids">
-          <rect x="635.6" y="478" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="667" y="488" class="t-edge-security" font-size="8" text-anchor="middle">visible_ids</text>
+          <rect x="665.6" y="478" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="697" y="488" class="t-edge-security" font-size="8" text-anchor="middle">visible_ids</text>
         </g>
         <g data-detail="context" data-edge-from="middleware" data-edge-to="login" data-edge-label="POST /login" data-edge-key="8" data-edge-id="e-login">
-          <rect x="292" y="226" width="62.8" height="14" rx="3" class="c-mask"/>
-          <text x="323.4" y="236" class="t-muted" font-size="8" text-anchor="middle">POST /login</text>
+          <rect x="318" y="226" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="349.4" y="236" class="t-muted" font-size="8" text-anchor="middle">POST /login</text>
         </g>
         <g data-detail="context" data-edge-from="limites" data-edge-to="flujo" data-edge-label="pregunta" data-edge-key="9" data-edge-id="e-pregunta">
-          <rect x="724.2" y="366" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="748.4000000000001" y="376" class="t-edge-emphasis" font-size="8" text-anchor="middle">pregunta</text>
+          <rect x="754.2" y="366" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="778.4000000000001" y="376" class="t-edge-emphasis" font-size="8" text-anchor="middle">pregunta</text>
         </g>
         <g data-detail="context" data-edge-from="flujo" data-edge-to="auditoria" data-edge-label="registra" data-edge-key="10" data-edge-id="e-registra">
-          <rect x="798.4000000000001" y="478" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="822.6000000000001" y="488" class="t-edge-emphasis" font-size="8" text-anchor="middle">registra</text>
+          <rect x="828.4000000000001" y="478" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="852.6000000000001" y="488" class="t-edge-emphasis" font-size="8" text-anchor="middle">registra</text>
         </g>
 
-        <g data-detail="context" data-edge-from="middleware" data-edge-to="sesion" data-edge-label="token" data-edge-key="12" data-edge-id="e-token">
-          <rect x="400.8" y="166" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="417.8" y="176" class="t-edge-emphasis" font-size="8" text-anchor="middle">token</text>
+        <g data-detail="context" data-edge-from="evidencia" data-edge-to="suministro" data-edge-label="y además" data-edge-key="12" data-edge-id="e-sbom">
+          <rect x="666.8" y="604" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="691" y="614" class="t-muted" font-size="8" text-anchor="middle">y además</text>
         </g>
-        <g data-detail="context" data-edge-from="sesion" data-edge-to="visibilidad" data-edge-label="su login" data-edge-key="13" data-edge-id="e-ver">
-          <rect x="559.4" y="366" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="583.6" y="376" class="t-edge-security" font-size="8" text-anchor="middle">su login</text>
+        <g data-detail="context" data-edge-from="middleware" data-edge-to="sesion" data-edge-label="token" data-edge-key="13" data-edge-id="e-token">
+          <rect x="426.8" y="166" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="443.8" y="176" class="t-edge-emphasis" font-size="8" text-anchor="middle">token</text>
+        </g>
+        <g data-detail="context" data-edge-from="sesion" data-edge-to="visibilidad" data-edge-label="su login" data-edge-key="14" data-edge-id="e-ver">
+          <rect x="585.4" y="366" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="609.6" y="376" class="t-edge-security" font-size="8" text-anchor="middle">su login</text>
         </g>
 
         <!-- Legend -->
@@ -5710,7 +5728,20 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>La API no arranca con demo, cookie sin Secure, CORS abierto o auth de Windows</li>
+          <li>Tampoco con migraciones pendientes ni si su cuenta puede modificar la auditoría</li>
           <li>data_admin solo por lista explícita; primer arranque con código de instalación</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Cadena de suministro y datos</h3>
+        </div>
+        <ul>
+          <li>Dependencias con versión y hash, imágenes por digest y acciones por commit</li>
+          <li>pip-audit, npm audit y SBOM en cada push y cada lunes</li>
+          <li>100 literales marcados: la pregunta solo queda en la auditoría y en las dudas escaladas</li>
         </ul>
       </div>
     </div>

@@ -9,9 +9,9 @@ Con varias BDs y servidores, los conceptos de negocio se repiten (`Cliente` en V
 entre BDs casi nunca están declaradas como FKs. El agente necesita saber **dónde vive cada concepto, qué copia es la buena y
 cómo se cruzan las BDs** antes de escribir SQL.
 
-## Salida: grafo del patrimonio de datos (`catalog/_estate/`)
+## Salida: grafo del patrimonio de datos (`knowledge/estate/`)
 Un grafo revisable por humanos que se **construye en memoria** al cargar el catálogo. Sus nodos y aristas se guardan como filas de
-tablas normales del esquema `catalog` de la BD `ConverData` (hoy, YAML); no se usan tablas de grafo de SQL Server (PRD §13, decisión 10):
+tablas normales del esquema `knowledge` de la BD `ConverData` (`knowledge.business_entity` y `knowledge.lineage_edge`, `db/converdata/001_esquemas.sql`; en el área de trabajo, `knowledge/estate/entities.yaml` y `knowledge/lineage/views.yaml`); no se usan tablas de grafo de SQL Server (PRD §13, decisión 10):
 
 | Nodo | Atributos |
 |---|---|
@@ -44,6 +44,8 @@ Cada arista guarda `evidence[]` y `reviewed`. Las inferidas (`confidence < 0.8`)
 
 Estado: el build ya produce entidades entre BDs y aristas de linaje de vistas, y `where_is`, `estate_overview` y `find_join_path` están
 publicadas en `/mcp` (F12). Query Store, sketches MinHash y el plan federado (fase 1b) están pendientes.
+
+> **Estado al 2026-11-17:** las entidades las agrupa una regla de solapamiento de columnas (`detect_entities` en `src/converdata/builder/catalog_builder.py`), no un LLM. El grafo en memoria (`EstateGraph`, `src/converdata/graph/estate.py`) solo tiene aristas `fk`, `same_entity`, `etl` y `view`; no existen `view_join`, `proc_join`, `query_store_join` ni `inferred_inclusion`, y las dependencias de vistas salen de `sys.sql_expression_dependencies`, sin sqlglot. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Uso en tiempo de pregunta
 - **Router (F3)**: decide BD(s) a partir de las entidades mencionadas, no solo por similitud de texto.

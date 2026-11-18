@@ -137,6 +137,66 @@ def test_permissions_are_inherited(ready, settings):
     assert analyst.get("/admin/audit").status_code == 403
 
 
+def test_manual_de_desarrollo_solo_para_administradores(ready, settings):
+    """El manual describe controles y sus puntos débiles: solo `data_admin`, y cada lectura queda en la auditoría."""
+    body = ready.get("/admin/manual")
+    assert body.status_code == 200
+    assert body.json()["markdown"].startswith("# Manual de desarrollo de ConverData")
+    assert body.json()["updated_at"]
+    assert body.headers["cache-control"] == "no-store"
+    reads = ready.get("/admin/audit", params={"kind": "manual_read"}).json()["items"]
+    assert [row["user_id"] for row in reads] == ["demo"]
+
+    analyst = make_client(settings)
+    analyst.app = ready.app
+    login(analyst, user="analista")
+    assert analyst.get("/admin/manual").status_code == 403
+    steward = make_client(settings)
+    steward.app = ready.app
+    login(steward, user="responsable")
+    assert steward.get("/admin/manual").status_code == 403
+    denied = ready.get("/admin/audit", params={"kind": "access_denied"}).json()["items"]
+    assert {(row["user_id"], row["route"]) for row in denied} >= {("analista", "/admin/manual"), ("responsable", "/admin/manual")}
+    anonymous = make_client(settings)
+    anonymous.app = ready.app
+    assert anonymous.get("/admin/manual").status_code == 401
+
+    settings.manual_path = settings.data_root / "no-existe.md"
+    assert ready.get("/admin/manual").status_code == 404
+    reads = ready.get("/admin/audit", params={"kind": "manual_read"}).json()["items"]
+    assert len(reads) == 1  # lo que no se entregó no queda como lectura
+
+
+def test_manual_no_se_entrega_sin_auditoria(ready, monkeypatch):
+    """Fail-closed (F11): si la lectura no se puede registrar, el texto no sale."""
+    from fastapi.testclient import TestClient
+
+    def broken(*args, **kwargs):
+        raise OSError("auditoría no disponible")
+
+    monkeypatch.setattr(type(ready.app.state.runtime.audit), "event", broken)
+    quiet = TestClient(ready.app, raise_server_exceptions=False, cookies=ready.cookies)
+    response = quiet.get("/admin/manual")
+    assert response.status_code == 500
+    assert "Manual de desarrollo" not in response.text
+
+
+def test_manual_de_desarrollo_al_dia():
+    """Lo que el manual cita existe: rutas del repositorio y paquetes del núcleo."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    text = (root / "docs" / "manual-desarrollo.md").read_text(encoding="utf-8")
+    cited = set(re.findall(r"`((?:docs|tests|api|web|db|requirements|tools|src|config|\.github|\.claude)/[^`*<> ]*)`", text))
+    assert len(cited) > 15
+    missing = sorted(path for path in cited if not (root / path).exists())
+    assert missing == []
+    packages = {p.name for p in (root / "src" / "converdata").iterdir() if p.is_dir() and not p.name.startswith("_")}
+    documented = set(re.findall(r"^\| `(\w+)/[\w/]*` \|", text, flags=re.M))
+    assert packages <= documented, packages - documented
+
+
 def test_session_required_and_logout(ready):
     anon = TestClient(ready.app)
     assert anon.post("/discover", json={"question": "hola mundo"}).status_code == 401

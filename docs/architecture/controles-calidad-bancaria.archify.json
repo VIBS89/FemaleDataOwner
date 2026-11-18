@@ -8,48 +8,272 @@
     "output": "docs/architecture/controles-calidad-bancaria.html"
   },
   "lanes": [
-    { "id": "cliente", "label": "Cliente" },
-    { "id": "borde", "label": "Borde de la API" },
-    { "id": "rechazo", "label": "Rechazos", "variant": "exception" },
-    { "id": "nucleo", "label": "Descubrimiento y evidencia" },
-    { "id": "liberacion", "label": "Antes de liberar" }
+    {
+      "id": "cliente",
+      "label": "Cliente"
+    },
+    {
+      "id": "borde",
+      "label": "Borde de la API"
+    },
+    {
+      "id": "rechazo",
+      "label": "Rechazos",
+      "variant": "exception"
+    },
+    {
+      "id": "nucleo",
+      "label": "Descubrimiento y evidencia"
+    },
+    {
+      "id": "liberacion",
+      "label": "Antes de liberar"
+    }
   ],
-  "mainPath": ["usuario", "middleware", "sesion", "limites", "flujo", "auditoria", "respuesta"],
+  "mainPath": [
+    "usuario",
+    "middleware",
+    "sesion",
+    "limites",
+    "flujo",
+    "auditoria",
+    "respuesta"
+  ],
   "nodes": [
-    { "id": "usuario", "lane": "cliente", "col": 0, "type": "external", "label": "Web o cliente MCP", "sublabel": "cookie o Bearer" },
-    { "id": "respuesta", "lane": "cliente", "col": 5, "type": "frontend", "label": "Respuesta", "sublabel": "X-Trace-Id, no-store" },
-
-    { "id": "middleware", "lane": "borde", "col": 1, "type": "security", "label": "SecurityMiddleware", "sublabel": "cabeceras, Origin, tamaño" },
-    { "id": "login", "lane": "borde", "col": 2, "type": "security", "label": "Login SQL", "sublabel": "UID entre llaves", "tag": "5 fallos / 10 min" },
-    { "id": "sesion", "lane": "borde", "col": 3, "type": "security", "label": "SessionVault", "sublabel": "8 h inactiva, 12 h total", "tag": "revocable" },
-    { "id": "limites", "lane": "borde", "col": 4, "type": "backend", "label": "Rol y topes", "sublabel": "ritmo y tokens por usuario", "tag": "web y MCP" },
-
-    { "id": "denegado", "lane": "rechazo", "col": 2, "type": "security", "label": "401 · 403 · 413 · 429", "sublabel": "queda en auditoría" },
-
-    { "id": "visibilidad", "lane": "nucleo", "col": 3, "type": "database", "label": "Permisos SQL", "sublabel": "visible_ids, TTL 15 min" },
-    { "id": "flujo", "lane": "nucleo", "col": 4, "type": "backend", "label": "DiscoverFlow", "sublabel": "filtro y guardas LLM" },
-    { "id": "auditoria", "lane": "nucleo", "col": 5, "type": "database", "label": "Auditoría", "sublabel": "cadena de hashes", "tag": "fail-closed" },
-
-    { "id": "ci", "lane": "liberacion", "col": 0, "type": "cloud", "label": "CI", "sublabel": "cada push y PR" },
-    { "id": "pruebas", "lane": "liberacion", "col": 1, "type": "backend", "label": "pytest", "sublabel": "controles y capas" },
-    { "id": "compuerta", "lane": "liberacion", "col": 2, "type": "security", "label": "eval gate", "sublabel": "7 suites, 2 catálogos", "tag": "0 fugas" },
-    { "id": "evidencia", "lane": "liberacion", "col": 3, "type": "database", "label": "Evidencia", "sublabel": "gate-*.json y .md" }
+    {
+      "id": "usuario",
+      "lane": "cliente",
+      "col": 0,
+      "type": "external",
+      "label": "Web o cliente MCP",
+      "sublabel": "cookie o Bearer"
+    },
+    {
+      "id": "respuesta",
+      "lane": "cliente",
+      "col": 5,
+      "type": "frontend",
+      "label": "Respuesta",
+      "sublabel": "X-Trace-Id, no-store"
+    },
+    {
+      "id": "middleware",
+      "lane": "borde",
+      "col": 1,
+      "type": "security",
+      "label": "SecurityMiddleware",
+      "sublabel": "cabeceras, Origin, tamaño"
+    },
+    {
+      "id": "login",
+      "lane": "borde",
+      "col": 2,
+      "type": "security",
+      "label": "Login SQL",
+      "sublabel": "UID entre llaves",
+      "tag": "5 fallos / 10 min"
+    },
+    {
+      "id": "sesion",
+      "lane": "borde",
+      "col": 3,
+      "type": "security",
+      "label": "SessionVault",
+      "sublabel": "8 h inactiva, 12 h total",
+      "tag": "revocable"
+    },
+    {
+      "id": "limites",
+      "lane": "borde",
+      "col": 4,
+      "type": "backend",
+      "label": "Rol y topes",
+      "sublabel": "ritmo y tokens por usuario",
+      "tag": "web y MCP"
+    },
+    {
+      "id": "denegado",
+      "lane": "rechazo",
+      "col": 2,
+      "type": "security",
+      "label": "401 · 403 · 413 · 429",
+      "sublabel": "queda en auditoría"
+    },
+    {
+      "id": "visibilidad",
+      "lane": "nucleo",
+      "col": 3,
+      "type": "database",
+      "label": "Permisos SQL",
+      "sublabel": "visible_ids, TTL 15 min"
+    },
+    {
+      "id": "flujo",
+      "lane": "nucleo",
+      "col": 4,
+      "type": "backend",
+      "label": "DiscoverFlow",
+      "sublabel": "filtro y guardas LLM"
+    },
+    {
+      "id": "auditoria",
+      "lane": "nucleo",
+      "col": 5,
+      "type": "database",
+      "label": "Auditoría",
+      "sublabel": "SQL Server, solo inserción",
+      "tag": "fail-closed"
+    },
+    {
+      "id": "ci",
+      "lane": "liberacion",
+      "col": 0,
+      "type": "cloud",
+      "label": "CI",
+      "sublabel": "push, PR y cada lunes"
+    },
+    {
+      "id": "pruebas",
+      "lane": "liberacion",
+      "col": 1,
+      "type": "backend",
+      "label": "pytest",
+      "sublabel": "controles, capas, literales"
+    },
+    {
+      "id": "compuerta",
+      "lane": "liberacion",
+      "col": 2,
+      "type": "security",
+      "label": "eval gate",
+      "sublabel": "7 suites, 2 catálogos",
+      "tag": "0 fugas"
+    },
+    {
+      "id": "evidencia",
+      "lane": "liberacion",
+      "col": 3,
+      "type": "database",
+      "label": "Evidencia",
+      "sublabel": "gate-*.json y .md"
+    },
+    {
+      "id": "suministro",
+      "lane": "liberacion",
+      "col": 4,
+      "type": "security",
+      "label": "Dependencias",
+      "sublabel": "hashes, auditoría, SBOM",
+      "tag": "0 conocidas"
+    }
   ],
   "edges": [
-    { "id": "e-entra", "from": "usuario", "to": "middleware", "variant": "default" },
-    { "id": "e-login", "from": "middleware", "to": "login", "label": "POST /login", "variant": "default", "role": "branch" },
-    { "id": "e-crea", "from": "login", "to": "sesion", "label": "crea sesión", "variant": "default", "role": "branch" },
-    { "id": "e-token", "from": "middleware", "to": "sesion", "label": "token", "variant": "emphasis" },
-    { "id": "e-rol", "from": "sesion", "to": "limites", "variant": "emphasis" },
-    { "id": "e-ver", "from": "sesion", "to": "visibilidad", "label": "su login", "variant": "security", "role": "branch" },
-    { "id": "e-ids", "from": "visibilidad", "to": "flujo", "label": "visible_ids", "variant": "security", "role": "branch" },
-    { "id": "e-pregunta", "from": "limites", "to": "flujo", "label": "pregunta", "variant": "emphasis" },
-    { "id": "e-registra", "from": "flujo", "to": "auditoria", "label": "registra", "variant": "emphasis" },
-    { "id": "e-entrega", "from": "auditoria", "to": "respuesta", "label": "solo si se registró", "variant": "emphasis" },
-    { "id": "e-bloqueo", "from": "login", "to": "denegado", "label": "bloqueado", "variant": "security", "role": "error" },
-    { "id": "e-ci", "from": "ci", "to": "pruebas", "variant": "default" },
-    { "id": "e-gate", "from": "pruebas", "to": "compuerta", "variant": "default" },
-    { "id": "e-evid", "from": "compuerta", "to": "evidencia", "label": "aprobado o no", "variant": "default" }
+    {
+      "id": "e-entra",
+      "from": "usuario",
+      "to": "middleware",
+      "variant": "default"
+    },
+    {
+      "id": "e-login",
+      "from": "middleware",
+      "to": "login",
+      "label": "POST /login",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "e-crea",
+      "from": "login",
+      "to": "sesion",
+      "label": "crea sesión",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "e-token",
+      "from": "middleware",
+      "to": "sesion",
+      "label": "token",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-rol",
+      "from": "sesion",
+      "to": "limites",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-ver",
+      "from": "sesion",
+      "to": "visibilidad",
+      "label": "su login",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e-ids",
+      "from": "visibilidad",
+      "to": "flujo",
+      "label": "visible_ids",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e-pregunta",
+      "from": "limites",
+      "to": "flujo",
+      "label": "pregunta",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-registra",
+      "from": "flujo",
+      "to": "auditoria",
+      "label": "registra",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-entrega",
+      "from": "auditoria",
+      "to": "respuesta",
+      "label": "solo si se registró",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-bloqueo",
+      "from": "login",
+      "to": "denegado",
+      "label": "bloqueado",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "e-ci",
+      "from": "ci",
+      "to": "pruebas",
+      "variant": "default"
+    },
+    {
+      "id": "e-gate",
+      "from": "pruebas",
+      "to": "compuerta",
+      "variant": "default"
+    },
+    {
+      "id": "e-evid",
+      "from": "compuerta",
+      "to": "evidencia",
+      "label": "aprobado o no",
+      "variant": "default"
+    },
+    {
+      "id": "e-sbom",
+      "from": "evidencia",
+      "to": "suministro",
+      "label": "y además",
+      "variant": "default"
+    }
   ],
   "cards": [
     {
@@ -75,7 +299,17 @@
       "title": "Con CONVERDATA_ENV=qa|prod",
       "items": [
         "La API no arranca con demo, cookie sin Secure, CORS abierto o auth de Windows",
+        "Tampoco con migraciones pendientes ni si su cuenta puede modificar la auditoría",
         "data_admin solo por lista explícita; primer arranque con código de instalación"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Cadena de suministro y datos",
+      "items": [
+        "Dependencias con versión y hash, imágenes por digest y acciones por commit",
+        "pip-audit, npm audit y SBOM en cada push y cada lunes",
+        "100 literales marcados: la pregunta solo queda en la auditoría y en las dudas escaladas"
       ]
     }
   ]

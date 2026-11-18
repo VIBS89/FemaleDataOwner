@@ -11,7 +11,7 @@ Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15)
 **Fase 1a (construidas)**
 | Método | Ruta | Cuerpo / respuesta |
 |---|---|---|
-| POST | `/auth/login` (alias `/login`) | `{credentials: [{server, login, password}]}` → sesión, servidores y roles; deja la cookie de sesión y devuelve el token para clientes API y MCP (F14) |
+| POST | `/auth/login` (alias `/login`) | `{login, password, auth, servers[]}` (una sola credencial; `servers` lista los servidores donde se usa, y en el primer arranque `host`, `alias`, `environment`, `setup_token`; modelo `LoginRequest` en `api/converdata_api/main.py`) → sesión, servidores y roles; deja la cookie de sesión y devuelve el token para clientes API y MCP (F14) |
 | POST · GET | `/auth/logout` (alias `/logout`) · `/auth/me` | Cierra la sesión · usuario, roles, dominios y servidores de la sesión |
 | POST | `/discover` | `{question, history?}` → `AnswerEnvelope` con `flow=discover` (F22) |
 | POST | `/discover/stream` | Lo mismo por SSE, con eventos `step` (progreso de cada nodo) y `answer` |
@@ -24,6 +24,8 @@ Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15)
 | GET/PUT/POST/DELETE | `/admin/*` | Inventario de servidores, responsables de curación (`GET`/`PUT /admin/stewards`), build del catálogo, auditoría y su verificación (F11), sesiones y métricas de F25; solo `data_admin` |
 | GET | `/health` · `/setup/status` | Públicas: proceso vivo · estado del inventario, del catálogo, del último build y del LLM, sin hosts |
 | GET | `/health/metrics` | Contadores para el monitoreo, sin contenido (OP-05) |
+
+> **Estado al 2026-11-17:** la ficha de `GET /assets/{asset_key}` (`object_detail` en `api/converdata_api/main.py`) devuelve ubicaciones (`copies`), descripción, llaves foráneas visibles, reglas, responsables y `referenced_by`; no devuelve linaje ni documentos vinculados. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 **Fase 1b (pendientes)**
 | Método | Ruta | Cuerpo / respuesta |

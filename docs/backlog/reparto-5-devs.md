@@ -60,7 +60,7 @@ técnicas, que no tienen puntos asignados.
 
 ### Dev 3 — Fuentes de conocimiento (dueño de `builder/`, `api/converdata_api/pii.py`, la ingesta de documentos, `knowledge/`)
 - **HU-25** diccionario en Excel (el CSV ya funciona y escribe en la BD).
-- **HU-26** documentos con redacción de datos personales (Presidio). El detector actual tiene cinco patrones y no reconoce nombres ni direcciones; de él depende también la plantilla de las confirmaciones.
+- **HU-26** documentos con redacción de datos personales (Presidio). El detector actual tiene seis tipos (DUI, NIT, correo, teléfono, IBAN, tarjeta) y no reconoce nombres ni direcciones; de él depende también la plantilla de las confirmaciones.
 - **HU-27** linaje desde SSIS y SQL Server Agent (⛔ acceso a `SSISDB` y `msdb`).
 - La medición con el glosario de prueba (`tests/fixtures/bancos/eval/reportes.yaml`) da la referencia: 16 % solo con catálogo, 60 % con conocimiento. Repetirla con los documentos reales es parte de su entrega.
 
@@ -92,7 +92,7 @@ las preguntas reales (S9), los documentos y el acceso a SSISDB (S6), el servidor
 requerimientos para la línea base (S13).
 
 ## 4. Cómo evitar que choquen
-1. **Contratos primero.** Los puertos están en `src/converdata/`: `catalog/store.py` (`CatalogRepository`, `InventoryStore`), `curation.py` (`KnowledgeWriter`, `CurationRepository`), `audit/recorder.py`, `memory/base.py`, `metadata/ports.py`. Nadie cambia una firma sin avisar; cada puerto tiene su adaptador de SQL Server y su adaptador de archivos, y las pruebas de contrato corren contra los dos.
+1. **Contratos primero.** Los puertos están en `src/converdata/`: `catalog/store.py` (`CatalogRepository`, `InventoryStore`), `curation.py` (`KnowledgeWriter`, `CurationRepository`), `audit/recorder.py`, `memory/base.py`, `metadata/ports.py`. Nadie cambia una firma sin avisar; cada puerto tiene su adaptador de SQL Server y su adaptador de archivos, pero las pruebas de contrato contra los dos solo existen para `CurationRepository` (`tests/test_curation.py`); las del catálogo solo corren contra SQL Server.
 2. **Archivos calientes.**
    - `api/converdata_api/main.py`: lo parte el Dev 5 en la etapa 1; después cada quien añade rutas solo en su `routers/<área>.py`.
    - `web/src/lib/api.ts` y `types.ts`: separar por área antes de que dos carriles toquen la web. Tras cambiar una ruta se pasa el subagente `verificador-contrato-web-api`.

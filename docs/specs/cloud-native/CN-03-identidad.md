@@ -9,6 +9,8 @@
 - SQL Server sigue siendo la fuente de verdad de los permisos: la API pregunta con el login del propio usuario qué objetos puede ver y lo vuelve a leer cada 15 minutos (`CONVERDATA_VISIBILITY_TTL_S`).
 - La autenticación de Windows no existe dentro del contenedor y `CONVERDATA_ALLOW_WINDOWS_AUTH` debe estar apagada en qa y prod.
 
+> **Estado al 2026-11-17 (bloqueo conocido, sin resolver):** en qa y prod la API no arranca si `CONVERDATA_DB` lleva contraseña (`production_violations` en `api/converdata_api/security.py`: exige `Trusted_Connection=yes` con la gMSA), y un contenedor Linux no tiene gMSA ni autenticación de Windows. La tabla de secretos de abajo dice que el login de la BD `ConverData` es un secreto, por confirmar: las dos cosas chocan. Hace falta una decisión de Seguridad y un cambio de código, o un mecanismo sin contraseña distinto. Además, `POST /auth/login` recibe una sola credencial que prueba en cada servidor marcado, no una por servidor. Ver [hoja de ruta cloud](../../wiki/hoja-de-ruta-cloud.md).
+
 ## Custodia: SessionVault en memoria
 - Los logins SQL de los usuarios **no se guardan en ningún almacén**: viven cifrados en la memoria de `ConverData-API` mientras dura la sesión (PRD §13, decisión 14). La clave de cifrado se genera al arrancar el proceso y no sale de él.
 - Sesión: 8 h de inactividad, 12 h de vida total, 5 por usuario, revocable por el administrador (`/admin/sessions`). Cookie `cd_session` con `Secure`; el mismo token sirve como Bearer para `/mcp`.

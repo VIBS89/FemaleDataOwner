@@ -172,4 +172,5 @@ export const api = {
   startBuild: (enrich: boolean) => request<BuildJob>("/admin/catalog/build", { method: "POST", json: { enrich } }),
   buildStatus: () => request<BuildJob>("/admin/catalog/build"),
   audit: (kind?: string) => request<{ items: AuditRow[] }>(`/admin/audit?limit=200${kind ? `&kind=${kind}` : ""}`),
+  manual: () => request<{ markdown: string; updated_at: string }>("/admin/manual"),
 };

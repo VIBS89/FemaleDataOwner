@@ -36,7 +36,7 @@ Código: [`src/converdata/evaluation/gate.py`](../src/converdata/evaluation/gate
 
 | Suite | Qué comprueba | Criterio |
 |---|---|---|
-| `calidad` | Hit@1 ≥ 65 %, Hit@3 ≥ 85 %, calibración ≥ 85 %, brechas ≥ 90 %, p50 < 5 s, p95 < 10 s, y que ningún indicador ni tipo de pregunta (A–G) baje de `eval/baseline.yaml` | OP-01 D1, D2, D5 |
+| `calidad` | Hit@1 ≥ 65 %, Hit@3 ≥ 85 %, calibración ≥ 85 % (en BancosSQL no se puede medir: ninguna respuesta llega a 0,8; DT-32 de [deuda técnica](wiki/deuda-tecnica.md)), brechas ≥ 90 %, p50 < 5 s, p95 < 10 s, y que ningún indicador ni tipo de pregunta (A–G) baje de `eval/baseline.yaml` | OP-01 D1, D2, D5 |
 | `permisos` | Un usuario por BD, uno por cada "todas menos una" y uno sin acceso; cada uno hace todas las preguntas y llama a todas las herramientas. Nada fuera de su `visible_ids` puede aparecer | F14, OP-01 D6 |
 | `inyeccion` | 25 inyecciones de prompt que nombran un activo oculto real del catálogo: 0 fugas, 0 objetos inventados | HU-36 |
 | `guardas` | Un LLM simulado y hostil: inventa ids, nombra el activo oculto, mete enlaces, HTML y correos. Nada llega a la respuesta | PRD §8.1 |
@@ -73,7 +73,7 @@ mismo, también con el set ampliado (2026-11-17): Hit@1 y Hit@3 98,0 %, 0 fugas 
 | Sesión: 8 h de inactividad, 12 h de vida total, 5 por usuario, revocable por el admin; el token no sale en `repr` | `vault.py`, `/admin/sessions` | `test_la_sesion_caduca_…`, `test_el_admin_revoca_…` |
 | Permisos de SQL Server releídos cada 15 min | `runtime.visible_ids` | `test_la_visibilidad_se_vuelve_a_leer_de_sql_server` |
 | La ficha de un activo no muestra llaves foráneas hacia tablas ocultas | `main.py: object_detail` | `test_la_ficha_de_un_activo_no_revela_…`, `test_barrido_de_la_api_sin_fugas_…` |
-| Cabeceras de seguridad, `Cache-Control: no-store`, HSTS con HTTPS; CSRF por `Origin`; tope de 4 MB | `security.SecurityMiddleware` | `test_cabeceras_…`, `test_cambio_de_estado_con_cookie_desde_otro_origen_…`, `test_cuerpo_demasiado_grande_…` |
+| Cabeceras de seguridad, `Cache-Control: no-store`, HSTS con HTTPS; CSRF por `Origin`; tope de 4 MB (valen en la API; el proxy de la web no reenvía `Origin` ni devuelve las cabeceras al navegador, hoy protege `SameSite=lax`: DT-01 y DT-03 de [deuda técnica](wiki/deuda-tecnica.md)) | `security.SecurityMiddleware` | `test_cabeceras_…`, `test_cambio_de_estado_con_cookie_desde_otro_origen_…`, `test_cuerpo_demasiado_grande_…` |
 | Ritmo por usuario (no por sesión) y tope diario de tokens, también por `/mcp` | `main.py: check_rate, mcp_guard` | `test_el_limite_de_ritmo_es_por_usuario_…`, `test_mcp_respeta_el_tope_de_tokens_…` |
 | Auditoría en la BD `ConverData`: una transacción por pregunta; la cuenta de la API inserta y lee, pero no modifica ni borra; la purga solo la ejecuta otro rol y nunca por debajo de 180 días | `converdata.audit.sqlserver`, `db/converdata/001_esquemas.sql` | `test_la_api_no_puede_modificar_ni_borrar_la_auditoria`, `test_la_purga_exige_180_dias_…`, `test_pregunta_voto_y_lecturas_quedan_en_el_esquema_audit` |
 | Sin auditoría no hay respuesta ni cambio, tampoco con la BD caída | `flows/discover.py`, `main.py` | `test_si_la_bd_no_responde_no_hay_respuesta_ni_cambios`, `test_sin_auditoria_no_se_aplica_…` |
@@ -107,7 +107,7 @@ mismo, también con el set ampliado (2026-11-17): Hit@1 y Hit@3 98,0 %, 0 fugas 
 | El Builder programado solo se conecta, con la cuenta del servicio, a los hosts de `CONVERDATA_BUILDER_HOSTS` (obligatoria en qa y prod): el inventario de la BD lo edita un administrador desde la web | `cli.py: builder_hosts_refused` | `test_el_builder_solo_va_a_los_hosts_permitidos` |
 | Las pruebas nunca corren contra una BD existente | `conftest.py`, `storage.connection.names_database` | `test_las_pruebas_no_aceptan_una_cadena_que_nombre_una_bd` |
 | Se auditan además: accesos denegados, bloqueos, lectura de la auditoría, cambios de inventario con host anterior y nuevo, revocaciones | `main.py` | `test_rutas_de_administracion_…`, `test_el_primer_arranque_…` |
-| Un responsable solo documenta activos de sus dominios, y sin datos personales (DUI, NIT, correo, teléfono, tarjeta) | `main.py: curation_answer`, `pii.py` | `test_un_responsable_no_documenta_…`, `test_las_ediciones_de_curacion_no_aceptan_datos_personales` |
+| Un responsable solo documenta activos de sus dominios, y sin datos personales (DUI, NIT, correo, teléfono, IBAN, tarjeta) | `main.py: curation_answer`, `pii.py` | `test_un_responsable_no_documenta_…`, `test_las_ediciones_de_curacion_no_aceptan_datos_personales` |
 | Nombres de objetos con `.`, `/`, `\`, `:` no entran al catálogo ni escriben fuera de él | `builder.unsafe_name`, `object_path` | `test_el_build_omite_…`, `test_un_objeto_no_se_escribe_fuera_del_catalogo` |
 | Texto del LLM con enlaces, HTML o correos se reemplaza por el determinista; el contenido del catálogo va delimitado en los prompts | `engine.unsafe_generated_text`, `llm/nodes.py` | `test_texto_generado_…`, suite `guardas` |
 | Errores internos: al público solo un mensaje genérico; en los logs solo el tipo de excepción | `runtime.reload`, `/setup/status` | `test_el_error_de_carga_del_catalogo_no_se_publica` |
@@ -126,7 +126,7 @@ Con `CONVERDATA_ENV=qa` o `prod` la API **no arranca** si algo de esto falta (`s
 | `CONVERDATA_ALLOW_WINDOWS_AUTH` | sin definir |
 | `CONVERDATA_ADMINS_ONLY=1`, `CONVERDATA_ADMINS` | logins de los administradores de datos |
 | `CONVERDATA_SETUP_TOKEN` | secreto del instalador, mientras no exista inventario |
-| `CONVERDATA_LOG_DIR` | directorio de logs |
+| `CONVERDATA_LOG_DIR` | directorio de logs (hoy no se exige: `settings.py` le da `data/logs` por defecto y nunca falta; DT-06 de [deuda técnica](wiki/deuda-tecnica.md)) |
 | `CONVERDATA_DB` | cadena ODBC de la BD `ConverData`, sin contraseña (`Trusted_Connection=yes`), con `Encrypt=yes` y sin `TrustServerCertificate`, y con una cuenta que solo pertenezca a `converdata_app` (la API comprueba al arrancar que no puede modificar ni borrar la auditoría) |
 | `config/models.yaml` | `data_mode: real`; sin rol `embed` (retirado: fuera de qa y prod se ignora con un aviso) |
 | Inventario (en la BD `ConverData`) y `config/settings.yaml` | sin `trust_server_certificate`; sin `audit.fail_open` |
@@ -135,7 +135,7 @@ Con `CONVERDATA_ENV=qa` o `prod` la API **no arranca** si algo de esto falta (`s
 
 Además `/docs` y `/openapi.json` dejan de publicarse. Opcionales: `CONVERDATA_SESSION_MAX_AGE_S`, `CONVERDATA_MAX_SESSIONS`,
 `CONVERDATA_LOGIN_MAX_FAILURES`, `CONVERDATA_LOGIN_LOCKOUT_S`, `CONVERDATA_TRUST_PROXY` (detrás de un proxy propio),
-`CONVERDATA_VISIBILITY_TTL_S`, `CONVERDATA_MAX_BODY_BYTES`, `CONVERDATA_SESSION_TTL_S`, `CONVERDATA_LOGIN_WINDOW_S`,
+`CONVERDATA_VISIBILITY_TTL_S`, `CONVERDATA_MAX_BODY_BYTES`, `CONVERDATA_MANUAL` (ruta del manual de desarrollo), `CONVERDATA_SESSION_TTL_S`, `CONVERDATA_LOGIN_WINDOW_S`,
 `CONVERDATA_LOGIN_IP_MAX_FAILURES`.
 
 ⚠️ Sin `CONVERDATA_ENV` el valor es `dev` y nada de esto se exige: el instalador debe fijarlo (HU-37).
@@ -146,10 +146,11 @@ el resto de las pantallas no se volvió a recorrer a mano.
 
 ## 5. Lo que todavía no está resuelto
 Nada de esta lista se cubre con el código actual. Cada punto necesita infraestructura, una decisión o trabajo aparte.
+La deuda técnica detectada en el código, con su prioridad, está en [wiki/deuda-tecnica.md](wiki/deuda-tecnica.md).
 
 | Pendiente | Por qué importa | Qué hace falta |
 |---|---|---|
-| La plantilla anónima de las confirmaciones no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido por espacios (un IBAN escrito con espacios deja sus grupos de letras) | Quita toda palabra con un dígito o una arroba que no sea vocabulario del banco; una pregunta con un nombre propio queda en `knowledge.golden_discovery` y en el índice. Mitigado: no se aprende si tras quitar los literales coincide con los cinco patrones de datos personales; el Builder no la lee; no se exporta | Detector de nombres (Presidio, HU-26) o revisión del responsable antes de reutilizar |
+| La plantilla anónima de las confirmaciones no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido por espacios (un IBAN escrito con espacios deja sus grupos de letras) | Quita toda palabra con un dígito o una arroba que no sea vocabulario del banco; una pregunta con un nombre propio queda en `knowledge.golden_discovery` y en el índice. Mitigado: no se aprende si tras quitar los literales coincide con los seis tipos de datos personales de `pii.py`; el Builder no la lee; no se exporta | Detector de nombres (Presidio, HU-26) o revisión del responsable antes de reutilizar |
 | Los roles por nombre de login exigen haber validado el login en un servidor de producción (`identity_trusted`) | Es una política elegida en el código; el banco puede preferir un servidor de referencia designado. Si el inventario no tiene ningún servidor de producción, cualquier servidor vale | Confirmarla con el banco (PRD §13, pregunta abierta 9); queda superada con los grupos de AD (HU-13) |
 | Las estadísticas BM25 del índice son globales, no por usuario (`memory/memory_store.py`) | La confianza de una respuesta para un mismo usuario varía hasta ~0,006 según existan objetos que no ve. No aparece ningún nombre oculto, pero es una señal mínima de que existe algo más | Calcular las estadísticas sobre lo visible, o aceptar el riesgo |
 | Dos preguntas que solo difieren en un código que el banco no tiene en su glosario comparten plantilla y confirmación | El código sale de la plantilla como literal: una confirmación hecha para una norma puede dar el bonus a la pregunta por otra | Cargar los códigos en el glosario o en las reglas (`KnowledgeBase.codes`), o revisión del responsable |
@@ -176,6 +177,6 @@ Nada de esta lista se cubre con el código actual. Cada punto necesita infraestr
 | Los bloqueos de Python se regeneran a mano | Dependabot cubre imágenes, acciones y npm, no `requirements/*.lock` | Seguir [`requirements/README.md`](../requirements/README.md) al cambiar una dependencia; `pip-audit` avisa en cada PR y cada lunes |
 | El token de sesión también viaja en el cuerpo del login | Lo necesita el cliente MCP; debilita `HttpOnly` si la web lo guarda | Emitirlo solo a petición |
 | Sesiones, bloqueos, topes, trazas de respuestas, inventario y confirmaciones recientes en memoria de un proceso | Un solo worker; un reinicio cierra las sesiones y borra los contadores; el inventario se lee al arrancar; los responsables se cachean 5 s | Aceptado en OP-03; revisar si se pide alta disponibilidad |
-| Detector de datos personales de cinco patrones | No cubre nombres ni direcciones | Presidio (HU-26) |
+| Detector de datos personales de seis tipos (DUI, NIT, correo, teléfono, IBAN, tarjeta; `api/converdata_api/pii.py`) | No cubre nombres ni direcciones | Presidio (HU-26) |
 | Batería de inyección sin revisar por Seguridad del banco | ⚠️ S7 | Ampliarla con ellos |
 | Prueba de penetración, revisión de IIS/TLS, cuentas gMSA, SSO | Fuera del código | Con el banco |

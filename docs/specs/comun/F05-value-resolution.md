@@ -1,5 +1,7 @@
 # F5 — Value Resolution · común
 
+> Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
+
 ## Historia de usuario
 Como **usuario**, quiero escribir "clientes de Monterrey" o "producto bici roja" con mis propias palabras, y que el sistema
 encuentre la columna y el valor exactos que existen en la BD.

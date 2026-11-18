@@ -6,7 +6,7 @@
 | **Cliente** | Gerencia de Datos, Banco Atlántida El Salvador |
 | **Origen** | *Propuesta 1 — Agente de descubrimiento y conocimiento de datos corporativos* |
 | **Estado** | Revisado el 2026-11-16: arquitectura simplificada (§13, decisiones 9–16) |
-| **Fase** | Fase 1a on-premise en desarrollo: descubrimiento, API, web y MCP construidos y medidos; faltan la BD `ConverData`, Bedrock y la instalación en el servidor del piloto ([plan](PLAN-desarrollo.md), [backlog](backlog/on-premise.md)) |
+| **Fase** | Fase 1a on-premise en desarrollo: descubrimiento, API, web y MCP construidos y medidos; la BD `ConverData` ya existe (`db/converdata/`); faltan Bedrock y la instalación en el servidor del piloto ([plan](PLAN-desarrollo.md), [backlog](backlog/on-premise.md)) |
 | **Alcance de este documento** | Producto, requisitos, principios, contrato de respuesta, trazabilidad con la propuesta y catálogo de specs (sustituye a `features.md` y `propuesta-trazabilidad.md`) |
 | **Documentos relacionados** | [specs](specs/) (catálogo en el anexo A) · [arquitectura on-premise](architecture/onpremise-architecture.html) · [arquitectura cloud native](architecture/cloud-native-architecture.html) · [capas del backend](architecture/capas-backend.md) · [calidad bancaria](calidad-bancaria.md) · [plan de desarrollo](PLAN-desarrollo.md) · [backlog on-premise](backlog/on-premise.md) |
 
