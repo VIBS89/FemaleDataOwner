@@ -124,6 +124,13 @@ def test_otras_preguntas_reales(service, analyst):
         assert env.discovery.candidates[0].asset_key == expected, question
 
 
+def test_pregunta_de_linaje_nombra_el_proceso_de_carga(service, analyst):
+    """"¿Qué proceso llena…?" se responde con el proceso ETL, no solo con la tabla destino."""
+    env = service.run("¿Qué proceso llena la dimensión de clientes del DWH?", analyst)
+    assert env.discovery.candidates[0].asset_key == "DWH.dim.Cliente"
+    assert "DWH_CargaClientes" in env.answer_text and "VBank_ING.dbo.Users" in env.answer_text
+
+
 def test_aclaracion_y_fuera_de_alcance(service, analyst):
     env = service.run("dame los datos", analyst)
     assert env.status == "needs_clarification" and env.clarification.options

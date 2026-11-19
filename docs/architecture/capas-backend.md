@@ -16,7 +16,7 @@ El dominio y la aplicación no importan librerías de adaptadores (`pyodbc`, `la
 |---|---|---|
 | **Dominio** | Modelos (`AnswerEnvelope`, catálogo, conocimiento, identidad), reglas de negocio deterministas del descubrimiento (F22), grafo del patrimonio (F19), conversión de metadatos a catálogo (F1), visibilidad (F14), auditoría como puerto (F11) y puertos | `models`, `catalog`, `config`, `discovery`, `graph`, `builder`, `identity`, `audit`, `memory.base` y `memory.text`, `metadata.ports` |
 | **Aplicación** | Casos de uso: flujos de LangGraph (DiscoverFlow, CatalogBuildFlow) y consultas de descubrimiento que comparten la API, el chat y el MCP | `flows`, `application` |
-| **Infraestructura** | Adaptadores: SQL Server (`SqlServerMetadata`, `SqlServerVectorStore`), almacén en memoria, gateway de LLM (Bedrock, NIM, Ollama) | `memory.memory_store`, `memory.sqlserver_store`, `metadata.sqlserver`, `llm` |
+| **Infraestructura** | Adaptadores: SQL Server (`SqlServerMetadata`, `SqlServerVectorStore`), catálogo en YAML (`FileCatalogStore`, puerto `CatalogStore`), almacén en memoria, gateway de LLM (Bedrock, NIM, Ollama) | `catalog.files`, `memory.memory_store`, `memory.sqlserver_store`, `metadata.sqlserver`, `llm` |
 | **Integración** | Entradas al sistema: MCP (`integration.mcp`), CLI, evaluación offline y la raíz de composición (`bootstrap`). La API FastAPI (`api/converdata_api`) es también integración | `integration`, `cli`, `bootstrap`, `evaluation`, `api/` |
 
 ## Capa de integración: API y MCP sobre el mismo caso de uso
@@ -46,7 +46,6 @@ Terminal ───────────► cli ──────────
 | Integración | `tests/test_mcp_server.py` (HTTP con el cliente MCP oficial: 401, identidad del token, sesión revocada), `tests/test_mcp_stdio.py` (incluye lanzar `converdata mcp serve` como proceso) y `api/tests/` |
 
 ## Deuda conocida
-- `catalog.store` mezcla el modelo del catálogo con su carga desde YAML; cuando exista el lector de la BD `ConverData`
-  (HU-09) la carga pasa a infraestructura detrás de un puerto `CatalogRepository`.
+- `builder.catalog_builder` (dominio) todavía escribe y lee YAML (`write_output`, `load_existing`); `FileCatalogStore` delega en él. Cuando el adaptador de SQL Server (HU-06) exista, esa E/S se mueve a `catalog.files`.
 - `identity.visibility.PyodbcObjectLister` vive en el dominio porque recibe la conexión inyectada; si crece, pasa a infraestructura.
 - La API (`api/converdata_api`) todavía llama directamente al DiscoverFlow; debe pasar por `DiscoveryTools` (HU-14, HU-16).

@@ -1,6 +1,9 @@
 # OP-04 — Publicación de interfaces en IIS · on-premise
 
 > Implementa en on-premise Microsoft: [F12](../comun/F12-interfaces.md). El contrato de la API, el chat y las herramientas MCP son los de F12.
+>
+> **Revisión 2026-10-27:** [OP-08](OP-08-interfaz-web.md) sustituye el chat Chainlit por la aplicación Next.js de `web/` (⚠️ propuesto, lo
+> confirma el Product Owner), fija la equivalencia `/api/<ruta>` → `/<ruta>` de `ConverData-API` y reemplaza los CA 1 y 8 de esta spec.
 
 | Interfaz | Implementación | Autenticación |
 |---|---|---|

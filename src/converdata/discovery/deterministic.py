@@ -128,6 +128,23 @@ def _table_dot_column(asset_key: str) -> str:
     return ".".join(asset_key.split(".")[-2:]) if asset_key.count(".") >= 3 else short_name(asset_key)
 
 
+_ASKS_PROCESS = re.compile(r"\b(etl|ssis|linaje|proceso|procesos|job|jobs|paquete)\b")
+
+
+def _loading_sentence(question: str, table: str, discovery: Discovery) -> str | None:
+    """Si la pregunta es de linaje ("¿qué proceso llena…?"), nombra los procesos ETL que cargan la tabla principal."""
+    q = _norm(question)
+    if not _ETL.search(q):
+        return None
+    loaders = [r for r in discovery.related if r.relation == "etl" and r.to == table and r.via]
+    if loaders:
+        shown = "; ".join(f"{r.via.replace(':', ' ', 1)} desde {r.from_}" for r in loaders)
+        return f"Proceso de carga de {table}: {shown}."
+    if _ASKS_PROCESS.search(q):
+        return f"No tengo registrado ningún proceso que cargue {table}; puedes preguntar al responsable del dominio."
+    return None
+
+
 ENV_LABELS = {"produccion": "Producción", "qa": "QA", "desarrollo": "Desarrollo", "dr": "DR"}
 ENV_ORDER = {"produccion": 0, "qa": 1, "desarrollo": 2, "dr": 3}
 
@@ -148,6 +165,9 @@ class TemplateNarrator:
         label = "ambientes" if len(envs) > 1 else "ambiente"
         shown = " y ".join(ENV_LABELS.get(e, e) for e in envs)
         parts = [f"El candidato principal es {name} ({where}, {label}: {shown}) con {round(top.confidence * 100)} % de confianza."]
+        loading = _loading_sentence(question, where, discovery)
+        if loading:  # "¿qué proceso llena…?": el proceso es la respuesta, va antes que el resto
+            parts.append(loading)
         if top.why:
             parts.append(top.why)
         others = [_table_dot_column(c.asset_key) for c in discovery.candidates[1:]] + [

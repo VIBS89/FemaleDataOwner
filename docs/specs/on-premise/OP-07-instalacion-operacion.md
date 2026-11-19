@@ -12,6 +12,10 @@ Que cualquier administrador de Plataformas pueda montar, actualizar, respaldar y
 ## Decisión (2026-10-27, ⚠️ propuesto): modelo de procesos
 OP-01 hablaba a la vez de "servicios de Windows" y de procesos que lanza HttpPlatformHandler. Queda así:
 
+> **Revisión 2026-10-27:** [OP-08](OP-08-interfaz-web.md) propone que `ConverData-UI` sea la salida standalone de Next.js (`node server.js`,
+> Node.js 20 LTS en `01-prerrequisitos.ps1`) y que `ConverData-API` corra como servicio de Windows en `127.0.0.1:8000`. El entorno **dev** se
+> detalla por situaciones (sin infraestructura, LLM local, SQL Server local, Bedrock, servidor de QA) en [OP-09](OP-09-situaciones-desarrollo.md).
+
 | Proceso | Cómo corre | Quién lo supervisa | Motivo |
 |---|---|---|---|
 | `ConverData-UI` (Chainlit) | Aplicación de IIS con su grupo de aplicaciones; HttpPlatformHandler lanza uvicorn | IIS (HttpPlatformHandler reinicia el proceso si cae) | Recomendado por Microsoft frente a WFastCGI; WebSockets por IIS |

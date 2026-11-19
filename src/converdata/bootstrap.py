@@ -6,25 +6,146 @@ la forma de ensamblar es la misma.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from converdata.catalog.store import load_catalog, load_knowledge
-from converdata.config import load_inventory, load_owners, load_settings
+import yaml
+
+from converdata.audit.recorder import AuditSink
+from converdata.audit.sqlserver import SqlServerAuditSink
+from converdata.catalog.files import FileCatalogStore
+from converdata.catalog.ports import CatalogStore
+from converdata.config import Settings, load_inventory, load_owners, load_settings
 from converdata.flows.discover import DiscoverDeps, DiscoverService
 from converdata.memory.memory_store import InMemoryVectorStore
 from converdata.models.identity import UserContext
 
 
+class ConfiguracionInvalida(ValueError):
+    """La configuración de adaptadores no es válida; el mensaje nombra la variable que hay que corregir."""
+
+
+ALMACENES = ("files", "sqlserver")
+ENTORNOS = ("dev", "qa", "prod")
+FUERA_DE_DEV = ("qa", "prod")
+PROVEEDORES_EN_SERVIDOR = ("bedrock",)  # F16, OP-09: en qa y prod solo Bedrock; Ollama y NIM son de desarrollo
+_VERDADERO = ("1", "true", "yes", "si", "sí")
+_CONTRASENA_EN_CADENA = re.compile(r"(^|;)\s*(pwd|password)\s*=", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class AdapterConfig:
+    """Qué adaptadores usa el servicio, decidido solo por variables de entorno (OP-09 §Selección de adaptadores).
+
+    No guarda la contraseña de la BD: `connection_string` la lee de `CONVERDATA_DB_PASSWORD` en el momento de conectar."""
+
+    store: str = "files"
+    audit: str = "files"
+    db: str | None = field(default=None, repr=False)  # puede llevar usuario y servidor: no va a logs
+    models: Path | None = None
+    env: str = "dev"
+    demo: bool = field(default=False, repr=False)
+
+    @classmethod
+    def from_env(cls, environ: Mapping[str, str], settings: Settings | None = None, *, require_env: bool = False) -> AdapterConfig:
+        if require_env and not (environ.get("CONVERDATA_ENV") or "").strip():
+            raise ConfiguracionInvalida("CONVERDATA_ENV: el servicio debe declarar su entorno (dev | qa | prod)")
+        env = _elegir(environ, "CONVERDATA_ENV", ENTORNOS + ("local",), "dev")
+        env = "dev" if env == "local" else env  # `local` es la máquina del desarrollador (F16): mismo régimen que dev
+        store = _elegir(environ, "CONVERDATA_STORE", ALMACENES, "files")
+        audit = _elegir(environ, "CONVERDATA_AUDIT", ALMACENES, store)
+        db = (environ.get("CONVERDATA_DB") or "").strip() or None
+        models = (environ.get("CONVERDATA_MODELS") or "").strip() or None
+        demo = environ.get("CONVERDATA_DEMO", "").strip().lower() in _VERDADERO
+
+        if "sqlserver" in (store, audit) and db is None:
+            raise ConfiguracionInvalida("CONVERDATA_DB: falta la cadena ODBC de la BD ConverData (hay adaptadores sqlserver)")
+        if db and _CONTRASENA_EN_CADENA.search(db):
+            raise ConfiguracionInvalida(
+                "CONVERDATA_DB: no puede llevar la contraseña; defínala en CONVERDATA_DB_PASSWORD o use autenticación integrada"
+            )
+        if models and not Path(models).is_file():
+            raise ConfiguracionInvalida(f"CONVERDATA_MODELS: no existe el archivo {models}")
+
+        if env in FUERA_DE_DEV:
+            for nombre, valor in (("CONVERDATA_STORE", store), ("CONVERDATA_AUDIT", audit)):
+                if valor == "files":
+                    raise ConfiguracionInvalida(f"{nombre}=files no se permite con CONVERDATA_ENV={env}; use sqlserver")
+            if demo:
+                raise ConfiguracionInvalida(f"CONVERDATA_DEMO=1 no se permite con CONVERDATA_ENV={env}")
+            if environ.get("CONVERDATA_DB_PASSWORD"):
+                raise ConfiguracionInvalida(
+                    f"CONVERDATA_DB_PASSWORD no se permite con CONVERDATA_ENV={env}; use autenticación integrada (gMSA)"
+                )
+            if settings is None:
+                raise ConfiguracionInvalida(
+                    f"settings: con CONVERDATA_ENV={env} hay que pasar los ajustes cargados para comprobar audit.fail_open (F11)"
+                )
+            if models:
+                no_permitidos = sorted(_proveedores(Path(models)) - set(PROVEEDORES_EN_SERVIDOR))
+                if no_permitidos:
+                    raise ConfiguracionInvalida(
+                        f"CONVERDATA_MODELS usa {', '.join(no_permitidos)}, que no se permite con CONVERDATA_ENV={env}; "
+                        f"use {' | '.join(PROVEEDORES_EN_SERVIDOR)}"
+                    )
+            if settings.audit.fail_open:
+                raise ConfiguracionInvalida(f"settings.yaml audit.fail_open: true no se permite con CONVERDATA_ENV={env} (F11)")
+        return cls(store=store, audit=audit, db=db, models=Path(models) if models else None, env=env, demo=demo)
+
+    def connection_string(self, environ: Mapping[str, str]) -> str:
+        """Cadena ODBC final; la contraseña (login SQL de desarrollo) viene de `CONVERDATA_DB_PASSWORD`."""
+        if self.db is None:
+            raise ConfiguracionInvalida("CONVERDATA_DB: no hay cadena de conexión configurada")
+        password = environ.get("CONVERDATA_DB_PASSWORD")
+        # llaves ODBC: `}` se duplica y `;` o espacios dentro de la contraseña no añaden atributos
+        return f"{self.db.rstrip(';')};PWD={{{password.replace('}', '}}')}}}" if password else self.db
+
+
+def _elegir(environ: Mapping[str, str], variable: str, validos: tuple[str, ...], por_defecto: str) -> str:
+    valor = (environ.get(variable) or por_defecto).strip().lower()
+    if valor not in validos:
+        raise ConfiguracionInvalida(f"{variable}: '{valor}' no es válido; use {' | '.join(v for v in validos if v != 'local')}")
+    return valor
+
+
+def _proveedores(models_path: Path) -> set[str]:
+    data = yaml.safe_load(models_path.read_text(encoding="utf-8")) or {}
+    roles = data.get("roles") or {}
+    if not isinstance(roles, dict):
+        raise ConfiguracionInvalida(f"CONVERDATA_MODELS: 'roles' debe ser un mapa rol → proveedor en {models_path}")
+    usados = {r.get("provider") for r in roles.values() if isinstance(r, dict)}
+    respaldo = data.get("fallback")
+    if isinstance(respaldo, dict):
+        usados.add(respaldo.get("provider"))
+    return {str(p).strip().lower() for p in usados if p}
+
+
+def resolve_catalog_store(config: AdapterConfig, root: str | Path) -> CatalogStore:
+    if config.store == "files":
+        return FileCatalogStore(root)
+    raise ConfiguracionInvalida(
+        "adaptador no disponible: CONVERDATA_STORE=sqlserver para el catálogo llega con HU-06; use files mientras tanto"
+    )
+
+
+def resolve_audit_sink(config: AdapterConfig, connect: Callable[[], object]) -> AuditSink | None:
+    """`None` con `files`: la auditoría en archivos la compone la integración (`api/converdata_api/audit.py`)."""
+    return SqlServerAuditSink(connect) if config.audit == "sqlserver" else None
+
+
 def build_service(
     root: str | Path, *, models_path: str | Path | None = None, gateway=None, llm_nodes: bool = True,
-    embedder_override=None, **overrides
+    embedder_override=None, catalog_store: CatalogStore | None = None, **overrides
 ) -> DiscoverService:
     """Sin `models_path` ni `gateway`, modo determinista. Con ellos, los nodos `intent`, `rerank` y `respond` y los
     embeddings pasan por el gateway de LLM (NVIDIA NIM o Bedrock según `config/models.yaml`)."""
     root = Path(root)
     inventory = load_inventory(root / "config" / "databases.yaml")
-    catalog = load_catalog(root / "catalog", inventory)
-    knowledge = load_knowledge(root / "knowledge")
+    source = catalog_store or FileCatalogStore(root)
+    catalog = source.load_catalog(inventory)
+    knowledge = source.load_knowledge()
     owners = load_owners(root / "config" / "owners.yaml")
     settings = load_settings(root / "config" / "settings.yaml")
 
@@ -48,11 +169,11 @@ def build_service(
 
     if embedder_override is not None:  # tests y evaluaciones con un embedder propio
         embedder, embed_model = embedder_override, type(embedder_override).__name__
-    store = InMemoryVectorStore(embedder=embedder, embed_model=embed_model)
-    store.index_catalog(catalog)
-    store.index_knowledge(knowledge.all_items(), knowledge.golden)
+    vector_store = InMemoryVectorStore(embedder=embedder, embed_model=embed_model)
+    vector_store.index_catalog(catalog)
+    vector_store.index_knowledge(knowledge.all_items(), knowledge.golden)
     deps = DiscoverDeps(
-        catalog=catalog, knowledge=knowledge, store=store, owners=owners, settings=settings,
+        catalog=catalog, knowledge=knowledge, store=vector_store, owners=owners, settings=settings,
         model_names=model_names, **{**llm_ports, **overrides},
     )
     return DiscoverService(deps)

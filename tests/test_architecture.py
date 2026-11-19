@@ -29,6 +29,7 @@ LAYERS = {
     "converdata.memory.text": "domain",
     "converdata.metadata.ports": "domain",
     "converdata.audit.sqlserver": "infrastructure",
+    "converdata.catalog.files": "infrastructure",
     "converdata.flows": "application",
     "converdata.application": "application",
     "converdata.memory": "infrastructure",

@@ -3,7 +3,6 @@
 import pytest
 import yaml
 
-from converdata.catalog.store import load_catalog
 from converdata.config import DiscoverySettings, load_inventory
 from converdata.discovery.deterministic import RuleBasedIntentClassifier
 from converdata.discovery.engine import Draft, compute_confidence
