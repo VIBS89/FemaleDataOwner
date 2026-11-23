@@ -25,7 +25,7 @@ Diagramas: [componentes de la API (C4)](../../architecture/c4-componentes-api.ht
 - DiscoverFlow por HTTP y SSE, con límite de ritmo y tope diario de tokens.
 - Explorador del catálogo y ficha de activo.
 - Curación: dudas escaladas, votos, descripciones, reglas, diccionario e historial.
-- Administración: inventario, responsables, build del catálogo, auditoría, sesiones, métricas y manual.
+- Administración: inventario, responsables, build del catálogo, auditoría, sesiones, métricas y documentación interna.
 - Montaje del servidor MCP con las mismas sesiones y topes.
 
 ## Piezas internas
@@ -92,7 +92,10 @@ Sacadas de `api/converdata_api/main.py`. La web las llama con el prefijo `/api`.
 | POST, GET | `/admin/catalog/build` | Lanza y consulta el build del catálogo |
 | GET | `/admin/audit?limit=&kind=` | Lectura de la auditoría (se audita) |
 | GET | `/admin/audit/verify` | Integridad: cadena de hashes o permisos en SQL Server |
-| GET | `/admin/manual` | Manual de desarrollo (se audita antes de entregarlo) |
+| GET | `/admin/docs` | Índice de la documentación interna: páginas (`path`, `title`, `section`) y diagramas (`path`, `title`). Sin auditar: solo títulos |
+| GET | `/admin/docs/page?path=` | Una página Markdown del índice (`markdown`, `updated_at`). Se audita (`doc_read`) antes de entregarla; lo demás, 404 |
+| GET | `/admin/docs/diagram?path=` | Un diagrama `architecture/*.html` como texto dentro de JSON (`html`), nunca como `text/html`. Se audita (`doc_read`) |
+| GET | `/admin/manual` | Solo el manual de desarrollo (ruta anterior al visor; se audita como `manual_read`) |
 | GET | `/admin/sessions` | Sesiones activas, sin tokens |
 | DELETE | `/admin/sessions/{user_id}` | Revoca todas las sesiones de un usuario |
 
@@ -197,6 +200,30 @@ entero con lo que la web tenga en memoria (pisa el cambio de otro administrador)
 - `/discover` devuelve el `AnswerEnvelope` (`src/converdata/models/discovery.py:113`).
 - Límites de entrada en los modelos Pydantic de `main.py:65-168` y `CONVERDATA_MAX_BODY_BYTES` (4 MB).
 
+## Documentación interna
+
+`api/converdata_api/documentation.py` (`DocumentationLibrary`) sirve, solo a `data_admin`, una **lista fija** dentro de
+`CONVERDATA_DOCS`: `manual-desarrollo.md`, `wiki/**/*.md`, `architecture/README.md` y los diagramas `architecture/*.html`.
+Nada más de `docs/` (PRD, specs, backlog) ni de fuera.
+
+- **Quién.** `data_admin`, el mismo rol que ya tenía el manual: estas páginas describen los controles de seguridad, lo que
+  no cubren y la deuda. La API no tiene otro rol para quien mantiene la solución (`consumer` y `steward` son de negocio).
+  Un consumidor o un responsable recibe 403 y queda `access_denied`.
+- **Sin recorrido de directorios.** La ruta pedida se busca tal cual entre las del índice, que se calcula recorriendo la
+  carpeta sin seguir enlaces simbólicos ni uniones de NTFS. No se arma ninguna ruta con lo que manda quien llama: `..`,
+  rutas absolutas, UNC, `%2e%2e`, mayúsculas, barras invertidas, `README.md.` o flujos alternos de NTFS no están en el
+  índice y dan 404. Antes de leer se comprueba otra vez que el archivo real sigue dentro de la carpeta. Tope: 1 MB por
+  página, 4 MB por diagrama.
+- **Auditoría.** Cada página o diagrama entregado deja `doc_read` con `path` y `doc` (`page` o `diagram`) antes de
+  responder; si no se puede registrar, 500 sin contenido (F11). Un 404 no cuenta como lectura. El índice no se audita.
+- **Diagramas.** Son HTML de Archify con scripts en línea. Van como texto dentro de JSON: abierta directamente, la ruta no
+  ejecuta nada en el origen de la web (el CSP global de la web pisaría cualquier CSP propio de la respuesta). La web los
+  pinta en un `iframe` con `srcdoc` y `sandbox="allow-scripts allow-downloads"` (ver [Web](web.md)).
+- **Instalación.** La carpeta por defecto es `docs/` de la raíz de la instalación (`INSTALL_ROOT` en
+  `api/converdata_api/settings.py`), no del directorio de trabajo: con la ruta relativa anterior, arrancar la API desde
+  `api/` dejaba el manual en 404 y el modo demo sin sus servidores simulados. La imagen copia exactamente la lista
+  (`.dockerignore`, `api/Dockerfile`).
+
 ## Configuración
 Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
 
@@ -230,13 +257,15 @@ Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
 | `CONVERDATA_NOTIFY_WEBHOOK` | — | Aviso de dudas; `https` en qa/prod |
 | `CONVERDATA_MCP`, `CONVERDATA_MCP_HOSTS`, `CONVERDATA_MCP_ORIGINS` | `1`, —, — | `/mcp`; hosts obligatorios en qa/prod (DNS rebinding) |
 | `CONVERDATA_DEMO`, `CONVERDATA_DEMO_FIXTURE`, `CONVERDATA_DEMO_PRELOAD`, `CONVERDATA_DEMO_HISTORY` | `0`, fixtures, `1`, `1` | Modo demo; prohibido en qa/prod |
-| `CONVERDATA_MANUAL` | `docs/manual-desarrollo.md` | Manual de `/admin/manual` |
+| `CONVERDATA_DOCS` | `docs/` de la instalación | Carpeta de la documentación de `/admin/docs*`. Una ruta relativa se toma desde la raíz de la instalación, no desde el directorio de trabajo |
 
 `CONVERDATA_BUILDER_HOSTS` la usa la CLI del Builder (`src/converdata/cli.py:351`), no la API.
 
 ## Pruebas que lo cubren
 - `api/tests/test_api.py`: primer arranque, descubrimiento, voto y auditoría, explorador, herencia de permisos, stream, escalamiento,
   reglas, tope de tokens, diccionario, responsables, manual.
+- `api/tests/test_docs.py`: documentación interna (solo `data_admin`, auditada, fail-closed, 404 limpio, recorrido de directorios,
+  enlaces simbólicos y uniones, índice exacto, enlaces de la wiki, arranque desde otra carpeta, imagen de Docker y proxy de la web).
 - `api/tests/test_security.py`: sesión obligatoria, roles, bloqueo de logins, caducidad, cabeceras, CSRF, validaciones, arranque en
   qa/prod, barrido sin fugas, curación sin fugas.
 - `api/tests/test_inventory_wizard.py`: sondeo y conexión del asistente (solo admin, auditado antes de conectar, sin guardar,

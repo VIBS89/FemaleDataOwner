@@ -42,6 +42,7 @@ from converdata_api.audit import open_audit
 from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlConnector, server_from_host
 from converdata_api.curation import CurationDesk, demand_by_asset, metrics_report
 from converdata_api.demo import seed_stewards
+from converdata_api.documentation import MANUAL, DocumentationLibrary, DocumentNotFound
 from converdata_api.mcp_mount import build_mcp_mount
 from converdata_api.pii import find_pii
 from converdata_api.tokens import TokenLedger
@@ -1185,18 +1186,51 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         return {"ok": report.ok, "head": report.head, "files": [
             {"name": f.name, "rows": f.rows, "legacy": f.legacy, "head": f.head, "errors": f.errors} for f in report.files]}
 
+    # --- documentación interna (manual, wiki y arquitectura) ------------------------------------------------
+    # Solo `data_admin`: describe los controles de seguridad, lo que aún no cubren y la deuda. Ningún otro rol de la API
+    # (consumer, steward) tiene que ver con mantener la solución. Cada lectura se audita antes de entregarla (F11);
+    # el índice solo lleva títulos y rutas. Lo que se sirve es la lista fija de `documentation.py`.
+    def library() -> DocumentationLibrary:
+        return DocumentationLibrary(settings.docs_dir)
+
+    @app.get("/admin/docs")
+    def docs_index(session: Session = Depends(admin_session)):
+        """Índice para navegar: páginas Markdown (título, ruta y carpeta) y diagramas de arquitectura."""
+        docs = library()
+        return {"pages": [dataclasses.asdict(d) for d in docs.pages()],
+                "diagrams": [{"path": d.path, "title": d.title} for d in docs.diagrams()]}
+
+    @app.get("/admin/docs/page")
+    def docs_page(path: Annotated[str, Query(max_length=300)], session: Session = Depends(admin_session)):
+        try:
+            page = library().page(path)
+        except DocumentNotFound:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa página no está en la documentación de este servidor")
+        audit.event("doc_read", session.user_id, path=page.path, doc="page")  # sin registro no se entrega
+        return {"path": page.path, "title": page.title, "markdown": page.body.decode("utf-8"),
+                "updated_at": page.updated_at}
+
+    @app.get("/admin/docs/diagram")
+    def docs_diagram(path: Annotated[str, Query(max_length=300)], session: Session = Depends(admin_session)):
+        """Diagrama de `docs/architecture/*.html`. Va como texto dentro de JSON, nunca como `text/html`: abierto
+        directamente no se ejecuta en el origen de la web. La web lo pinta en un `iframe` con `sandbox` (origen opaco)."""
+        try:
+            diagram = library().diagram(path)
+        except DocumentNotFound:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Ese diagrama no está en la documentación de este servidor")
+        audit.event("doc_read", session.user_id, path=diagram.path, doc="diagram")
+        return {"path": diagram.path, "title": diagram.title, "html": diagram.body.decode("utf-8"),
+                "updated_at": diagram.updated_at}
+
     @app.get("/admin/manual")
     def manual(session: Session = Depends(admin_session)):
-        """Manual de desarrollo: componentes, flujo y mejoras pendientes. Solo `data_admin`, porque describe los
-        controles de seguridad y lo que aún no cubren. Cada lectura se audita antes de entregar el texto (F11)."""
+        """El manual de desarrollo solo (la ruta que usaba la web antes del visor de documentación)."""
         try:
-            text = settings.manual_path.read_text(encoding="utf-8")
-            modified = settings.manual_path.stat().st_mtime
-        except (OSError, UnicodeError):
+            page = library().page(MANUAL)
+        except DocumentNotFound:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "El manual de desarrollo no está instalado en este servidor")
         audit.event("manual_read", session.user_id)  # sin registro no se entrega; un 404 no cuenta como lectura
-        return {"markdown": text,
-                "updated_at": dt.datetime.fromtimestamp(modified, dt.timezone.utc).isoformat(timespec="seconds")}
+        return {"markdown": page.body.decode("utf-8"), "updated_at": page.updated_at}
 
     @app.get("/admin/sessions")
     def sessions_list(session: Session = Depends(admin_session)):

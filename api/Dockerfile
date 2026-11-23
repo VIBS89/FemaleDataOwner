@@ -38,8 +38,12 @@ COPY api ./api
 COPY config ./config
 # Migraciones de la BD ConverData: `converdata db migrate` desde la misma imagen
 COPY db ./db
-# Manual de desarrollo: la web lo muestra solo a los administradores de datos (GET /admin/manual)
+# Documentación que la web muestra solo a los administradores de datos (GET /admin/docs): manual, wiki y arquitectura.
+# Nada más de docs/ (PRD, specs, backlog); la lista es la de api/converdata_api/documentation.py.
 COPY docs/manual-desarrollo.md ./docs/manual-desarrollo.md
+COPY docs/wiki ./docs/wiki
+COPY docs/architecture/README.md ./docs/architecture/README.md
+COPY docs/architecture/*.html ./docs/architecture/
 # Solo para CONVERDATA_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
 COPY tests/fixtures/bancos ./tests/fixtures/bancos
 COPY tests/fixtures/vbank ./tests/fixtures/vbank

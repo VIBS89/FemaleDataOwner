@@ -29,7 +29,7 @@ Frontend Next.js 15 (App Router, React 19, Tailwind 4, componentes shadcn/Radix)
 | Mis solicitudes | `web/src/app/(app)/solicitudes/page.tsx` | Dudas que el usuario escaló y su respuesta (`GET /me/requests`). |
 | Curación | `web/src/app/(app)/curacion/page.tsx` | Pestañas: solicitudes, revisión, reglas y diccionario CSV. Solo con rol `steward`. |
 | Métricas | `web/src/app/(app)/metricas/page.tsx` | Tablero de 7, 30 o 90 días (`GET /admin/metrics`). Solo `data_admin`. |
-| Administración | `web/src/app/(app)/admin/page.tsx` | Pestañas: descubrir esquemas, servidores, responsables, auditoría y manual de desarrollo. Solo `data_admin`. |
+| Administración | `web/src/app/(app)/admin/page.tsx` | Pestañas: descubrir esquemas, servidores, responsables, auditoría y documentación. Solo `data_admin`. La pestaña se recuerda en la URL (`?tab=`). |
 | Asistente "Conectar base de datos" | `web/src/components/connect-database-wizard.tsx` | Diálogo de la pestaña Servidores: host, nombre visible, ambiente y certificado → "Probar conexión" (`POST /admin/inventory/probe`); casillas por base con tablas y vistas (las sin acceso, deshabilitadas con el motivo; "todas las accesibles" e "incluir las futuras" = `*`); "Conectar y descubrir" (`POST /admin/inventory/connect`), avance del build y resumen con enlaces al chat y al Catálogo. El botón de cada fila lo abre sobre ese servidor para añadirle bases. |
 | Avance del build | `web/src/components/build-progress.tsx` | `useBuildJob` (sondea `GET /admin/catalog/build` cada 1,2 s y avisa al terminar) y `BuildSteps`; los usan "Descubrir esquemas" y el asistente. |
 | Login | `web/src/app/login/page.tsx` | Contraseña, selección de servidores, interruptor de autenticación de Windows y formulario de primer arranque (con código de instalación si la API lo pide). |
@@ -42,7 +42,8 @@ Frontend Next.js 15 (App Router, React 19, Tailwind 4, componentes shadcn/Radix)
 | Chat | `web/src/components/chat/` | `assistant-message`, `candidate-card`, `composer`, `conversations` (almacén local), `thinking`. |
 | Ficha | `web/src/components/asset-sheet.tsx` | Panel lateral con columnas, relaciones, reglas y responsables; botón "Historial" para responsables. |
 | Historial | `web/src/components/description-history.tsx` | Versiones de una descripción con autor y fecha (`GET /curation/history`). |
-| Markdown | `web/src/components/markdown.tsx` | Visor mínimo (títulos, listas, tablas, código). Construye elementos de React, nunca inserta HTML. Lo usa el manual. |
+| Markdown | `web/src/components/markdown.tsx` | Visor mínimo (títulos con ancla, listas con un nivel de anidación, tablas con barras escapadas, código, enlaces, negrita y cursiva). Construye elementos de React, nunca inserta HTML. Los enlaces los decide quien lo usa (`renderLink`); sin él, solo anclas y `https:`. |
+| Documentación | `web/src/components/docs-viewer.tsx` | Visor de `/admin/docs*`: índice lateral (manual, wiki, componentes, arquitectura y diagramas), tabla de contenidos por página, carga y error con reintento. La página abierta va en la URL (`?tab=docs&doc=wiki/componentes/api.md#configuración`). Los enlaces relativos a otra página o diagrama servidos se abren en el visor; los que apuntan a documentos que la API no sirve (PRD, specs, backlog, `calidad-bancaria.md`) se muestran como ruta del repositorio, sin enlace. Un diagrama se pinta en un `iframe` con `srcdoc` y `sandbox="allow-scripts allow-downloads"`: origen opaco, sin la cookie de sesión ni acceso a la página, con el CSP de la web tal cual. |
 | Otros | `confidence.tsx`, `source-badge.tsx`, `page-header.tsx`, `brand.tsx`, `ui/` | Indicadores y componentes shadcn. |
 
 ## Cómo funciona
@@ -64,8 +65,8 @@ Frontend Next.js 15 (App Router, React 19, Tailwind 4, componentes shadcn/Radix)
 El rol `data_admin` no es "administrador de la web": lo da la API según el login (permiso de metadatos en el servidor o lista `CONVERDATA_ADMINS`). Detalle en [OP-03](../../specs/on-premise/OP-03-identidad.md) y [F14](../../specs/comun/F14-identity.md).
 
 ## Contratos y datos
-- Endpoints que usa `api.ts` (todos existen en `api/converdata_api/main.py`): `/setup/status`, `/auth/me`, `/login`, `/auth/logout`, `/discover`, `/discover/stream`, `/discover/feedback`, `/me/history`, `/me/requests`, `/catalog/*`, `/assets/*`, `/curation/*`, `/admin/inventory`, `/admin/inventory/probe`, `/admin/inventory/connect`, `/admin/stewards`, `/admin/catalog/build`, `/admin/audit`, `/admin/metrics`, `/admin/manual`.
-- La API tiene rutas que la web no llama: `/admin/sessions`, `/admin/audit/verify`, `/health` y `/mcp` (si está montado). El proxy no reenvía `/health` ni `/mcp`.
+- Endpoints que usa `api.ts` (todos existen en `api/converdata_api/main.py`): `/setup/status`, `/auth/me`, `/login`, `/auth/logout`, `/discover`, `/discover/stream`, `/discover/feedback`, `/me/history`, `/me/requests`, `/catalog/*`, `/assets/*`, `/curation/*`, `/admin/inventory`, `/admin/inventory/probe`, `/admin/inventory/connect`, `/admin/stewards`, `/admin/catalog/build`, `/admin/audit`, `/admin/metrics`, `/admin/docs`, `/admin/docs/page`, `/admin/docs/diagram`.
+- La API tiene rutas que la web no llama: `/admin/sessions`, `/admin/audit/verify`, `/admin/manual` (la sustituyó el visor), `/health` y `/mcp` (si está montado). El proxy no reenvía `/health` ni `/mcp`.
 - Los errores se leen de `detail`: texto simple, o la lista de validación de Pydantic sin el prefijo `Value error, `.
 - `types.ts` declara que `AnswerEnvelope` y `Discovery` reflejan `src/converdata/models/discovery.py`. El contrato se mantiene a mano; no se genera.
 - Almacén local: clave `converdata:conversations:<user_id>`, máximo 50 conversaciones, cada una con sus mensajes y sobres de respuesta (`web/src/components/chat/conversations.tsx`).
@@ -112,6 +113,6 @@ Ver [deuda técnica](../deuda-tecnica.md).
 | Cambiar qué cabeceras viajan a la API | `FORWARD_REQUEST`, `ALLOWED` y el bloque `out` en `web/src/app/api/[...path]/route.ts`. |
 | Cambiar cómo se muestra una respuesta | `web/src/components/chat/assistant-message.tsx` y `candidate-card.tsx`. |
 | Cambiar el almacén de conversaciones | `web/src/components/chat/conversations.tsx`. |
-| Mostrar otro documento Markdown | `web/src/components/markdown.tsx` (acepta solo la sintaxis mínima). |
+| Mostrar otro documento Markdown | En el visor: añadirlo a la lista fija de `api/converdata_api/documentation.py`, a `.dockerignore` y a `api/Dockerfile` (lo comprueba `api/tests/test_docs.py`). El renderizador, `web/src/components/markdown.tsx`, acepta solo la sintaxis mínima. |
 | Cambiar el puerto o la URL de la API | `docker-compose.yml` (`API_URL`, `CONVERDATA_PORT`). |
 | Actualizar dependencias | `web/package.json`, `web/package-lock.json` y volver a correr la CI (`npm audit`). |

@@ -146,7 +146,7 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
     del día enlaza con el archivo anterior; `fsync` antes de devolver. Detecta, no impide.
   - Cambios: `applying` (`main.py:400`) audita antes y deja `<evento>_failed` si falla. El login borra la sesión si su evento no se escribe.
 - **Eventos que existen** (de `audit.event` y `applying` en el código): `question` (pregunta), `login`, `login_failed`,
-  `login_locked`, `logout`, `setup_denied`, `access_denied`, `audit_read`, `manual_read`, `sessions_revoked`, `inventory_updated`,
+  `login_locked`, `logout`, `setup_denied`, `access_denied`, `audit_read`, `manual_read`, `doc_read`, `sessions_revoked`, `inventory_updated`,
   `stewards_updated`, `curation_request`, `curation_answer`, `curation_description`, `curation_dictionary_started`,
   `curation_dictionary`, `curation_rule`, `curation_rule_deleted`, `feedback`, `catalog_build_started`, `catalog_build_finished`,
   `demo_history_seeded` y los `<evento>_failed` (p. ej. `feedback_failed`). En SQL Server, los campos extra de una pregunta van a
@@ -155,7 +155,7 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
   `tests/test_audit_sqlserver.py` (transacción, rollback, sin contraseñas, permisos), `api/tests/test_audit_db.py::test_si_la_bd_no_responde_no_hay_respuesta_ni_cambios`,
   `api/tests/test_security.py::test_sin_auditoria_no_se_aplica_un_cambio_de_curacion`,
   `::test_la_auditoria_detecta_filas_modificadas_borradas_o_insertadas`, `::test_la_cadena_enlaza_un_dia_con_el_anterior`,
-  `api/tests/test_api.py::test_manual_no_se_entrega_sin_auditoria`, `api/tests/test_catalog_db.py::test_un_cambio_que_falla_deja_constancia_de_que_no_se_aplico`,
+  `api/tests/test_api.py::test_manual_no_se_entrega_sin_auditoria`, `api/tests/test_docs.py::test_la_documentacion_no_se_entrega_sin_auditoria`, `api/tests/test_catalog_db.py::test_un_cambio_que_falla_deja_constancia_de_que_no_se_aplico`,
   `tests/test_storage_migrations.py::test_la_api_no_puede_modificar_ni_borrar_la_auditoria`, suite `auditoria` del gate.
 
 ### 9. Logs con lista blanca

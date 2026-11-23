@@ -18,6 +18,9 @@ import type {
   SetupStatus,
   User,
   DescriptionHistory,
+  DocsDiagram,
+  DocsIndex,
+  DocsPage,
   Steward,
 } from "@/lib/types";
 
@@ -178,5 +181,9 @@ export const api = {
   startBuild: (enrich: boolean) => request<BuildJob>("/admin/catalog/build", { method: "POST", json: { enrich } }),
   buildStatus: () => request<BuildJob>("/admin/catalog/build"),
   audit: (kind?: string) => request<{ items: AuditRow[] }>(`/admin/audit?limit=200${kind ? `&kind=${kind}` : ""}`),
-  manual: () => request<{ markdown: string; updated_at: string }>("/admin/manual"),
+  // Documentación interna (solo data_admin): cada página o diagrama que se abre queda en la auditoría.
+  docsIndex: () => request<DocsIndex>("/admin/docs"),
+  docsPage: (path: string) => request<DocsPage>(`/admin/docs/page?path=${encodeURIComponent(path)}`),
+  // El HTML del diagrama llega como texto en JSON; la web lo pinta en un iframe con `sandbox` (docs-viewer.tsx).
+  docsDiagram: (path: string) => request<DocsDiagram>(`/admin/docs/diagram?path=${encodeURIComponent(path)}`),
 };

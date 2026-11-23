@@ -337,3 +337,29 @@ export interface DictionaryReport {
   unknown: string[];
   forbidden: string[];
 }
+
+// --- documentación interna (GET /admin/docs) ---
+export interface DocsEntry {
+  path: string; // relativa a docs/, con "/" (p. ej. "wiki/componentes/api.md")
+  title: string;
+  section?: string; // carpeta: "", "wiki", "wiki/componentes", "architecture"
+}
+
+export interface DocsIndex {
+  pages: DocsEntry[];
+  diagrams: DocsEntry[];
+}
+
+export interface DocsPage {
+  path: string;
+  title: string;
+  markdown: string;
+  updated_at: string;
+}
+
+export interface DocsDiagram {
+  path: string;
+  title: string;
+  html: string; // HTML autónomo de Archify: solo dentro de un iframe con sandbox, nunca en el DOM de la web
+  updated_at: string;
+}

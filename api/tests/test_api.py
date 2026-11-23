@@ -161,7 +161,7 @@ def test_manual_de_desarrollo_solo_para_administradores(ready, settings):
     anonymous.app = ready.app
     assert anonymous.get("/admin/manual").status_code == 401
 
-    settings.manual_path = settings.data_root / "no-existe.md"
+    settings.docs_dir = settings.data_root / "no-existe"
     assert ready.get("/admin/manual").status_code == 404
     reads = ready.get("/admin/audit", params={"kind": "manual_read"}).json()["items"]
     assert len(reads) == 1  # lo que no se entregó no queda como lectura

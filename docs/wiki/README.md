@@ -61,10 +61,12 @@ respuesta. Lee solo metadatos de SQL Server, y cada persona descubre únicamente
 | [Backlog on-premise](../backlog/on-premise.md) | Historias de usuario y su estado |
 | [Reparto entre 5 desarrolladores](../backlog/reparto-5-devs.md) | Quién puede empezar qué |
 | [Calidad bancaria](../calidad-bancaria.md) | Controles de seguridad y compuerta de calidad |
-| [Manual de desarrollo](../manual-desarrollo.md) | Resumen de componentes y mejoras. Es el que la aplicación muestra a los administradores de datos |
+| [Manual de desarrollo](../manual-desarrollo.md) | Resumen de componentes y mejoras |
 | Specs [comunes](../specs/comun/), [on-premise](../specs/on-premise/) y [cloud](../specs/cloud-native/) | Cómo debe comportarse cada pieza |
 
 ## Cómo mantener esta wiki
+- En la aplicación, los administradores de datos la leen en *Administración → Documentación*, con el manual, la
+  arquitectura y los diagramas. Los enlaces a documentos de fuera de esa lista (PRD, specs, backlog) se ven como ruta.
 - La wiki vive en el repositorio, en `docs/wiki/`. Se cambia en el mismo cambio que el código que describe.
 - Si una página contradice al código, manda el código: corrige la página.
 - Cada afirmación sobre el código cita la ruta del archivo. Lo que no se pudo comprobar se marca "sin verificar".

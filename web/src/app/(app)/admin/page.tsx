@@ -9,7 +9,6 @@ import {
   Database,
   DatabaseZap,
   Loader2,
-  Lock,
   Network,
   Pencil,
   PlugZap,
@@ -24,7 +23,7 @@ import { toast } from "sonner";
 
 import { BuildSteps, useBuildJob } from "@/components/build-progress";
 import { ConnectDatabaseWizard } from "@/components/connect-database-wizard";
-import { headings, Markdown } from "@/components/markdown";
+import { DocsViewer } from "@/components/docs-viewer";
 import { PageHeader } from "@/components/page-header";
 import { useSession } from "@/components/session-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -44,19 +43,45 @@ import { api } from "@/lib/api";
 import { dateTime, ENV_LABEL, number, pct } from "@/lib/format";
 import type { AuditRow, ServerConfig, Steward } from "@/lib/types";
 
+const TABS = ["build", "servers", "stewards", "audit", "docs"];
+
+/** Pestaña de la URL (`?tab=docs&doc=…` abre la documentación en esa página). Solo en el navegador. */
+function tabFromUrl(): string {
+  if (typeof window === "undefined") return "build";
+  const tab = new URLSearchParams(window.location.search).get("tab") ?? "";
+  return TABS.includes(tab) ? tab : "build";
+}
+
 export default function AdminPage() {
   const { isAdmin } = useSession();
   const router = useRouter();
+  const [tab, setTab] = useState(tabFromUrl);
   useEffect(() => {
     if (!isAdmin) router.replace("/");
   }, [isAdmin, router]);
+  useEffect(() => {
+    const onPop = () => setTab(tabFromUrl());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   if (!isAdmin) return null;
+
+  const changeTab = (value: string) => {
+    setTab(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", value);
+    if (value !== "docs") {
+      url.searchParams.delete("doc");
+      url.hash = "";
+    }
+    window.history.replaceState(null, "", url);
+  };
 
   return (
     <div className="flex min-h-svh flex-col">
       <PageHeader title="Administración" />
-      <div className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-6">
-        <Tabs defaultValue="build">
+      <div className={`mx-auto w-full space-y-6 p-4 sm:p-6 ${tab === "docs" ? "max-w-7xl" : "max-w-5xl"}`}>
+        <Tabs value={tab} onValueChange={changeTab}>
           <TabsList>
             <TabsTrigger value="build">
               <DatabaseZap /> Descubrir esquemas
@@ -70,8 +95,8 @@ export default function AdminPage() {
             <TabsTrigger value="audit">
               <Network /> Auditoría
             </TabsTrigger>
-            <TabsTrigger value="manual">
-              <BookOpen /> Manual de desarrollo
+            <TabsTrigger value="docs">
+              <BookOpen /> Documentación
             </TabsTrigger>
           </TabsList>
           <TabsContent value="build" className="mt-5">
@@ -86,8 +111,8 @@ export default function AdminPage() {
           <TabsContent value="audit" className="mt-5">
             <AuditPanel />
           </TabsContent>
-          <TabsContent value="manual" className="mt-5">
-            <ManualPanel />
+          <TabsContent value="docs" className="mt-5">
+            <DocsViewer />
           </TabsContent>
         </Tabs>
       </div>
@@ -683,6 +708,7 @@ const AUDIT_KIND: Record<string, string> = {
   sessions_revoked: "Sesiones cerradas",
   audit_read: "Consulta de auditoría",
   manual_read: "Lectura del manual",
+  doc_read: "Lectura de documentación",
 };
 
 function AuditPanel() {
@@ -770,54 +796,6 @@ function AuditPanel() {
   );
 }
 
-// --- Manual de desarrollo ----------------------------------------------------------------------------
-function ManualPanel() {
-  const [manual, setManual] = useState<{ markdown: string; updated_at: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Se pide al abrir la pestaña (Radix monta el contenido solo entonces): cada apertura es una lectura auditada.
-  useEffect(() => {
-    api
-      .manual()
-      .then(setManual)
-      .catch((e: Error) => setError(e.message));
-  }, []);
-
-  if (error)
-    return (
-      <Alert variant="destructive">
-        <AlertCircle />
-        <AlertTitle>No se pudo abrir el manual</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  if (!manual) return <Skeleton className="h-96 w-full" />;
-
-  const sections = headings(manual.markdown);
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="gap-1 font-normal">
-            <Lock className="size-3" /> Solo administradores de datos
-          </Badge>
-          <span className="text-muted-foreground text-xs">Actualizado el {dateTime(manual.updated_at)} · cada lectura queda en la auditoría</span>
-        </div>
-        <nav aria-label="Secciones del manual" className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-sm">
-          {sections.map((s) => (
-            <a key={s.id} href={`#${s.id}`} className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">
-              {s.text}
-            </a>
-          ))}
-        </nav>
-      </CardHeader>
-      <CardContent>
-        <Markdown text={manual.markdown} />
-      </CardContent>
-    </Card>
-  );
-}
-
 function describe(r: AuditRow): string {
   switch (r.type) {
     case "question":
@@ -847,6 +825,8 @@ function describe(r: AuditRow): string {
       return `${String(r.applied ?? 0)} descripciones aplicadas`;
     case "access_denied":
       return `${String(r.method ?? "")} ${String(r.route ?? "")}`;
+    case "doc_read":
+      return `docs/${String(r.path ?? "")}${r.doc === "diagram" ? " · diagrama" : ""}`;
     default:
       return "";
   }
