@@ -7,7 +7,7 @@ alterada no entra sin que alguien regenere y revise el bloqueo.
 | Archivo | Qué trae | Dónde se usa |
 |---|---|---|
 | `runtime.lock` | Extras `api`, `mcp`, `sqlserver` y `bedrock` | Imagen de ConverData-API (`api/Dockerfile`), análisis de vulnerabilidades y SBOM |
-| `dev.lock` | Todos los extras (`dev`, `nim`, `ollama` incluidos) | CI y desarrollo |
+| `dev.lock` | Todos los extras (`dev`, `nim`, `openai`, `anthropic`, `ollama` incluidos) | CI y desarrollo |
 | `build.lock` | `setuptools`, para construir el paquete sin descargar nada sin fijar | Imagen y CI |
 | `tools.lock` | `pip-audit` y `cyclonedx-bom` con sus dependencias | Trabajo `cadena-de-suministro` de la CI |
 

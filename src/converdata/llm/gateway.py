@@ -1,7 +1,7 @@
 """Gateway de LLM (F16): un único punto por el que pasan todas las llamadas a modelos.
 
 - Resuelve cada **rol** (`planner`, `fast`, `judge`, `coder`) al proveedor y modelo de `config/models.yaml`.
-  Empezar con NVIDIA NIM y pasar a Bedrock es solo cambiar ese archivo (F16-CA1).
+  Cambiar entre NVIDIA NIM, OpenAI, Claude (API de Anthropic) y Bedrock es solo cambiar ese archivo (F16-CA1).
 - **Respaldo** a otro proveedor solo ante throttling, indisponibilidad o timeout; nunca por errores de contenido.
 - **Circuit breaker** por proveedor: 3 errores transitorios en 60 s lo abren 5 min.
 - **Guarda de residencia** (F17, OP-06): con `data_mode: real`, se niega a arrancar si algún rol puede enviar datos a un
@@ -52,6 +52,8 @@ def classify_error(exc: BaseException) -> str | None:
     code = code.get("Code") if isinstance(code, dict) else None
     status = getattr(getattr(exc, "response", None), "status_code", None) or getattr(exc, "status_code", None)
     text = f"{name} {code or ''} {status or ''} {exc}"
+    if isinstance(status, int) and 400 <= status < 500 and status not in (408, 409, 429):
+        return None  # el proveedor dio el código: petición inválida o credencial, diga lo que diga el texto
     if "timeout" in name.lower() or isinstance(exc, TimeoutError):
         return "timeout"
     if code in _TRANSIENT_CODES:
@@ -182,6 +184,11 @@ class LLMGateway:
                         f"data_mode=real pero el rol {role!r} puede enviar datos a {route.provider!r} "
                         f"(allowed_data={prov.allowed_data}); ver F17 y OP-06"
                     )
+                if self.config.data_mode == "real" and route.role.refusal_fallback:
+                    raise ResidencyError(
+                        f"data_mode=real pero el rol {role!r} tiene refusal_fallback: la petición podría atenderla "
+                        f"un modelo que esta configuración no nombra"
+                    )
 
     def routes(self, role: str) -> list[Route]:
         if role not in self.config.roles:
@@ -192,7 +199,11 @@ class LLMGateway:
         if fb and fb.provider != primary.provider and role in fb.models:
             prov_fb = self.config.provider(fb.provider)
             if prov_fb.enabled:
-                routes.append(Route(fb.provider, primary.model_copy(update={"provider": fb.provider, "model": fb.models[role]})))
+                # Los ajustes propios de un proveedor (niveles de `effort`, respaldo ante rechazo, opciones de Ollama)
+                # no valen en otro: el respaldo conserva solo `temperature` y `max_tokens`.
+                routes.append(Route(fb.provider, primary.model_copy(update={
+                    "provider": fb.provider, "model": fb.models[role], "effort": None, "refusal_fallback": False,
+                    "reasoning": False, "num_ctx": None})))
         return routes
 
     # --- API pública -----------------------------------------------------------------------
@@ -205,7 +216,7 @@ class LLMGateway:
 
     # --- internos --------------------------------------------------------------------------
     def _model(self, route: Route, kind: str, schema=None, skw=None):
-        key = (route.label, kind, repr(schema))
+        key = (route.label, route.role.model_dump_json(), kind, repr(schema))
         if key not in self._cache:
             builder = self._builders.get((route.provider, kind))
             if builder is None:

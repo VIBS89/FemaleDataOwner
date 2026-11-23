@@ -12,7 +12,7 @@ services:
       context: .
       dockerfile: api/Dockerfile
       args:
-        # runtime.lock: API, MCP, SQL Server y Bedrock. Para NVIDIA NIM u Ollama (desarrollo): requirements/dev.lock
+        # runtime.lock: API, MCP, SQL Server y Bedrock. Para NVIDIA NIM, OpenAI, Claude u Ollama (desarrollo): requirements/dev.lock
         REQUIREMENTS: ${CONVERDATA_REQUIREMENTS:-requirements/runtime.lock}
     environment:
       CONVERDATA_DATA_ROOT: /app/data/catalog
@@ -34,6 +34,8 @@ services:
       CONVERDATA_PUBLIC_URL: ${CONVERDATA_PUBLIC_URL:-}
       CONVERDATA_MCP_HOSTS: ${CONVERDATA_MCP_HOSTS:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - converdata-data:/app/data
       # - ./config/models.yaml:/app/config/models.yaml:ro

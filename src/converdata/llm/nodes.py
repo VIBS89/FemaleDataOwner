@@ -1,6 +1,6 @@
 """Implementaciones con LLM de los puertos del DiscoverFlow: llamadas directas con salida estructurada (no agentes).
 
-Reciben un `RoutedChat` del gateway (NIM o Bedrock según `config/models.yaml`) o cualquier chat model de LangChain.
+Reciben un `RoutedChat` del gateway (el proveedor de `config/models.yaml`) o cualquier chat model de LangChain.
 """
 
 from __future__ import annotations

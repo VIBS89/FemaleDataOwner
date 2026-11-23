@@ -50,7 +50,7 @@ def build_service(
     root: str | Path, *, models_path: str | Path | None = None, gateway=None, **overrides
 ) -> DiscoverService:
     """Sin `models_path` ni `gateway`, modo determinista. Con ellos, los nodos `intent`, `rerank` y `respond` pasan
-    por el gateway de LLM (NVIDIA NIM o Bedrock según `config/models.yaml`). La búsqueda es siempre léxica."""
+    por el gateway de LLM (el proveedor de cada rol en `config/models.yaml`). La búsqueda es siempre léxica."""
     root = Path(root)
     return build_service_from_snapshot(
         load_snapshot(root), settings_path=root / "config" / "settings.yaml", models_path=models_path,

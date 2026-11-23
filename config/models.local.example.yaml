@@ -11,6 +11,7 @@ providers:
     enabled: false               # activar si quieres respaldo en NIM (requiere NVIDIA_API_KEY)
   bedrock:
     enabled: false
+  # openai y anthropic (Claude): ver config/models.example.yaml
 
 roles:
   # qwen3.6:35b-a3b (MoE, 3B activos): tool calling y salida estructurada; razonamiento apagado (F16).

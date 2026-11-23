@@ -53,6 +53,7 @@ ALLOWED = {
 
 # Librerías de adaptadores: solo infraestructura e integración pueden importarlas.
 ADAPTER_LIBS = {"pyodbc", "langchain_core", "langchain_aws", "langchain_ollama", "langchain_nvidia_ai_endpoints",
+                "langchain_openai", "anthropic", "openai",
                 "fastapi", "starlette", "mcp", "uvicorn", "httpx", "boto3"}
 
 

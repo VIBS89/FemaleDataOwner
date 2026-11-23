@@ -3,6 +3,8 @@
 Proveedores:
 - ``nvidia_nim``: NVIDIA NIM vía `langchain-nvidia-ai-endpoints` (API alojada de NVIDIA o NIM autoalojado en la red del banco).
 - ``bedrock``: Amazon Bedrock vía `langchain-aws` (Converse). Se activa cambiando solo este archivo.
+- ``openai``: API de OpenAI vía `langchain-openai`; con `base_url` sirve cualquier servidor compatible.
+- ``anthropic``: Claude por la API de Anthropic, con su SDK oficial (`converdata.llm.anthropic_chat`).
 - ``ollama``: modelos locales vía `langchain-ollama`, **solo con `environment: local`** (la máquina del desarrollador).
 
 Los imports de cada SDK son perezosos: solo se carga el del proveedor que se usa.
@@ -20,7 +22,8 @@ from pydantic import BaseModel, Field, model_validator
 
 log = logging.getLogger(__name__)
 
-Provider = Literal["nvidia_nim", "bedrock", "ollama"]
+Provider = Literal["nvidia_nim", "bedrock", "openai", "anthropic", "ollama"]
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
 DataClass = Literal["test", "real"]
 Environment = Literal["local", "dev", "qa", "prod"]
 
@@ -49,6 +52,12 @@ class RoleConfig(BaseModel):
     max_tokens: int | None = None
     reasoning: bool = False  # F16: modelos con razonamiento extendido se usan con él desactivado
     num_ctx: int | None = None  # Ollama: ventana de contexto
+    # OpenAI (`reasoning_effort`) y Claude (`output_config.effort`): cuánto razona el modelo. Los niveles válidos
+    # dependen del modelo; None = el valor por defecto del proveedor.
+    effort: Effort | None = None
+    # Claude: ante un rechazo por política, la API repite la petición en otro modelo de Claude (beta). Solo lo
+    # admiten algunos modelos (Opus 5.5, Sonnet 5.5, Fable); con otro la petición falla.
+    refusal_fallback: bool = False
 
 
 class FallbackConfig(BaseModel):
@@ -100,12 +109,12 @@ class MissingCredential(RuntimeError):
     pass
 
 
-def _api_key(provider: ProviderConfig, default_env: str) -> str | None:
+def _api_key(provider: ProviderConfig, default_env: str, name: str = "NVIDIA NIM") -> str | None:
     env = provider.api_key_env or default_env
     key = os.environ.get(env)
     if not key and provider.base_url is None:
-        # La API alojada exige clave; un NIM autoalojado puede no tenerla.
-        raise MissingCredential(f"Falta la variable de entorno {env} para NVIDIA NIM")
+        # La API alojada exige clave; un servidor autoalojado (NIM, compatible con OpenAI) puede no tenerla.
+        raise MissingCredential(f"Falta la variable de entorno {env} para {name}")
     return key
 
 
@@ -136,6 +145,46 @@ def build_bedrock_chat(role: RoleConfig, provider: ProviderConfig):
     return ChatBedrockConverse(**kwargs)
 
 
+OPENAI_URL = "https://api.openai.com/v1"
+ANTHROPIC_URL = "https://api.anthropic.com"
+
+
+def build_openai_chat(role: RoleConfig, provider: ProviderConfig):
+    from langchain_openai import ChatOpenAI
+
+    key = _api_key(provider, "OPENAI_API_KEY", "OpenAI")
+    if not key and provider.api_key_env:
+        raise MissingCredential(f"Falta la variable de entorno {provider.api_key_env} para OpenAI")
+    # Un servidor compatible sin autenticación no tiene clave, pero el SDK exige un valor. `base_url` va siempre
+    # explícita: así una variable OPENAI_BASE_URL del entorno no desvía las peticiones a otro host.
+    kwargs = {"model": role.model, "api_key": key or "sin-clave", "base_url": provider.base_url or OPENAI_URL,
+              "timeout": provider.timeout_s, "max_retries": 1}
+    if role.temperature is not None:  # los modelos de razonamiento de OpenAI solo admiten el valor por defecto
+        kwargs["temperature"] = role.temperature
+    if role.max_tokens is not None:
+        kwargs["max_completion_tokens"] = role.max_tokens
+    if role.effort is not None:
+        kwargs["reasoning_effort"] = role.effort
+    return ChatOpenAI(**kwargs)
+
+
+def build_anthropic_chat(role: RoleConfig, provider: ProviderConfig):
+    import anthropic
+
+    from converdata.llm.anthropic_chat import ClaudeChat
+
+    # `base_url` explícita: una variable ANTHROPIC_BASE_URL del entorno no desvía las peticiones a otro host.
+    kwargs = {"timeout": provider.timeout_s, "max_retries": 1, "base_url": provider.base_url or ANTHROPIC_URL}
+    if provider.api_key_env:
+        key = os.environ.get(provider.api_key_env)
+        if not key:
+            raise MissingCredential(f"Falta la variable de entorno {provider.api_key_env} para Anthropic")
+        kwargs["api_key"] = key
+    # Sin `api_key_env`, el SDK resuelve la credencial: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN o un perfil.
+    # `temperature` no se envía: los modelos actuales de Claude la rechazan.
+    return ClaudeChat(anthropic.Anthropic(**kwargs), role.model, role.max_tokens, role.effort, role.refusal_fallback)
+
+
 OLLAMA_URL = "http://localhost:11434"
 
 
@@ -155,5 +204,7 @@ def build_ollama_chat(role: RoleConfig, provider: ProviderConfig):
 BUILDERS = {
     ("nvidia_nim", "chat"): build_nim_chat,
     ("bedrock", "chat"): build_bedrock_chat,
+    ("openai", "chat"): build_openai_chat,
+    ("anthropic", "chat"): build_anthropic_chat,
     ("ollama", "chat"): build_ollama_chat,
 }

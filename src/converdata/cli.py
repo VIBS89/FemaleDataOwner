@@ -95,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--db", action="store_true", help=DB_HELP + " en lugar de --root")
     d.add_argument("--databases", help="BDs visibles para el usuario de desarrollo (coma); por defecto todas")
     d.add_argument("--groups", default="", help="Grupos de AD del usuario de desarrollo (coma)")
-    d.add_argument("--models", help="config/models.yaml para usar el gateway de LLM (NIM o Bedrock); sin él, modo determinista")
+    d.add_argument("--models", help="config/models.yaml para usar el gateway de LLM; sin él, modo determinista")
     d.add_argument("--json", action="store_true", help="Imprime el AnswerEnvelope completo")
     llm = sub.add_parser("llm", help="Gateway de LLM (F16)")
     llm_sub = llm.add_subparsers(dest="llm_command", required=True)

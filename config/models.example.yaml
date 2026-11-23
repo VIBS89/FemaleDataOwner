@@ -1,8 +1,8 @@
 # Gateway de LLM (F16). Copiar a config/models.yaml (ignorado por git).
 # Sin este archivo, `converdata discover` corre en modo determinista.
 #
-# Fase actual: NVIDIA NIM (API alojada) con datos de prueba (BancosSQL, fixture VBank).
-# Para activar Bedrock: providers.bedrock.enabled: true y cambiar `provider`/`model` de cada rol. Sin cambios de código.
+# Cada rol elige proveedor y modelo. Cambiar de NVIDIA NIM a OpenAI, Claude o Bedrock es cambiar este archivo, sin
+# tocar código. Tras cada cambio: `converdata llm smoke` (cada rol debe devolver salida estructurada).
 
 # test = solo datos ficticios. Con datos reales poner "real": el gateway se niega a arrancar si algún rol
 # (o el respaldo) apunta a un proveedor con allowed_data: test (F17, OP-06).
@@ -15,31 +15,64 @@ providers:
     api_key_env: NVIDIA_API_KEY  # clave nvapi-... ; no hace falta con un NIM autoalojado sin autenticación
     allowed_data: test           # la API alojada de NVIDIA es un tercero: solo datos de prueba
     timeout_s: 30                # tope por petición HTTP del chat; luego cuenta como timeout para el respaldo
+  openai:
+    enabled: false               # extra `openai` (pip install -e ".[openai]")
+    base_url: null               # null = API de OpenAI; con una URL, cualquier servidor compatible con su API
+    api_key_env: OPENAI_API_KEY
+    allowed_data: test           # tercero: solo datos de prueba
+    timeout_s: 30
+  anthropic:
+    enabled: false               # extra `anthropic`; Claude por la API de Anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    allowed_data: test           # tercero: solo datos de prueba
+    timeout_s: 60                # Claude piensa antes de responder: dar más margen que a un modelo pequeño
   bedrock:
     enabled: false               # activar cuando la cuenta AWS tenga Bedrock y IAM Roles Anywhere (OP-01)
     region: us-east-1
     allowed_data: real           # sin model invocation logging (F17)
 
-# Modelos verificados con `converdata llm smoke` el 2026-10-27 en la API alojada (cuenta gratuita de desarrollador).
-# Los anteriores (llama-3.3-70b, llama-3.1-8b, nemotron-super-49b, llama-nemotron-embed-1b-v2) llegaron a fin de vida
-# el 2026-08-26 (410 Gone). Con otra cuenta pueden habilitarse modelos más grandes: listar con GET /v1/models y
-# probar con `llm smoke` antes de cambiarlos aquí.
+# La fase 1a usa dos roles, que pueden apuntar al mismo modelo: planner (intención y orden) y fast (narrativa).
+# `judge` es de la fase 1b. La búsqueda es léxica (PRD §13, decisión 9): no hay rol para ella.
+#
+# NVIDIA NIM, medido el 2026-11-22 en la API alojada con las tres llamadas del flujo (intención, orden, narrativa):
+#   nvidia/nemotron-3.5-bolt-e4b        correcto, 2–5 s por llamada (el más rápido)
+#   nvidia/nemotron-3-ultra-550b-a55b   correcto, 3–12 s por llamada (el más capaz)
+#   minimaxai/minimax-m3.1-flash        correcto, 5–12 s por llamada
+# No sirven: los que rechazan `guided_json` (mistral-large-4, kimi-k3.1-pro, nemotron-3.5-lightning, muse-glimmer)
+# y los que agotan el tiempo (gemma-4-31b-it, glm-5.3-flash). `openai/gpt-oss-20b` ya no está en el catálogo.
+# El catálogo cambia: listar con GET /v1/models y probar con `llm smoke` antes de cambiar un modelo aquí.
 roles:
-  planner: {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 1024}
-  fast:    {provider: nvidia_nim, model: openai/gpt-oss-20b, temperature: 0.0, max_tokens: 400}
-  # La fase 1a usa dos roles, que pueden apuntar al mismo modelo: planner (intención y orden) y fast (narrativa).
-  # `judge` es de la fase 1b. La búsqueda es léxica (PRD §13, decisión 9): no hay rol para ella.
+  planner: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 1024}
+  fast:    {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
 
-# Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido).
-# Con Bedrock activo como principal, NIM puede quedar aquí como respaldo (solo si data_mode: test o NIM autoalojado).
+# Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Puede ser cualquier otro
+# proveedor activo; con data_mode: real, también debe tener allowed_data: real.
 fallback: null
 # fallback:
-#   provider: bedrock
-#   models: {planner: "<inference-profile sonnet>", fast: "<inference-profile sonnet>"}
+#   provider: anthropic
+#   models: {planner: claude-opus-5-5, fast: claude-haiku-5-5}
 
 circuit: {errors: 3, window_s: 60, open_s: 300}
 
-# --- Ejemplo con Bedrock como principal (cuando se active) ---
+# --- Claude (API de Anthropic) como principal ---
+# providers: {anthropic: {enabled: true, api_key_env: ANTHROPIC_API_KEY, timeout_s: 60}}
+# roles:
+#   # Sin `temperature`: los modelos actuales de Claude la rechazan; la profundidad se regula con `effort`
+#   # (low | medium | high | xhigh | max). El pensamiento cuenta dentro de `max_tokens`: no bajar de unos miles.
+#   # refusal_fallback: ante un rechazo por política, la API repite la petición en otro modelo de Claude
+#   # (lo admiten Opus 5.5, Sonnet 5.5 y Fable; no Haiku).
+#   planner: {provider: anthropic, model: claude-opus-5-5, effort: low, max_tokens: 8000, refusal_fallback: true}
+#   fast:    {provider: anthropic, model: claude-haiku-5-5, effort: low, max_tokens: 4000}
+
+# --- OpenAI como principal ---
+# providers: {openai: {enabled: true, api_key_env: OPENAI_API_KEY}}
+# roles:
+#   # Poner el modelo que tenga la cuenta (GET /v1/models). Los modelos de razonamiento no admiten `temperature`;
+#   # `effort` se envía como `reasoning_effort`.
+#   planner: {provider: openai, model: "<modelo>", max_tokens: 2048}
+#   fast:    {provider: openai, model: "<modelo pequeño>", max_tokens: 1024}
+
+# --- Bedrock como principal (cuando se active) ---
 # data_mode: real
 # providers: {bedrock: {enabled: true, region: us-east-1, allowed_data: real}, nvidia_nim: {enabled: false}}
 # roles:

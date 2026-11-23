@@ -57,7 +57,7 @@ def test_toda_dependencia_declarada_esta_fijada_con_su_hash(lock, extras):
 def test_lo_que_se_despliega_no_trae_herramientas_de_desarrollo():
     runtime, dev = locked("runtime.lock"), locked("dev.lock")
     assert "pytest" in dev and "pytest" not in runtime
-    assert {"langchain-ollama", "langchain-nvidia-ai-endpoints"}.isdisjoint(runtime)  # proveedores solo de desarrollo
+    assert {"langchain-ollama", "langchain-nvidia-ai-endpoints", "langchain-openai", "anthropic"}.isdisjoint(runtime)  # proveedores solo de desarrollo
     # Lo desplegado es un subconjunto exacto de lo que prueba la CI: mismas versiones, mismos hashes.
     assert all(dev.get(name) == hashes for name, hashes in runtime.items())
     assert list(locked("build.lock")) == ["setuptools"]

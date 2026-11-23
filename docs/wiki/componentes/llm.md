@@ -1,6 +1,6 @@
 # Gateway de modelos (LLM)
 
-Actualizado el 2026-11-17.
+Actualizado el 2026-11-22.
 
 **Para qué sirve.** Es el único punto por el que ConverData llama a un modelo de lenguaje. Resuelve cada rol (`planner`, `fast`,
 `judge`) al proveedor y modelo de `config/models.yaml`, aplica la guarda de residencia de datos, cambia a un proveedor de respaldo
@@ -9,7 +9,10 @@ enriquecimiento del Catalog Builder lo usan sin saber qué proveedor hay detrás
 
 **Lo esencial**
 - Sin `config/models.yaml` (o sin `CONVERDATA_MODELS` en la API) todo es determinista y el flujo responde igual.
-- Proveedores: `nvidia_nim`, `bedrock`, `ollama` (este solo con `environment: local`, regla de código).
+- Proveedores: `nvidia_nim`, `openai`, `anthropic` (Claude), `bedrock` y `ollama` (este solo con `environment: local`, regla
+  de código). Cada rol elige proveedor y modelo en `models.yaml`; el respaldo puede ser cualquier otro proveedor activo.
+- **Probado en vivo solo NVIDIA NIM** (2026-11-22, API alojada). OpenAI y Claude están probados sin red, con el SDK real y un
+  transporte local; falta una llamada real con clave.
 - Con `data_mode: real`, el gateway no arranca si algún rol o el respaldo puede enviar datos a un proveedor `allowed_data: test`.
 - Respaldo solo ante throttling, indisponibilidad o timeout; nunca por errores de contenido.
 - Circuito por proveedor: 3 fallos transitorios en 60 s lo abren 5 min.
@@ -32,7 +35,8 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 |---|---|---|
 | `ModelsConfig`, `ProviderConfig`, `RoleConfig`, `FallbackConfig`, `CircuitConfig` | `src/converdata/llm/factory.py` | Esquema de `models.yaml` |
 | `load_models` | `src/converdata/llm/factory.py:91` | Lee el YAML; `CONVERDATA_ENV` sobrescribe `environment` |
-| `build_nim_chat`, `build_bedrock_chat`, `build_ollama_chat` | `src/converdata/llm/factory.py:113-152` | Constructores LangChain por proveedor |
+| `build_nim_chat`, `build_bedrock_chat`, `build_openai_chat`, `build_ollama_chat` | `src/converdata/llm/factory.py` | Constructores LangChain por proveedor |
+| `build_anthropic_chat`, `ClaudeChat` | `src/converdata/llm/factory.py`, `src/converdata/llm/anthropic_chat.py` | Claude con el SDK oficial de Anthropic: `messages.parse` para la salida estructurada, `effort`, rechazo como `LLMRefused` |
 | `LLMGateway` | `src/converdata/llm/gateway.py:151` | Validación, rutas, invocación, respaldo, etiquetas, uso |
 | `RoutedChat` | `src/converdata/llm/gateway.py:117` | Imita `invoke` y `with_structured_output` de LangChain |
 | `CircuitBreaker` | `src/converdata/llm/gateway.py:66` | Circuito por proveedor |
@@ -51,7 +55,8 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 | `judge` | Nadie: el nodo `review` lo anota como rol, pero no hay implementación conectada | Chequeos deterministas |
 | `embed` | Retirado: se ignora con un aviso; en qa/prod la API no arranca si aparece | — |
 
-`config/models.example.yaml` usa `planner` y `fast` (NIM alojado, `openai/gpt-oss-20b`); `config/models.local.example.yaml` y el
+`config/models.example.yaml` usa `planner` y `fast` (NIM alojado, `nvidia/nemotron-3.5-bolt-e4b`) y trae comentados los
+bloques para Claude, OpenAI y Bedrock; `config/models.local.example.yaml` y el
 `config/models.yaml` local usan Ollama y declaran también `judge`.
 
 ## Cómo funciona
@@ -103,7 +108,7 @@ Nunca viajan credenciales, hosts ni valores de datos (el catálogo no los tiene:
 - `RoutedChat.invoke(messages)` devuelve lo que devuelva el modelo LangChain (un mensaje o el objeto Pydantic pedido).
 - `gateway.labels`: vista viva rol → `proveedor:modelo` (o el primario si aún no hubo llamada). La usa `audit_step.model`.
 - Errores: `GatewayConfigError` (configuración), `ResidencyError` (residencia), `AllProvidersFailed` (sin proveedor disponible),
-  `MissingCredential` (falta la clave de NIM alojado).
+  `MissingCredential` (falta la clave del proveedor), `LLMRefused` (Claude declinó la petición; es un error de contenido).
 - Salidas estructuradas: `IntentResult` (`models/intent.py`), `RerankResult` (`discovery/ports.py`), `EnrichmentBatch` (`llm/nodes.py`).
 
 ## Configuración
@@ -115,8 +120,10 @@ Nunca viajan credenciales, hosts ni valores de datos (el catálogo no los tiene:
 | `data_mode` | `real` activa la guarda de residencia; obligatorio en qa/prod (`production_violations`) |
 | `providers.<p>.enabled`, `allowed_data` | Activación y qué datos puede recibir |
 | `providers.nvidia_nim.base_url`, `api_key_env`, `timeout_s` | `null` = API alojada de NVIDIA; clave en `NVIDIA_API_KEY` por defecto |
+| `providers.openai.base_url`, `api_key_env`, `timeout_s` | `null` = API de OpenAI; con una URL, un servidor compatible. Clave en `OPENAI_API_KEY` por defecto |
+| `providers.anthropic.api_key_env`, `base_url`, `timeout_s` | Clave de la API de Anthropic. Sin `api_key_env`, el SDK resuelve la credencial del entorno (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` o un perfil) |
 | `providers.bedrock.region` | Región; por defecto `us-east-1` |
-| `roles.<rol>` | `provider`, `model`, `temperature`, `max_tokens`, `reasoning` y `num_ctx` (solo Ollama) |
+| `roles.<rol>` | `provider`, `model`, `temperature`, `max_tokens`, `reasoning` y `num_ctx` (solo Ollama), `effort` (OpenAI y Claude), `refusal_fallback` (solo Claude) |
 | `fallback` | `provider`, `models` por rol, `on` (tipos de error) |
 | `circuit` | `errors`, `window_s`, `open_s` |
 
@@ -124,12 +131,38 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
 `CONVERDATA_TOKEN_LIMIT_MODE`, `CONVERDATA_ENV`.
 
 ## Pruebas que lo cubren
+- `tests/test_llm_providers.py` (15 pruebas): OpenAI y Claude por configuración y como terceros para la residencia; parámetros
+  de cada constructor; petición real del SDK de Anthropic contra un transporte local (esquemas de intención y orden,
+  `effort`, respaldo ante rechazo, sin `temperature`); rechazo y salida cortada como errores de contenido; clasificación de
+  las excepciones reales de los dos SDK.
 - `tests/test_llm_gateway.py` (21 pruebas): enrutado a NIM, cambio a Bedrock por configuración, residencia, respaldo solo ante
   transitorios, circuito, clasificación de errores, caída total → determinista, timeout de NIM, Ollama solo en local, `CONVERDATA_ENV`,
   gancho de uso.
 - `tests/test_llm_guards.py`: el reranker no añade candidatos; narrativa con objetos ajenos reemplazada; fallo del modelo → respaldo.
 - `tests/test_prompt_injection.py` y suites `inyeccion` y `guardas` de `converdata eval gate` (`tests/test_gate.py`).
 - `api/tests/test_api.py`: tope diario, uso atribuido al usuario, modo determinista con el tope agotado.
+
+## Modelos por proveedor
+- **NVIDIA NIM (API alojada)**, medido el 2026-11-22 con las tres llamadas del flujo a través del gateway:
+
+  | Modelo | Resultado |
+  |---|---|
+  | `nvidia/nemotron-3.5-bolt-e4b` | Correcto; 2–5 s por llamada. Es el del ejemplo |
+  | `nvidia/nemotron-3-ultra-550b-a55b` | Correcto; 3–12 s por llamada |
+  | `minimaxai/minimax-m3.1-flash` | Correcto; 5–12 s por llamada |
+  | `mistralai/mistral-large-4-1t-a52b`, `moonshotai/kimi-k3.1-pro`, `nvidia/nemotron-3.5-lightning-30b-a3b`, `meta/muse-glimmer-30b` | No sirven: rechazan `guided_json` (400), que es como NIM pide la salida estructurada |
+  | `google/gemma-4-31b-it`, `z-ai/glm-5.3-flash` | No sirven: agotan el tiempo |
+
+  `openai/gpt-oss-20b`, el modelo anterior del ejemplo, ya no está en el catálogo de la cuenta. El catálogo cambia: listar con
+  `GET /v1/models` y probar con `converdata llm smoke` antes de cambiar un modelo.
+- **Claude (`anthropic`)**: el modelo se escribe tal cual en el rol (`claude-opus-5-5`, `claude-haiku-5-5`…). Los modelos
+  actuales rechazan `temperature` (el adaptador no la envía) y piensan siempre: la profundidad se regula con `effort`, y el
+  pensamiento cuenta dentro de `max_tokens` (sin valor en el rol, 16 000). Con `refusal_fallback: true`, ante un rechazo por
+  política la API repite la petición en otro modelo de Claude; solo lo admiten algunos modelos, y con `data_mode: real` el
+  gateway no arranca si un rol lo tiene (la petición la atendería un modelo que la configuración no nombra).
+- **OpenAI (`openai`)**: `ChatOpenAI` con `max_completion_tokens` y `reasoning_effort`. Los modelos de razonamiento no admiten
+  `temperature`: no ponerla en el rol.
+- Los extras `openai` y `anthropic` están en `requirements/dev.lock`, no en `runtime.lock`: la imagen de la API no los trae.
 
 ## Estado real de Bedrock
 - `build_bedrock_chat` usa `ChatBedrockConverse` con `model`, `region_name`, `temperature` y `max_tokens`. Nada más.
@@ -144,7 +177,11 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
 ## Límites conocidos y deuda
 Ver [deuda técnica](../deuda-tecnica.md).
 - Los puertos `QueryExpander` (C) y `Reviewer` (B, rol `judge`) no tienen implementación con LLM.
-- `reasoning` solo se aplica a Ollama; NIM y Bedrock lo ignoran.
+- `reasoning` solo se aplica a Ollama; `effort` solo a OpenAI y Claude. Los demás proveedores los ignoran.
+- OpenAI y Claude no se han llamado con una clave real. `timeout_s` sí se aplica a los dos.
+- Una clave que falta no se detecta al arrancar: los clientes se crean en la primera llamada, el paso queda como
+  `fallback:MissingCredential` y la respuesta sale en modo determinista. `converdata llm smoke` lo detecta.
+- El respaldo conserva `temperature` y `max_tokens` del rol, pero no `effort` ni `refusal_fallback`.
 - El uso de tokens se estima con salida estructurada.
 - El gateway del enriquecimiento del build se crea aparte, sin gancho de uso: sus tokens no se cuentan.
 - La aclaración que devuelve el modelo se muestra sin la guarda de texto (ver
