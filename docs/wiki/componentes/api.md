@@ -86,6 +86,8 @@ Sacadas de `api/converdata_api/main.py`. La web las llama con el prefijo `/api`.
 | GET | `/health/metrics` | Contadores, p50/p95 por ruta, tokens |
 | GET | `/admin/metrics?days=` | Scorecard de F25 desde la auditoría |
 | GET, PUT | `/admin/inventory` | Inventario; los servidores nuevos se prueban con la credencial de la sesión |
+| POST | `/admin/inventory/probe` | Asistente: con `{host, trust_server_certificate}` o `{server_id}`, prueba la conexión y lista las bases de usuario (acceso, tablas y vistas). No guarda nada |
+| POST | `/admin/inventory/connect` | Asistente: añade un servidor o cambia las bases de uno, sin reenviar el inventario, y lanza el build (202) |
 | GET, PUT | `/admin/stewards` | Responsables por login y dominio |
 | POST, GET | `/admin/catalog/build` | Lanza y consulta el build del catálogo |
 | GET | `/admin/audit?limit=&kind=` | Lectura de la auditoría (se audita) |
@@ -149,6 +151,27 @@ El catálogo aún no existe: `/discover` y el explorador responden 409 hasta el 
 6. Si algún servidor respondió, recarga el servicio antes de marcar el estado.
 7. Evento `catalog_build_finished` con estado, objetos e ids de servidores fallidos, sin el texto del error.
 Además, `runtime.refresh` (como mucho cada 15 s) carga lo que publique otro proceso, como el Builder programado.
+
+### Conectar un servidor con el asistente
+El asistente "Conectar base de datos" de Administración usa dos rutas (`main.py`, `probe_inventory` y `connect_inventory`):
+1. `POST /admin/inventory/probe` con un host nuevo o el `server_id` de uno del inventario (con su propia configuración). Un host
+   que ya está en el inventario responde 409. En qa/prod, `trust_server_certificate: true` responde 400.
+2. La credencial es la de la sesión en ese servidor o, si no la tiene, la misma plantilla que usa `PUT /admin/inventory`
+   (`session_credential`). Hasta 30 sondeos por minuto y administrador.
+3. Evento `inventory_probe` (host, sin contraseña) **antes** de conectar; si no se registra, no se conecta.
+4. `connector.probe` lee `sys.databases` y `HAS_DBACCESS` desde `master`; solo abre las bases con acceso para contar tablas y
+   vistas en `sys.objects` (lo que el login ve). Un conteo que falla sale `null` y sigue; a partir de 100 bases no se cuenta.
+5. Se quitan las bases de sistema y la propia (`ConverData` o la de `CONVERDATA_DB`), como en el build.
+6. Un fallo de login o de red responde 200 con `connected: false` y el mensaje de `LoginFailed` (sin host, login ni texto del
+   driver); cualquier otro error, un mensaje genérico. No se guarda nada.
+7. `POST /admin/inventory/connect` con `host` + `alias` (obligatorio: el host no se muestra a los usuarios) + `environment`, o
+   con `server_id`; y `databases` (`["*"]` = todas, también las futuras). Con un build en curso, 409.
+8. `replacing_inventory` (el mismo bloque que el PUT) audita `inventory_updated` con `servers` y `previous` (hosts) y
+   `via: "connect"` antes de aplicar; prueba la credencial (`connector.identify`); si no entra, 400 y evento
+   `inventory_updated_failed`, sin guardar. Si entra, guarda el inventario y lanza el build con la sesión.
+
+Se eligió una ruta propia en lugar de que la web encadene `PUT /admin/inventory` y el build: el PUT reemplaza el inventario
+entero con lo que la web tenga en memoria (pisa el cambio de otro administrador) y guarda aunque el servidor nuevo no conecte.
 
 ### Curación
 - **Dudas**: `POST /curation/requests` exige que el `trace_id` sea una respuesta reciente del mismo usuario (últimas 500 en memoria).
@@ -216,6 +239,9 @@ Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
   reglas, tope de tokens, diccionario, responsables, manual.
 - `api/tests/test_security.py`: sesión obligatoria, roles, bloqueo de logins, caducidad, cabeceras, CSRF, validaciones, arranque en
   qa/prod, barrido sin fugas, curación sin fugas.
+- `api/tests/test_inventory_wizard.py`: sondeo y conexión del asistente (solo admin, auditado antes de conectar, sin guardar,
+  bases sin acceso, BD propia excluida, certificado en producción, errores sin detalles, conectar y descubrir); una prueba
+  contra SQL Server real.
 - `api/tests/test_catalog_db.py`, `api/tests/test_audit_db.py`: con SQL Server real (`CONVERDATA_TEST_DB`).
 - `api/tests/test_demo.py`, `api/tests/test_mcp.py`, `api/tests/test_marked_literals.py`.
 
@@ -225,7 +251,8 @@ Ver [deuda técnica](../deuda-tecnica.md).
 - `Session.groups` siempre es `[]`: no hay LDAP (HU-13). Los fragmentos con `allowed_groups` no los ve nadie.
 - Los roles `data_admin` se fijan al iniciar sesión; quitar a alguien de `CONVERDATA_ADMINS` exige revocar sus sesiones.
 - La cookie dura `min(ttl, vida máxima)` desde el login y no se renueva: en el navegador la sesión dura como mucho 8 h.
-- `PUT /admin/inventory` prueba los servidores nuevos con la contraseña del administrador: un host mal escrito la recibe.
+- `PUT /admin/inventory`, `/admin/inventory/probe` y `/admin/inventory/connect` prueban los servidores nuevos con la contraseña
+  del administrador: un host mal escrito (o cualquiera que el administrador escriba) la recibe. No hay lista de hosts permitidos.
 - Por `/mcp`, con el tope de tokens agotado, `discover` se rechaza aunque `CONVERDATA_TOKEN_LIMIT_MODE=deterministic`.
 - El build del catálogo con `enrich` usa otro gateway sin gancho de uso: sus tokens no se cuentan.
 - Ver los fallos encontrados en [seguridad y auditoría](seguridad-auditoria.md#fallos-encontrados-al-revisar-el-código).

@@ -2,6 +2,8 @@ import type {
   AnswerEnvelope,
   AuditRow,
   BuildJob,
+  ConnectBody,
+  ConnectResult,
   CurationRequest,
   DictionaryReport,
   DatabaseSummary,
@@ -11,6 +13,7 @@ import type {
   ReviewItem,
   ObjectDetail,
   ObjectRow,
+  ProbeResult,
   ServerConfig,
   SetupStatus,
   User,
@@ -166,6 +169,9 @@ export const api = {
       method: "PUT",
       json: { servers },
     }),
+  probeServer: (body: { host: string; trust_server_certificate: boolean } | { server_id: string }) =>
+    request<ProbeResult>("/admin/inventory/probe", { method: "POST", json: body }),
+  connectServer: (body: ConnectBody) => request<ConnectResult>("/admin/inventory/connect", { method: "POST", json: body }),
   stewards: () => request<{ stewards: Steward[]; domains: string[] }>("/admin/stewards"),
   saveStewards: (stewards: Steward[]) =>
     request<{ ok: boolean; stewards: Steward[] }>("/admin/stewards", { method: "PUT", json: { stewards } }),

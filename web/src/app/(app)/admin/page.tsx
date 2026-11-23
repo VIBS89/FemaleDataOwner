@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -12,6 +12,7 @@ import {
   Lock,
   Network,
   Pencil,
+  PlugZap,
   Plus,
   RefreshCw,
   Server,
@@ -21,6 +22,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { BuildSteps, useBuildJob } from "@/components/build-progress";
+import { ConnectDatabaseWizard } from "@/components/connect-database-wizard";
 import { headings, Markdown } from "@/components/markdown";
 import { PageHeader } from "@/components/page-header";
 import { useSession } from "@/components/session-provider";
@@ -39,7 +42,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { dateTime, ENV_LABEL, number, pct } from "@/lib/format";
-import type { AuditRow, BuildJob, ServerConfig, Steward } from "@/lib/types";
+import type { AuditRow, ServerConfig, Steward } from "@/lib/types";
 
 export default function AdminPage() {
   const { isAdmin } = useSession();
@@ -93,54 +96,26 @@ export default function AdminPage() {
 }
 
 // --- CatalogBuildFlow ------------------------------------------------------------------------------
-const BUILD_STEPS = [
-  { key: "extract", label: "Leer metadatos", hint: "Objetos, columnas, llaves, descripciones y dependencias de sys.*" },
-  { key: "enrich", label: "Enriquecer", hint: "Descripciones y sinónimos sugeridos por IA (opcional)" },
-  { key: "relate", label: "Relacionar", hint: "Entidades entre BDs y linaje de vistas" },
-  { key: "write", label: "Escribir catálogo", hint: "Formato F1, listo para el agente" },
-];
-
 function BuildPanel() {
   const { status, refreshStatus } = useSession();
-  const [job, setJob] = useState<BuildJob | null>(null);
   const [enrich, setEnrich] = useState(false);
-  const [tick, setTick] = useState(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const poll = useCallback(async () => {
-    const j = await api.buildStatus();
-    setJob(j);
-    if (j.status !== "running" && timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-      await refreshStatus();
-      if (j.status === "ok") toast.success("Catálogo listo", { description: "Ya puedes preguntar al agente." });
-      else if (j.status === "error") toast.error("La construcción terminó con errores");
-    }
-    return j;
-  }, [refreshStatus]);
+  const { job, tick, poll, follow } = useBuildJob(async (j) => {
+    await refreshStatus();
+    if (j.status === "ok") toast.success("Catálogo listo", { description: "Ya puedes preguntar al agente." });
+    else if (j.status === "error") toast.error("La construcción terminó con errores");
+  });
 
   useEffect(() => {
-    poll().then((j) => {
-      if (j.status === "running") timer.current = setInterval(poll, 1200);
-    });
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, [poll]);
-
-  useEffect(() => {
-    if (job?.status !== "running") return;
-    const t = setInterval(() => setTick((x) => x + 1), 900);
-    return () => clearInterval(t);
-  }, [job?.status]);
+    poll()
+      .then((j) => {
+        if (j.status === "running") follow(j);
+      })
+      .catch(() => undefined);
+  }, [poll, follow]);
 
   async function start() {
     try {
-      const j = await api.startBuild(enrich);
-      setJob(j);
-      setTick(0);
-      if (!timer.current) timer.current = setInterval(poll, 1200);
+      follow(await api.startBuild(enrich));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo iniciar");
     }
@@ -148,7 +123,6 @@ function BuildPanel() {
 
   const running = job?.status === "running";
   const r = job?.report;
-  const activeStep = Math.min(Math.floor(tick / 2), BUILD_STEPS.length - 1);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
@@ -164,31 +138,7 @@ function BuildPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ol className="space-y-3">
-            {BUILD_STEPS.map((s, i) => {
-              const done = job?.status === "ok" || (running && i < activeStep);
-              const now = running && i === activeStep;
-              const skipped = s.key === "enrich" && (running ? !job?.enrich : !enrich);
-              return (
-                <li key={s.key} className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${
-                      done ? "border-conf-high bg-conf-high-bg text-conf-high" : now ? "border-primary text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    {done ? <CheckCircle2 className="size-3.5" /> : now ? <Loader2 className="size-3.5 animate-spin" /> : i + 1}
-                  </div>
-                  <div className={skipped ? "opacity-50" : ""}>
-                    <p className="text-sm font-medium">
-                      {s.label}
-                      {skipped && <span className="text-muted-foreground font-normal"> · omitido</span>}
-                    </p>
-                    <p className="text-muted-foreground text-xs">{s.hint}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          <BuildSteps job={job} tick={tick} enrich={enrich} />
           {running && <Progress value={Math.min(15 + tick * 6, 92)} className="h-1.5" />}
           <label className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
             <span className="grid">
@@ -319,8 +269,17 @@ function ServersPanel() {
   const [servers, setServers] = useState<ServerConfig[] | null>(null);
   const [editing, setEditing] = useState<{ index: number | null; value: ServerConfig } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Asistente "Conectar base de datos": `server` null = uno nuevo; si no, añade bases a ese servidor.
+  const [wizard, setWizard] = useState<{ server: ServerConfig | null } | null>(null);
 
   const load = useCallback(() => api.inventory().then((d) => setServers(d.servers)), []);
+  const reloadAfterWizard = useCallback(async () => {
+    try {
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo recargar el inventario");
+    }
+  }, [load]);
   useEffect(() => {
     load().catch((e: Error) => toast.error(e.message));
   }, [load]);
@@ -359,9 +318,14 @@ function ServersPanel() {
             Dónde busca el agente. “Todas” descubre todas las BDs que el login puede ver. Los servidores nuevos se prueban con tu misma credencial.
           </CardDescription>
         </div>
-        <Button size="sm" onClick={() => setEditing({ index: null, value: { ...EMPTY } })} disabled={saving}>
-          <Plus /> Agregar
-        </Button>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setEditing({ index: null, value: { ...EMPTY } })} disabled={saving}>
+            <Plus /> Agregar a mano
+          </Button>
+          <Button size="sm" onClick={() => setWizard({ server: null })} disabled={saving}>
+            <PlugZap /> Conectar base de datos
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-hidden rounded-lg border">
@@ -372,7 +336,7 @@ function ServersPanel() {
                 <TableHead>Ambiente</TableHead>
                 <TableHead>Bases</TableHead>
                 <TableHead>Tu sesión</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -403,7 +367,17 @@ function ServersPanel() {
                         <span className="text-muted-foreground text-xs">Sin credencial</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Añadir bases a ${s.alias}`}
+                        title="Añadir bases"
+                        disabled={saving}
+                        onClick={() => setWizard({ server: s })}
+                      >
+                        <DatabaseZap />
+                      </Button>
                       <Button variant="ghost" size="icon-sm" aria-label="Editar" onClick={() => setEditing({ index: i, value: { ...s } })}>
                         <Pencil />
                       </Button>
@@ -496,6 +470,8 @@ function ServersPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {wizard && <ConnectDatabaseWizard server={wizard.server} onClose={() => setWizard(null)} onConnected={reloadAfterWizard} />}
     </Card>
   );
 }
@@ -693,6 +669,8 @@ const AUDIT_KIND: Record<string, string> = {
   catalog_build_started: "Construcción iniciada",
   catalog_build_finished: "Construcción terminada",
   inventory_updated: "Inventario",
+  inventory_updated_failed: "Inventario sin aplicar",
+  inventory_probe: "Prueba de servidor",
   stewards_updated: "Responsables",
   curation_description: "Descripción editada",
   curation_rule: "Regla guardada",
@@ -851,7 +829,10 @@ function describe(r: AuditRow): string {
     case "login":
       return `Servidores: ${(r.servers as string[] | undefined)?.join(", ") ?? "—"}`;
     case "inventory_updated":
-      return `Servidores: ${((r.servers as { id: string }[] | undefined) ?? []).map((s) => s.id).join(", ") || "—"}`;
+    case "inventory_updated_failed":
+      return `Servidores: ${((r.servers as { id: string }[] | undefined) ?? []).map((s) => s.id).join(", ") || "—"}${r.via === "connect" ? " · asistente" : ""}`;
+    case "inventory_probe":
+      return `Host: ${String(r.host ?? "—")}`;
     case "stewards_updated":
       return `Responsables: ${((r.stewards as Steward[] | undefined) ?? []).map((s) => s.login).join(", ") || "ninguno"}`;
     case "curation_description":
