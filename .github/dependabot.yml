@@ -5,6 +5,11 @@ updates:
   - package-ecosystem: docker
     directories: ["/api", "/web"]
     schedule: {interval: weekly}
+    ignore:
+      # Los bloqueos de Python están compilados para una versión concreta: cambiarla es una tarea manual
+      # (regenerar requirements/*.lock y subir la CI a la vez), no una actualización automática.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: {interval: weekly}
@@ -14,3 +19,7 @@ updates:
     groups:
       web:
         update-types: [minor, patch]
+    ignore:
+      # typescript-eslint (lo trae eslint-config-next) todavía no admite TypeScript 7: el lint deja de cargar.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
