@@ -101,7 +101,8 @@ def test_la_web_fija_versiones_exactas_y_su_bloqueo_trae_integridad():
     package = json.loads((ROOT / "web" / "package.json").read_text(encoding="utf-8"))
     lock = json.loads((ROOT / "web" / "package-lock.json").read_text(encoding="utf-8"))
     assert lock["lockfileVersion"] >= 3
-    remote = {path: p for path, p in lock["packages"].items() if path and not p.get("link")}
+    # Un paquete `inBundle` viaja dentro del tarball de su padre, y es la integridad del padre la que lo cubre.
+    remote = {path: p for path, p in lock["packages"].items() if path and not p.get("link") and not p.get("inBundle")}
     assert remote and all(p.get("integrity", "").startswith("sha") for p in remote.values())
     # Lo que se despliega va con versión exacta: una actualización es un cambio visible en el repositorio.
     assert re.fullmatch(r"\d+\.\d+\.\d+", package["dependencies"]["next"])
