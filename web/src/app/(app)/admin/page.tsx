@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -9,9 +9,9 @@ import {
   Database,
   DatabaseZap,
   Loader2,
-  Lock,
   Network,
   Pencil,
+  PlugZap,
   Plus,
   RefreshCw,
   Server,
@@ -21,7 +21,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { headings, Markdown } from "@/components/markdown";
+import { BuildSteps, useBuildJob } from "@/components/build-progress";
+import { ConnectDatabaseWizard } from "@/components/connect-database-wizard";
+import { DocsViewer } from "@/components/docs-viewer";
 import { PageHeader } from "@/components/page-header";
 import { useSession } from "@/components/session-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -39,21 +41,47 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { dateTime, ENV_LABEL, number, pct } from "@/lib/format";
-import type { AuditRow, BuildJob, ServerConfig, Steward } from "@/lib/types";
+import type { AuditRow, ServerConfig, Steward } from "@/lib/types";
+
+const TABS = ["build", "servers", "stewards", "audit", "docs"];
+
+/** Pestaña de la URL (`?tab=docs&doc=…` abre la documentación en esa página). Solo en el navegador. */
+function tabFromUrl(): string {
+  if (typeof window === "undefined") return "build";
+  const tab = new URLSearchParams(window.location.search).get("tab") ?? "";
+  return TABS.includes(tab) ? tab : "build";
+}
 
 export default function AdminPage() {
   const { isAdmin } = useSession();
   const router = useRouter();
+  const [tab, setTab] = useState(tabFromUrl);
   useEffect(() => {
     if (!isAdmin) router.replace("/");
   }, [isAdmin, router]);
+  useEffect(() => {
+    const onPop = () => setTab(tabFromUrl());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   if (!isAdmin) return null;
+
+  const changeTab = (value: string) => {
+    setTab(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", value);
+    if (value !== "docs") {
+      url.searchParams.delete("doc");
+      url.hash = "";
+    }
+    window.history.replaceState(null, "", url);
+  };
 
   return (
     <div className="flex min-h-svh flex-col">
       <PageHeader title="Administración" />
-      <div className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-6">
-        <Tabs defaultValue="build">
+      <div className={`mx-auto w-full space-y-6 p-4 sm:p-6 ${tab === "docs" ? "max-w-7xl" : "max-w-5xl"}`}>
+        <Tabs value={tab} onValueChange={changeTab}>
           <TabsList>
             <TabsTrigger value="build">
               <DatabaseZap /> Descubrir esquemas
@@ -67,8 +95,8 @@ export default function AdminPage() {
             <TabsTrigger value="audit">
               <Network /> Auditoría
             </TabsTrigger>
-            <TabsTrigger value="manual">
-              <BookOpen /> Manual de desarrollo
+            <TabsTrigger value="docs">
+              <BookOpen /> Documentación
             </TabsTrigger>
           </TabsList>
           <TabsContent value="build" className="mt-5">
@@ -83,8 +111,8 @@ export default function AdminPage() {
           <TabsContent value="audit" className="mt-5">
             <AuditPanel />
           </TabsContent>
-          <TabsContent value="manual" className="mt-5">
-            <ManualPanel />
+          <TabsContent value="docs" className="mt-5">
+            <DocsViewer />
           </TabsContent>
         </Tabs>
       </div>
@@ -93,54 +121,26 @@ export default function AdminPage() {
 }
 
 // --- CatalogBuildFlow ------------------------------------------------------------------------------
-const BUILD_STEPS = [
-  { key: "extract", label: "Leer metadatos", hint: "Objetos, columnas, llaves, descripciones y dependencias de sys.*" },
-  { key: "enrich", label: "Enriquecer", hint: "Descripciones y sinónimos sugeridos por IA (opcional)" },
-  { key: "relate", label: "Relacionar", hint: "Entidades entre BDs y linaje de vistas" },
-  { key: "write", label: "Escribir catálogo", hint: "Formato F1, listo para el agente" },
-];
-
 function BuildPanel() {
   const { status, refreshStatus } = useSession();
-  const [job, setJob] = useState<BuildJob | null>(null);
   const [enrich, setEnrich] = useState(false);
-  const [tick, setTick] = useState(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const poll = useCallback(async () => {
-    const j = await api.buildStatus();
-    setJob(j);
-    if (j.status !== "running" && timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-      await refreshStatus();
-      if (j.status === "ok") toast.success("Catálogo listo", { description: "Ya puedes preguntar al agente." });
-      else if (j.status === "error") toast.error("La construcción terminó con errores");
-    }
-    return j;
-  }, [refreshStatus]);
+  const { job, tick, poll, follow } = useBuildJob(async (j) => {
+    await refreshStatus();
+    if (j.status === "ok") toast.success("Catálogo listo", { description: "Ya puedes preguntar al agente." });
+    else if (j.status === "error") toast.error("La construcción terminó con errores");
+  });
 
   useEffect(() => {
-    poll().then((j) => {
-      if (j.status === "running") timer.current = setInterval(poll, 1200);
-    });
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, [poll]);
-
-  useEffect(() => {
-    if (job?.status !== "running") return;
-    const t = setInterval(() => setTick((x) => x + 1), 900);
-    return () => clearInterval(t);
-  }, [job?.status]);
+    poll()
+      .then((j) => {
+        if (j.status === "running") follow(j);
+      })
+      .catch(() => undefined);
+  }, [poll, follow]);
 
   async function start() {
     try {
-      const j = await api.startBuild(enrich);
-      setJob(j);
-      setTick(0);
-      if (!timer.current) timer.current = setInterval(poll, 1200);
+      follow(await api.startBuild(enrich));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo iniciar");
     }
@@ -148,7 +148,6 @@ function BuildPanel() {
 
   const running = job?.status === "running";
   const r = job?.report;
-  const activeStep = Math.min(Math.floor(tick / 2), BUILD_STEPS.length - 1);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
@@ -164,31 +163,7 @@ function BuildPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ol className="space-y-3">
-            {BUILD_STEPS.map((s, i) => {
-              const done = job?.status === "ok" || (running && i < activeStep);
-              const now = running && i === activeStep;
-              const skipped = s.key === "enrich" && (running ? !job?.enrich : !enrich);
-              return (
-                <li key={s.key} className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${
-                      done ? "border-conf-high bg-conf-high-bg text-conf-high" : now ? "border-primary text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    {done ? <CheckCircle2 className="size-3.5" /> : now ? <Loader2 className="size-3.5 animate-spin" /> : i + 1}
-                  </div>
-                  <div className={skipped ? "opacity-50" : ""}>
-                    <p className="text-sm font-medium">
-                      {s.label}
-                      {skipped && <span className="text-muted-foreground font-normal"> · omitido</span>}
-                    </p>
-                    <p className="text-muted-foreground text-xs">{s.hint}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          <BuildSteps job={job} tick={tick} enrich={enrich} />
           {running && <Progress value={Math.min(15 + tick * 6, 92)} className="h-1.5" />}
           <label className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
             <span className="grid">
@@ -319,8 +294,17 @@ function ServersPanel() {
   const [servers, setServers] = useState<ServerConfig[] | null>(null);
   const [editing, setEditing] = useState<{ index: number | null; value: ServerConfig } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Asistente "Conectar base de datos": `server` null = uno nuevo; si no, añade bases a ese servidor.
+  const [wizard, setWizard] = useState<{ server: ServerConfig | null } | null>(null);
 
   const load = useCallback(() => api.inventory().then((d) => setServers(d.servers)), []);
+  const reloadAfterWizard = useCallback(async () => {
+    try {
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo recargar el inventario");
+    }
+  }, [load]);
   useEffect(() => {
     load().catch((e: Error) => toast.error(e.message));
   }, [load]);
@@ -359,9 +343,14 @@ function ServersPanel() {
             Dónde busca el agente. “Todas” descubre todas las BDs que el login puede ver. Los servidores nuevos se prueban con tu misma credencial.
           </CardDescription>
         </div>
-        <Button size="sm" onClick={() => setEditing({ index: null, value: { ...EMPTY } })} disabled={saving}>
-          <Plus /> Agregar
-        </Button>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setEditing({ index: null, value: { ...EMPTY } })} disabled={saving}>
+            <Plus /> Agregar a mano
+          </Button>
+          <Button size="sm" onClick={() => setWizard({ server: null })} disabled={saving}>
+            <PlugZap /> Conectar base de datos
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-hidden rounded-lg border">
@@ -372,7 +361,7 @@ function ServersPanel() {
                 <TableHead>Ambiente</TableHead>
                 <TableHead>Bases</TableHead>
                 <TableHead>Tu sesión</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -403,7 +392,17 @@ function ServersPanel() {
                         <span className="text-muted-foreground text-xs">Sin credencial</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Añadir bases a ${s.alias}`}
+                        title="Añadir bases"
+                        disabled={saving}
+                        onClick={() => setWizard({ server: s })}
+                      >
+                        <DatabaseZap />
+                      </Button>
                       <Button variant="ghost" size="icon-sm" aria-label="Editar" onClick={() => setEditing({ index: i, value: { ...s } })}>
                         <Pencil />
                       </Button>
@@ -496,6 +495,8 @@ function ServersPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {wizard && <ConnectDatabaseWizard server={wizard.server} onClose={() => setWizard(null)} onConnected={reloadAfterWizard} />}
     </Card>
   );
 }
@@ -693,6 +694,8 @@ const AUDIT_KIND: Record<string, string> = {
   catalog_build_started: "Construcción iniciada",
   catalog_build_finished: "Construcción terminada",
   inventory_updated: "Inventario",
+  inventory_updated_failed: "Inventario sin aplicar",
+  inventory_probe: "Prueba de servidor",
   stewards_updated: "Responsables",
   curation_description: "Descripción editada",
   curation_rule: "Regla guardada",
@@ -705,6 +708,7 @@ const AUDIT_KIND: Record<string, string> = {
   sessions_revoked: "Sesiones cerradas",
   audit_read: "Consulta de auditoría",
   manual_read: "Lectura del manual",
+  doc_read: "Lectura de documentación",
 };
 
 function AuditPanel() {
@@ -792,54 +796,6 @@ function AuditPanel() {
   );
 }
 
-// --- Manual de desarrollo ----------------------------------------------------------------------------
-function ManualPanel() {
-  const [manual, setManual] = useState<{ markdown: string; updated_at: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Se pide al abrir la pestaña (Radix monta el contenido solo entonces): cada apertura es una lectura auditada.
-  useEffect(() => {
-    api
-      .manual()
-      .then(setManual)
-      .catch((e: Error) => setError(e.message));
-  }, []);
-
-  if (error)
-    return (
-      <Alert variant="destructive">
-        <AlertCircle />
-        <AlertTitle>No se pudo abrir el manual</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  if (!manual) return <Skeleton className="h-96 w-full" />;
-
-  const sections = headings(manual.markdown);
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="gap-1 font-normal">
-            <Lock className="size-3" /> Solo administradores de datos
-          </Badge>
-          <span className="text-muted-foreground text-xs">Actualizado el {dateTime(manual.updated_at)} · cada lectura queda en la auditoría</span>
-        </div>
-        <nav aria-label="Secciones del manual" className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-sm">
-          {sections.map((s) => (
-            <a key={s.id} href={`#${s.id}`} className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">
-              {s.text}
-            </a>
-          ))}
-        </nav>
-      </CardHeader>
-      <CardContent>
-        <Markdown text={manual.markdown} />
-      </CardContent>
-    </Card>
-  );
-}
-
 function describe(r: AuditRow): string {
   switch (r.type) {
     case "question":
@@ -851,7 +807,10 @@ function describe(r: AuditRow): string {
     case "login":
       return `Servidores: ${(r.servers as string[] | undefined)?.join(", ") ?? "—"}`;
     case "inventory_updated":
-      return `Servidores: ${((r.servers as { id: string }[] | undefined) ?? []).map((s) => s.id).join(", ") || "—"}`;
+    case "inventory_updated_failed":
+      return `Servidores: ${((r.servers as { id: string }[] | undefined) ?? []).map((s) => s.id).join(", ") || "—"}${r.via === "connect" ? " · asistente" : ""}`;
+    case "inventory_probe":
+      return `Host: ${String(r.host ?? "—")}`;
     case "stewards_updated":
       return `Responsables: ${((r.stewards as Steward[] | undefined) ?? []).map((s) => s.login).join(", ") || "ninguno"}`;
     case "curation_description":
@@ -866,6 +825,8 @@ function describe(r: AuditRow): string {
       return `${String(r.applied ?? 0)} descripciones aplicadas`;
     case "access_denied":
       return `${String(r.method ?? "")} ${String(r.route ?? "")}`;
+    case "doc_read":
+      return `docs/${String(r.path ?? "")}${r.doc === "diagram" ? " · diagrama" : ""}`;
     default:
       return "";
   }

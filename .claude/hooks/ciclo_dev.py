@@ -17,6 +17,9 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path(__file__).resolve().parents[2])
+# Las pruebas corren con el entorno del proyecto si existe: el `python` que lanza el hook puede ser el del sistema,
+# sin las dependencias instaladas.
+PYTHON = next((str(p) for p in (RAIZ / ".venv/Scripts/python.exe", RAIZ / ".venv/bin/python") if p.exists()), sys.executable)
 PROTEGIDOS = (
     (re.compile(r"(^|/)\.env($|\.(?!example$))"), "contiene credenciales; edítalo a mano"),
     (re.compile(r"(^|/)(package-lock\.json|poetry\.lock|uv\.lock)$"), "es un lockfile generado; usa el gestor de paquetes"),
@@ -75,7 +78,7 @@ def verificar_edicion(evento: dict) -> None:
 def pruebas_commit(evento: dict) -> None:
     if not re.search(r"\bgit\b\s+commit\b", comando(evento)):
         return
-    r = ejecutar([sys.executable, "-m", "pytest", "-q", "-x", "--no-header"], RAIZ, 280)
+    r = ejecutar([PYTHON, "-m", "pytest", "-q", "-x", "--no-header"], RAIZ, 280)
     if "No module named pytest" in r.stderr:
         print("pytest no está instalado (pip install -e .[dev]); se omite la verificación previa al commit.", file=sys.stderr)
         return
@@ -89,7 +92,7 @@ def cierre(evento: dict) -> None:
     r = ejecutar(["git", "status", "--porcelain", "--", "src", "api", "tests"], RAIZ, 15)
     if ".py" not in r.stdout:
         return
-    r = ejecutar([sys.executable, "-m", "pytest", "-q", "-x", "--no-header", "tests/test_architecture.py"], RAIZ, 120)
+    r = ejecutar([PYTHON, "-m", "pytest", "-q", "-x", "--no-header", "tests/test_architecture.py"], RAIZ, 120)
     if "No module named pytest" in r.stderr:
         return
     if r.returncode:

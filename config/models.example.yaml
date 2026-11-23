@@ -41,9 +41,17 @@ providers:
 # No sirven: los que rechazan `guided_json` (mistral-large-4, kimi-k3.1-pro, nemotron-3.5-lightning, muse-glimmer)
 # y los que agotan el tiempo (gemma-4-31b-it, glm-5.3-flash). `openai/gpt-oss-20b` ya no está en el catálogo.
 # El catálogo cambia: listar con GET /v1/models y probar con `llm smoke` antes de cambiar un modelo aquí.
+#
+# Evaluación de descubrimiento (58 casos, BancosSQL, 2026-11-22). Con estos modelos conviene declarar solo `fast`:
+#   sin modelo                                    Hit@1 98,0 %  Hit@3 98,0 %  p50 0,02 s
+#   solo fast = nemotron-3.5-bolt-e4b (narrativa)  Hit@1 98,0 %  Hit@3 98,0 %  p50 0,9 s
+#   planner + fast = nemotron-3.5-bolt-e4b         Hit@1 62,7 %  Hit@3 74,5 %  p50 6,2 s
+#   planner + fast = nemotron-3-ultra-550b-a55b    Hit@1 64,7 %  Hit@3 66,7 %  p50 39 s
+# Un rol que falta usa su camino determinista. Antes de activar `planner` con otro modelo o proveedor, medir con
+# `converdata eval discovery --root tests/fixtures/bancos --models config/models.yaml`.
 roles:
-  planner: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 1024}
   fast:    {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
+  # planner: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 1024}
 
 # Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Puede ser cualquier otro
 # proveedor activo; con data_mode: real, también debe tener allowed_data: real.

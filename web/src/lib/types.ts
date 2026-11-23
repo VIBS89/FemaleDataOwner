@@ -201,6 +201,37 @@ export interface ServerConfig {
   connected?: boolean;
 }
 
+/** Una base de usuario del servidor sondeado, vista con el login del administrador (`POST /admin/inventory/probe`). */
+export interface DatabaseProbe {
+  name: string;
+  accessible: boolean;
+  tables: number | null; // null: sin acceso o no se pudo contar
+  views: number | null;
+  reason: string | null; // por qué no se puede elegir
+}
+
+export interface ProbeResult {
+  connected: boolean;
+  error: string | null;
+  databases: DatabaseProbe[];
+}
+
+export interface ConnectBody {
+  server_id?: string; // uno del inventario: solo cambian sus bases
+  host?: string; // uno nuevo
+  alias?: string;
+  environment?: string;
+  trust_server_certificate?: boolean;
+  databases: string[]; // ["*"] = todas, también las que se creen después
+  enrich?: boolean;
+}
+
+export interface ConnectResult {
+  ok: boolean;
+  server: { id: string; alias: string };
+  job: BuildJob;
+}
+
 export interface AuditRow {
   ts: string;
   type: string;
@@ -305,4 +336,30 @@ export interface DictionaryReport {
   same: number;
   unknown: string[];
   forbidden: string[];
+}
+
+// --- documentación interna (GET /admin/docs) ---
+export interface DocsEntry {
+  path: string; // relativa a docs/, con "/" (p. ej. "wiki/componentes/api.md")
+  title: string;
+  section?: string; // carpeta: "", "wiki", "wiki/componentes", "architecture"
+}
+
+export interface DocsIndex {
+  pages: DocsEntry[];
+  diagrams: DocsEntry[];
+}
+
+export interface DocsPage {
+  path: string;
+  title: string;
+  markdown: string;
+  updated_at: string;
+}
+
+export interface DocsDiagram {
+  path: string;
+  title: string;
+  html: string; // HTML autónomo de Archify: solo dentro de un iframe con sandbox, nunca en el DOM de la web
+  updated_at: string;
 }

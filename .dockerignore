@@ -7,7 +7,12 @@
 data
 BancosSQL.zip
 docs/*
+# Solo lo que el visor de documentación sirve (api/converdata_api/documentation.py); PRD, specs y backlog no
 !docs/manual-desarrollo.md
+!docs/wiki
+!docs/architecture/README.md
+!docs/architecture/*.html
 tools
 web
 config/models.yaml
+deploy

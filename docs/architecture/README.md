@@ -112,7 +112,7 @@ Diagrama: [onpremise-architecture.html](onpremise-architecture.html).
 | Contenedor | Tecnología | Responsabilidad | Estado |
 |---|---|---|---|
 | IIS | Proxy inverso con HttpPlatformHandler | Termina TLS, envía `/` a la web y `/mcp` a la API, y supervisa los dos procesos | Pendiente: scripts de instalación |
-| Web | Next.js 15 | Chat, Catálogo, Mis solicitudes, Curación, Métricas y Administración. Reenvía `/api/*` | Construida |
+| Web | Next.js 16 | Chat, Catálogo, Mis solicitudes, Curación, Métricas y Administración. Reenvía `/api/*` | Construida |
 | ConverData-API | FastAPI, LangGraph, pyodbc | REST, servidor MCP y flujo de descubrimiento. Sin estado en disco | Construida |
 | Builder | El mismo código, como comando | Lee metadatos, arma el catálogo y lo publica | Construido; falta programarlo |
 | BD `ConverData` | SQL Server 2016 o posterior | Catálogo con historial, conocimiento, curación, inventario y auditoría | Construida (migraciones 001 y 002) |

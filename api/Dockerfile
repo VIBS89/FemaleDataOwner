@@ -2,6 +2,8 @@
 # Se construye desde la raíz de DataAgent:  docker build -f api/Dockerfile .
 # Imagen base fijada por digest (la etiqueta puede cambiar de contenido). Se actualiza con Dependabot o a mano:
 #   docker buildx imagetools inspect python:3.12-slim-bookworm
+# La versión de Python es la de los bloqueos (requirements/*.lock, compilados para 3.12 y solo con paquetes ya
+# compilados): subirla exige regenerarlos antes (requirements/README.md). Dependabot solo mueve el digest.
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 ACCEPT_EULA=Y
@@ -38,8 +40,12 @@ COPY api ./api
 COPY config ./config
 # Migraciones de la BD ConverData: `converdata db migrate` desde la misma imagen
 COPY db ./db
-# Manual de desarrollo: la web lo muestra solo a los administradores de datos (GET /admin/manual)
+# Documentación que la web muestra solo a los administradores de datos (GET /admin/docs): manual, wiki y arquitectura.
+# Nada más de docs/ (PRD, specs, backlog); la lista es la de api/converdata_api/documentation.py.
 COPY docs/manual-desarrollo.md ./docs/manual-desarrollo.md
+COPY docs/wiki ./docs/wiki
+COPY docs/architecture/README.md ./docs/architecture/README.md
+COPY docs/architecture/*.html ./docs/architecture/
 # Solo para CONVERDATA_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
 COPY tests/fixtures/bancos ./tests/fixtures/bancos
 COPY tests/fixtures/vbank ./tests/fixtures/vbank

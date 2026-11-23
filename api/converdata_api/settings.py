@@ -8,7 +8,17 @@ from pathlib import Path
 from typing import Literal
 
 
-DEFAULT_DEMO_FIXTURES = (Path("tests/fixtures/vbank"), Path("tests/fixtures/bancos"))
+# Raíz de la instalación (el repositorio, o /app en la imagen): lo que viaja con el código se busca aquí y no en el
+# directorio de trabajo, que depende de dónde se arranque la API (`uvicorn --app-dir api` desde la raíz, o desde `api/`).
+INSTALL_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_DEMO_FIXTURES = (INSTALL_ROOT / "tests" / "fixtures" / "vbank", INSTALL_ROOT / "tests" / "fixtures" / "bancos")
+DEFAULT_DOCS_DIR = INSTALL_ROOT / "docs"
+
+
+def _installed(value: str) -> Path:
+    """Ruta de un archivo de la instalación: si es relativa, respecto a `INSTALL_ROOT`, no al directorio de trabajo."""
+    path = Path(value)
+    return path if path.is_absolute() else INSTALL_ROOT / path
 
 
 def _flag(name: str, default: bool = False) -> bool:
@@ -60,8 +70,9 @@ class ApiSettings:
     login_lockout_s: int = 900
     trust_proxy: bool = False  # tomar el origen de X-Forwarded-For (solo detrás de un proxy inverso propio)
     max_body_bytes: int = 4 * 1024 * 1024  # el diccionario CSV admite 2 MB de texto
-    # Manual de desarrollo que la web muestra solo a `data_admin` (describe controles y sus puntos débiles).
-    manual_path: Path = Path("docs/manual-desarrollo.md")
+    # Documentación que la web muestra solo a `data_admin` (describe controles y sus puntos débiles): de esta carpeta se
+    # sirven únicamente el manual, la wiki y la arquitectura (`documentation.py`).
+    docs_dir: Path = DEFAULT_DOCS_DIR
 
     @property
     def production(self) -> bool:
@@ -86,7 +97,7 @@ class ApiSettings:
             # Apagado por defecto: usa la cuenta del proceso, no la de quien llama (solo para desarrollo local).
             allow_windows_auth=_flag("CONVERDATA_ALLOW_WINDOWS_AUTH"),
             demo=_flag("CONVERDATA_DEMO"),
-            demo_fixtures=[Path(p.strip()) for p in os.environ.get("CONVERDATA_DEMO_FIXTURE", ",".join(
+            demo_fixtures=[_installed(p.strip()) for p in os.environ.get("CONVERDATA_DEMO_FIXTURE", ",".join(
                 str(f) for f in DEFAULT_DEMO_FIXTURES)).split(",") if p.strip()],
             demo_preload_inventory=_flag("CONVERDATA_DEMO_PRELOAD", True),
             demo_history=_flag("CONVERDATA_DEMO_HISTORY", True),
@@ -112,5 +123,5 @@ class ApiSettings:
             login_lockout_s=int(os.environ.get("CONVERDATA_LOGIN_LOCKOUT_S", 900)),
             trust_proxy=_flag("CONVERDATA_TRUST_PROXY"),
             max_body_bytes=int(os.environ.get("CONVERDATA_MAX_BODY_BYTES", 4 * 1024 * 1024)),
-            manual_path=Path(os.environ.get("CONVERDATA_MANUAL", "docs/manual-desarrollo.md")),
+            docs_dir=_installed(os.environ.get("CONVERDATA_DOCS", "").strip() or str(DEFAULT_DOCS_DIR)),
         )
