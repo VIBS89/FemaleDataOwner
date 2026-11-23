@@ -1,0 +1,336 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "ConverData — Ciclo de una duda escalada y de una confirmación",
+    "output": "docs/architecture/ciclo-curacion.html",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/VIBS89/FemaleDataOwner.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "df5310c78a74930e2687186c1348f31bd2907752"
+    }
+  },
+  "mainPath": [
+    "mostrada",
+    "abierta",
+    "respondida",
+    "vigente"
+  ],
+  "states": [
+    {
+      "id": "mostrada",
+      "type": "start",
+      "label": "Respuesta mostrada",
+      "sublabel": "ShownTrace en memoria",
+      "tag": "AgentRuntime",
+      "step": "01",
+      "sources": [
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 589,
+          "end_line": 589,
+          "label": "remember"
+        },
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 305,
+          "end_line": 312,
+          "label": "_traces"
+        }
+      ]
+    },
+    {
+      "id": "abierta",
+      "type": "waiting",
+      "label": "open",
+      "sublabel": "curation.request",
+      "tag": "CurationDesk",
+      "step": "02",
+      "sources": [
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 641,
+          "end_line": 650,
+          "label": "POST /curation/requests"
+        },
+        {
+          "path": "api/converdata_api/curation.py",
+          "line": 73,
+          "end_line": 81,
+          "label": "create_request"
+        },
+        {
+          "path": "db/converdata/002_curacion.sql",
+          "line": 32,
+          "end_line": 46,
+          "label": "curation.request"
+        }
+      ]
+    },
+    {
+      "id": "respondida",
+      "type": "active",
+      "label": "answered",
+      "sublabel": "kind = asset",
+      "tag": "responsable",
+      "step": "03",
+      "sources": [
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 713,
+          "end_line": 739,
+          "label": "curation_answer"
+        },
+        {
+          "path": "api/converdata_api/curation.py",
+          "line": 83,
+          "end_line": 85,
+          "label": "answer_request"
+        }
+      ]
+    },
+    {
+      "id": "vigente",
+      "type": "success",
+      "label": "Confirmada por responsable",
+      "sublabel": "golden steward · confianza 1.0",
+      "tag": "índice",
+      "step": "04",
+      "sources": [
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 357,
+          "end_line": 369,
+          "label": "steward_golden"
+        },
+        {
+          "path": "src/converdata/discovery/engine.py",
+          "line": 194,
+          "end_line": 197,
+          "label": "peso en la confianza"
+        }
+      ]
+    },
+    {
+      "id": "olvidada",
+      "type": "neutral",
+      "label": "Traza olvidada",
+      "sublabel": "más de 500 · responde 404",
+      "tag": "terminal",
+      "sources": [
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 305,
+          "end_line": 309,
+          "label": "MAX_TRACES"
+        },
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 642,
+          "end_line": 645,
+          "label": "404 al escalar"
+        }
+      ]
+    },
+    {
+      "id": "sin_fuente",
+      "type": "neutral",
+      "label": "no_source",
+      "sublabel": "no existe fuente",
+      "tag": "terminal",
+      "sources": [
+        {
+          "path": "api/converdata_api/curation.py",
+          "line": 83,
+          "end_line": 85,
+          "label": "answered / no_source"
+        },
+        {
+          "path": "db/converdata/002_curacion.sql",
+          "line": 36,
+          "end_line": 36,
+          "label": "ck_request_status"
+        }
+      ]
+    },
+    {
+      "id": "solo_solicitud",
+      "type": "neutral",
+      "label": "Solo en la solicitud",
+      "sublabel": "pregunta con PII",
+      "tag": "no se aprende",
+      "sources": [
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 357,
+          "end_line": 363,
+          "label": "steward_golden → None"
+        }
+      ]
+    },
+    {
+      "id": "usuarios",
+      "type": "success",
+      "label": "Confirmada por usuarios",
+      "sublabel": "netas ≥ 1 · pesa con ≥ 2",
+      "tag": "golden users",
+      "sources": [
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 631,
+          "end_line": 638,
+          "label": "POST /discover/feedback"
+        },
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 321,
+          "end_line": 355,
+          "label": "record_feedback"
+        },
+        {
+          "path": "src/converdata/curation.py",
+          "line": 60,
+          "end_line": 77,
+          "label": "resolve_golden"
+        }
+      ]
+    },
+    {
+      "id": "retirada",
+      "type": "failure",
+      "label": "Pareja retirada",
+      "sublabel": "rejected = true",
+      "tag": "fuera del índice",
+      "sources": [
+        {
+          "path": "src/converdata/curation.py",
+          "line": 70,
+          "end_line": 77,
+          "label": "rejected"
+        },
+        {
+          "path": "src/converdata/memory/memory_store.py",
+          "line": 109,
+          "end_line": 109,
+          "label": "se excluye"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-escalar",
+      "from": "mostrada",
+      "to": "abierta",
+      "label": "Preguntar al responsable"
+    },
+    {
+      "id": "t-responder",
+      "from": "abierta",
+      "to": "respondida",
+      "label": "responde con activo"
+    },
+    {
+      "id": "t-aprender",
+      "from": "respondida",
+      "to": "vigente",
+      "label": "entra al índice",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t-olvido",
+      "from": "mostrada",
+      "to": "olvidada",
+      "label": "expulsada",
+      "variant": "dashed"
+    },
+    {
+      "id": "t-sin-fuente",
+      "from": "abierta",
+      "to": "sin_fuente",
+      "label": "kind = no_source"
+    },
+    {
+      "id": "t-pii",
+      "from": "respondida",
+      "to": "solo_solicitud",
+      "label": "pregunta con PII",
+      "variant": "security"
+    },
+    {
+      "id": "t-voto-usuario",
+      "from": "mostrada",
+      "to": "usuarios",
+      "label": "✔ de usuarios"
+    },
+    {
+      "id": "t-voto-resp",
+      "from": "mostrada",
+      "to": "vigente",
+      "label": "✔ del responsable"
+    },
+    {
+      "id": "t-netas-cero",
+      "from": "usuarios",
+      "to": "retirada",
+      "label": "netas ≤ 0",
+      "variant": "security"
+    },
+    {
+      "id": "t-nuevos-votos",
+      "from": "retirada",
+      "to": "usuarios",
+      "label": "nuevos ✔"
+    },
+    {
+      "id": "t-resp-retira",
+      "from": "vigente",
+      "to": "retirada",
+      "label": "✖ del responsable",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "Detalle de las transiciones",
+      "items": [
+        "Preguntar al responsable: POST /curation/requests; una por respuesta y usuario; el webhook solo lleva el dominio",
+        "Responde con activo: POST /curation/requests/{id}/answer; descripción opcional sin PII y después el estado",
+        "Entra al índice: steward_golden + _written(); la siguiente pregunta equivalente ya la encuentra",
+        "Expulsada: el runtime guarda las últimas 500 respuestas; después no se puede escalar ni votar",
+        "✔ de usuarios: confirmaciones menos rechazos, último voto de cada usuario (curation.vote)"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Quién mueve cada paso",
+      "items": [
+        "Quien preguntó escala desde el chat: CurationDesk.create_request",
+        "El responsable del dominio contesta desde Curación: solo ve y responde dudas de sus dominios",
+        "Los votos ✔/✖ pasan por AgentRuntime.record_feedback y se auditan antes de aplicarse"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Estados reales",
+      "items": [
+        "curation.request solo admite open, answered y no_source",
+        "No hay expiración ni reapertura de una solicitud",
+        "Mis solicitudes muestra la respuesta filtrada por los permisos de quien preguntó"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Reglas de la confirmación",
+      "items": [
+        "El responsable manda: su ✔ entra de inmediato y su ✖ retira la pareja",
+        "Los votos de usuarios no cambian lo que decidió un responsable",
+        "Sin plantilla o con PII el voto cuenta pero no se convierte en conocimiento"
+      ]
+    }
+  ]
+}

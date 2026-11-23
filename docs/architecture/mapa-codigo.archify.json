@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "ConverData — Mapa del código por capas",
+    "output": "docs/architecture/mapa-codigo.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "direction": "right"
+  },
+  "nodes": [
+    {
+      "id": "repo",
+      "label": "ConverData",
+      "sublabel": "Repositorio: backend, API, web y BD"
+    },
+    {
+      "id": "dom",
+      "label": "Dominio",
+      "parent": "repo",
+      "sublabel": "src/converdata · sin E/S"
+    },
+    {
+      "id": "d_models",
+      "label": "models/",
+      "parent": "dom",
+      "sublabel": "AnswerEnvelope, catálogo, intención"
+    },
+    {
+      "id": "d_catalog",
+      "label": "catalog/",
+      "parent": "dom",
+      "sublabel": "Catalog, índice e ids · store.py"
+    },
+    {
+      "id": "d_discovery",
+      "label": "discovery/",
+      "parent": "dom",
+      "sublabel": "Reglas deterministas · engine.py"
+    },
+    {
+      "id": "d_curation",
+      "label": "curation.py",
+      "parent": "dom",
+      "sublabel": "Plantilla anónima y votos (F24)"
+    },
+    {
+      "id": "d_graph",
+      "label": "graph/",
+      "parent": "dom",
+      "sublabel": "Grafo del patrimonio · estate.py"
+    },
+    {
+      "id": "d_identity",
+      "label": "identity/",
+      "parent": "dom",
+      "sublabel": "Objetos visibles · visibility.py"
+    },
+    {
+      "id": "d_audit",
+      "label": "audit/recorder.py",
+      "parent": "dom",
+      "sublabel": "Auditoría como puerto (F11)"
+    },
+    {
+      "id": "d_memory",
+      "label": "memory/",
+      "parent": "dom",
+      "sublabel": "base.py y text.py: tokenize, literales"
+    },
+    {
+      "id": "d_metadata",
+      "label": "metadata/ports.py",
+      "parent": "dom",
+      "sublabel": "Puerto de lectura de metadatos"
+    },
+    {
+      "id": "d_builder",
+      "label": "builder/",
+      "parent": "dom",
+      "sublabel": "Metadatos → catálogo (F1)"
+    },
+    {
+      "id": "d_config",
+      "label": "config.py",
+      "parent": "dom",
+      "sublabel": "Configuración tipada"
+    },
+    {
+      "id": "app",
+      "label": "Aplicación",
+      "parent": "repo",
+      "sublabel": "Casos de uso con LangGraph"
+    },
+    {
+      "id": "a_flows",
+      "label": "flows/",
+      "parent": "app",
+      "sublabel": "Los dos grafos de LangGraph"
+    },
+    {
+      "id": "a_discover",
+      "label": "discover.py",
+      "parent": "a_flows",
+      "sublabel": "DiscoverFlow · empieza aquí"
+    },
+    {
+      "id": "a_build",
+      "label": "catalog_build.py",
+      "parent": "a_flows",
+      "sublabel": "CatalogBuildFlow"
+    },
+    {
+      "id": "a_application",
+      "label": "application/",
+      "parent": "app",
+      "sublabel": "Casos de uso compartidos"
+    },
+    {
+      "id": "a_tools",
+      "label": "discovery.py",
+      "parent": "a_application",
+      "sublabel": "DiscoveryTools: API, chat y MCP"
+    },
+    {
+      "id": "a_refresh",
+      "label": "catalog_refresh.py",
+      "parent": "a_application",
+      "sublabel": "refresh_catalog: CLI y API"
+    },
+    {
+      "id": "inf",
+      "label": "Infraestructura",
+      "parent": "repo",
+      "sublabel": "Adaptadores de los puertos"
+    },
+    {
+      "id": "i_storage",
+      "label": "storage/",
+      "parent": "inf",
+      "sublabel": "BD ConverData y archivos"
+    },
+    {
+      "id": "i_repo",
+      "label": "catalog_repository.py",
+      "parent": "i_storage",
+      "sublabel": "SqlServerCatalogRepository"
+    },
+    {
+      "id": "i_cur",
+      "label": "curation_repository.py",
+      "parent": "i_storage",
+      "sublabel": "SqlServerCurationRepository"
+    },
+    {
+      "id": "i_files",
+      "label": "files.py",
+      "parent": "i_storage",
+      "sublabel": "Mismos puertos en disco (demo)"
+    },
+    {
+      "id": "i_mig",
+      "label": "migrations.py",
+      "parent": "i_storage",
+      "sublabel": "Aplica db/converdata en orden"
+    },
+    {
+      "id": "i_meta",
+      "label": "metadata/sqlserver.py",
+      "parent": "inf",
+      "sublabel": "Lee sys.* con el login del usuario"
+    },
+    {
+      "id": "i_audit",
+      "label": "audit/sqlserver.py",
+      "parent": "inf",
+      "sublabel": "AuditSink en SQL Server · chain.py"
+    },
+    {
+      "id": "i_mem",
+      "label": "memory/memory_store.py",
+      "parent": "inf",
+      "sublabel": "Índice léxico BM25 en memoria"
+    },
+    {
+      "id": "i_llm",
+      "label": "llm/",
+      "parent": "inf",
+      "sublabel": "Gateway de LLM (F16)"
+    },
+    {
+      "id": "i_gw",
+      "label": "gateway.py",
+      "parent": "i_llm",
+      "sublabel": "Rol → proveedor, guardas y tokens"
+    },
+    {
+      "id": "i_fac",
+      "label": "factory.py",
+      "parent": "i_llm",
+      "sublabel": "models.yaml y proveedores"
+    },
+    {
+      "id": "i_nodes",
+      "label": "nodes.py",
+      "parent": "i_llm",
+      "sublabel": "Nodos con LLM del DiscoverFlow"
+    },
+    {
+      "id": "i_anth",
+      "label": "anthropic_chat.py",
+      "parent": "i_llm",
+      "sublabel": "Proveedor anthropic"
+    },
+    {
+      "id": "i_obs",
+      "label": "observability/",
+      "parent": "inf",
+      "sublabel": "Logs JSON y contadores"
+    },
+    {
+      "id": "int",
+      "label": "Integración",
+      "parent": "repo",
+      "sublabel": "Entradas y raíz de composición"
+    },
+    {
+      "id": "n_boot",
+      "label": "bootstrap.py",
+      "parent": "int",
+      "sublabel": "build_service* y open_stores"
+    },
+    {
+      "id": "n_cli",
+      "label": "cli.py",
+      "parent": "int",
+      "sublabel": "Comando converdata"
+    },
+    {
+      "id": "n_mcp",
+      "label": "integration/mcp/",
+      "parent": "int",
+      "sublabel": "server.py (HTTP) y stdio.py"
+    },
+    {
+      "id": "n_eval",
+      "label": "evaluation/",
+      "parent": "int",
+      "sublabel": "eval discovery y eval gate"
+    },
+    {
+      "id": "n_api",
+      "label": "api/converdata_api/",
+      "parent": "int",
+      "sublabel": "FastAPI: ConverData-API"
+    },
+    {
+      "id": "n_main",
+      "label": "main.py",
+      "parent": "n_api",
+      "sublabel": "Rutas HTTP · empieza aquí"
+    },
+    {
+      "id": "n_runtime",
+      "label": "runtime.py",
+      "parent": "n_api",
+      "sublabel": "AgentRuntime: catálogo y visibilidad"
+    },
+    {
+      "id": "n_sec",
+      "label": "security.py",
+      "parent": "n_api",
+      "sublabel": "Middleware, ritmo y bloqueos"
+    },
+    {
+      "id": "n_vault",
+      "label": "vault.py",
+      "parent": "n_api",
+      "sublabel": "SessionVault: credenciales cifradas"
+    },
+    {
+      "id": "n_curation",
+      "label": "curation.py",
+      "parent": "n_api",
+      "sublabel": "CurationDesk: dudas y responsables"
+    },
+    {
+      "id": "n_conn",
+      "label": "connector.py",
+      "parent": "n_api",
+      "sublabel": "SqlConnector y DemoConnector"
+    },
+    {
+      "id": "n_demo",
+      "label": "demo.py",
+      "parent": "n_api",
+      "sublabel": "Modo CONVERDATA_DEMO=1"
+    },
+    {
+      "id": "n_mcpm",
+      "label": "mcp_mount.py",
+      "parent": "n_api",
+      "sublabel": "MCP montado en /mcp"
+    },
+    {
+      "id": "web",
+      "label": "Web",
+      "parent": "repo",
+      "sublabel": "web/src · Next.js 15"
+    },
+    {
+      "id": "w_app",
+      "label": "app/(app)/",
+      "parent": "web",
+      "sublabel": "Chat, Catálogo, Curación, Métricas…"
+    },
+    {
+      "id": "w_proxy",
+      "label": "app/api/",
+      "parent": "web",
+      "sublabel": "Proxy /api/* hacia la API"
+    },
+    {
+      "id": "w_login",
+      "label": "app/login/",
+      "parent": "web",
+      "sublabel": "Entrada con el login de SQL Server"
+    },
+    {
+      "id": "w_comp",
+      "label": "components/",
+      "parent": "web",
+      "sublabel": "chat/, asset-sheet, session-provider"
+    },
+    {
+      "id": "w_lib",
+      "label": "lib/",
+      "parent": "web",
+      "sublabel": "api.ts y types.ts: contrato con la API"
+    },
+    {
+      "id": "db",
+      "label": "BD ConverData",
+      "parent": "repo",
+      "sublabel": "db/converdata · migraciones"
+    },
+    {
+      "id": "db1",
+      "label": "001_esquemas.sql",
+      "parent": "db",
+      "sublabel": "catalog, knowledge, golden, audit"
+    },
+    {
+      "id": "db2",
+      "label": "002_curacion.sql",
+      "parent": "db",
+      "sublabel": "Esquema curation"
+    },
+    {
+      "id": "tst",
+      "label": "Pruebas",
+      "parent": "repo",
+      "sublabel": "tests/ y api/tests/"
+    },
+    {
+      "id": "t_arch",
+      "label": "test_architecture.py",
+      "parent": "tst",
+      "sublabel": "Verifica la regla de capas"
+    },
+    {
+      "id": "t_fakes",
+      "label": "fakes.py y conftest.py",
+      "parent": "tst",
+      "sublabel": "Dobles reutilizables"
+    },
+    {
+      "id": "t_fix",
+      "label": "fixtures/",
+      "parent": "tst",
+      "sublabel": "Catálogos bancos y vbank"
+    },
+    {
+      "id": "t_api",
+      "label": "api/tests/",
+      "parent": "tst",
+      "sublabel": "Rutas, seguridad, demo y BD real"
+    },
+    {
+      "id": "tools",
+      "label": "tools/archify/",
+      "parent": "repo",
+      "sublabel": "Generador de estos diagramas"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "La regla de dependencias",
+      "items": [
+        "integración → aplicación → dominio ← infraestructura",
+        "El dominio define puertos; la infraestructura los implementa",
+        "tests/test_architecture.py la comprueba en src/converdata"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Por dónde empezar a leer",
+      "items": [
+        "Una pregunta: flows/discover.py y después discovery/engine.py",
+        "Una ruta HTTP: api/converdata_api/main.py y runtime.py",
+        "El catálogo: flows/catalog_build.py y builder/"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Deuda conocida",
+      "items": [
+        "La API todavía llama al DiscoverFlow sin pasar por DiscoveryTools",
+        "test_architecture.py no analiza api/converdata_api",
+        "Detalle en capas-backend.md y en la wiki"
+      ]
+    }
+  ]
+}

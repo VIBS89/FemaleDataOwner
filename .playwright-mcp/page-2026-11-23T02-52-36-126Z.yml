@@ -1,0 +1,14 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - complementary [ref=f1e3]:
+      - generic [ref=f1e4]: ConverData
+      - generic [ref=f1e10]:
+        - heading "Pregunta en español dónde está un dato. El agente te dice dónde vive, qué significa y cuánto confiar." [level=1] [ref=f1e11]
+        - list [ref=f1e12]:
+          - listitem [ref=f1e13]: Base de datos, tabla, ambiente y servidor de cada candidato
+          - listitem [ref=f1e17]: Descripción con su fuente, reglas de negocio, relaciones y responsables
+          - listitem [ref=f1e21]: Solo ves lo que tu login de base de datos ya puede leer
+      - paragraph [ref=f1e25]: "Los datos de clientes no salen del banco: el catálogo guarda solo metadatos."
+    - main [ref=f1e26]
+  - region "Notifications alt+T"
+  - alert [ref=f1e35]

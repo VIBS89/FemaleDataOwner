@@ -1,0 +1,862 @@
+{
+  "schema_version": 1,
+  "diagram_type": "class",
+  "meta": {
+    "title": "ConverData — Gateway de LLM: puertos, proveedores y configuración",
+    "output": "docs/architecture/gateway-llm.html",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/VIBS89/FemaleDataOwner.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "df5310c78a74930e2687186c1348f31bd2907752"
+    }
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 48,
+    "typeMaxW": 250
+  },
+  "types": [
+    {
+      "id": "discover_deps",
+      "label": "DiscoverDeps",
+      "kind": "record",
+      "sublabel": "Recibe los tres puertos",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "intent_classifier",
+          "type": "IntentClassifier",
+          "visibility": "public"
+        },
+        {
+          "name": "reranker",
+          "type": "Reranker | None",
+          "visibility": "public"
+        },
+        {
+          "name": "narrator",
+          "type": "Narrator",
+          "visibility": "public"
+        },
+        {
+          "name": "model_names",
+          "type": "Mapping[str, str]",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/flows/discover.py",
+          "line": 61,
+          "end_line": 74,
+          "label": "DiscoverDeps"
+        },
+        {
+          "path": "src/converdata/bootstrap.py",
+          "line": 92,
+          "end_line": 103,
+          "label": "cableado de roles"
+        }
+      ]
+    },
+    {
+      "id": "llm_enricher",
+      "label": "LlmEnricher",
+      "kind": "class",
+      "sublabel": "Builder: describe tablas",
+      "row": 0,
+      "col": 3,
+      "methods": [
+        {
+          "name": "enrich",
+          "parameters": "tables",
+          "returns": "EnrichmentBatch",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/nodes.py",
+          "line": 116,
+          "end_line": 122
+        },
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 432,
+          "end_line": 435,
+          "label": "uso en la API"
+        }
+      ]
+    },
+    {
+      "id": "rule_intent",
+      "label": "RuleBasedIntentClassifier",
+      "kind": "class",
+      "sublabel": "Reglas, sin modelo",
+      "row": 1,
+      "col": 0,
+      "methods": [
+        {
+          "name": "classify",
+          "parameters": "question, history",
+          "returns": "IntentResult",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/discovery/deterministic.py",
+          "line": 36,
+          "end_line": 79
+        }
+      ]
+    },
+    {
+      "id": "intent_port",
+      "label": "IntentClassifier",
+      "kind": "interface",
+      "sublabel": "Puerto del nodo intent",
+      "row": 1,
+      "col": 1,
+      "methods": [
+        {
+          "name": "classify",
+          "parameters": "question, history",
+          "returns": "IntentResult",
+          "visibility": "public",
+          "abstract": true
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/discovery/ports.py",
+          "line": 55,
+          "end_line": 56
+        }
+      ]
+    },
+    {
+      "id": "llm_intent",
+      "label": "LlmIntentClassifier",
+      "kind": "class",
+      "sublabel": "Salida estructurada",
+      "row": 1,
+      "col": 2,
+      "methods": [
+        {
+          "name": "classify",
+          "parameters": "question, history",
+          "returns": "IntentResult",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/nodes.py",
+          "line": 46,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "score_rerank",
+      "label": "ScoreReranker",
+      "kind": "class",
+      "sublabel": "Orden del motor + evidencia",
+      "row": 2,
+      "col": 0,
+      "methods": [
+        {
+          "name": "rerank",
+          "parameters": "question, items",
+          "returns": "list[RerankScore]",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/discovery/deterministic.py",
+          "line": 115,
+          "end_line": 133
+        }
+      ]
+    },
+    {
+      "id": "rerank_port",
+      "label": "Reranker",
+      "kind": "interface",
+      "sublabel": "Puerto del nodo rerank",
+      "row": 2,
+      "col": 1,
+      "methods": [
+        {
+          "name": "rerank",
+          "parameters": "question, items",
+          "returns": "list[RerankScore]",
+          "visibility": "public",
+          "abstract": true
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/discovery/ports.py",
+          "line": 59,
+          "end_line": 60
+        },
+        {
+          "path": "src/converdata/flows/discover.py",
+          "line": 212,
+          "end_line": 234,
+          "label": "cascada y respaldo"
+        }
+      ]
+    },
+    {
+      "id": "llm_rerank",
+      "label": "LlmReranker",
+      "kind": "class",
+      "sublabel": "Relevancia 0–1 por id",
+      "row": 2,
+      "col": 2,
+      "methods": [
+        {
+          "name": "rerank",
+          "parameters": "question, items",
+          "returns": "list[RerankScore]",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/nodes.py",
+          "line": 56,
+          "end_line": 64
+        }
+      ]
+    },
+    {
+      "id": "routed_chat",
+      "label": "RoutedChat",
+      "kind": "class",
+      "sublabel": "Chat de LangChain por rol",
+      "row": 2,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "role",
+          "type": "str",
+          "visibility": "public"
+        }
+      ],
+      "methods": [
+        {
+          "name": "with_structured_output",
+          "parameters": "schema",
+          "returns": "RoutedChat",
+          "visibility": "public"
+        },
+        {
+          "name": "invoke",
+          "parameters": "messages",
+          "returns": "resultado",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/gateway.py",
+          "line": 119,
+          "end_line": 129
+        }
+      ]
+    },
+    {
+      "id": "template_narrator",
+      "label": "TemplateNarrator",
+      "kind": "class",
+      "sublabel": "Plantilla de 1 a 4 frases",
+      "row": 3,
+      "col": 0,
+      "methods": [
+        {
+          "name": "narrate",
+          "parameters": "question, discovery",
+          "returns": "str",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/discovery/deterministic.py",
+          "line": 161,
+          "end_line": 192
+        }
+      ]
+    },
+    {
+      "id": "narrator_port",
+      "label": "Narrator",
+      "kind": "interface",
+      "sublabel": "Puerto del nodo respond",
+      "row": 3,
+      "col": 1,
+      "methods": [
+        {
+          "name": "narrate",
+          "parameters": "question, discovery",
+          "returns": "str",
+          "visibility": "public",
+          "abstract": true
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/discovery/ports.py",
+          "line": 63,
+          "end_line": 64
+        }
+      ]
+    },
+    {
+      "id": "llm_narrator",
+      "label": "LlmNarrator",
+      "kind": "class",
+      "sublabel": "Solo objetos del JSON",
+      "row": 3,
+      "col": 2,
+      "methods": [
+        {
+          "name": "narrate",
+          "parameters": "question, discovery",
+          "returns": "str",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/nodes.py",
+          "line": 67,
+          "end_line": 86
+        }
+      ]
+    },
+    {
+      "id": "llm_gateway",
+      "label": "LLMGateway",
+      "kind": "class",
+      "sublabel": "Único punto hacia los modelos",
+      "row": 3,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "labels",
+          "type": "Mapping[rol, str]",
+          "visibility": "public"
+        },
+        {
+          "name": "usage_hook",
+          "type": "Callable | None",
+          "visibility": "public"
+        }
+      ],
+      "methods": [
+        {
+          "name": "from_file",
+          "parameters": "path",
+          "returns": "LLMGateway",
+          "visibility": "public",
+          "static": true
+        },
+        {
+          "name": "validate",
+          "returns": "None",
+          "visibility": "public"
+        },
+        {
+          "name": "routes",
+          "parameters": "role",
+          "returns": "list[Route]",
+          "visibility": "public"
+        },
+        {
+          "name": "chat",
+          "parameters": "role",
+          "returns": "RoutedChat",
+          "visibility": "public"
+        },
+        {
+          "name": "_invoke",
+          "parameters": "role, messages",
+          "returns": "resultado",
+          "visibility": "private"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/gateway.py",
+          "line": 153,
+          "end_line": 192,
+          "label": "init y validate"
+        },
+        {
+          "path": "src/converdata/llm/gateway.py",
+          "line": 193,
+          "end_line": 228,
+          "label": "rutas y constructores"
+        },
+        {
+          "path": "src/converdata/llm/gateway.py",
+          "line": 238,
+          "end_line": 263,
+          "label": "respaldo y circuito"
+        }
+      ]
+    },
+    {
+      "id": "claude_chat",
+      "label": "ClaudeChat",
+      "kind": "class",
+      "sublabel": "SDK oficial de Anthropic",
+      "row": 4,
+      "col": 1,
+      "methods": [
+        {
+          "name": "with_structured_output",
+          "parameters": "schema",
+          "returns": "ClaudeChat",
+          "visibility": "public"
+        },
+        {
+          "name": "invoke",
+          "parameters": "messages",
+          "returns": "AIMessage | parsed",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/anthropic_chat.py",
+          "line": 45,
+          "end_line": 82
+        },
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 171,
+          "end_line": 185,
+          "label": "build_anthropic_chat"
+        }
+      ]
+    },
+    {
+      "id": "circuit_breaker",
+      "label": "CircuitBreaker",
+      "kind": "class",
+      "sublabel": "3 fallos en 60 s → 5 min",
+      "row": 4,
+      "col": 2,
+      "methods": [
+        {
+          "name": "is_open",
+          "parameters": "provider",
+          "returns": "bool",
+          "visibility": "public"
+        },
+        {
+          "name": "record_failure",
+          "parameters": "provider",
+          "returns": "None",
+          "visibility": "public"
+        },
+        {
+          "name": "record_success",
+          "parameters": "provider",
+          "returns": "None",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/gateway.py",
+          "line": 68,
+          "end_line": 92
+        }
+      ]
+    },
+    {
+      "id": "models_config",
+      "label": "ModelsConfig",
+      "kind": "record",
+      "sublabel": "config/models.yaml",
+      "row": 4,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "environment",
+          "type": "local | dev | qa | prod",
+          "visibility": "public"
+        },
+        {
+          "name": "data_mode",
+          "type": "test | real",
+          "visibility": "public"
+        },
+        {
+          "name": "providers",
+          "type": "dict[Provider, …]",
+          "visibility": "public"
+        },
+        {
+          "name": "roles",
+          "type": "dict[str, RoleConfig]",
+          "visibility": "public"
+        },
+        {
+          "name": "fallback",
+          "type": "FallbackConfig | None",
+          "visibility": "public"
+        },
+        {
+          "name": "circuit",
+          "type": "CircuitConfig",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 77,
+          "end_line": 105
+        },
+        {
+          "path": "config/models.example.yaml",
+          "line": 9,
+          "end_line": 55
+        }
+      ]
+    },
+    {
+      "id": "provider_enum",
+      "label": "Provider",
+      "kind": "enum",
+      "sublabel": "Proveedor → chat model",
+      "row": 5,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "nvidia_nim",
+          "type": "ChatNVIDIA"
+        },
+        {
+          "name": "bedrock",
+          "type": "ChatBedrockConverse"
+        },
+        {
+          "name": "openai",
+          "type": "ChatOpenAI"
+        },
+        {
+          "name": "anthropic",
+          "type": "ClaudeChat"
+        },
+        {
+          "name": "ollama",
+          "type": "ChatOllama · local"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 25,
+          "end_line": 31
+        },
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 122,
+          "end_line": 168,
+          "label": "constructores"
+        },
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 191,
+          "end_line": 210,
+          "label": "ollama y BUILDERS"
+        }
+      ]
+    },
+    {
+      "id": "role_config",
+      "label": "RoleConfig",
+      "kind": "record",
+      "sublabel": "planner · fast · judge",
+      "row": 5,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "provider",
+          "type": "Provider",
+          "visibility": "public"
+        },
+        {
+          "name": "model",
+          "type": "str",
+          "visibility": "public"
+        },
+        {
+          "name": "max_tokens",
+          "type": "int | None",
+          "visibility": "public"
+        },
+        {
+          "name": "effort",
+          "type": "Effort | None",
+          "visibility": "public"
+        },
+        {
+          "name": "refusal_fallback",
+          "type": "bool",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 48,
+          "end_line": 60
+        }
+      ]
+    },
+    {
+      "id": "provider_config",
+      "label": "ProviderConfig",
+      "kind": "record",
+      "sublabel": "Conexión y residencia",
+      "row": 5,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "enabled",
+          "type": "bool",
+          "visibility": "public"
+        },
+        {
+          "name": "base_url",
+          "type": "str | None",
+          "visibility": "public"
+        },
+        {
+          "name": "api_key_env",
+          "type": "str | None",
+          "visibility": "public"
+        },
+        {
+          "name": "allowed_data",
+          "type": "test | real",
+          "visibility": "public"
+        },
+        {
+          "name": "timeout_s",
+          "type": "float",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 36,
+          "end_line": 45
+        }
+      ]
+    },
+    {
+      "id": "fallback_config",
+      "label": "FallbackConfig",
+      "kind": "record",
+      "sublabel": "Respaldo ante fallos transitorios",
+      "row": 5,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "provider",
+          "type": "Provider",
+          "visibility": "public"
+        },
+        {
+          "name": "on",
+          "type": "list[motivo]",
+          "visibility": "public"
+        },
+        {
+          "name": "models",
+          "type": "dict[rol, modelo]",
+          "visibility": "public"
+        }
+      ],
+      "sources": [
+        {
+          "path": "src/converdata/llm/factory.py",
+          "line": 63,
+          "end_line": 68
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rule_impl",
+      "from": "rule_intent",
+      "to": "intent_port",
+      "kind": "realization"
+    },
+    {
+      "id": "llm_intent_impl",
+      "from": "llm_intent",
+      "to": "intent_port",
+      "kind": "realization"
+    },
+    {
+      "id": "score_impl",
+      "from": "score_rerank",
+      "to": "rerank_port",
+      "kind": "realization"
+    },
+    {
+      "id": "llm_rerank_impl",
+      "from": "llm_rerank",
+      "to": "rerank_port",
+      "kind": "realization"
+    },
+    {
+      "id": "template_impl",
+      "from": "template_narrator",
+      "to": "narrator_port",
+      "kind": "realization"
+    },
+    {
+      "id": "llm_narrator_impl",
+      "from": "llm_narrator",
+      "to": "narrator_port",
+      "kind": "realization"
+    },
+    {
+      "id": "intent_uses_chat",
+      "from": "llm_intent",
+      "to": "routed_chat",
+      "kind": "dependency",
+      "label": "planner",
+      "toSide": "top"
+    },
+    {
+      "id": "rerank_uses_chat",
+      "from": "llm_rerank",
+      "to": "routed_chat",
+      "kind": "dependency",
+      "label": "planner"
+    },
+    {
+      "id": "narrator_uses_chat",
+      "from": "llm_narrator",
+      "to": "routed_chat",
+      "kind": "dependency",
+      "label": "fast"
+    },
+    {
+      "id": "enricher_uses_chat",
+      "from": "llm_enricher",
+      "to": "routed_chat",
+      "kind": "dependency",
+      "label": "planner"
+    },
+    {
+      "id": "chat_to_gateway",
+      "from": "routed_chat",
+      "to": "llm_gateway",
+      "kind": "association",
+      "label": "_invoke(rol)"
+    },
+    {
+      "id": "gateway_breaker",
+      "from": "llm_gateway",
+      "to": "circuit_breaker",
+      "kind": "composition",
+      "label": "breaker"
+    },
+    {
+      "id": "gateway_config",
+      "from": "llm_gateway",
+      "to": "models_config",
+      "kind": "association",
+      "label": "config"
+    },
+    {
+      "id": "gateway_builds_claude",
+      "from": "llm_gateway",
+      "to": "claude_chat",
+      "kind": "dependency",
+      "label": "construye"
+    },
+    {
+      "id": "config_roles",
+      "from": "models_config",
+      "to": "role_config",
+      "kind": "composition",
+      "label": "roles"
+    },
+    {
+      "id": "config_providers",
+      "from": "models_config",
+      "to": "provider_config",
+      "kind": "composition",
+      "label": "providers"
+    },
+    {
+      "id": "config_fallback",
+      "from": "models_config",
+      "to": "fallback_config",
+      "kind": "composition",
+      "label": "fallback"
+    },
+    {
+      "id": "role_provider",
+      "from": "role_config",
+      "to": "provider_enum",
+      "kind": "association",
+      "label": "provider"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cómo se conecta",
+      "items": [
+        "build_service_from_snapshot crea el gateway desde models.yaml: planner atiende intent y rerank; fast, la narrativa.",
+        "Sin models.yaml todo es determinista: DiscoverDeps usa por defecto RuleBasedIntentClassifier y TemplateNarrator, y reranker None equivale a ScoreReranker.",
+        "Si el nodo con modelo lanza una excepción, el flujo cae a la versión de reglas y registra el paso como fallback:<Error>.",
+        "Cascada: si el orden determinista ya es claro, rerank no llama al modelo."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Guardas",
+      "items": [
+        "data_mode: real impide arrancar si un rol o el respaldo usa un proveedor con allowed_data: test (ResidencyError).",
+        "ollama solo se permite con environment: local; CONVERDATA_ENV sobrescribe el valor del archivo.",
+        "Respaldo y circuito solo ante throttling, indisponibilidad o timeout; un error de contenido se relanza.",
+        "Los nodos delimitan pregunta y catálogo en <datos>…</datos> y piden no seguir instrucciones de ahí."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Errores que verás",
+      "items": [
+        "GatewayConfigError: rol sin configurar, proveedor desactivado u ollama fuera de local.",
+        "ResidencyError: la configuración enviaría datos reales a un proveedor no autorizado.",
+        "AllProvidersFailed: fallaron el principal y el respaldo, o el circuito está abierto.",
+        "MissingCredential: falta la variable con la clave. LLMRefused: Claude declinó la petición."
+      ]
+    }
+  ]
+}

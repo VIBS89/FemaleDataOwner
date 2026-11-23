@@ -1,0 +1,140 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e83]:
+    - generic [ref=f2e86]:
+      - generic [ref=f2e87]:
+        - list [ref=f2e88]:
+          - listitem [ref=f2e89]:
+            - link "ConverData Descubrimiento de datos" [ref=f2e90] [cursor=pointer]:
+              - /url: /
+              - generic [ref=f2e97]:
+                - generic [ref=f2e98]: ConverData
+                - generic [ref=f2e99]: Descubrimiento de datos
+        - button "Nueva pregunta" [ref=f2e100]
+      - generic [ref=f2e101]:
+        - list [ref=f2e104]:
+          - listitem [ref=f2e105]:
+            - link "Preguntar" [ref=f2e106] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=f2e110]:
+            - link "Catálogo" [ref=f2e111] [cursor=pointer]:
+              - /url: /catalogo
+          - listitem [ref=f2e117]:
+            - link "Mis solicitudes" [ref=f2e118] [cursor=pointer]:
+              - /url: /solicitudes
+          - listitem [ref=f2e123]:
+            - link "Curación" [ref=f2e124] [cursor=pointer]:
+              - /url: /curacion
+          - listitem [ref=f2e128]:
+            - link "Métricas" [ref=f2e129] [cursor=pointer]:
+              - /url: /metricas
+          - listitem [ref=f2e133]:
+            - link "Administración" [ref=f2e134] [cursor=pointer]:
+              - /url: /admin
+        - generic [ref=f2e139]:
+          - generic [ref=f2e140]: Conversaciones recientes
+          - list [ref=f2e142]:
+            - listitem [ref=f2e236]:
+              - button "¿Qué tabla tiene los pagos de las cuotas de préstamos? hace un momento" [ref=f2e237]:
+                - generic [ref=f2e238]:
+                  - generic [ref=f2e239]: ¿Qué tabla tiene los pagos de las cuotas de préstamos?
+                  - generic [ref=f2e240]: hace un momento
+              - button "Eliminar conversación" [ref=f2e241]
+            - listitem [ref=f2e143]:
+              - button "Necesito encontrar el identificador único del cliente uti… hace 16 min" [ref=f2e271]:
+                - generic [ref=f2e145]:
+                  - generic [ref=f2e146]: Necesito encontrar el identificador único del cliente uti…
+                  - generic [ref=f2e147]: hace 16 min
+              - button "Eliminar conversación" [ref=f2e148]
+            - listitem [ref=f2e152]:
+              - button "a cuantas bases de datos puedes acceder? hace 20 min" [ref=f2e153]:
+                - generic [ref=f2e154]:
+                  - generic [ref=f2e155]: a cuantas bases de datos puedes acceder?
+                  - generic [ref=f2e156]: hace 20 min
+              - button "Eliminar conversación" [ref=f2e157]
+      - list [ref=f2e162]:
+        - listitem [ref=f2e163]:
+          - button "DE demo Administrador de datos" [ref=f2e164]:
+            - generic [ref=f2e165]: DE
+            - generic [ref=f2e167]:
+              - generic [ref=f2e168]: demo
+              - generic [ref=f2e169]: Administrador de datos
+      - button "Toggle Sidebar" [ref=f2e173]
+    - main [ref=f2e174]:
+      - generic [ref=f2e175]:
+        - generic [ref=f2e176]:
+          - button "Toggle Sidebar" [ref=f2e177]
+          - heading "¿Qué tabla tiene los pagos de las cuotas de préstamos?" [level=1] [ref=f2e245]
+          - generic [ref=f2e180]: 10 BDs · 49 objetos
+        - generic [ref=f2e246]:
+          - generic [ref=f2e247]: ¿Qué tabla tiene los pagos de las cuotas de préstamos?
+          - generic [ref=f2e278]:
+            - paragraph [ref=f2e279]: El candidato principal es "BancaPrestamos.dbo.GestionesCobro". Su alta confianza indica que cumple lo pedido. Este objeto es el más relevante para la consulta.
+            - article [ref=f2e281]:
+              - generic [ref=f2e282]:
+                - generic [ref=f2e283]: "1"
+                - generic [ref=f2e284]:
+                  - generic [ref=f2e285]:
+                    - heading "GestionesCobro" [level=3] [ref=f2e286]
+                    - generic [ref=f2e287]: Tabla
+                    - generic [ref=f2e288]: Mejor coincidencia
+                  - generic [ref=f2e289]:
+                    - generic [ref=f2e290]: BancaPrestamos · dbo.GestionesCobro
+                    - generic [ref=f2e291]:
+                      - generic [ref=f2e292]: Desarrollo
+                      - text: SQL Express local
+                - generic [ref=f2e296]: 42 %
+              - generic [ref=f2e300]:
+                - generic [ref=f2e301]:
+                  - paragraph [ref=f2e302]: Sin descripción registrada.
+                  - generic [ref=f2e303]: Sugerida por IA, sin revisar
+                - paragraph [ref=f2e307]:
+                  - generic [ref=f2e310]: Cumple lo pedido (se pidió table y el principal es column).
+                - button "Más detalles" [ref=f2e312]
+              - generic [ref=f2e315]:
+                - button "Es este" [ref=f2e316]
+                - button "No es" [ref=f2e317]
+                - generic [ref=f2e318]:
+                  - button "Copiar" [ref=f2e319]
+                  - button "Ver relacionadas" [ref=f2e321]
+                  - button "Ver ficha" [ref=f2e322]
+            - alert [ref=f2e323]:
+              - generic [ref=f2e329]: Evidencia insuficiente para recomendar con seguridad
+              - generic [ref=f2e330]:
+                - paragraph [ref=f2e331]: Conviene confirmarlo con el responsable del dominio. Si alguno de los candidatos es el correcto, márcalo con “Es este” para que el agente aprenda.
+                - button "Preguntar al responsable" [ref=f2e332]
+            - generic [ref=f2e333]:
+              - button "Relaciones y cómo unir las tablas (4)" [expanded] [ref=f2e334]
+              - generic [ref=f2e340]:
+                - generic [ref=f2e341]:
+                  - paragraph [ref=f2e342]: Para “paymen”
+                  - list [ref=f2e347]:
+                    - listitem [ref=f2e348]: "BancaPrestamos.dbo.GestionesCobro → BancaPrestamos.dbo.Prestamos (fk: PrestamoID)"
+                    - listitem [ref=f2e349]: "BancaPrestamos.dbo.Prestamos → BancaPrestamos.dbo.CuotasPrestamo (fk: PrestamoID)"
+                - generic [ref=f2e350]:
+                  - paragraph [ref=f2e351]: Para “instal”
+                  - list [ref=f2e356]:
+                    - listitem [ref=f2e357]: "BancaPrestamos.dbo.GestionesCobro → BancaPrestamos.dbo.Prestamos (fk: PrestamoID)"
+                - list [ref=f2e358]:
+                  - listitem [ref=f2e359]:
+                    - generic [ref=f2e360]: GestionesCobro
+                    - button "BancaPrestamos.dbo.Prestamos" [ref=f2e363]
+                    - generic [ref=f2e364]: "· Llave foránea: PrestamoID"
+                  - listitem [ref=f2e365]:
+                    - generic [ref=f2e366]: CuotasPrestamo
+                    - button "BancaPrestamos.dbo.Prestamos" [ref=f2e369]
+                    - generic [ref=f2e370]: "· Llave foránea: PrestamoID"
+            - button "¿Qué reglas de negocio aplican a GestionesCobro?" [ref=f2e372]
+            - generic [ref=f2e374]:
+              - generic [ref=f2e375]: Confianza 42 %
+              - generic [ref=f2e376]: 6.4 s
+              - generic [ref=f2e380]: BancaPrestamos
+              - button "Cómo lo obtuve" [ref=f2e381]
+              - button "Traza" [ref=f2e384]
+        - generic [ref=f2e220]:
+          - generic [ref=f2e221]:
+            - textbox "Pregunta" [active] [ref=f2e222]:
+              - /placeholder: Pregunta dónde está un dato, qué significa o cómo se relaciona…
+            - button "Enviar pregunta" [disabled]
+          - paragraph [ref=f2e223]: ConverData solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
+  - region "Notifications alt+T"
+  - alert [ref=f2e82]

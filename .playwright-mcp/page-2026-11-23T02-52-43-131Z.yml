@@ -1,0 +1,83 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e36]:
+    - generic [ref=f1e39]:
+      - generic [ref=f1e40]:
+        - list [ref=f1e41]:
+          - listitem [ref=f1e42]:
+            - link "ConverData Descubrimiento de datos" [ref=f1e43] [cursor=pointer]:
+              - /url: /
+              - generic [ref=f1e50]:
+                - generic [ref=f1e51]: ConverData
+                - generic [ref=f1e52]: Descubrimiento de datos
+        - button "Nueva pregunta" [ref=f1e53]
+      - generic [ref=f1e54]:
+        - list [ref=f1e57]:
+          - listitem [ref=f1e58]:
+            - link "Preguntar" [ref=f1e59] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=f1e63]:
+            - link "Catálogo" [ref=f1e64] [cursor=pointer]:
+              - /url: /catalogo
+          - listitem [ref=f1e70]:
+            - link "Mis solicitudes" [ref=f1e71] [cursor=pointer]:
+              - /url: /solicitudes
+          - listitem [ref=f1e76]:
+            - link "Curación" [ref=f1e77] [cursor=pointer]:
+              - /url: /curacion
+          - listitem [ref=f1e81]:
+            - link "Métricas" [ref=f1e82] [cursor=pointer]:
+              - /url: /metricas
+          - listitem [ref=f1e86]:
+            - link "Administración" [ref=f1e87] [cursor=pointer]:
+              - /url: /admin
+        - generic [ref=f1e92]:
+          - generic [ref=f1e93]: Conversaciones recientes
+          - list [ref=f1e95]:
+            - listitem [ref=f1e96]:
+              - button "Necesito encontrar el identificador único del cliente uti… hace 6 min" [ref=f1e97]:
+                - generic [ref=f1e98]:
+                  - generic [ref=f1e99]: Necesito encontrar el identificador único del cliente uti…
+                  - generic [ref=f1e100]: hace 6 min
+              - button "Eliminar conversación" [ref=f1e101]
+            - listitem [ref=f1e105]:
+              - button "a cuantas bases de datos puedes acceder? hace 10 min" [ref=f1e106]:
+                - generic [ref=f1e107]:
+                  - generic [ref=f1e108]: a cuantas bases de datos puedes acceder?
+                  - generic [ref=f1e109]: hace 10 min
+              - button "Eliminar conversación" [ref=f1e110]
+      - list [ref=f1e115]:
+        - listitem [ref=f1e116]:
+          - button "DE demo Administrador de datos" [ref=f1e117]:
+            - generic [ref=f1e118]: DE
+            - generic [ref=f1e120]:
+              - generic [ref=f1e121]: demo
+              - generic [ref=f1e122]: Administrador de datos
+      - button "Toggle Sidebar" [ref=f1e126]
+    - main [ref=f1e127]:
+      - generic [ref=f1e128]:
+        - generic [ref=f1e129]:
+          - button "Toggle Sidebar" [ref=f1e130]
+          - heading "Nueva pregunta" [level=1] [ref=f1e132]
+          - generic [ref=f1e133]: 10 BDs · 49 objetos
+        - generic [ref=f1e136]:
+          - heading "Hola, demo. ¿Qué dato buscas?" [level=2] [ref=f1e141]
+          - paragraph [ref=f1e142]: Te digo en qué base, tabla y columna está, qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece.
+          - generic [ref=f1e143]:
+            - button "Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital." [ref=f1e144]
+            - button "¿Qué proceso llena la dimensión de clientes del DWH?" [ref=f1e154]
+            - button "¿Cómo relaciono los clientes con sus tarjetas de crédito?" [ref=f1e162]
+            - button "¿Qué tabla tiene los pagos de las cuotas de préstamos?" [ref=f1e167]
+        - generic [ref=f1e173]:
+          - generic [ref=f1e174]:
+            - textbox "Pregunta" [active] [ref=f1e175]:
+              - /placeholder: Pregunta dónde está un dato, qué significa o cómo se relaciona…
+            - button "Enviar pregunta" [disabled]
+          - paragraph [ref=f1e176]: ConverData solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=f1e177]:
+        - button "Close toast" [ref=f1e178] [cursor=pointer]
+        - generic [ref=f1e186]:
+          - generic [ref=f1e187]: Conectado a 4 servidor(es)
+          - generic [ref=f1e188]: Puedes descubrir datos en 9 bases de datos.
+  - alert [ref=f1e35]

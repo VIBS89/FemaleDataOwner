@@ -1,0 +1,420 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ConverData — CatalogBuildFlow: cómo se construye el catálogo",
+    "output": "docs/architecture/flujo-construccion-catalogo.html",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/VIBS89/FemaleDataOwner.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "df5310c78a74930e2687186c1348f31bd2907752"
+    }
+  },
+  "lanes": [
+    {
+      "id": "entradas",
+      "label": "1 · Pantalla y fuentes"
+    },
+    {
+      "id": "flujo",
+      "label": "2 · refresh_catalog → build_catalog_graph (LangGraph)"
+    },
+    {
+      "id": "destino",
+      "label": "3 · Programado, respaldo y destino"
+    }
+  ],
+  "mainPath": [
+    "refresh",
+    "extract",
+    "enrich",
+    "relate",
+    "write",
+    "publish",
+    "bd"
+  ],
+  "nodes": [
+    {
+      "id": "admin",
+      "lane": "entradas",
+      "col": 0,
+      "type": "frontend",
+      "label": "Administración",
+      "sublabel": "Descubrir esquemas",
+      "description": "Un data_admin pulsa «Descubrir esquemas» (o «Actualizar catálogo»). La web llama a POST /admin/catalog/build; la API lanza un hilo (AgentRuntime._run_build) que usa la credencial de la sesión del admin guardada en SessionVault. Un trabajo a la vez; el estado se consulta con GET /admin/catalog/build.",
+      "sources": [
+        {
+          "path": "web/src/app/(app)/admin/page.tsx",
+          "line": 206,
+          "end_line": 209
+        },
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 1009,
+          "end_line": 1018
+        },
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 403,
+          "end_line": 442
+        }
+      ]
+    },
+    {
+      "id": "cli",
+      "lane": "destino",
+      "col": 0,
+      "type": "external",
+      "label": "converdata catalog build --db",
+      "sublabel": "tarea programada",
+      "description": "Comando que corre y termina. Lee el inventario de la BD ConverData (o --config), entra con la cuenta del proceso salvo metadata_user_env, aplica la lista CONVERDATA_BUILDER_HOSTS y publica como «builder». Código 0 si respondió algún servidor. La programación nocturna aún no existe (HU-37).",
+      "sources": [
+        {
+          "path": "src/converdata/cli.py",
+          "line": 305,
+          "end_line": 342
+        }
+      ]
+    },
+    {
+      "id": "refresh",
+      "lane": "flujo",
+      "col": 0,
+      "type": "backend",
+      "label": "refresh_catalog",
+      "sublabel": "parte de la foto vigente",
+      "tag": "caso de uso",
+      "description": "Caso de uso común a la CLI y a la API. Pide al repositorio la foto vigente con load(scope) y la escribe en un directorio de trabajo (write_snapshot) para que el flujo sepa qué objetos ya existen. Luego corre el grafo. (application/catalog_refresh.py)",
+      "sources": [
+        {
+          "path": "src/converdata/application/catalog_refresh.py",
+          "line": 38,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "extract",
+      "lane": "flujo",
+      "col": 1,
+      "type": "backend",
+      "label": "extract",
+      "sublabel": "metadatos → objetos",
+      "description": "Por cada servidor lista las BDs (sin converdata ni la BD de trabajo) y extrae objetos. Omite nombres no admitidos (skipped_unsafe), convierte con to_catalog_object y fusiona con merge_existing: si el schema_hash no cambió reutiliza el objeto anterior completo. Las tablas y vistas nuevas o cambiadas quedan pendientes de enriquecer.",
+      "sources": [
+        {
+          "path": "src/converdata/flows/catalog_build.py",
+          "line": 91,
+          "end_line": 132
+        },
+        {
+          "path": "src/converdata/builder/catalog_builder.py",
+          "line": 129,
+          "end_line": 146,
+          "label": "merge_existing"
+        }
+      ]
+    },
+    {
+      "id": "enrich",
+      "lane": "flujo",
+      "col": 2,
+      "type": "backend",
+      "label": "enrich",
+      "sublabel": "opcional",
+      "tag": "LLM",
+      "description": "Solo si hay enriquecedor y objetos pendientes. Lotes de 6 (ENRICH_BATCH). Rellena únicamente descripciones vacías de origen generated (máx. 500 caracteres por objeto, 300 por columna) y hasta 8 sinónimos. Un error del modelo se anota en enrich_errors y el build sigue.",
+      "sources": [
+        {
+          "path": "src/converdata/flows/catalog_build.py",
+          "line": 134,
+          "end_line": 172
+        }
+      ]
+    },
+    {
+      "id": "relate",
+      "lane": "flujo",
+      "col": 3,
+      "type": "backend",
+      "label": "relate",
+      "sublabel": "entidades y linaje",
+      "description": "detect_entities: misma tabla en 2 o más BDs con al menos 60 % de columnas en común. view_lineage: aristas tabla → vista de un salto. Si un servidor falló, conserva el linaje de vistas de los objetos que se mantuvieron.",
+      "sources": [
+        {
+          "path": "src/converdata/flows/catalog_build.py",
+          "line": 174,
+          "end_line": 185
+        },
+        {
+          "path": "src/converdata/builder/catalog_builder.py",
+          "line": 159,
+          "end_line": 226
+        }
+      ]
+    },
+    {
+      "id": "write",
+      "lane": "flujo",
+      "col": 4,
+      "type": "backend",
+      "label": "write",
+      "sublabel": "YAML del catálogo",
+      "description": "write_output borra los YAML de objetos que ya no existen, no reescribe los idénticos y escribe entities.yaml, views.yaml y config/databases.yaml sin host ni credenciales.",
+      "sources": [
+        {
+          "path": "src/converdata/flows/catalog_build.py",
+          "line": 187,
+          "end_line": 190
+        },
+        {
+          "path": "src/converdata/builder/catalog_builder.py",
+          "line": 228,
+          "end_line": 255,
+          "label": "write_output"
+        }
+      ]
+    },
+    {
+      "id": "publish",
+      "lane": "flujo",
+      "col": 5,
+      "type": "security",
+      "label": "publish",
+      "sublabel": "scope=\"build\"",
+      "tag": "≥1 servidor",
+      "description": "Si respondió al menos un servidor, refresh_catalog publica la foto con repository.publish. Con scope=\"build\" solo toca lo derivado de metadatos y _protect conserva una descripción human o data_dictionary de la BD, aunque se haya editado durante el build. En modo demo se publica con scope=\"all\" tras superponer el conocimiento de los fixtures.",
+      "sources": [
+        {
+          "path": "src/converdata/application/catalog_refresh.py",
+          "line": 55,
+          "end_line": 62
+        },
+        {
+          "path": "src/converdata/storage/catalog_repository.py",
+          "line": 133,
+          "end_line": 140,
+          "label": "_protect"
+        },
+        {
+          "path": "api/converdata_api/demo.py",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "id": "sql",
+      "lane": "entradas",
+      "col": 1,
+      "type": "database",
+      "label": "SQL Server de datos",
+      "sublabel": "sys.* · solo lectura",
+      "description": "SqlServerMetadata ejecuta consultas fijas Q_* sobre sys.databases, sys.objects, sys.columns, llaves, sys.partitions, clasificación de sensibilidad, dependencias y parámetros. Conexión readonly. Nunca lee valores de tablas.",
+      "sources": [
+        {
+          "path": "src/converdata/metadata/sqlserver.py",
+          "line": 22,
+          "end_line": 85
+        },
+        {
+          "path": "src/converdata/metadata/sqlserver.py",
+          "line": 140,
+          "end_line": 162
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "lane": "entradas",
+      "col": 2,
+      "type": "cloud",
+      "label": "Gateway de LLM",
+      "sublabel": "rol planner",
+      "description": "LlmEnricher sobre el rol planner del gateway. Recibe nombres de tabla, tipos, llaves y columnas; no recibe valores. Desde la API solo si se marcó la opción y hay models_path.",
+      "sources": [
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 430,
+          "end_line": 435
+        }
+      ]
+    },
+    {
+      "id": "failed",
+      "lane": "destino",
+      "col": 1,
+      "type": "security",
+      "label": "Servidor caído",
+      "sublabel": "conserva lo último",
+      "description": "Se anota en servers_failed, se descartan sus objetos nuevos y se restauran los últimos conocidos de ese servidor (kept_from_failed). Los demás servidores siguen. Si ninguno responde, no se publica.",
+      "sources": [
+        {
+          "path": "src/converdata/flows/catalog_build.py",
+          "line": 118,
+          "end_line": 129
+        }
+      ]
+    },
+    {
+      "id": "workdir",
+      "lane": "destino",
+      "col": 4,
+      "type": "database",
+      "label": "Directorio de trabajo",
+      "sublabel": "catalog/ y knowledge/",
+      "description": "catalog/<ambiente>/<servidor>/<bd>/<esquema>.<objeto>.yaml más knowledge/estate y knowledge/lineage. Con BD es temporal y se borra al terminar; sin BD (desarrollo) es el catálogo que carga el DiscoverFlow.",
+      "sources": [
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 419,
+          "end_line": 422
+        },
+        {
+          "path": "src/converdata/cli.py",
+          "line": 322,
+          "end_line": 334
+        }
+      ]
+    },
+    {
+      "id": "bd",
+      "lane": "destino",
+      "col": 5,
+      "type": "database",
+      "label": "BD ConverData",
+      "sublabel": "catalog.* con historial",
+      "description": "Escribe solo lo que cambió bajo un bloqueo exclusivo y sube catalog.catalog_version. Una segunda ejecución idéntica no toca filas. El historial temporal guarda lo anterior con modified_by.",
+      "sources": [
+        {
+          "path": "src/converdata/storage/catalog_repository.py",
+          "line": 163,
+          "end_line": 175
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "m1",
+      "from": "refresh",
+      "to": "extract",
+      "label": "foto vigente",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m2",
+      "from": "extract",
+      "to": "enrich",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m3",
+      "from": "enrich",
+      "to": "relate",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m4",
+      "from": "relate",
+      "to": "write",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m5",
+      "from": "write",
+      "to": "publish",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m6",
+      "from": "publish",
+      "to": "bd",
+      "label": "solo lo que cambió",
+      "variant": "emphasis"
+    },
+    {
+      "id": "l1",
+      "from": "admin",
+      "to": "refresh",
+      "label": "POST /admin/catalog/build",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "l2",
+      "from": "cli",
+      "to": "refresh",
+      "label": "inventario de la BD",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "s1",
+      "from": "sql",
+      "to": "extract",
+      "label": "Q_* fijas",
+      "variant": "security",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "s2",
+      "from": "llm",
+      "to": "enrich",
+      "label": "lotes de 6",
+      "variant": "dashed",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "f1",
+      "from": "extract",
+      "to": "failed",
+      "label": "error",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "w1",
+      "from": "write",
+      "to": "workdir",
+      "label": "YAML",
+      "variant": "dashed",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "No pisa lo editado por personas",
+      "items": [
+        "merge_existing conserva descripciones human o data_dictionary",
+        "_protect en la BD gana aunque la edición ocurra durante el build",
+        "El texto del LLM entra como generated, evidencia débil"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Fuentes de conocimiento",
+      "items": [
+        "Diccionario CSV y reglas entran por Curación, no por el Builder",
+        "Entidades y linaje de vistas los deduce relate",
+        "Linaje de SSIS, SQL Agent y SPs: aún no existe (HU-27)"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Dónde tocar",
+      "items": [
+        "Nueva consulta de metadatos: Q_* y extract_database",
+        "Otra plataforma: otro adaptador de MetadataSource",
+        "Pruebas: test_catalog_build, test_catalog_refresh, test_catalog_repository"
+      ]
+    }
+  ]
+}

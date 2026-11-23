@@ -18,6 +18,17 @@ descripción al pasar el cursor y las tarjetas de abajo resumen lo importante.
 | Detalle | Cómo se heredan los permisos de SQL Server | [permisos-heredados.html](permisos-heredados.html) |
 | Detalle | Controles de una petición y compuerta de calidad | [controles-calidad-bancaria.html](controles-calidad-bancaria.html) |
 
+**Para desarrolladores.** Por dónde empezar a leer el código y cómo se mueven las piezas que tocás a diario.
+
+| Qué muestra | Diagrama |
+|---|---|
+| Paquetes del repositorio agrupados por capa y por dónde empezar a leer | [mapa-codigo.html](mapa-codigo.html) |
+| Cómo corre todo en tu máquina: `docker compose`, modo demo, modelo y pruebas | [entorno-desarrollo.html](entorno-desarrollo.html) |
+| Cómo se construye el catálogo: `extract → enrich → relate → write` | [flujo-construccion-catalogo.html](flujo-construccion-catalogo.html) |
+| Login, sesión cifrada en memoria, petición autenticada y cierre | [secuencia-login-sesion.html](secuencia-login-sesion.html) |
+| El puerto del gateway de LLM, sus proveedores y quién lo usa | [gateway-llm.html](gateway-llm.html) |
+| Estados de una duda escalada y de una confirmación «Es este» | [ciclo-curacion.html](ciclo-curacion.html) |
+
 ## 1. Enfoque
 
 ### 1.1 El problema
@@ -188,8 +199,10 @@ Cada página de la wiki baja hasta archivos y funciones.
 | Cómo se responde una pregunta | [flujo-descubrimiento.html](flujo-descubrimiento.html) | [Descubrimiento](../wiki/componentes/descubrimiento.md) |
 | Rutas, sesiones y curación | [c4-componentes-api.html](c4-componentes-api.html) | [API](../wiki/componentes/api.md) |
 | Permisos, sesiones, auditoría y literales | [permisos-heredados.html](permisos-heredados.html), [controles-calidad-bancaria.html](controles-calidad-bancaria.html) | [Seguridad y auditoría](../wiki/componentes/seguridad-auditoria.md) |
-| Modelos de lenguaje | — | [Gateway de LLM](../wiki/componentes/llm.md) |
-| Construcción del catálogo | [onpremise-architecture.html](onpremise-architecture.html) | [Builder y catálogo](../wiki/componentes/builder-catalogo.md) |
+| Modelos de lenguaje | [gateway-llm.html](gateway-llm.html) | [Gateway de LLM](../wiki/componentes/llm.md) |
+| Construcción del catálogo | [flujo-construccion-catalogo.html](flujo-construccion-catalogo.html) | [Builder y catálogo](../wiki/componentes/builder-catalogo.md) |
+| Sesión y login | [secuencia-login-sesion.html](secuencia-login-sesion.html) | [API](../wiki/componentes/api.md) |
+| Curación y confirmaciones | [ciclo-curacion.html](ciclo-curacion.html) | [API](../wiki/componentes/api.md) |
 | Tablas, roles y migraciones | [modelo-datos-converdata.html](modelo-datos-converdata.html) | [BD ConverData](../wiki/componentes/bd-converdata.md) |
 | Frontend | — | [Web](../wiki/componentes/web.md) |
 | Evaluación, compuerta y CI | [controles-calidad-bancaria.html](controles-calidad-bancaria.html) | [Evaluación y calidad](../wiki/componentes/evaluacion-calidad.md) |
@@ -230,10 +243,13 @@ node tools/archify/bin/archify.mjs finalize <tipo> docs/architecture/<nombre>.ar
 
 | Diagrama | Tipo |
 |---|---|
-| `c4-contexto`, `c4-componentes-api`, `onpremise-architecture`, `cloud-native-architecture` | `architecture` |
-| `flujo-descubrimiento`, `controles-calidad-bancaria` | `workflow` |
-| `permisos-heredados` | `sequence` |
+| `c4-contexto`, `c4-componentes-api`, `onpremise-architecture`, `cloud-native-architecture`, `entorno-desarrollo` | `architecture` |
+| `flujo-descubrimiento`, `controles-calidad-bancaria`, `flujo-construccion-catalogo` | `workflow` |
+| `permisos-heredados`, `secuencia-login-sesion` | `sequence` |
 | `modelo-datos-converdata` | `erd` |
+| `mapa-codigo` | `tree` |
+| `gateway-llm` | `class` |
+| `ciclo-curacion` | `lifecycle` |
 
 El generador deja un archivo `*.browser-check.json` junto al HTML. No se versiona: bórralo antes de regenerar.
 Un cambio que mueva una pieza de proceso, añada una tabla o cambie un control actualiza su diagrama en el mismo cambio.

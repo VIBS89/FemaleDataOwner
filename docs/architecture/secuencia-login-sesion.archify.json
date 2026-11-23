@@ -1,0 +1,430 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ConverData — Login, sesión y cierre",
+    "output": "docs/architecture/secuencia-login-sesion.html",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/VIBS89/FemaleDataOwner.git",
+      "revision": "df5310c78a74930e2687186c1348f31bd2907752"
+    }
+  },
+  "participants": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "Navegador",
+      "sublabel": "pantalla de login",
+      "description": "La persona escribe su usuario y contraseña de SQL Server en /login. El cliente (lib/api.ts) llama siempre a /api/* del mismo origen con credentials: same-origin, así la cookie de sesión viaja sola y nunca la lee JavaScript.",
+      "sources": [
+        {
+          "path": "web/src/lib/api.ts",
+          "line": 39,
+          "end_line": 80
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web Next.js",
+      "sublabel": "session-provider + proxy",
+      "description": "session-provider guarda el usuario y sus roles en memoria del cliente (sin credenciales) y redirige a /login ante un 401. El proxy /api/[...path] reenvía solo las rutas que usa la web, copia cookie, authorization y origin, añade x-forwarded-host y devuelve los Set-Cookie de la API.",
+      "sources": [
+        {
+          "path": "web/src/app/api/[...path]/route.ts",
+          "line": 1,
+          "end_line": 55
+        },
+        {
+          "path": "web/src/components/session-provider.tsx",
+          "line": 22,
+          "end_line": 83
+        }
+      ]
+    },
+    {
+      "id": "mw",
+      "type": "security",
+      "label": "SecurityMiddleware",
+      "sublabel": "Origin, tamaño, cabeceras",
+      "description": "Middleware ASGI más externo de la API. En POST/PUT/DELETE con cookie cd_session rechaza con 403 si Origin no es el del sitio (ni de CONVERDATA_CORS_ORIGINS ni el x-forwarded-host del proxy) y con 413 si el cuerpo pasa el tope. Añade las cabeceras de seguridad a todas las respuestas.",
+      "sources": [
+        {
+          "path": "api/converdata_api/security.py",
+          "line": 138,
+          "end_line": 212
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "ConverData-API",
+      "sublabel": "/auth/login, current_session",
+      "description": "Rutas FastAPI de main.py. /login y /auth/login validan el formulario, aplican LoginThrottle por login y por IP, prueban la credencial en cada servidor y crean la sesión. current_session saca el token de la cookie cd_session o de Authorization: Bearer; ninguna otra ruta acepta identidad ni credenciales.",
+      "sources": [
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 473,
+          "end_line": 578
+        },
+        {
+          "path": "api/converdata_api/main.py",
+          "line": 314,
+          "end_line": 322
+        }
+      ]
+    },
+    {
+      "id": "vault",
+      "type": "security",
+      "label": "SessionVault",
+      "sublabel": "en memoria, Fernet",
+      "description": "Sesiones solo en memoria del proceso. Token de 256 bits; la contraseña se cifra con una clave Fernet generada al arrancar, así que reiniciar invalida todo. Caduca a las 8 h sin actividad (deslizante) o a las 12 h de vida; como máximo 5 sesiones por usuario.",
+      "sources": [
+        {
+          "path": "api/converdata_api/vault.py",
+          "line": 44,
+          "end_line": 135
+        },
+        {
+          "path": "api/converdata_api/settings.py",
+          "line": 33,
+          "end_line": 56
+        }
+      ]
+    },
+    {
+      "id": "sql",
+      "type": "database",
+      "label": "SQL Server de datos",
+      "sublabel": "login del usuario",
+      "description": "Se conecta con el login de la propia persona (cadena ODBC con UID/PWD entre llaves, Encrypt=yes, solo lectura). identify devuelve el login y si tiene sysadmin o VIEW ANY DEFINITION; visible_ids lista qué objetos ve. En modo demo lo sustituye DemoConnector con fixtures.",
+      "sources": [
+        {
+          "path": "api/converdata_api/connector.py",
+          "line": 56,
+          "end_line": 99
+        },
+        {
+          "path": "api/converdata_api/runtime.py",
+          "line": 266,
+          "end_line": 295
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "type": "database",
+      "label": "Auditoría",
+      "sublabel": "audit.* o JSONL",
+      "description": "open_audit escribe en la BD ConverData si CONVERDATA_DB está definida; si no, en data/audit/*.jsonl. Registra login, login_failed, login_locked, logout y access_denied.",
+      "sources": [
+        {
+          "path": "api/converdata_api/audit.py",
+          "line": 62,
+          "end_line": 89
+        }
+      ]
+    }
+  ],
+  "segments": [
+    {
+      "from": 168,
+      "to": 812,
+      "label": "1 · Login"
+    },
+    {
+      "from": 838,
+      "to": 1209,
+      "label": "2 · Petición con la sesión"
+    },
+    {
+      "from": 1235,
+      "to": 1538,
+      "label": "3 · Cierre o caducidad"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m-login",
+      "from": "user",
+      "to": "web",
+      "y": 180,
+      "label": "POST /api/login",
+      "variant": "emphasis",
+      "note": "usuario y contraseña de BD"
+    },
+    {
+      "id": "m-proxy",
+      "from": "web",
+      "to": "mw",
+      "y": 236,
+      "label": "reenvía con origin",
+      "variant": "default",
+      "note": "solo rutas permitidas; añade x-forwarded-host"
+    },
+    {
+      "id": "m-origin",
+      "from": "mw",
+      "to": "api",
+      "y": 305,
+      "label": "mismo sitio: pasa",
+      "variant": "security",
+      "note": "otro origen → 403; cuerpo grande → 413"
+    },
+    {
+      "id": "m-identify",
+      "from": "api",
+      "to": "sql",
+      "y": 374,
+      "label": "identify con SU login",
+      "variant": "security",
+      "note": "antes, LoginThrottle: bloqueado → 429 sin probar la clave"
+    },
+    {
+      "id": "m-ok",
+      "from": "sql",
+      "to": "api",
+      "y": 456,
+      "label": "login + sysadmin / VIEW ANY DEFINITION",
+      "variant": "return",
+      "note": "clave mala → 401 y suma un fallo"
+    },
+    {
+      "id": "m-create",
+      "from": "api",
+      "to": "vault",
+      "y": 512,
+      "label": "create(usuario, credenciales, roles)",
+      "variant": "security",
+      "note": "token 256 bits; contraseña cifrada con Fernet"
+    },
+    {
+      "id": "m-audit-login",
+      "from": "api",
+      "to": "audit",
+      "y": 581,
+      "label": "event login",
+      "variant": "dashed",
+      "note": "fail-closed: si falla, se borra la sesión"
+    },
+    {
+      "id": "m-visible",
+      "from": "api",
+      "to": "sql",
+      "y": 650,
+      "label": "visible_ids: ¿qué objetos ve?",
+      "variant": "default",
+      "note": "se guarda 15 min por sesión"
+    },
+    {
+      "id": "m-visible-ok",
+      "from": "sql",
+      "to": "api",
+      "y": 706,
+      "label": "objetos visibles",
+      "variant": "return"
+    },
+    {
+      "id": "m-cookie",
+      "from": "api",
+      "to": "web",
+      "y": 740,
+      "label": "200 + Set-Cookie cd_session",
+      "variant": "return",
+      "note": "httpOnly, SameSite=Lax"
+    },
+    {
+      "id": "m-user",
+      "from": "web",
+      "to": "user",
+      "y": 796,
+      "label": "usuario y roles",
+      "variant": "return"
+    },
+    {
+      "id": "m-ask",
+      "from": "user",
+      "to": "web",
+      "y": 850,
+      "label": "POST /api/discover",
+      "variant": "emphasis",
+      "note": "la cookie viaja sola"
+    },
+    {
+      "id": "m-fwd",
+      "from": "web",
+      "to": "mw",
+      "y": 906,
+      "label": "reenvía cookie y origin",
+      "variant": "default"
+    },
+    {
+      "id": "m-pass",
+      "from": "mw",
+      "to": "api",
+      "y": 940,
+      "label": "mismo sitio: pasa",
+      "variant": "security"
+    },
+    {
+      "id": "m-get",
+      "from": "api",
+      "to": "vault",
+      "y": 974,
+      "label": "get(token)",
+      "variant": "security",
+      "note": "renueva last_seen; caducada → 401"
+    },
+    {
+      "id": "m-session",
+      "from": "vault",
+      "to": "api",
+      "y": 1043,
+      "label": "Session",
+      "variant": "return"
+    },
+    {
+      "id": "m-revisit",
+      "from": "api",
+      "to": "sql",
+      "y": 1077,
+      "label": "relee visibilidad si pasaron 15 min",
+      "variant": "dashed",
+      "note": "una revocación en SQL Server se nota sin cerrar sesión"
+    },
+    {
+      "id": "m-answer",
+      "from": "api",
+      "to": "web",
+      "y": 1159,
+      "label": "200 respuesta",
+      "variant": "return"
+    },
+    {
+      "id": "m-show",
+      "from": "web",
+      "to": "user",
+      "y": 1193,
+      "label": "candidatos",
+      "variant": "return"
+    },
+    {
+      "id": "m-exit",
+      "from": "user",
+      "to": "web",
+      "y": 1247,
+      "label": "Salir",
+      "variant": "default",
+      "note": "borra las conversaciones de localStorage"
+    },
+    {
+      "id": "m-logout",
+      "from": "web",
+      "to": "api",
+      "y": 1316,
+      "label": "POST /auth/logout",
+      "variant": "emphasis",
+      "note": "pasa por el proxy y el middleware"
+    },
+    {
+      "id": "m-drop",
+      "from": "api",
+      "to": "vault",
+      "y": 1385,
+      "label": "drop(token)",
+      "variant": "security",
+      "note": "se borran las credenciales cifradas"
+    },
+    {
+      "id": "m-audit-out",
+      "from": "api",
+      "to": "audit",
+      "y": 1454,
+      "label": "event logout",
+      "variant": "dashed"
+    },
+    {
+      "id": "m-delcookie",
+      "from": "api",
+      "to": "web",
+      "y": 1488,
+      "label": "borra cd_session",
+      "variant": "return"
+    },
+    {
+      "id": "m-expired",
+      "from": "web",
+      "to": "user",
+      "y": 1522,
+      "label": "8 h inactiva o 12 h de vida → 401 → /login",
+      "variant": "return",
+      "note": "evento converdata:unauthorized"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "web",
+      "from": 175,
+      "to": 801,
+      "type": "frontend"
+    },
+    {
+      "participant": "api",
+      "from": 300,
+      "to": 745,
+      "type": "backend"
+    },
+    {
+      "participant": "web",
+      "from": 845,
+      "to": 1198,
+      "type": "frontend"
+    },
+    {
+      "participant": "api",
+      "from": 935,
+      "to": 1164,
+      "type": "backend"
+    },
+    {
+      "participant": "api",
+      "from": 1311,
+      "to": 1493,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Dos identidades, nunca mezcladas",
+      "items": [
+        "El login del usuario solo sirve para preguntar a SQL Server qué ve",
+        "La contraseña vive cifrada en SessionVault y solo se descifra al abrir la conexión",
+        "Reiniciar la API invalida todos los tokens: la clave Fernet es efímera"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Límites de la sesión",
+      "items": [
+        "CONVERDATA_SESSION_TTL_S: 8 h de inactividad (deslizante)",
+        "Vida máxima de 12 h aunque siga activa; 5 sesiones por usuario",
+        "5 fallos en la ventana bloquean el login 15 min (por login y por IP)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Dónde tocar el código",
+      "items": [
+        "api/converdata_api/main.py: login, logout, current_session",
+        "api/converdata_api/vault.py y security.py",
+        "web/src/app/api/[...path]/route.ts y components/session-provider.tsx"
+      ]
+    }
+  ]
+}

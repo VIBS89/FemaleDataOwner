@@ -1,0 +1,71 @@
+- generic [ref=e1]:
+  - generic [ref=e86]:
+    - generic [ref=e89]:
+      - generic [ref=e90]:
+        - list [ref=e91]:
+          - listitem [ref=e92]:
+            - link "ConverData Descubrimiento de datos" [ref=e93] [cursor=pointer]:
+              - /url: /
+              - generic [ref=e100]:
+                - generic [ref=e101]: ConverData
+                - generic [ref=e102]: Descubrimiento de datos
+        - button "Nueva pregunta" [ref=e103]
+      - generic [ref=e104]:
+        - list [ref=e107]:
+          - listitem [ref=e108]:
+            - link "Preguntar" [ref=e109] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e113]:
+            - link "Catálogo" [ref=e114] [cursor=pointer]:
+              - /url: /catalogo
+          - listitem [ref=e120]:
+            - link "Mis solicitudes" [ref=e121] [cursor=pointer]:
+              - /url: /solicitudes
+          - listitem [ref=e126]:
+            - link "Curación" [ref=e127] [cursor=pointer]:
+              - /url: /curacion
+          - listitem [ref=e131]:
+            - link "Métricas" [ref=e132] [cursor=pointer]:
+              - /url: /metricas
+          - listitem [ref=e136]:
+            - link "Administración" [ref=e137] [cursor=pointer]:
+              - /url: /admin
+        - generic [ref=e142]:
+          - generic [ref=e143]: Conversaciones recientes
+          - paragraph [ref=e145]: Tus preguntas aparecerán aquí.
+      - list [ref=e147]:
+        - listitem [ref=e148]:
+          - button "DE demo Administrador de datos" [ref=e149]:
+            - generic [ref=e150]: DE
+            - generic [ref=e152]:
+              - generic [ref=e153]: demo
+              - generic [ref=e154]: Administrador de datos
+      - button "Toggle Sidebar" [ref=e158]
+    - main [ref=e159]:
+      - generic [ref=e160]:
+        - generic [ref=e161]:
+          - button "Toggle Sidebar" [ref=e162]
+          - heading "Nueva pregunta" [level=1] [ref=e164]
+          - generic [ref=e165]: 10 BDs · 49 objetos
+        - generic [ref=e168]:
+          - heading "Hola, demo. ¿Qué dato buscas?" [level=2] [ref=e173]
+          - paragraph [ref=e174]: Te digo en qué base, tabla y columna está, qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece.
+          - generic [ref=e175]:
+            - button "Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital." [ref=e176]
+            - button "¿Qué proceso llena la dimensión de clientes del DWH?" [ref=e186]
+            - button "¿Cómo relaciono los clientes con sus tarjetas de crédito?" [ref=e194]
+            - button "¿Qué tabla tiene los pagos de las cuotas de préstamos?" [ref=e199]
+        - generic [ref=e205]:
+          - generic [ref=e206]:
+            - textbox "Pregunta" [active] [ref=e207]:
+              - /placeholder: Pregunta dónde está un dato, qué significa o cómo se relaciona…
+            - button "Enviar pregunta" [disabled]
+          - paragraph [ref=e208]: ConverData solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e209]:
+        - button "Close toast" [ref=e210] [cursor=pointer]
+        - generic [ref=e218]:
+          - generic [ref=e219]: Conectado a 4 servidor(es)
+          - generic [ref=e220]: Puedes descubrir datos en 9 bases de datos.
+  - alert [ref=e5]

@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConverData — Entorno de desarrollo local (docker compose, demo y pruebas)",
+    "output": "docs/architecture/entorno-desarrollo.html",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/VIBS89/FemaleDataOwner.git",
+      "provider": "github",
+      "revision": "df5310c78a74930e2687186c1348f31bd2907752"
+    }
+  },
+  "components": [
+    {
+      "id": "nodocker",
+      "type": "backend",
+      "label": "Sin Docker",
+      "sublabel": "uvicorn :8000 · npm run dev",
+      "pos": [40, 40],
+      "size": [160, 64],
+      "tag": "alternativa",
+      "description": "Los mismos dos procesos directamente en la máquina: uvicorn converdata_api.main:app --app-dir api --port 8000 (CONVERDATA_DEMO=1 para el modo demo) y npm --prefix web run dev, que llama a la API en API_URL=http://localhost:8000 por defecto. Sin CONVERDATA_DB, el estado va a archivos bajo data/.",
+      "sources": [
+        { "path": "README.md", "line": 68, "end_line": 71, "label": "Sin Docker" },
+        { "path": "web/src/app/api/[...path]/route.ts", "line": 5, "end_line": 5, "label": "API_URL por defecto" }
+      ]
+    },
+    {
+      "id": "dev",
+      "type": "external",
+      "label": "Desarrollador",
+      "sublabel": "navegador · terminal",
+      "pos": [40, 200],
+      "size": [160, 64],
+      "icon": "person",
+      "description": "Levanta todo con docker compose up --build (o CONVERDATA_DEMO=1 docker compose up --build para el servidor simulado) y abre http://localhost:3000. En modo demo entra con demo/demo (administrador) o analista/demo. Solo el puerto 3000 queda publicado en el anfitrión.",
+      "sources": [
+        { "path": "docker-compose.yml", "line": 1, "end_line": 7, "label": "cómo arrancar" },
+        { "path": "README.md", "line": 64, "end_line": 66, "label": "compose y demo" }
+      ]
+    },
+    {
+      "id": "tests",
+      "type": "backend",
+      "label": "Pruebas locales",
+      "sublabel": "pytest · eval discovery · eval gate",
+      "pos": [40, 360],
+      "size": [160, 64],
+      "description": "Desde el .venv del repositorio: pytest -q (controles, capas y flujo de punta a punta), converdata eval discovery --root tests/fixtures/bancos (Hit@k contra la línea base) y converdata eval gate --out reports (compuerta de siete suites). Usan los fixtures del disco, sin SQL Server ni modelo.",
+      "sources": [
+        { "path": "README.md", "line": 16, "end_line": 16, "label": "pytest" },
+        { "path": "README.md", "line": 27, "end_line": 31, "label": "eval discovery" },
+        { "path": "README.md", "line": 76, "end_line": 79, "label": "eval gate" }
+      ]
+    },
+    {
+      "id": "ci",
+      "type": "cloud",
+      "label": "CI · GitHub Actions",
+      "sublabel": "calidad.yml",
+      "pos": [40, 520],
+      "size": [160, 64],
+      "tag": "push · PR · lunes",
+      "description": "En cada push a main, cada pull request y cada lunes: job backend (pytest y eval gate, con la evidencia como artefacto), job web (tsc, eslint y npm run build) y job cadena-de-suministro (pip-audit, npm audit y SBOM CycloneDX).",
+      "sources": [
+        { "path": ".github/workflows/calidad.yml", "line": 5, "end_line": 10, "label": "disparadores" },
+        { "path": ".github/workflows/calidad.yml", "line": 16, "end_line": 62, "label": "backend y web" },
+        { "path": ".github/workflows/calidad.yml", "line": 64, "end_line": 91, "label": "cadena de suministro" }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "web · Next.js",
+      "sublabel": "puerto 3000 · proxy /api/*",
+      "pos": [320, 200],
+      "size": [160, 64],
+      "description": "Contenedor Node 22 con la salida standalone de Next.js. Publica ${CONVERDATA_PORT:-3000}:3000 y espera a que la API esté sana (depends_on: service_healthy). Su ruta /api/[...path] reenvía solo las rutas que usa la web a API_URL=http://api:8000.",
+      "sources": [
+        { "path": "docker-compose.yml", "line": 47, "end_line": 59, "label": "servicio web" },
+        { "path": "web/Dockerfile", "line": 1, "end_line": 24, "label": "imagen" },
+        { "path": "web/src/app/api/[...path]/route.ts", "line": 1, "end_line": 19, "label": "proxy" }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "api · FastAPI",
+      "sublabel": "puerto 8000 interno · GET /health · 1 worker",
+      "pos": [600, 200],
+      "size": [240, 64],
+      "tag": "no publicada",
+      "description": "Imagen Python 3.12 con el driver ODBC 18, las dependencias con hash y el código. Un solo worker uvicorn porque el SessionVault vive en memoria. HEALTHCHECK cada 30 s contra /health. Las variables CONVERDATA_* de docker-compose.yml eligen BD, modelos, demo y entorno (dev por defecto).",
+      "sources": [
+        { "path": "docker-compose.yml", "line": 10, "end_line": 45, "label": "servicio api" },
+        { "path": "api/Dockerfile", "line": 49, "end_line": 53, "label": "healthcheck y worker" },
+        { "path": "api/converdata_api/main.py", "line": 446, "end_line": 448, "label": "/health" }
+      ]
+    },
+    {
+      "id": "fixtures",
+      "type": "database",
+      "label": "Fixtures demo",
+      "sublabel": "tests/fixtures/vbank · bancos",
+      "pos": [640, 40],
+      "size": [160, 64],
+      "tag": "copiados en la imagen",
+      "description": "Con CONVERDATA_DEMO=1 la API registra servidores simulados a partir de estos fixtures (solo metadatos de prueba, sin valores de datos) y aplica el conocimiento curado que trae cada uno. Por defecto vbank y bancos; CONVERDATA_DEMO_FIXTURE cambia la lista.",
+      "sources": [
+        { "path": "api/Dockerfile", "line": 43, "end_line": 45, "label": "COPY fixtures" },
+        { "path": "api/converdata_api/settings.py", "line": 88, "end_line": 92, "label": "flags demo" },
+        { "path": "api/converdata_api/demo.py", "line": 1, "end_line": 48, "label": "servidores simulados" }
+      ]
+    },
+    {
+      "id": "volume",
+      "type": "database",
+      "label": "Volumen converdata-data",
+      "sublabel": "/app/data · catálogo · auditoría",
+      "pos": [620, 360],
+      "size": [160, 64],
+      "description": "Volumen con nombre montado en /app/data: catálogo, inventario, auditoría y curación en archivos cuando no hay CONVERDATA_DB. Sobrevive a docker compose up --force-recreate; se borra con docker compose down -v.",
+      "sources": [
+        { "path": "docker-compose.yml", "line": 17, "end_line": 21, "label": "rutas de datos" },
+        { "path": "docker-compose.yml", "line": 39, "end_line": 40, "label": "montaje" },
+        { "path": "docker-compose.yml", "line": 61, "end_line": 62, "label": "volumen" }
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "cloud",
+      "label": "Proveedor de LLM",
+      "sublabel": "Ollama · NIM · OpenAI · Claude",
+      "pos": [960, 200],
+      "size": [160, 64],
+      "tag": "opcional",
+      "description": "Se activa con CONVERDATA_MODELS apuntando a config/models.yaml, montado de solo lectura por el docker-compose.override.yml local (no versionado). models.local.example.yaml usa Ollama en localhost:11434, permitido solo con environment: local. NIM, OpenAI o Claude necesitan su clave y la imagen con requirements/dev.lock. Sin modelos, cada paso usa su versión determinista.",
+      "sources": [
+        { "path": "config/models.local.example.yaml", "line": 1, "end_line": 23, "label": "Ollama local" },
+        { "path": "docker-compose.yml", "line": 13, "end_line": 16, "label": "dev.lock" },
+        { "path": "docker-compose.yml", "line": 24, "end_line": 24, "label": "CONVERDATA_MODELS" }
+      ]
+    },
+    {
+      "id": "sqlserver",
+      "type": "database",
+      "label": "SQL Server del anfitrión",
+      "sublabel": "host.docker.internal,1433",
+      "pos": [960, 360],
+      "size": [160, 64],
+      "tag": "opcional",
+      "description": "Fuera del modo demo, el primer login registra un SQL Server real; desde el contenedor el del anfitrión es host.docker.internal,1433 (TCP habilitado, sin autenticación de Windows). Con CONVERDATA_DB definida, catálogo y auditoría van a la BD ConverData en vez del volumen.",
+      "sources": [
+        { "path": "docker-compose.yml", "line": 5, "end_line": 7, "label": "SQL Server anfitrión" },
+        { "path": "docker-compose.yml", "line": 22, "end_line": 23, "label": "CONVERDATA_DB" },
+        { "path": "docker-compose.yml", "line": 42, "end_line": 43, "label": "extra_hosts" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker compose · red interna",
+      "wraps": ["web", "api", "fixtures", "volume"]
+    }
+  ],
+  "connections": [
+    { "id": "dev-web", "from": "dev", "to": "web", "label": "localhost:3000", "variant": "emphasis" },
+    { "id": "web-api", "from": "web", "to": "api", "label": "API_URL", "variant": "emphasis" },
+    { "id": "api-llm", "from": "api", "to": "llm", "label": "models.yaml" },
+    { "id": "api-fixtures", "from": "api", "to": "fixtures", "label": "CONVERDATA_DEMO=1" },
+    { "id": "api-volume", "from": "api", "to": "volume", "label": "archivos sin BD" },
+    { "id": "api-sql", "from": "api", "to": "sqlserver", "label": "login SQL", "variant": "security" },
+    { "id": "dev-nodocker", "from": "dev", "to": "nodocker", "label": "o sin Docker", "variant": "dashed" },
+    { "id": "dev-tests", "from": "dev", "to": "tests", "label": "antes del commit" },
+    { "id": "tests-ci", "from": "tests", "to": "ci", "label": "git push", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Arrancar",
+      "items": [
+        "docker compose up --build → http://localhost:3000",
+        "CONVERDATA_DEMO=1 docker compose up --build → usuarios demo/demo y analista/demo",
+        "--force-recreate reinicia sin perder el volumen; down -v lo borra"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Modelo de lenguaje",
+      "items": [
+        "Sin CONVERDATA_MODELS todo es determinista: así se prueba y se mide",
+        "Ollama: copiar models.local.example.yaml a config/models.yaml",
+        "NIM, OpenAI o Claude: clave en el entorno e imagen con requirements/dev.lock"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Antes de subir un cambio",
+      "items": [
+        "pytest -q y converdata eval gate --out reports",
+        "Si tocas la web: npx tsc --noEmit y npx eslint src",
+        "La CI repite lo mismo y añade auditoría de dependencias y SBOM"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Diferencias con el piloto",
+      "items": [
+        "En local no hay IIS ni HTTPS: cookie sin Secure (CONVERDATA_COOKIE_SECURE=0)",
+        "CONVERDATA_ENV=dev por defecto; qa y prod exigen CONVERDATA_DB, HTTPS y CORS explícitos",
+        "Con qa o prod, CONVERDATA_DEMO=1 también impide arrancar la API"
+      ]
+    }
+  ]
+}

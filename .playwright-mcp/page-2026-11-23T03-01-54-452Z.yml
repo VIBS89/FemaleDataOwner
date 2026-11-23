@@ -1,0 +1,83 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e83]:
+    - generic [ref=f2e86]:
+      - generic [ref=f2e87]:
+        - list [ref=f2e88]:
+          - listitem [ref=f2e89]:
+            - link "ConverData Descubrimiento de datos" [ref=f2e90] [cursor=pointer]:
+              - /url: /
+              - generic [ref=f2e97]:
+                - generic [ref=f2e98]: ConverData
+                - generic [ref=f2e99]: Descubrimiento de datos
+        - button "Nueva pregunta" [ref=f2e100]
+      - generic [ref=f2e101]:
+        - list [ref=f2e104]:
+          - listitem [ref=f2e105]:
+            - link "Preguntar" [ref=f2e106] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=f2e110]:
+            - link "Catálogo" [ref=f2e111] [cursor=pointer]:
+              - /url: /catalogo
+          - listitem [ref=f2e117]:
+            - link "Mis solicitudes" [ref=f2e118] [cursor=pointer]:
+              - /url: /solicitudes
+          - listitem [ref=f2e123]:
+            - link "Curación" [ref=f2e124] [cursor=pointer]:
+              - /url: /curacion
+          - listitem [ref=f2e128]:
+            - link "Métricas" [ref=f2e129] [cursor=pointer]:
+              - /url: /metricas
+          - listitem [ref=f2e133]:
+            - link "Administración" [ref=f2e134] [cursor=pointer]:
+              - /url: /admin
+        - generic [ref=f2e139]:
+          - generic [ref=f2e140]: Conversaciones recientes
+          - list [ref=f2e142]:
+            - listitem [ref=f2e236]:
+              - button "¿Qué tabla tiene los pagos de las cuotas de préstamos? hace un momento" [ref=f2e237]:
+                - generic [ref=f2e238]:
+                  - generic [ref=f2e239]: ¿Qué tabla tiene los pagos de las cuotas de préstamos?
+                  - generic [ref=f2e240]: hace un momento
+              - button "Eliminar conversación" [ref=f2e241]
+            - listitem [ref=f2e143]:
+              - button "Necesito encontrar el identificador único del cliente uti… hace 15 min" [ref=f2e144]:
+                - generic [ref=f2e145]:
+                  - generic [ref=f2e146]: Necesito encontrar el identificador único del cliente uti…
+                  - generic [ref=f2e147]: hace 15 min
+              - button "Eliminar conversación" [ref=f2e148]
+            - listitem [ref=f2e152]:
+              - button "a cuantas bases de datos puedes acceder? hace 20 min" [ref=f2e153]:
+                - generic [ref=f2e154]:
+                  - generic [ref=f2e155]: a cuantas bases de datos puedes acceder?
+                  - generic [ref=f2e156]: hace 20 min
+              - button "Eliminar conversación" [ref=f2e157]
+      - list [ref=f2e162]:
+        - listitem [ref=f2e163]:
+          - button "DE demo Administrador de datos" [ref=f2e164]:
+            - generic [ref=f2e165]: DE
+            - generic [ref=f2e167]:
+              - generic [ref=f2e168]: demo
+              - generic [ref=f2e169]: Administrador de datos
+      - button "Toggle Sidebar" [ref=f2e173]
+    - main [ref=f2e174]:
+      - generic [ref=f2e175]:
+        - generic [ref=f2e176]:
+          - button "Toggle Sidebar" [ref=f2e177]
+          - heading "¿Qué tabla tiene los pagos de las cuotas de préstamos?" [level=1] [ref=f2e245]
+          - generic [ref=f2e180]: 10 BDs · 49 objetos
+        - generic [ref=f2e246]:
+          - generic [ref=f2e247]: ¿Qué tabla tiene los pagos de las cuotas de préstamos?
+          - list [ref=f2e255]:
+            - listitem [ref=f2e256]: Interpretando la pregunta
+            - listitem [ref=f2e259]: Buscando en catálogo, diccionarios, documentos y ETL
+            - listitem [ref=f2e262]: Calificando lo encontrado
+            - listitem [ref=f2e265]: Priorizando candidatos
+            - listitem [ref=f2e268]: Agregando ubicaciones, reglas, relaciones y responsables
+        - generic [ref=f2e220]:
+          - generic [ref=f2e221]:
+            - textbox "Pregunta" [active] [ref=f2e222]:
+              - /placeholder: Pregunta dónde está un dato, qué significa o cómo se relaciona…
+            - button "Enviar pregunta" [disabled]
+          - paragraph [ref=f2e223]: ConverData solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
+  - region "Notifications alt+T"
+  - alert [ref=f2e82]
