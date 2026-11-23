@@ -1,9 +1,9 @@
 # Web (ConverData-Web)
 
-Actualizado el 2026-11-17.
+Actualizado el 2026-11-22.
 
 ## Para qué sirve
-Frontend Next.js 15 (App Router, React 19, Tailwind 4, componentes shadcn/Radix) en `web/`. Es la única cara pública de ConverData: pregunta dónde está un dato, muestra el catálogo que el usuario puede ver, permite curar y administrar. No tiene lógica de negocio ni de permisos: toda decisión la toma `ConverData-API`.
+Frontend Next.js 16 (App Router, Turbopack, React 19, Tailwind 4, componentes shadcn/Radix) en `web/`. Es la única cara pública de ConverData: pregunta dónde está un dato, muestra el catálogo que el usuario puede ver, permite curar y administrar. No tiene lógica de negocio ni de permisos: toda decisión la toma `ConverData-API`.
 
 ## Lo esencial
 - El navegador solo habla con la web. La API no se publica: el proxy `web/src/app/api/[...path]/route.ts` la alcanza por la red interna (`API_URL`) y solo reenvía las rutas que usa la web (`auth`, `login`, `setup`, `me`, `discover`, `catalog`, `assets`, `curation` y `admin`); el resto (`/api/mcp`, `/api/health/metrics`, `/api/docs`) responde 404.
@@ -82,15 +82,17 @@ El rol `data_admin` no es "administrador de la web": lo da la API según el logi
 | `CONVERDATA_CORS_ORIGINS`, `CONVERDATA_COOKIE_SECURE` | Son de la API. Con HTTPS delante hay que poner `CONVERDATA_COOKIE_SECURE=1`. Si delante de la web hay un proxy que cambia `Host`, el origen público debe estar en `CONVERDATA_CORS_ORIGINS`, o la API rechaza con 403 los cambios de estado. |
 
 ## Construcción y despliegue
-- `web/package.json`: `dev`, `build`, `start`, `lint`. Next.js y React van con versión exacta (`15.5.29`, `19.1.0`); el resto con rangos, fijados por `web/package-lock.json`.
+- `web/package.json`: `dev`, `build`, `start`, `lint`. Next.js y React van con versión exacta (`16.4.6`, `19.3.1`); el resto con rangos, fijados por `web/package-lock.json`. TypeScript se queda en la 5.9 y ESLint en la 9: las herramientas de lint todavía no admiten la 7 ni la 10, y `.github/dependabot.yml` no las propone ([DT-73](../deuda-tecnica.md)).
+- `web/eslint.config.mjs`: configuración plana de `eslint-config-next` 16 (`core-web-vitals` y `typescript`), sin `FlatCompat`. Apaga `react-hooks/set-state-in-effect` y `react-hooks/purity` hasta corregir el código ([DT-72](../deuda-tecnica.md)).
+- `web/tsconfig.json`: `jsx: react-jsx` e `include` con `.next/dev/types`; los pone Next.js 16 al compilar, y van versionados para que el build no modifique el árbol.
 - `overrides`: `next` → `postcss 8.5.33`. Corrige una vulnerabilidad del `postcss` transitivo (ver [PLAN §3](../../PLAN-desarrollo.md)).
-- `web/Dockerfile`: tres etapas sobre `node:22-alpine` fijada por digest. `npm ci` instala exactamente el bloqueo; `npm run build`; la imagen final copia `.next/standalone`, `.next/static` y `public`, corre como usuario `web` y ejecuta `node server.js` en el puerto 3000.
+- `web/Dockerfile`: tres etapas sobre `node:26-alpine` fijada por digest (la CI usa la misma versión mayor de Node). `npm ci` instala exactamente el bloqueo; `npm run build`; la imagen final copia `.next/standalone`, `.next/static` y `public`, corre como usuario `web` y ejecuta `node server.js` en el puerto 3000.
 - `docker compose up --build` levanta `api` (sin puerto publicado) y `web` (`depends_on` el chequeo de salud de la API).
 - En Windows Server (bloque F) todavía no hay despliegue: hoy solo `docker compose`.
 - El plan ([PLAN §3](../../PLAN-desarrollo.md), cadena de suministro) anota que el 2026-11-17 no se construyó la imagen (Docker no estaba en marcha). Sin verificar la construcción de `web/Dockerfile` desde entonces.
 
 ## Pruebas que lo cubren
-- CI, trabajo `web` de `.github/workflows/calidad.yml`: `npm ci`, `npx tsc --noEmit && npx eslint src --max-warnings=0`, `npm run build`.
+- CI, trabajo `web` de `.github/workflows/calidad.yml`: `npm ci`, `npx tsc --noEmit && npx eslint src --max-warnings=0`, `npm run build`. Corre de verdad desde el 2026-11-22; antes el archivo de la CI no era válido y no se ejecutaba ([deuda técnica §4](../deuda-tecnica.md)).
 - Cadena de suministro: `tests/test_supply_chain.py::test_la_web_fija_versiones_exactas_y_su_bloqueo_trae_integridad` y el trabajo `cadena-de-suministro` (`npm audit --omit=dev --audit-level=high`, SBOM).
 - Contrato web-API: no hay prueba automática. Se revisa a mano (agente `.claude/agents/verificador-contrato-web-api.md`).
 - Pruebas de interfaz, componentes o extremo a extremo: no existen. Sin verificar el comportamiento en navegador fuera de lo anotado en el plan (Responsables e Historial).

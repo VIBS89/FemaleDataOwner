@@ -9,7 +9,7 @@ const eslintConfig = defineConfig([
   {
     // Reglas del compilador de React que llegaron con eslint-config-next 16. El código actual carga datos con
     // setState dentro de useEffect en 12 sitios y usa Math.random en el sidebar de shadcn. Se apagan hasta
-    // refactorizar: docs/wiki/deuda-tecnica.md.
+    // refactorizar: docs/wiki/deuda-tecnica.md (DT-72).
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "off",

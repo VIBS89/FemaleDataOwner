@@ -85,7 +85,8 @@ jobs:
         run: |
           mkdir -p sbom
           cyclonedx-py requirements requirements/runtime.lock --output-format JSON --output-file sbom/converdata-api.cdx.json
-          cd web && npm sbom --omit dev --sbom-format cyclonedx > ../sbom/converdata-web.cdx.json
+          # --package-lock-only: este trabajo no instala node_modules, y sin el indicador npm sbom falla por dependencias ausentes.
+          cd web && npm sbom --omit dev --sbom-format cyclonedx --package-lock-only > ../sbom/converdata-web.cdx.json
       - name: Publicar el SBOM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:

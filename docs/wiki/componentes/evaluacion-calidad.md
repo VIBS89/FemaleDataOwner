@@ -100,13 +100,15 @@ Opciones verificadas en `cli.py`: `eval discovery` (`--root`, `--db`, `--cases`,
 5. Si el set cambia de tamaño, anota que las cifras antiguas y nuevas no se comparan (como en PLAN §2). Ampliar el set antes de aceptar un cambio dice más que el porcentaje.
 
 ## CI (`.github/workflows/calidad.yml`)
-Se dispara en push a `main`, en cada pull request y cada lunes a las 06:00 UTC. Permisos `contents: read`; acciones fijadas por commit.
+Se dispara en push a `main`, en cada pull request y cada lunes a las 06:00 UTC. Permisos `contents: read`; acciones fijadas por commit. Python 3.12 y Node 26, las mismas versiones que las imágenes.
+
+Hasta el 2026-11-22 no se ejecutó ninguna vez: el archivo no era YAML válido y GitHub registraba cada ejecución como fallida sin crear trabajos, de modo que tampoco aparecía ninguna comprobación en los PR. Dos lecciones que ya están en el código: `tests/test_supply_chain.py` carga el archivo como YAML, y un `run` que lleve `: ` (por ejemplo `--only-binary :all: -r`) se escribe en bloque (`run: |`). Que un PR no muestre comprobaciones no significa que pasen; `main` todavía admite fusiones sin CI ([DT-74](../deuda-tecnica.md)).
 
 | Trabajo | Qué corre |
 |---|---|
 | `backend` | Instala `build.lock` y `dev.lock` con hashes y el paquete sin red; `python -m pytest -q`; `python -m converdata.cli eval gate --out reports`; sube `reports/` como evidencia. |
 | `web` | `npm ci`; `npx tsc --noEmit && npx eslint src --max-warnings=0`; `npm run build`. |
-| `cadena-de-suministro` | Instala `tools.lock`; `pip-audit -r requirements/runtime.lock --require-hashes --disable-pip`; `npm audit --omit=dev --audit-level=high`; SBOM CycloneDX de la API y de la web, publicado como artefacto. |
+| `cadena-de-suministro` | Instala `tools.lock`; `pip-audit -r requirements/runtime.lock --require-hashes --disable-pip`; `npm audit --omit=dev --audit-level=high`; SBOM CycloneDX de la API y de la web, publicado como artefacto. El de la web sale del bloqueo (`npm sbom --package-lock-only`): el trabajo no instala `node_modules`. |
 
 Lo que la CI **no** corre:
 - Las pruebas marcadas `sqlserver` (migraciones, roles, auditoría y catálogo contra SQL Server real, literales marcados en la BD): se omiten por no haber `CONVERDATA_TEST_DB`.
@@ -119,8 +121,9 @@ Lo que la CI **no** corre:
 ## Cadena de suministro
 - `requirements/runtime.lock` (extras `api`, `mcp`, `sqlserver`, `bedrock`; imagen de la API), `dev.lock` (todos los extras; CI), `build.lock` (`setuptools`), `tools.lock` (`pip-audit`, `cyclonedx-bom`). Bloqueos universales con hashes, generados con `uv pip compile --generate-hashes` (comandos en `requirements/README.md`).
 - Instalación con `--require-hashes --only-binary :all:`; el paquete con `--no-deps --no-build-isolation --no-index`.
-- `tests/test_supply_chain.py`: cada dependencia de `pyproject.toml` está fijada con hash; lo desplegado es subconjunto exacto de lo probado y no trae herramientas de desarrollo; imágenes base por digest; `pip install` verificado; acciones por commit; la CI analiza y no usa `pull_request_target` ni secretos; la web fija `next` con versión exacta y su bloqueo trae integridad.
-- `.github/dependabot.yml` actualiza imágenes, acciones y npm; los bloqueos de Python se regeneran a mano.
+- `tests/test_supply_chain.py`: cada dependencia de `pyproject.toml` está fijada con hash; lo desplegado es subconjunto exacto de lo probado y no trae herramientas de desarrollo; imágenes base por digest; `pip install` verificado; acciones por commit; la CI analiza y no usa `pull_request_target` ni secretos; la web fija `next` con versión exacta y su bloqueo trae integridad (salvo los paquetes `inBundle`, que viajan dentro del tarball de su padre); `calidad.yml` es YAML válido y tiene los tres trabajos.
+- `.github/dependabot.yml` actualiza imágenes, acciones y npm; los bloqueos de Python se regeneran a mano. Tiene tres exclusiones ([DT-73](../deuda-tecnica.md)): la versión de Python de la imagen (solo mueve el digest de la 3.12, porque los bloqueos están compilados para esa versión), TypeScript 7 y ESLint 10.
+- Antes de fusionar un PR de Dependabot: que los tres trabajos de la CI estén en verde. Una subida de versión mayor de la web puede exigir cambios de configuración (pasó con `eslint-config-next` 16 y la configuración plana).
 - No cubre: paquetes del sistema de la imagen (`msodbcsql18`, `unixodbc`), firma ni escaneo de la imagen construida.
 
 ## Prueba de arquitectura (`tests/test_architecture.py`)
