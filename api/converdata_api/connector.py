@@ -21,6 +21,17 @@ from converdata_api.vault import Credential
 Q_IDENTIFY = """
 SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION')
 """
+# Sondeo del asistente "Conectar base de datos": bases de usuario y, desde `master`, a cuáles entra el login.
+Q_PROBE_DATABASES = """
+SELECT name, state_desc, HAS_DBACCESS(name) FROM sys.databases WHERE database_id > 4 ORDER BY name
+"""
+# Solo metadatos: cuántas tablas y vistas ve el login en la base (sys.objects ya filtra por sus permisos).
+Q_PROBE_COUNTS = """
+SELECT COALESCE(SUM(CASE WHEN type = 'U' THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN type = 'V' THEN 1 ELSE 0 END), 0)
+FROM sys.objects WHERE type IN ('U', 'V') AND is_ms_shipped = 0
+"""
+MAX_COUNTED_DATABASES = 100  # en un servidor con cientos de bases, las demás salen sin conteo (None)
+NO_ACCESS = "Tu login no tiene acceso a esta base"
 
 
 class LoginFailed(Exception):
@@ -39,10 +50,23 @@ class LoginInfo:
     can_build: bool  # sysadmin o VIEW ANY DEFINITION: puede descubrir los esquemas del servidor
 
 
+@dataclass(frozen=True)
+class DatabaseProbe:
+    """Una base de usuario de un servidor, vista con el login de quien sondea. Sin conteo (None) si no tiene acceso o
+    si contar falló; `reason` dice por qué no se puede elegir."""
+
+    name: str
+    accessible: bool
+    tables: int | None = None
+    views: int | None = None
+    reason: str | None = None
+
+
 class Connector(Protocol):
     def identify(self, server: ServerConfig, cred: Credential) -> LoginInfo: ...
     def object_lister(self, servers: dict[str, ServerConfig], cred: Credential) -> ObjectLister: ...
     def metadata_source(self, server: ServerConfig, cred: Credential) -> MetadataSource: ...
+    def probe(self, server: ServerConfig, cred: Credential) -> list[DatabaseProbe]: ...
 
 
 def _braced(value: str) -> str:
@@ -78,11 +102,12 @@ class SqlConnector:
         conn.timeout = 30
         return conn
 
-    def identify(self, server: ServerConfig, cred: Credential) -> LoginInfo:
+    def _open(self, server: ServerConfig, cred: Credential, database: str = "master"):
+        """Conexión o `LoginFailed` con un mensaje apto para el usuario: el texto del driver puede traer host o login."""
         import pyodbc
 
         try:
-            conn = self.connect(server, cred)
+            return self.connect(server, cred, database)
         except LoginFailed:
             raise
         except pyodbc.InterfaceError as exc:
@@ -92,9 +117,54 @@ class SqlConnector:
             if state == "28000":
                 raise LoginFailed("Usuario o contraseña incorrectos") from None
             raise LoginFailed("No se pudo conectar al servidor", credentials=False) from None
+        except RuntimeError:  # best_driver: no hay driver instalado
+            raise LoginFailed("No hay un driver ODBC 17/18 para SQL Server", credentials=False) from None
+
+    def identify(self, server: ServerConfig, cred: Credential) -> LoginInfo:
+        conn = self._open(server, cred)
         try:
             login, sysadmin, view_def = conn.cursor().execute(Q_IDENTIFY).fetchone()
             return LoginInfo(sql_login=login, can_build=bool(sysadmin) or bool(view_def))
+        finally:
+            conn.close()
+
+    def probe(self, server: ServerConfig, cred: Credential) -> list[DatabaseProbe]:
+        """Bases de usuario del servidor y, para las que el login puede abrir, cuántas tablas y vistas ve. Como
+        `PyodbcObjectLister`, pregunta `HAS_DBACCESS` desde `master` y nunca abre una base sin acceso."""
+        conn = self._open(server, cred)
+        try:
+            rows = conn.cursor().execute(Q_PROBE_DATABASES).fetchall()
+        except Exception:
+            raise LoginFailed("No se pudo leer la lista de bases del servidor", credentials=False) from None
+        finally:
+            conn.close()
+        found, counted = [], 0
+        for name, state, access in rows:
+            if state != "ONLINE":
+                found.append(DatabaseProbe(name, False, reason="La base no está en línea"))
+            elif access != 1:
+                found.append(DatabaseProbe(name, False, reason=NO_ACCESS))
+            elif not valid_identifier(name):
+                found.append(DatabaseProbe(name, False, reason="El nombre de la base no es compatible con el agente"))
+            elif counted >= MAX_COUNTED_DATABASES:
+                found.append(DatabaseProbe(name, True))
+            else:
+                counted += 1
+                found.append(DatabaseProbe(name, True, *self._count(server, cred, name)))
+        return found
+
+    def _count(self, server: ServerConfig, cred: Credential, database: str) -> tuple[int | None, int | None]:
+        try:
+            conn = self.connect(server, cred, database)
+        except Exception:  # dejó de estar disponible o no se deja abrir: sin conteo, y se sigue con las demás
+            return None, None
+        try:
+            cur = conn.cursor()
+            cur.execute("SET LOCK_TIMEOUT 2000;")  # F18: nunca bloquear al servidor de datos
+            tables, views = cur.execute(Q_PROBE_COUNTS).fetchone()
+            return int(tables), int(views)
+        except Exception:
+            return None, None
         finally:
             conn.close()
 
@@ -132,7 +202,9 @@ class FixtureMetadata:
     Con `server_id` de un servidor de los fixtures, solo sus objetos; con otro (el primer arranque registra uno nuevo),
     una copia de cada objeto de todos los fixtures."""
 
-    def __init__(self, fixtures: Path | list[Path], databases: list[str] | None = None, server_id: str | None = None):
+    def __init__(self, fixtures: Path | list[Path], databases: list[str] | None = None, server_id: str | None = None,
+                 only: list[str] | None = None):
+        # `databases`: las que puede leer el login; `only`: las que el inventario pide (None = todas, `["*"]`).
         objects = []
         for fixture in _as_list(fixtures):
             inventory = load_inventory(fixture / "config" / "databases.yaml")
@@ -149,10 +221,11 @@ class FixtureMetadata:
             objects = unique
         self.objects = objects
         self.allowed = databases
+        self.only = only
 
     def list_databases(self) -> list[str]:
         dbs = sorted({o.database for o in self.objects})
-        return [d for d in dbs if self.allowed is None or d in self.allowed]
+        return [d for d in dbs if (self.allowed is None or d in self.allowed) and (self.only is None or d in self.only)]
 
     def extract_database(self, database: str) -> list[RawObject]:
         out = []
@@ -205,7 +278,21 @@ class DemoConnector:
         return _FixtureLister(self.fixtures, self._check(cred).databases)
 
     def metadata_source(self, server: ServerConfig, cred: Credential) -> MetadataSource:
-        return FixtureMetadata(self.fixtures, self._check(cred).databases, server.id)
+        # Como `SqlServerMetadata`: con bases elegidas en el inventario solo se leen esas.
+        return FixtureMetadata(self.fixtures, self._check(cred).databases, server.id,
+                               None if server.all_databases else list(server.databases))
+
+    def probe(self, server: ServerConfig, cred: Credential) -> list[DatabaseProbe]:
+        user = self._check(cred)
+        objects = FixtureMetadata(self.fixtures, None, server.id).objects
+        found = []
+        for name in sorted({o.database for o in objects}):
+            if user.databases is not None and name not in user.databases:
+                found.append(DatabaseProbe(name, False, reason=NO_ACCESS))
+                continue
+            kinds = [o.kind for o in objects if o.database == name]
+            found.append(DatabaseProbe(name, True, kinds.count("table"), kinds.count("view")))
+        return found
 
 
 def server_from_host(host: str, alias: str | None, environment: str, trust_certificate: bool,

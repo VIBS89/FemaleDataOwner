@@ -59,7 +59,9 @@ def tokenize(text: str) -> list[str]:
 # vocabulario conocido del banco (el nombre de un objeto del catálogo como `Ultimos4`, o un código del glosario como
 # `NCB-022`). Las listas de formatos concretos (DUI, cuenta, IBAN) siempre se dejan alguno; "tiene un dígito" no.
 _EDGE = "¿?¡!.,;:()[]{}\"'«»“”‘’<>"
-_SPACED_AT = re.compile(r"\S+\s+@\s+\S+")  # "juan.perez @ banco.com"
+# "juan.perez @ banco.com". Solo se intenta al inicio de cada palabra: sin eso, una palabra de miles de caracteres se
+# recorre una vez por cada carácter (segundos con 20 000) y el resultado es el mismo.
+_SPACED_AT = re.compile(r"(?<!\S)\S+\s+@\s+\S+")
 
 
 def _is_literal(word: str, known) -> bool:

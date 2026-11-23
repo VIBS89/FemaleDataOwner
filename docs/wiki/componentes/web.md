@@ -30,6 +30,8 @@ Frontend Next.js 15 (App Router, React 19, Tailwind 4, componentes shadcn/Radix)
 | Curación | `web/src/app/(app)/curacion/page.tsx` | Pestañas: solicitudes, revisión, reglas y diccionario CSV. Solo con rol `steward`. |
 | Métricas | `web/src/app/(app)/metricas/page.tsx` | Tablero de 7, 30 o 90 días (`GET /admin/metrics`). Solo `data_admin`. |
 | Administración | `web/src/app/(app)/admin/page.tsx` | Pestañas: descubrir esquemas, servidores, responsables, auditoría y manual de desarrollo. Solo `data_admin`. |
+| Asistente "Conectar base de datos" | `web/src/components/connect-database-wizard.tsx` | Diálogo de la pestaña Servidores: host, nombre visible, ambiente y certificado → "Probar conexión" (`POST /admin/inventory/probe`); casillas por base con tablas y vistas (las sin acceso, deshabilitadas con el motivo; "todas las accesibles" e "incluir las futuras" = `*`); "Conectar y descubrir" (`POST /admin/inventory/connect`), avance del build y resumen con enlaces al chat y al Catálogo. El botón de cada fila lo abre sobre ese servidor para añadirle bases. |
+| Avance del build | `web/src/components/build-progress.tsx` | `useBuildJob` (sondea `GET /admin/catalog/build` cada 1,2 s y avisa al terminar) y `BuildSteps`; los usan "Descubrir esquemas" y el asistente. |
 | Login | `web/src/app/login/page.tsx` | Contraseña, selección de servidores, interruptor de autenticación de Windows y formulario de primer arranque (con código de instalación si la API lo pide). |
 | Proxy | `web/src/app/api/[...path]/route.ts` | Reenvía GET, POST, PUT, PATCH y DELETE a `API_URL`. |
 | Cliente de la API | `web/src/lib/api.ts` | Objeto `api` con una función por endpoint; `ApiError`; lector de SSE. |
@@ -62,7 +64,7 @@ Frontend Next.js 15 (App Router, React 19, Tailwind 4, componentes shadcn/Radix)
 El rol `data_admin` no es "administrador de la web": lo da la API según el login (permiso de metadatos en el servidor o lista `CONVERDATA_ADMINS`). Detalle en [OP-03](../../specs/on-premise/OP-03-identidad.md) y [F14](../../specs/comun/F14-identity.md).
 
 ## Contratos y datos
-- Endpoints que usa `api.ts` (todos existen en `api/converdata_api/main.py`): `/setup/status`, `/auth/me`, `/login`, `/auth/logout`, `/discover`, `/discover/stream`, `/discover/feedback`, `/me/history`, `/me/requests`, `/catalog/*`, `/assets/*`, `/curation/*`, `/admin/inventory`, `/admin/stewards`, `/admin/catalog/build`, `/admin/audit`, `/admin/metrics`, `/admin/manual`.
+- Endpoints que usa `api.ts` (todos existen en `api/converdata_api/main.py`): `/setup/status`, `/auth/me`, `/login`, `/auth/logout`, `/discover`, `/discover/stream`, `/discover/feedback`, `/me/history`, `/me/requests`, `/catalog/*`, `/assets/*`, `/curation/*`, `/admin/inventory`, `/admin/inventory/probe`, `/admin/inventory/connect`, `/admin/stewards`, `/admin/catalog/build`, `/admin/audit`, `/admin/metrics`, `/admin/manual`.
 - La API tiene rutas que la web no llama: `/admin/sessions`, `/admin/audit/verify`, `/health` y `/mcp` (si está montado). El proxy no reenvía `/health` ni `/mcp`.
 - Los errores se leen de `detail`: texto simple, o la lista de validación de Pydantic sin el prefijo `Value error, `.
 - `types.ts` declara que `AnswerEnvelope` y `Discovery` reflejan `src/converdata/models/discovery.py`. El contrato se mantiene a mano; no se genera.

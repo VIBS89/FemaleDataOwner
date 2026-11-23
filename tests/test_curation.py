@@ -240,3 +240,19 @@ def test_el_inventario_en_archivos_guarda_los_hosts(tmp_path):
     servers = [ServerConfig(id="S1", host="sql01.banco.local", alias="SQL 1", environment="produccion", databases=["*"])]
     store.save_inventory(servers, by="admin")
     assert [(s.id, s.host, s.databases) for s in store.inventory()] == [("S1", "sql01.banco.local", ["*"])]
+
+
+def test_quitar_literales_no_se_cuelga_con_una_palabra_enorme():
+    """El patrón del correo con espacios se intentaba en cada carácter: 20 000 letras seguidas tardaban segundos."""
+    import re
+    import time
+
+    from converdata.memory.text import strip_literals
+
+    old = re.compile(r"\S+\s+@\s+\S+")
+    for text in ("escribe a juan.perez @ banco.com hoy", "a @ b", "@ solo", "sin arroba", "x @", "uno dos @ tres cuatro"):
+        assert strip_literals(text) == " ".join(w for w in old.sub(" ", text).split() if "@" not in w)
+    start = time.perf_counter()
+    assert strip_literals("x" * 20000 + " @ banco.com") == ""
+    assert strip_literals("x" * 20000) == "x" * 20000
+    assert time.perf_counter() - start < 0.5

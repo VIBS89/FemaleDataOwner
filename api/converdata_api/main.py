@@ -9,6 +9,7 @@ La identidad sale solo del token de sesión (cookie `cd_session` o `Authorizatio
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import datetime as dt
 import hmac
 import json
@@ -29,10 +30,13 @@ from converdata.catalog.ids import table_key
 from converdata.curation import human_edits, plan_dictionary
 from converdata.cli import load_dotenv, use_system_certificates
 from converdata.config import ServerConfig
+from converdata.flows.catalog_build import OWN_DATABASES
+from converdata.metadata.sqlserver import SYSTEM_DATABASES
 from converdata.models.discovery import AnswerEnvelope
 from converdata.models.knowledge import BusinessRule
 from converdata.observability.logging import configure_logging, log_event
 from converdata.observability.metrics import Metrics
+from converdata.storage.connection import describe as describe_connection
 
 from converdata_api.audit import open_audit
 from converdata_api.connector import Connector, DemoConnector, LoginFailed, SqlConnector, server_from_host
@@ -54,6 +58,12 @@ COOKIE = "cd_session"
 def _check_host(value: str | None) -> str | None:
     if value is not None and not valid_host(value.strip()):
         raise ValueError("Nombre de servidor no válido")
+    return value
+
+
+def _check_databases(value: list[str]) -> list[str]:
+    if not all(valid_identifier(d) for d in value):
+        raise ValueError("Nombre de base de datos no válido")
     return value
 
 
@@ -110,17 +120,36 @@ class ServerIn(BaseModel):
     trust_server_certificate: bool = False
 
     _host = field_validator("host")(_check_host)
-
-    @field_validator("databases")
-    @classmethod
-    def _databases(cls, value: list[str]) -> list[str]:
-        if not all(valid_identifier(d) for d in value):
-            raise ValueError("Nombre de base de datos no válido")
-        return value
+    _databases = field_validator("databases")(_check_databases)
 
 
 class InventoryRequest(BaseModel):
     servers: list[ServerIn] = Field(max_length=200)
+
+
+class ProbeRequest(BaseModel):
+    """Un servidor nuevo (`host`) o uno del inventario (`server_id`, con su propia configuración)."""
+
+    host: str | None = Field(None, max_length=256)
+    server_id: ServerId | None = None
+    trust_server_certificate: bool = False
+
+    _host = field_validator("host")(_check_host)
+
+
+class ConnectRequest(BaseModel):
+    """Añade (`host`) o actualiza (`server_id`) un servidor con las bases elegidas y lanza el descubrimiento."""
+
+    server_id: ServerId | None = None
+    host: str | None = Field(None, max_length=256)
+    alias: str | None = Field(None, max_length=80)
+    environment: Literal["produccion", "qa", "desarrollo", "dr"] = "desarrollo"
+    trust_server_certificate: bool = False
+    databases: list[DatabaseName] = Field(min_length=1, max_length=500)  # ["*"] = todas, también las futuras
+    enrich: bool = False
+
+    _host = field_validator("host")(_check_host)
+    _databases = field_validator("databases")(_check_databases)
 
 
 class EscalateRequest(BaseModel):
@@ -958,6 +987,44 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
             for s in runtime.inventory.servers
         ]}
 
+    CERTIFICATE_REQUIRED = "En este ambiente el certificado del servidor debe validarse"
+    # La BD de trabajo no se cataloga a sí misma, se llame como se llame (igual que `AgentRuntime._run_build`).
+    excluded_databases = {d.lower() for d in SYSTEM_DATABASES | OWN_DATABASES}
+    if settings.db:
+        excluded_databases.add(describe_connection(settings.db).split("/")[-1].lower())
+
+    def session_credential(session: Session, server_id: str) -> Credential | None:
+        """La credencial con la que se prueba un servidor: la de la sesión si ya lo validó; si no, la misma plantilla
+        (login y contraseña con los que inició sesión) que usa `PUT /admin/inventory` con los servidores nuevos."""
+        own = vault.credential(session, server_id)
+        if own is not None:
+            return own
+        template = next((c for c in (vault.credential(session, sid) for sid in session.servers) if c), None)
+        return None if template is None else Credential(server_id, template.login, template.password)
+
+    # Un solo cambio de inventario a la vez: entre leerlo y guardarlo se prueba una conexión (segundos), y sin esto
+    # dos administradores a la vez se pisarían el uno al otro.
+    inventory_lock = threading.Lock()
+
+    @contextlib.contextmanager
+    def replacing_inventory(session: Session, servers: list[ServerConfig], **data):
+        """Cambiar un host redirige las credenciales de todos los usuarios: queda el antes y el después, y antes de
+        aplicar. Dentro del bloque se prueban las conexiones; al salir sin error se guarda el inventario."""
+        def described(items):
+            return [{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate} for s in items]
+
+        try:
+            with applying("inventory_updated", session.user_id, servers=described(servers),
+                          previous=described(runtime.inventory.servers), **data):
+                yield
+                runtime.save_inventory(servers, by=session.user_id)
+        finally:  # también si no se guardó: la sesión no conserva credenciales de servidores fuera del inventario
+            session.servers = [s for s in session.servers if runtime.inventory.server(s)]
+            runtime.forget(session)
+
+    def already_inventoried(host: str) -> ServerConfig | None:
+        return next((s for s in runtime.inventory.servers if (s.host or "").strip().lower() == host.lower()), None)
+
     @app.put("/admin/inventory")
     def put_inventory(body: InventoryRequest, session: Session = Depends(admin_session)):
         """Reemplaza el inventario. Los servidores nuevos se prueban con la misma credencial de la sesión."""
@@ -966,31 +1033,117 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         if len({s.id for s in body.servers}) != len(body.servers):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Hay identificadores de servidor repetidos")
         if settings.production and any(s.trust_server_certificate for s in body.servers):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "En este ambiente el certificado del servidor debe validarse")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, CERTIFICATE_REQUIRED)
         servers = [ServerConfig(**s.model_dump(), auth="sql") for s in body.servers]
-
-        def described(items):
-            return [{"id": s.id, "host": s.host, "trust_server_certificate": s.trust_server_certificate} for s in items]
-
-        # Cambiar un host redirige las credenciales de todos los usuarios: queda el antes y el después, y antes de aplicar.
-        with applying("inventory_updated", session.user_id, servers=described(servers),
-                      previous=described(runtime.inventory.servers)):
-            template = next((c for c in (vault.credential(session, sid) for sid in session.servers) if c), None)
-            results = {}
+        results = {}
+        with inventory_lock, replacing_inventory(session, servers):
             for server in servers:
-                if server.id in session.servers or template is None:
+                cred = None if server.id in session.servers else session_credential(session, server.id)
+                if cred is None:
                     continue
-                cred = Credential(server.id, template.login, template.password)
                 try:
                     connector.identify(server, cred)
                     vault.add_credential(session, cred)
                     results[server.id] = "conectado"
                 except LoginFailed as exc:
                     results[server.id] = str(exc)
-            runtime.save_inventory(servers, by=session.user_id)
-        session.servers = [s for s in session.servers if runtime.inventory.server(s)]
-        runtime.forget(session)
         return {"ok": True, "connections": results}
+
+    @app.post("/admin/inventory/probe")
+    def probe_inventory(body: ProbeRequest, session: Session = Depends(admin_session)):
+        """Asistente "Conectar base de datos", paso 1: con la credencial de la sesión, ¿conecta el servidor y qué bases
+        de usuario tiene? Por cada una, si el login entra y cuántas tablas y vistas ve. No guarda nada."""
+        if bool(body.host) == bool(body.server_id):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Indica el servidor: un host nuevo o uno del inventario")
+        if body.server_id:
+            server = runtime.inventory.server(body.server_id)
+            if server is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Servidor no encontrado")
+        else:
+            if settings.production and body.trust_server_certificate:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, CERTIFICATE_REQUIRED)
+            host = body.host.strip()
+            existing = already_inventoried(host)
+            if existing is not None:
+                raise HTTPException(status.HTTP_409_CONFLICT, f"Ese servidor ya está en el inventario como «{existing.alias}»; "
+                                                              "ábrelo desde su fila para añadirle bases")
+            server = server_from_host(host, None, "desarrollo", body.trust_server_certificate, runtime.inventory)
+        cred = session_credential(session, server.id)
+        if cred is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Tu sesión no tiene una credencial que probar; vuelve a iniciar sesión")
+        if not limiter.check(f"probe:{session.user_id.lower()}"):  # cada sondeo abre conexiones con tu credencial
+            metrics.increment("rate_limited")
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Demasiados sondeos en un minuto; espera un momento")
+        # Antes de conectar: la credencial del administrador viaja a ese host (sin registro no viaja, F11).
+        audit.event("inventory_probe", session.user_id, host=server.host, server_id=body.server_id,
+                    trust_server_certificate=server.trust_server_certificate)
+        try:
+            found = connector.probe(server, cred)
+        except LoginFailed as exc:  # su mensaje nunca lleva host, login ni texto del driver
+            return {"connected": False, "error": str(exc), "databases": []}
+        except Exception as exc:
+            log_event(logging.getLogger(__name__), "inventory.probe_failed", logging.WARNING,
+                      error_type=type(exc).__name__)
+            return {"connected": False, "error": "No se pudo leer el servidor", "databases": []}
+        return {"connected": True, "error": None, "databases": [
+            dataclasses.asdict(d) for d in found if d.name.lower() not in excluded_databases]}
+
+    @app.post("/admin/inventory/connect", status_code=status.HTTP_202_ACCEPTED)
+    def connect_inventory(body: ConnectRequest, session: Session = Depends(admin_session)):
+        """Asistente, paso 2: añade un servidor (o cambia las bases de uno del inventario) sin reenviar el resto del
+        inventario, comprueba que la credencial de la sesión entra y lanza el descubrimiento."""
+        if bool(body.host) == bool(body.server_id):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Indica el servidor: un host nuevo o uno del inventario")
+        databases = ["*"] if "*" in body.databases else list(dict.fromkeys(body.databases))
+        refused = sorted(d for d in databases if d.lower() in excluded_databases)
+        if refused:  # las de sistema y la propia BD de trabajo no se catalogan, aunque lleguen escritas a mano
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Estas bases no se pueden catalogar: {', '.join(refused)}")
+        if not limiter.check(f"probe:{session.user_id.lower()}"):  # cada intento envía tu credencial a ese servidor
+            metrics.increment("rate_limited")
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Demasiados intentos en un minuto; espera un momento")
+        with inventory_lock:
+            return connect_locked(body, session, databases)
+
+    def connect_locked(body: ConnectRequest, session: Session, databases: list[str]):
+        if runtime.job.status == "running":
+            raise HTTPException(status.HTTP_409_CONFLICT, "Ya hay un descubrimiento en curso; espera a que termine")
+        current = list(runtime.inventory.servers)
+        if body.server_id:
+            existing = runtime.inventory.server(body.server_id)
+            if existing is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Servidor no encontrado")
+            server = existing.model_copy(update={"databases": databases})
+            servers = [server if s.id == server.id else s for s in current]
+        else:
+            if settings.production and body.trust_server_certificate:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, CERTIFICATE_REQUIRED)
+            alias = (body.alias or "").strip()
+            if not alias:  # el host nunca se muestra a los usuarios: ven solo el nombre visible
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Escribe el nombre visible del servidor")
+            host = body.host.strip()
+            existing = already_inventoried(host)
+            if existing is not None:
+                raise HTTPException(status.HTTP_409_CONFLICT, f"Ese servidor ya está en el inventario como «{existing.alias}»")
+            reference = not any(s.is_reference and s.environment == body.environment for s in current)
+            server = server_from_host(host, alias, body.environment, body.trust_server_certificate,
+                                      runtime.inventory).model_copy(update={"databases": databases,
+                                                                            "is_reference": reference})
+            servers = current + [server]
+        cred = session_credential(session, server.id)
+        if cred is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Tu sesión no tiene una credencial que probar; vuelve a iniciar sesión")
+        with replacing_inventory(session, servers, via="connect", server_id=server.id, databases=databases):
+            try:
+                connector.identify(server, cred)
+            except LoginFailed as exc:  # no se guarda un servidor al que la credencial no entra
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, f"No se pudo conectar con tu credencial: {exc}")
+            vault.add_credential(session, cred)
+        running = runtime.job if runtime.job.status == "running" else None
+        job = runtime.start_build(session, body.enrich)
+        if job is running:  # otro administrador lo lanzó mientras se probaba la conexión: ese no incluye este servidor
+            raise HTTPException(status.HTTP_409_CONFLICT, "El servidor quedó guardado, pero hay otro descubrimiento en "
+                                                          "curso; lanza «Descubrir esquemas» cuando termine")
+        return {"ok": True, "server": {"id": server.id, "alias": server.alias}, "job": job.__dict__}
 
     @app.get("/admin/stewards")
     def get_stewards(session: Session = Depends(admin_session)):
