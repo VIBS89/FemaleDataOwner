@@ -23,3 +23,6 @@ updates:
       # typescript-eslint (lo trae eslint-config-next) todavía no admite TypeScript 7: el lint deja de cargar.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+      # Los plugins que trae eslint-config-next 16 (react, import, jsx-a11y) solo declaran soporte hasta ESLint 9.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
