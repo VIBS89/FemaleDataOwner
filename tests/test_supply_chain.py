@@ -10,6 +10,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_EXTRAS = ("api", "mcp", "sqlserver", "bedrock")
@@ -90,6 +91,8 @@ def test_las_acciones_de_la_ci_van_por_commit_y_la_ci_analiza_las_dependencias()
     # Todo `pip install` de la CI, también el de las herramientas que emiten el veredicto y el SBOM.
     installs = [line for line in workflow.splitlines() if "pip install" in line]
     assert len(installs) >= 4 and all(verified_install(line) for line in installs), installs
+    # Un YAML inválido no falla ninguna comprobación: GitHub no llega a crear los trabajos y nada se ejecuta.
+    assert {"backend", "web", "cadena-de-suministro"} <= set(yaml.safe_load(workflow)["jobs"])
     assert "schedule:" in workflow and "permissions:\n  contents: read" in workflow
     assert "pull_request_target" not in workflow and "secrets." not in workflow
     for step in ("pip-audit -r requirements/runtime.lock --require-hashes", "npm audit --omit=dev --audit-level=high",

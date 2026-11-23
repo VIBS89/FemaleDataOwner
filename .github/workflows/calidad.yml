@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
-          node-version: "22"
+          node-version: "26"
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
@@ -71,9 +71,11 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
-          node-version: "22"
+          node-version: "26"
       - name: Herramientas de análisis (también con versiones y hashes fijados)
-        run: python -m pip install --require-hashes --only-binary :all: -r requirements/tools.lock
+        # En bloque: en una sola línea, el `: ` de `:all: -r` es sintaxis de YAML y el archivo entero deja de ser válido.
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r requirements/tools.lock
       - name: Vulnerabilidades conocidas en las dependencias de Python que se despliegan
         run: pip-audit -r requirements/runtime.lock --require-hashes --disable-pip
       - name: Vulnerabilidades conocidas en las dependencias de la web que se despliegan
@@ -83,7 +85,8 @@ jobs:
         run: |
           mkdir -p sbom
           cyclonedx-py requirements requirements/runtime.lock --output-format JSON --output-file sbom/converdata-api.cdx.json
-          cd web && npm sbom --omit dev --sbom-format cyclonedx > ../sbom/converdata-web.cdx.json
+          # --package-lock-only: este trabajo no instala node_modules, y sin el indicador npm sbom falla por dependencias ausentes.
+          cd web && npm sbom --omit dev --sbom-format cyclonedx --package-lock-only > ../sbom/converdata-web.cdx.json
       - name: Publicar el SBOM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
