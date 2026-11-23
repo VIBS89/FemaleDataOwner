@@ -2,7 +2,7 @@
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
 >
-> Diagrama: `docs/architecture/onpremise-architecture.html` · Specs relacionadas: [OP-02](OP-02-catalogo-memoria.md) catálogo y memoria · [OP-03](OP-03-identidad.md) identidad · [OP-04](OP-04-interfaces.md) interfaces · [OP-05](OP-05-auditoria-observabilidad.md) auditoría · [OP-06](OP-06-residencia-datos.md) residencia de datos · [OP-07](OP-07-instalacion-operacion.md) instalación, entornos y operación · [calidad bancaria](../../calidad-bancaria.md) controles y compuerta de calidad
+> Diagrama: `docs/architecture/onpremise-architecture.html` · Specs relacionadas: [OP-02](OP-02-catalogo-memoria.md) catálogo y memoria · [OP-03](OP-03-identidad.md) identidad · [OP-04](OP-04-interfaces.md) interfaces · [OP-05](OP-05-auditoria-observabilidad.md) auditoría · [OP-06](OP-06-residencia-datos.md) residencia de datos · [OP-07](OP-07-instalacion-operacion.md) instalación, entornos y operación · [OP-08](OP-08-interfaz-web.md) interfaz web Next.js (decisión 11 del PRD §13) · [OP-09](OP-09-situaciones-desarrollo.md) situaciones de desarrollo · [calidad bancaria](../../calidad-bancaria.md) controles y compuerta de calidad
 >
 > Este despliegue sirve como **MVP** para validar la solución antes de invertir en la nube, y como opción on-premise.
 

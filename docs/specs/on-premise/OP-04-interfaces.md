@@ -4,6 +4,8 @@
 >
 > Implementa en on-premise Microsoft: [F12](../comun/F12-interfaces.md). El contrato de la API, la web y las herramientas MCP son los de F12.
 > Controles de cada petición y su prueba: [calidad bancaria §3](../../calidad-bancaria.md).
+> La aplicación Next.js de `web/` y la equivalencia `/api/<ruta>` → `/<ruta>` de `ConverData-API` se detallan en [OP-08](OP-08-interfaz-web.md)
+> (la sustitución de Chainlit que proponía quedó decidida con la decisión 11 del PRD §13; los CA 1 y 8 de esta spec ya la recogen).
 
 | Interfaz | Implementación | Autenticación |
 |---|---|---|

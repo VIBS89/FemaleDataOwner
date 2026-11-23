@@ -48,6 +48,10 @@ actualiza a mano; la CI no construye las imágenes
 ## Decisión (2026-11-16): modelo de procesos
 Dos procesos detrás de IIS y un comando; **ningún servicio de Windows propio** (PRD §13, decisiones 11 y 12).
 
+> **Revisión 2026-10-27:** [OP-08](OP-08-interfaz-web.md) propone que `ConverData-UI` sea la salida standalone de Next.js (`node server.js`,
+> Node.js 20 LTS en `01-prerrequisitos.ps1`) y que `ConverData-API` corra como servicio de Windows en `127.0.0.1:8000`. El entorno **dev** se
+> detalla por situaciones (sin infraestructura, LLM local, SQL Server local, Bedrock, servidor de QA) en [OP-09](OP-09-situaciones-desarrollo.md).
+
 | Proceso | Cómo corre | Quién lo supervisa | Motivo |
 |---|---|---|---|
 | Web (Next.js, `web/`) | Aplicación de IIS en `/` con su grupo de aplicaciones; HttpPlatformHandler lanza el servidor Node (salida `standalone` de `next build`) | IIS (HttpPlatformHandler reinicia el proceso si cae) | Es un proceso porque su ruta `/api/[...path]` reenvía las llamadas a la API (`API_URL`) |

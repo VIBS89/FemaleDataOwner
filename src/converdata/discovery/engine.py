@@ -632,6 +632,9 @@ def build_discovery(
     copies: dict[str, list[str]] = {}
     if graph is not None:
         ranked, copies = collapse_entities(ranked, pool, graph, vis)
+    everything = [d for d in retrieval.drafts.values() if catalog.is_visible(d.asset_key, vis)]
+    if graph is not None and retrieval.secondary_parts:
+        ranked = prefer_answerable_start(ranked, retrieval, everything, graph, catalog, vis)
     chosen: list[Draft] = []
     for d in ranked:
         if len(chosen) >= settings.max_candidates:
@@ -655,7 +658,6 @@ def build_discovery(
     related = _related(chosen[: settings.expand_top], retrieval, user, catalog, kb)
     join_paths = []
     if graph is not None and chosen:
-        everything = [d for d in retrieval.drafts.values() if catalog.is_visible(d.asset_key, vis)]
         join_paths = find_join_paths(chosen[0], everything, retrieval.concepts, graph, catalog, vis,
                                      parts=retrieval.secondary_parts)
         known = {(r.from_, r.to) for r in related}
@@ -681,6 +683,32 @@ def build_discovery(
         unresolved_parts=unresolved,
         suggested_questions=_suggested(candidates, kb, vis, catalog),
     )
+
+
+START_CANDIDATES = 10  # candidatos que se prueban como punto de partida de una pregunta compuesta
+
+
+def prefer_answerable_start(ranked: list[Draft], retrieval: Retrieval, pool: list[Draft], graph, catalog: Catalog,
+                            vis) -> list[Draft]:
+    """Pregunta compuesta ("los clientes con sus tarjetas"): el candidato principal tiene que poder unirse al resto de
+    la pregunta. Si el primero del ranking deja sub-preguntas sin resolver (p. ej. un `Users` de otra BD sin camino a
+    las tarjetas), se adelanta el mejor de los siguientes que deja menos sin resolver; a igualdad, gana el orden."""
+    def pending(d: Draft) -> int:
+        paths = find_join_paths(d, pool, retrieval.concepts, graph, catalog, vis, parts=retrieval.secondary_parts)
+        return len(unresolved_parts(d, retrieval, paths, catalog, vis))
+
+    if not ranked:
+        return ranked
+    best, best_pending = ranked[0], pending(ranked[0])
+    for d in ranked[1:START_CANDIDATES]:
+        if best_pending == 0:
+            break
+        p = pending(d)
+        if p < best_pending:
+            best, best_pending = d, p
+    if best is ranked[0]:
+        return ranked
+    return [best] + [d for d in ranked if d is not best]
 
 
 def unresolved_parts(top: Draft, retrieval: Retrieval, join_paths: list, catalog: Catalog, vis) -> list[str]:

@@ -21,6 +21,16 @@ El 2026-11-16 se alinearon PRD, specs, backlog y diagramas con la **arquitectura
 léxica en memoria sin embeddings, BD `ConverData` en tablas normales (SQL Server 2016+), web Next.js en lugar de Chainlit, Builder como
 comando programado, un solo modelo de Bedrock y AWS como despliegue mínimo posterior al piloto.
 
+El 2026-11-22 se fusionó `origin/main` (trabajo S1-A de otros colaboradores). Se conservaron el arreglo del descubrimiento que nombra el
+proceso de carga en las preguntas de linaje y elige un punto de partida que resuelva las preguntas compuestas (con sus pruebas), el
+fixture `vbank` en la imagen de la API para el modo demo, las specs [OP-08](specs/on-premise/OP-08-interfaz-web.md) y
+[OP-09](specs/on-premise/OP-09-situaciones-desarrollo.md), las marcas de situación de pytest (`llm_local`, `sqlserver`, `bedrock`,
+`windows_server`), las skills, los hooks y la configuración de MCP de Claude Code. Se retiraron, por contradecir PRD §13, las migraciones
+`002_estate.sql` (tablas de grafo), `003_semantic.sql` y `004_roles_y_version.sql` (duplicaba `dbo.schema_version` y los roles de
+`001_esquemas.sql`), el puerto `CatalogStore` con `catalog/files.py` y la selección de adaptadores por `CONVERDATA_STORE`/`CONVERDATA_AUDIT`
+de `bootstrap.py`: la persistencia sigue siendo `converdata.storage` con `open_stores` y la guarda de qa/prod la de
+`api/converdata_api/security.py`.
+
 | Pieza | Estado | Dónde |
 |---|---|---|
 | DiscoverFlow (F22) en LangGraph: `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize` | ✅ | `src/converdata/flows/discover.py` |

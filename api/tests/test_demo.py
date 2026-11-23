@@ -203,3 +203,14 @@ def test_una_regla_importada_con_el_catalogo_no_se_reescribe_desde_curacion(demo
     assert steward.delete("/curation/rules/BR-ONB-004").status_code == 404
     card = steward.get("/assets/VBank_ING.dbo.Users").json()
     assert all("Intento de reemplazar" not in x["text"] for x in card["business_rules"])
+
+
+def test_pregunta_compuesta_parte_de_un_candidato_que_alcanza_el_resto(demo, app):
+    """Con VBank y BancosSQL juntos, "los clientes con sus tarjetas" no debe partir de VBank_ING.dbo.Users (sin camino a
+    las tarjetas) y responder «No encontré…»: el candidato principal es uno desde el que se llega a TarjetasCredito."""
+    env = demo.post("/discover", json={"question": "¿Cómo relaciono los clientes con sus tarjetas de crédito?"}).json()
+    disc = env["discovery"]
+    assert disc["unresolved_parts"] == []
+    assert "No encontré" not in env["answer_text"]
+    assert any(p["tables"][-1] == "BancaTarjetasCredito.dbo.TarjetasCredito" for p in disc["join_paths"])
+    assert disc["join_paths"][0]["tables"][0] == ".".join(disc["candidates"][0]["asset_key"].split(".")[:3])

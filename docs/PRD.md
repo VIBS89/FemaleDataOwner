@@ -178,7 +178,7 @@ Arquitectura simplificada el 2026-11-16 (§13, decisiones 9–16). Lo construido
 - **Interfaces**: web **Next.js** (chat, Curación, Catálogo, Métricas, Administración) y `ConverData-API` detrás de IIS; MCP en `/mcp`.
 - **Despliegue del piloto**: un Windows Server con dos procesos detrás de IIS (web y API) y la BD `ConverData`; Bedrock es el único servicio externo.
 
-Detalle en los diagramas de `docs/architecture/`, en [capas del backend](architecture/capas-backend.md) y en las specs OP-01 a OP-07 / CN-01 a CN-06.
+Detalle en los diagramas de `docs/architecture/`, en [capas del backend](architecture/capas-backend.md) y en las specs OP-01 a OP-09 / CN-01 a CN-06.
 
 ### Stack tecnológico (decidido el 2026-10-15, revisado el 2026-11-16)
 | Capa | Tecnología | Uso |
@@ -501,7 +501,7 @@ de conocimiento, BD `ConverData`, permisos heredados también al descubrir y los
 ```
 docs/specs/
 ├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F25)
-├─ on-premise/     Despliegue en la red corporativa; es el del piloto (OP-01 a OP-07)
+├─ on-premise/     Despliegue en la red corporativa; es el del piloto (OP-01 a OP-09; OP-07: instalación y operación; OP-08: interfaz web; OP-09: situaciones de desarrollo)
 └─ cloud-native/   Despliegue mínimo en AWS, posterior al piloto (CN-01 a CN-06)
 ```
 

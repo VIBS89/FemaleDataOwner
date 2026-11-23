@@ -2,7 +2,8 @@
 
 > Creado: 2026-10-27. Revisado el 2026-11-16 con la arquitectura simplificada ([PRD §13](../PRD.md#13-decisiones-y-preguntas-abiertas), decisiones 9–16).
 > Documento vivo: se actualiza al cerrar cada sesión de trabajo.
-> Base: [PRD](../PRD.md) §6, §10 y §11 · [OP-01](../specs/on-premise/OP-01-despliegue-local.md) a [OP-07](../specs/on-premise/OP-07-instalacion-operacion.md) · [F25](../specs/comun/F25-success-metrics.md) · [plan de desarrollo](../PLAN-desarrollo.md) · [calidad bancaria](../calidad-bancaria.md).
+> Base: [PRD](../PRD.md) §6, §10 y §11 · [OP-01](../specs/on-premise/OP-01-despliegue-local.md) a [OP-09](../specs/on-premise/OP-09-situaciones-desarrollo.md) · [F25](../specs/comun/F25-success-metrics.md) · [plan de desarrollo](../PLAN-desarrollo.md) · [calidad bancaria](../calidad-bancaria.md).
+> Ejecución en paralelo (plan del 2026-10-27, anterior a la arquitectura simplificada): [cinco sesiones de desarrollo con goals](sesiones-goals.md).
 >
 > Las marcas **⚠️ SUPUESTO** son plazos, capacidades o métricas que no se deducen del repo. Hay que confirmarlas antes de
 > comprometer fechas; la lista completa está en la [§5](#5-supuestos-a-confirmar).
@@ -204,6 +205,12 @@ piloto con scripts revisables.
 > `test_la_cuenta_de_la_api_no_puede_cambiar_ni_borrar_votos_ni_originales`). Con `CONVERDATA_DB` la API no arranca si faltan
 > migraciones (`test_la_api_no_arranca_con_migraciones_pendientes_y_lo_dice_claro`). El comando `db migrate` ya tiene prueba
 > automática (`tests/test_catalog_refresh.py`).
+>
+> **Fusión con `origin/main` (2026-11-22):** el trabajo S1-A del 2026-10-27 traía `002_estate.sql` (tablas de grafo), `003_semantic.sql` y
+> `004_roles_y_version.sql`. No se incorporaron: contradicen las decisiones 9–10 del PRD §13 y `004` volvía a crear `dbo.schema_version`
+> (que crea `converdata db migrate`) y `converdata_builder` (que crea `001_esquemas.sql`). De `tests/test_ddl.py` quedan las comprobaciones
+> estáticas que valen para nuestras migraciones (numeración, lotes `GO`, sin `DROP` ni contraseñas, sin columnas de valores, `DENY` de la
+> API sobre `audit`).
 
 #### HU-05 · Validar la BD `ConverData` contra un SQL Server real
 **Como** desarrollador **quiero** pruebas de integración que apliquen las migraciones y ejerciten los adaptadores contra SQL Server
@@ -258,6 +265,10 @@ piloto con scripts revisables.
 > Salvedades: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido
 > por espacios
 > ([calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto)); no se ha probado en SQL Server 2016 ni en la CI.
+>
+> **Fusión con `origin/main` (2026-11-22):** el puerto `CatalogStore` (`catalog/ports.py`, `catalog/files.py`) del trabajo S1-A resolvía lo
+> mismo que `CatalogRepository` y `converdata.storage`; no se incorporó, ni sus pruebas de contrato. La caracterización de la carga desde
+> YAML (`tests/test_catalog_files.py`) se conserva sobre `load_catalog`/`load_knowledge` de `catalog.store`.
 
 #### HU-07 · Grafo del patrimonio en tablas de grafo — retirada
 > **Estado (2026-11-16):** retirada por la decisión 10 del PRD §13. El grafo del patrimonio (F19) se construye en memoria al cargar el
@@ -305,6 +316,10 @@ dependa de archivos YAML en el servidor.
 > arranca si a la BD le faltan migraciones. Salvedades: tras cada escritura de curación la API vuelve a cargar el catálogo completo y
 > reconstruye el índice; se asume un solo proceso de API (el inventario se lee al arrancar); en modo demo con BD queda un marcador
 > en `curation_dir`.
+>
+> **Fusión con `origin/main` (2026-11-22):** el trabajo S1-A traía `AdapterConfig.from_env` en `bootstrap.py` (variables
+> `CONVERDATA_STORE`/`CONVERDATA_AUDIT` y una guarda de qa/prod), sin conectar al arranque de la API. No se incorporó: el almacén lo
+> decide `CONVERDATA_DB` en `open_stores` y la guarda de qa/prod es `production_violations` (`api/converdata_api/security.py`).
 
 ---
 
