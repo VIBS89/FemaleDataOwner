@@ -242,8 +242,8 @@ def test_ejemplo_de_configuracion_es_valido():
     cfg = load_models(Path(__file__).parents[1] / "config" / "models.example.yaml")
     gw = LLMGateway(cfg, builders={})
     assert {r.provider for r in cfg.roles.values()} == {"nvidia_nim"}
-    assert set(cfg.roles) == {"planner", "fast"}  # fase 1a: sin `judge` (PRD §13, decisión 13)
-    assert gw.labels["planner"].startswith("nvidia_nim:")
+    assert set(cfg.roles) == {"fast"}  # solo narrativa: con los modelos medidos, `planner` empeora el acierto
+    assert gw.labels["fast"].startswith("nvidia_nim:")
 
 
 OLLAMA_LOCAL = {

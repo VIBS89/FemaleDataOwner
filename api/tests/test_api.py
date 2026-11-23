@@ -190,7 +190,8 @@ def test_manual_de_desarrollo_al_dia():
     text = (root / "docs" / "manual-desarrollo.md").read_text(encoding="utf-8")
     cited = set(re.findall(r"`((?:docs|tests|api|web|db|requirements|tools|src|config|\.github|\.claude)/[^`*<> ]*)`", text))
     assert len(cited) > 15
-    missing = sorted(path for path in cited if not (root / path).exists())
+    local = {"config/models.yaml"}  # ignorado por git: existe en cada instalación, no en un clon limpio
+    missing = sorted(path for path in cited - local if not (root / path).exists())
     assert missing == []
     packages = {p.name for p in (root / "src" / "converdata").iterdir() if p.is_dir() and not p.name.startswith("_")}
     documented = set(re.findall(r"^\| `(\w+)/[\w/]*` \|", text, flags=re.M))
