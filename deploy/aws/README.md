@@ -55,7 +55,8 @@ bash deploy/aws/despliegue.sh validate
 
 ## Entorno demo: la solución completa en AWS, creada y destruida el mismo día
 
-Todo corre en **una tarea de Fargate Spot**, sin RDS ni NAT:
+Diagrama: [aws-demo-architecture.html](../../docs/architecture/aws-demo-architecture.html) (también en la app, en
+Administración → Documentación). Todo corre en **una tarea de Fargate Spot**, sin RDS ni NAT:
 
 | Contenedor | Qué hace |
 |---|---|

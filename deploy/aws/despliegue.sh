@@ -235,8 +235,25 @@ cmd_credentials() {
 EOF
 }
 
+# Antes de crear nada (y de empezar a pagar): herramientas, Docker y claves de LLM que pide el .tfvars.
+preflight() {
+  local env_file="${ENV_FILE:-../../.env}" var missing=""
+  need docker; need git; need curl
+  docker info >/dev/null 2>&1 || die "Docker no está en marcha."
+  if grep -Eq '^sql_sidecar[[:space:]]*=[[:space:]]*true' "$TFVARS"; then
+    need unzip
+    [ -f ../../BancosSQL.zip ] || die "Falta BancosSQL.zip en la raíz del repositorio (bases de prueba de SQL Server)."
+  fi
+  for var in $(sed -n 's/^llm_api_key_envs[[:space:]]*=[[:space:]]*\[\(.*\)\].*/\1/p' "$TFVARS" | tr -d '" ' | tr ',' ' '); do
+    [ -n "${!var:-}" ] || { [ -f "$env_file" ] && grep -q "^$var=." "$env_file"; } || missing="$missing $var"
+  done
+  [ -z "$missing" ] || die "Faltan claves en el entorno o en $env_file:$missing (o quítalas de llm_api_key_envs)."
+  echo ">> Comprobaciones previas: correctas" >&2
+}
+
 cmd_up() {
   case "$(tfvar discovery_data_agent_env)" in qa|prod) die "'up' es para entornos de prueba; en qa y prod, paso a paso (README)." ;; esac
+  preflight
   if ! state_bucket_exists; then
     echo ">> Creando el bucket del estado ($BUCKET)" >&2
     (cd bootstrap && terraform init -input=false >/dev/null && terraform apply -input=false -var "region=$REGION" "$@")

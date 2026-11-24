@@ -1,6 +1,6 @@
 # Arquitectura de DiscoveryDataAgent
 
-Actualizado el 2026-11-17. Este documento explica el enfoque de la solución y su arquitectura siguiendo el modelo C4:
+Actualizado el 2026-11-23. Este documento explica el enfoque de la solución y su arquitectura siguiendo el modelo C4:
 primero el sistema en su entorno, después los procesos que se despliegan y por último los componentes de cada proceso.
 El detalle interno de cada componente está en la [wiki](../wiki/README.md).
 
@@ -12,6 +12,7 @@ descripción al pasar el cursor y las tarjetas de abajo resumen lo importante.
 | C4 1 · Contexto | Quién usa DiscoveryDataAgent y con qué sistemas habla | [c4-contexto.html](c4-contexto.html) |
 | C4 2 · Contenedores | Los procesos y almacenes que se despliegan on-premise | [onpremise-architecture.html](onpremise-architecture.html) |
 | C4 2 · Contenedores | Los mismos procesos en AWS, después del piloto | [cloud-native-architecture.html](cloud-native-architecture.html) |
+| C4 2 · Contenedores | El entorno demo en AWS: la solución completa con datos de prueba, al menor coste | [aws-demo-architecture.html](aws-demo-architecture.html) |
 | C4 3 · Componentes | Las piezas internas de DiscoveryDataAgent-API | [c4-componentes-api.html](c4-componentes-api.html) |
 | Detalle | Cómo se responde una pregunta, paso a paso | [flujo-descubrimiento.html](flujo-descubrimiento.html) |
 | Detalle | Tablas de la BD `DiscoveryDataAgent` | [modelo-datos-discovery-data-agent.html](modelo-datos-discovery-data-agent.html) |
@@ -117,8 +118,26 @@ Las dos imágenes de `docker compose` corren en una tarea de ECS Fargate detrás
 lanza cada noche como tarea aparte. Bedrock se llama por un VPC endpoint. La BD `DiscoveryDataAgent` y las BDs de negocio se
 quedan en el banco y se alcanzan por VPN, así que AWS no persiste catálogo, preguntas ni auditoría.
 
-Nada de esto está desplegado y no hay infraestructura como código en el repositorio. Los pasos y los bloqueos conocidos
-están en la [hoja de ruta cloud](../wiki/hoja-de-ruta-cloud.md).
+La infraestructura como código está en [`deploy/aws`](../../deploy/aws/README.md) (Terraform y `despliegue.sh`), pero
+qa y prod no se han desplegado: los bloqueos conocidos están en la [hoja de ruta cloud](../wiki/hoja-de-ruta-cloud.md) §5.
+
+### 3.2.1 Entorno demo en AWS
+Diagrama: [aws-demo-architecture.html](aws-demo-architecture.html).
+
+Sirve para mostrar la solución completa en AWS y destruirla el mismo día (`despliegue.sh up demo` / `teardown demo`).
+Usa la misma imagen de web y de API, pero recorta todo lo que cuesta sin aportar a una demostración con datos ficticios:
+
+| Pieza | Destino qa/prod | Demo |
+|---|---|---|
+| Red | Subredes privadas, VPC endpoints y VPN | IP pública de la tarea con salida HTTPS, sin NAT ni endpoints |
+| Cómputo | Fargate | Fargate Spot, 1 vCPU y 4 GB |
+| SQL Server | El del banco, por la VPN | SQL Server 2022 Express como contenedor de la tarea, con las cinco bases de BancosSQL |
+| BD `DiscoveryDataAgent` | En el banco | En ese mismo contenedor; la API la migra al arrancar |
+| LLM | Bedrock por VPC endpoint | Claude Sonnet 5.5 en Bedrock (Mantle), y en pantalla también Haiku, NVIDIA NIM y la API de Anthropic |
+| Entrada | ALB interno con HTTPS | ALB público limitado a las IP indicadas, HTTP sin dominio propio |
+
+Ronda 0,065 USD por hora de infraestructura (unos 1,6 USD por 24 h), más los tokens del modelo. Terraform rechaza estos
+atajos con `qa` o `prod` y junto a la VPN o a un SQL Server del banco. Todo se pierde al parar la tarea.
 
 ### 3.3 Qué cambia entre los dos despliegues
 
@@ -233,7 +252,7 @@ node tools/archify/bin/archify.mjs finalize <tipo> docs/architecture/<nombre>.ar
 
 | Diagrama | Tipo |
 |---|---|
-| `c4-contexto`, `c4-componentes-api`, `onpremise-architecture`, `cloud-native-architecture` | `architecture` |
+| `c4-contexto`, `c4-componentes-api`, `onpremise-architecture`, `cloud-native-architecture`, `aws-demo-architecture` | `architecture` |
 | `flujo-descubrimiento`, `controles-calidad-bancaria` | `workflow` |
 | `permisos-heredados` | `sequence` |
 | `modelo-datos-discovery-data-agent` | `erd` |
