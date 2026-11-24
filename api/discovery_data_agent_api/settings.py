@@ -66,6 +66,9 @@ class ApiSettings:
     # Solo entornos de prueba (deploy/aws con `sql_sidecar`): "host|alias|ambiente" del servidor que entra al inventario al
     # arrancar si está vacío. Lo fija el operador al desplegar, así que el primer login no pide host ni código.
     preload_server: str | None = None
+    # Con `preload_server`: login SQL con el que la API descubre los esquemas al arrancar si aún no hay catálogo.
+    preload_build_login: str | None = None
+    preload_build_password: str | None = field(default=None, repr=False)
     admins_only: bool = False  # `data_admin` solo para los logins de `admins`, no para cualquier sysadmin de un servidor
     visibility_ttl_s: int = 900  # F14: los permisos del usuario se vuelven a leer de SQL Server cada 15 min
     session_max_age_s: int = 12 * 3600  # vida máxima de una sesión aunque siga activa
@@ -123,6 +126,8 @@ class ApiSettings:
             environment=os.environ.get("DISCOVERY_DATA_AGENT_ENV", "dev"),
             setup_token=os.environ.get("DISCOVERY_DATA_AGENT_SETUP_TOKEN") or None,
             preload_server=os.environ.get("DISCOVERY_DATA_AGENT_PRELOAD_SERVER") or None,
+            preload_build_login=os.environ.get("DISCOVERY_DATA_AGENT_PRELOAD_BUILD_LOGIN") or None,
+            preload_build_password=os.environ.get("DISCOVERY_DATA_AGENT_PRELOAD_BUILD_PASSWORD") or None,
             admins_only=_flag("DISCOVERY_DATA_AGENT_ADMINS_ONLY"),
             visibility_ttl_s=int(os.environ.get("DISCOVERY_DATA_AGENT_VISIBILITY_TTL_S", 900)),
             session_max_age_s=int(os.environ.get("DISCOVERY_DATA_AGENT_SESSION_MAX_AGE_S", 12 * 3600)),

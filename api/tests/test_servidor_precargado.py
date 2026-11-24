@@ -50,6 +50,33 @@ def test_un_servidor_precargado_mal_escrito_no_arranca(tmp_path):
         create_app(_settings(tmp_path, preload_server="solo-el-host"), DemoConnector(FIXTURE))
 
 
+def test_con_login_de_construccion_el_catalogo_se_descubre_al_arrancar(tmp_path):
+    import time
+
+    client = TestClient(create_app(_settings(tmp_path, preload_server="localhost,1433|SQL Server demo|desarrollo",
+                                             preload_build_login="demo", preload_build_password="demo"),
+                                   DemoConnector(FIXTURE)))
+    for _ in range(200):
+        status = client.get("/setup/status").json()
+        if status["build"]["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert status["build"]["status"] == "ok", status
+    assert status["has_catalog"] is True
+
+    client.post("/auth/login", json={"login": "demo", "password": "demo"})
+    r = client.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"})
+    assert r.status_code == 200, r.text
+
+
+def test_sin_login_de_construccion_no_se_descubre_nada_al_arrancar(tmp_path):
+    client = TestClient(create_app(_settings(tmp_path, preload_server="localhost,1433|SQL Server demo|desarrollo"),
+                                   DemoConnector(FIXTURE)))
+    status = client.get("/setup/status").json()
+    assert status["build"]["status"] == "idle"
+    assert status["has_catalog"] is False
+
+
 def test_qa_y_prod_no_aceptan_un_servidor_precargado(tmp_path):
     problems = production_violations(_settings(tmp_path, preload_server="localhost,1433|SQL|desarrollo"))
     assert any("DISCOVERY_DATA_AGENT_PRELOAD_SERVER" in p for p in problems)

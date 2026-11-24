@@ -245,12 +245,12 @@ PARA PREGUNTAS: LangGraph orquesta el flujo; Amazon Bedrock reformula y redacta;
 <div class="box" style="width:230px"><p class="bt">Amazon Bedrock</p><p class="bs">Claude Sonnet 5.5, rol de la tarea</p></div>
 </div>
 <div class="row" style="gap:12px; align-items:center">
-<div class="box" style="width:260px"><p class="bt">EventBridge Scheduler</p><p class="bs">cada noche</p></div>
+<div class="box" style="width:260px"><p class="bt">Agente de esquemas</p><p class="bs">Descubrir esquemas</p></div>
 <x-shape kind="arrow-right" class="arr"></x-shape>
-<div class="box grow"><p class="bt">Builder en Fargate</p><p class="bs">Extrae esquemas y describe con IA</p></div>
+<div class="box grow"><p class="bt">Catálogo en SQL Server</p><p class="bs">Extrae metadatos y describe con IA en Bedrock</p></div>
 </div>
 <div class="row" style="gap:12px">
-<p class="svc">VPC</p><p class="svc">ECR</p><p class="svc">Secrets Manager</p><p class="svc">KMS</p><p class="svc">CloudWatch</p><p class="svc">SNS</p>
+<p class="svc">VPC</p><p class="svc">EventBridge</p><p class="svc">ECR</p><p class="svc">Secrets Manager</p><p class="svc">KMS</p><p class="svc">CloudWatch</p><p class="svc">SNS</p>
 </div>
 </div>
 <x-shape kind="arrow-right" class="arr"></x-shape>
@@ -259,9 +259,9 @@ PARA PREGUNTAS: LangGraph orquesta el flujo; Amazon Bedrock reformula y redacta;
 <div class="box dk"><p class="bt">En producción</p><p class="bs">VPN al SQL Server del banco: solo metadatos</p></div>
 </div>
 </div>
-<aside>RELOJ 1:30–1:50 (20 s, ~50 palabras) · [Integrante 3]. Todo está desplegado en AWS con Terraform: web, API y un SQL Server con datos ficticios en Fargate, Claude Sonnet en Bedrock y un Builder nocturno con EventBridge. Son diez servicios. Otros agentes, como Kiro, usan las diez herramientas MCP. En producción, la misma imagen se conecta por VPN al SQL Server del banco. Vamos a la demo.
+<aside>RELOJ 1:30–1:50 (20 s, ~50 palabras) · [Integrante 3]. Todo está desplegado en AWS con Terraform: web, API y un SQL Server con datos ficticios en Fargate, y Claude Sonnet en Bedrock, que también describe el catálogo que arma el agente de esquemas. Son diez servicios. Otros agentes, como Kiro, usan las diez herramientas MCP. En producción, la misma imagen se conecta por VPN al SQL Server del banco. Vamos a la demo.
 
-PARA PREGUNTAS: los diez servicios son VPC, ALB, ECS Fargate, Bedrock, EventBridge, ECR, Secrets Manager, KMS, CloudWatch y SNS. Diferencias del demo con producción: tarea con IP pública en lugar de subredes privadas con VPC endpoints; ALB por HTTP limitado a la IP del equipo en lugar de interno con HTTPS; SQL Server Express con datos ficticios en lugar del SQL Server del banco por Site-to-Site VPN. Todo está en el mismo Terraform (deploy/aws).</aside>
+PARA PREGUNTAS: los diez servicios son VPC, ALB, ECS Fargate, Bedrock, EventBridge, ECR, Secrets Manager, KMS, CloudWatch y SNS. Diferencias del demo con producción: tarea con IP pública en lugar de subredes privadas con VPC endpoints; ALB por HTTP limitado a la IP del equipo en lugar de interno con HTTPS; SQL Server Express con datos ficticios en lugar del SQL Server del banco por Site-to-Site VPN; el catálogo se arma desde Administración → Descubrir esquemas, mientras que en producción lo refresca cada noche un Builder lanzado por EventBridge Scheduler. En el demo EventBridge avisa si la tarea se detiene. Todo está en el mismo Terraform (deploy/aws).</aside>
 </section>
 <section id="demo" class="red">
 <div class="head">
