@@ -254,6 +254,9 @@ def production_violations(settings: ApiSettings) -> list[str]:
             problems.append("DISCOVERY_DATA_AGENT_DB debe cifrar la conexión (Encrypt=yes): por ella viajan las preguntas auditadas")
     if settings.demo:
         problems.append("DISCOVERY_DATA_AGENT_DEMO está activo: el modo demo usa servidores simulados y la contraseña 'demo'")
+    if settings.preload_server:
+        problems.append("DISCOVERY_DATA_AGENT_PRELOAD_SERVER es solo para entornos de prueba: confía en el certificado del "
+                        "servidor y registra el primer servidor sin el código de instalación")
     if not settings.cookie_secure:
         problems.append("DISCOVERY_DATA_AGENT_COOKIE_SECURE debe ser 1: la cookie de sesión solo puede viajar por HTTPS")
     for origin in settings.cors_origins:

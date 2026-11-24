@@ -15,6 +15,7 @@ locals {
     essential = true
     environment = [
       { name = "MSSQL_MEMORY_LIMIT_MB", value = tostring(var.sql_memory_mb) },
+      { name = "DDA_DEMO_LOGIN", value = var.sql_demo_login ? "1" : "0" },
     ]
     secrets = [
       for env, key in {

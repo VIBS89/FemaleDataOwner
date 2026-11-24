@@ -33,12 +33,21 @@ log_retention_days = 3
 sql_sidecar       = true
 sql_memory_mb     = 2048
 db_secret_enabled = true
-admins            = ["dda_admin"]
+admins            = ["dda_admin", "demo"]
+# Login `demo` / contraseña `demo` con todo el acceso, y el SQL Server ya registrado al arrancar (sin código de
+# instalación). Solo con estos datos ficticios y el ALB limitado a las IP de alb_ingress_cidrs.
+sql_demo_login = true
 
 # --- LLM: elegible en pantalla (Administración → Modelos de IA) ---
 # Por defecto Claude Sonnet 5.5 en Bedrock, con el rol de la tarea. Perfiles: Claude Haiku en Bedrock, NVIDIA NIM y
 # Claude por la API de Anthropic, cuyas claves `up` carga desde el .env (o `secret demo nvidia-api-key`…).
 models_yaml_file = "config/models.aws.yaml"
 bedrock_mantle   = true
+# Amazon Nova Pro por Converse (perfil por defecto mientras la cuenta no tenga cuota de Claude): el inference
+# profile de EE. UU. y los foundation-model de las regiones a las que enruta. Con public_task no crea VPC endpoint.
+bedrock_resource_arns = [
+  "arn:aws:bedrock:us-east-1:*:inference-profile/us.amazon.nova-pro-v1:0",
+  "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+]
 llm_api_key_envs = ["NVIDIA_API_KEY", "ANTHROPIC_API_KEY"]
 api_requirements = "requirements/dev.lock" # runtime.lock no trae los clientes de NIM ni de Anthropic

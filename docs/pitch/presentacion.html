@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discovery Data Agent · Pitch Hackathon</title>
+<!-- Generado por scripts/build_pitch.py desde docs/pitch/project/. No editar a mano. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400..900&amp;family=Nunito+Sans:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+:root {
+  --ink: #1B1C22;
+  --paper: #F7F7F9;
+  --paper-2: #EEEFF3;
+  --card: #FFFFFF;
+  --muted: #555A66;
+  --line: #D9DBE2;
+  --brand: #D9272E;
+  --brand-strong: #C61116;
+  --brand-deep: #A50F13;
+  --brand-soft: #FBEAEB;
+  --on-dark: #F4F4F7;
+  --on-dark-muted: #C3C6D0;
+  --brand-on-dark: #FF7A7F;
+  --ok: #1F7A4D;
+}
+
+body { font-family: 'Nunito Sans', Arial, sans-serif; color: var(--ink); }
+
+section {
+  padding: 128px;
+  background: var(--paper);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  font-family: 'Nunito Sans', Arial, sans-serif;
+  counter-increment: page;
+}
+section.dark { background: var(--ink); color: var(--on-dark); }
+section.red { background: var(--brand-strong); color: #FFF7F7; }
+section.alt { background: var(--paper-2); }
+
+h1, h2, h3 { font-family: 'Nunito', 'Nunito Sans', Arial, sans-serif; margin: 0; }
+h1 { font-size: 120px; font-weight: 900; line-height: 1.0; letter-spacing: -2px; }
+h2 { font-size: 64px; font-weight: 800; line-height: 1.1; letter-spacing: -1px; }
+h3 { font-size: 32px; font-weight: 800; line-height: 1.2; }
+p { margin: 0; font-size: 30px; line-height: 1.4; }
+
+.eyebrow { font-size: 24px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--brand-strong); }
+.dark .eyebrow { color: var(--brand-on-dark); }
+.red .eyebrow { color: #FFE1E2; }
+.head { display: flex; flex-direction: column; gap: 16px; }
+.lead { font-size: 36px; line-height: 1.35; color: var(--muted); }
+.dark .lead { color: var(--on-dark-muted); }
+.small { font-size: 24px; line-height: 1.4; color: var(--muted); }
+.dark .small { color: var(--on-dark-muted); }
+.mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+.hl { color: var(--brand-strong); }
+.dark .hl { color: var(--brand-on-dark); }
+
+.row { display: flex; flex-direction: row; gap: 32px; }
+.col { display: flex; flex-direction: column; gap: 24px; }
+.grow { flex: 1; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+.grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px; }
+
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 12px; }
+.card .small { color: var(--muted); }
+.dark .card { background: #262830; border-color: #3A3D48; }
+.dark .card .small { color: var(--on-dark-muted); }
+.card.soft { background: var(--brand-soft); border-color: #F2C4C6; }
+.card .k { font-family: 'Nunito', Arial, sans-serif; font-size: 72px; font-weight: 900; line-height: 1.0; color: var(--brand-strong); }
+.dark .card .k { color: var(--brand-on-dark); }
+
+.tag { font-size: 24px; font-weight: 700; padding: 8px 18px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-deep); }
+.chip { font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 24px; padding: 12px 18px; border-radius: 12px; background: var(--card); border: 2px solid var(--line); color: var(--ink); }
+
+.footer { position: absolute; left: 128px; bottom: 56px; width: 1664px; font-size: 24px; color: var(--muted); display: flex; justify-content: space-between; }
+.dark .footer { color: var(--on-dark-muted); }
+
+/* Flujo del agente */
+.node { flex: 1; background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+.node.hot { background: var(--brand-soft); border-color: #E8A5A8; }
+.nn { font-family: 'Nunito', Arial, sans-serif; font-size: 24px; font-weight: 900; color: var(--brand-strong); }
+.nt { font-size: 24px; font-weight: 700; line-height: 1.3; }
+.arr { width: 40px; height: 20px; background: #8A8F9C; flex-shrink: 0; }
+.dt { font-family: 'Nunito', Arial, sans-serif; font-size: 28px; font-weight: 800; line-height: 1.25; }
+.rule { display: flex; flex-direction: column; gap: 4px; padding: 0 0 16px 0; border-bottom: 2px solid var(--line); }
+
+/* Diagrama de arquitectura */
+.box { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+.box.hot { background: var(--brand-soft); border-color: #E8A5A8; }
+.box.dk { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+.box.dk .bs { color: var(--on-dark-muted); }
+.bt { font-family: 'Nunito', Arial, sans-serif; font-size: 26px; font-weight: 800; line-height: 1.2; }
+.bs { font-size: 24px; line-height: 1.3; color: var(--muted); }
+.aws { border: 3px dashed #B9BCC7; border-radius: 22px; padding: 28px; display: flex; flex-direction: column; gap: 20px; background: #FBFBFC; }
+.awsl { font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.svc { font-size: 24px; font-weight: 700; padding: 10px 18px; border-radius: 10px; background: var(--paper-2); color: var(--ink); }
+
+/* Pasos de la demo */
+.step { display: flex; flex-direction: row; align-items: center; gap: 32px; background: #A50F13; border-radius: 18px; padding: 24px 32px; }
+.sn { font-family: 'Nunito', Arial, sans-serif; font-size: 56px; font-weight: 900; color: #FFD6D7; width: 56px; }
+.st { font-size: 34px; line-height: 1.35; color: #FFF7F7; }
+
+/* Animación de entrada escalonada */
+@keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+.in { animation: rise 520ms ease-out both; animation-delay: calc(var(--i, 0) * 110ms); }
+
+
+html, body { margin: 0; height: 100%; background: #0E0F13; overflow: hidden; }
+#stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: center; }
+#stage > section { position: absolute; inset: 0; box-sizing: border-box; overflow: hidden; display: none; }
+#stage > section.on { display: flex; }
+section aside { display: none; }
+x-shape { display: block; }
+x-shape[kind="arrow-right"] { clip-path: polygon(0 30%, 60% 30%, 60% 0, 100% 50%, 60% 100%, 60% 70%, 0 70%); }
+#notes { position: fixed; left: 0; right: 0; bottom: 0; max-height: 38vh; overflow: auto; display: none;
+  background: #1B1C22; color: #F4F4F7; font: 16px/1.5 'Nunito Sans', Arial, sans-serif; padding: 16px 24px;
+  white-space: pre-wrap; border-top: 3px solid #D9272E; }
+#notes.on { display: block; }
+#hud { position: fixed; right: 16px; bottom: 12px; color: #8A8F9C; font: 14px Arial, sans-serif; }
+@media print {
+  @page { size: 1920px 1080px; margin: 0; }
+  html, body { overflow: visible; height: auto; background: none; }
+  #stage { position: static; transform: none !important; width: auto; height: auto; }
+  #stage > section { position: relative; display: flex !important; width: 1920px; height: 1080px; page-break-after: always; }
+  #notes, #hud { display: none !important; }
+  .in { animation: none !important; }
+}
+
+</style>
+</head>
+<body>
+<div id="stage">
+<section id="cover" class="dark" style="justify-content:space-between">
+<div class="row" style="justify-content:space-between; align-items:center">
+<p class="eyebrow">AWS Builders League · Women Agentic 2026</p>
+<p class="tag" style="background:#3A1416; color:#FFC9CB">Hackathon · Shark Tank</p>
+</div>
+<div class="col" style="gap:36px">
+<div style="width:120px; height:12px; background:#D9272E; border-radius:6px"></div>
+<h1 class="in" style="--i:0">Discovery Data Agent</h1>
+<p class="lead in" style="--i:1; font-size:44px; width:1400px; color:#E4E5EA">Pregunta en tu idioma dónde está un dato. El agente lo encuentra, te dice cuánto confiar y aprende de tus expertos.</p>
+</div>
+<div class="row" style="justify-content:space-between; align-items:flex-end">
+<p class="small">Para la Gerencia de Datos de Banco Atlántida El Salvador</p>
+<p class="small">Amazon Bedrock · ECS Fargate · MCP</p>
+</div>
+<aside>RELOJ 0:00–0:10 (10 s, ~25 palabras) · [Integrante 1]. Hola, somos [nombre del equipo] y les presentamos Discovery Data Agent: un agente que encuentra cualquier dato del banco con solo preguntar. Pasar al siguiente slide sin pausa.
+
+PLAN DE TIEMPO TOTAL (5:00, objetivo terminar en 4:50 para no cortarnos): portada 0:00–0:10 · problema 0:10–0:50 · solución agéntica 0:50–1:30 · arquitectura 1:30–1:50 · DEMO 1:50–3:50 · impacto 3:50–4:25 · cierre 4:25–4:50 · 10 s de colchón. Quedan 2 min de preguntas: anexos al final del deck.</aside>
+</section>
+<section id="problema">
+<div class="head">
+<p class="eyebrow">1 · Problema y cliente</p>
+<h2>Hoy, un dato depende de quién lo sabe</h2>
+</div>
+<div class="row grow" style="gap:48px">
+<div class="col" style="width:720px; gap:24px">
+<div class="card soft in" style="--i:0">
+<p class="small" style="color:#A50F13; font-weight:700">Un martes cualquiera, una analista de BI pregunta:</p>
+<p style="font-size:34px; font-weight:700">“¿Dónde está el identificador único del cliente de onboarding digital?”</p>
+</div>
+<div class="card in" style="--i:1">
+<p class="small" style="font-weight:700">Cliente</p>
+<p style="font-size:28px">Gerencia de Datos de Banco Atlántida El Salvador y sus siete perfiles: de ingenieros de datos a nuevos colaboradores.</p>
+</div>
+</div>
+<div class="grid2 grow" style="align-content:start">
+<div class="card in" style="--i:2"><h3>Dependencia de expertos</h3><p class="small">Cuellos de botella cuando la persona que sabe no está.</p></div>
+<div class="card in" style="--i:3"><h3>Búsquedas duplicadas</h3><p class="small">Cada equipo investiga de nuevo lo que otro ya encontró.</p></div>
+<div class="card in" style="--i:4"><h3>Reprocesos</h3><p class="small">Una fuente equivocada se descubre tarde, en el reporte.</p></div>
+<div class="card in" style="--i:5"><h3>Conocimiento que se va</h3><p class="small">Cuando alguien cambia de rol, lo que sabía se va.</p></div>
+</div>
+</div>
+<div class="card soft in" style="--i:6; flex-direction:row; align-items:center; gap:40px">
+<p class="k">[x h]</p>
+<p style="font-size:30px">por semana dedica cada analista a buscar datos, según [N] entrevistas con la Gerencia de Datos. Lo planteó el propio cliente y hoy nadie lo mide.</p>
+</div>
+<aside>RELOJ 0:10–0:50 (40 s, ~100 palabras) · [Integrante 1]. Una analista de BI necesita un campo para un reporte y no sabe en cuál de las bases está. La respuesta vive en la cabeza de dos o tres expertos: pregunta, espera y a veces elige la fuente equivocada. Nuestro cliente es la Gerencia de Datos de Banco Atlántida El Salvador, y fue ella quien nos planteó este problema. En [N] entrevistas, cada analista dedica [x h] por semana a buscar datos, y hoy nadie lo mide. El resultado: esperas, búsquedas duplicadas, reprocesos y conocimiento que se va cuando alguien cambia de rol.
+
+ANTES DEL PITCH: completar [N] y [x h] con la cifra real de las entrevistas. Si no hay entrevistas, decir: “nadie lo mide hoy; nuestro agente mide la línea base desde el día uno”.</aside>
+</section>
+<section id="autonomia">
+<div class="head">
+<p class="eyebrow">2 · Solución agéntica</p>
+<h2>El agente decide su camino, no sigue un guion</h2>
+</div>
+<div class="col" style="gap:16px">
+<div class="row" style="gap:12px; align-items:center">
+<div class="node in" style="--i:0"><p class="nn">1</p><p class="nt">Entiende la intención</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node in" style="--i:1"><p class="nn">2</p><p class="nt">Busca en catálogo y grafo</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node hot in" style="--i:2"><p class="nn">3</p><p class="nt">Califica: ¿cubre la pregunta?</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node in" style="--i:3"><p class="nn">4</p><p class="nt">Ordena y expande relaciones</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node hot in" style="--i:4"><p class="nn">5</p><p class="nt">Revisa: ¿existe y tiene permiso?</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node in" style="--i:5"><p class="nn">6</p><p class="nt">Responde con evidencia</p></div>
+</div>
+<p class="small">Los pasos 3 y 5 pueden devolver el flujo atrás (ciclos acotados). Cuando no encuentra, decide:</p>
+</div>
+<div class="grid4" style="align-content:start">
+<div class="card in" style="--i:6"><p class="dt">Cubre poco</p><p class="small">Reformula la pregunta con el LLM y vuelve a buscar.</p></div>
+<div class="card in" style="--i:7"><p class="dt">Confianza baja</p><p class="small">No inventa: lo dice y escala al responsable del dato.</p></div>
+<div class="card in" style="--i:8"><p class="dt">Varias áreas</p><p class="small">Responde y ofrece aclarar si el dato existe en varias áreas.</p></div>
+<div class="card in" style="--i:9"><p class="dt">Piden modificar</p><p class="small">Rechaza la orden: el agente es de solo lectura.</p></div>
+</div>
+<div class="col" style="gap:12px">
+<p class="small" style="font-weight:700">Cinco reglas que nunca rompe</p>
+<div class="row" style="gap:16px">
+<p class="tag in" style="--i:10">Permisos heredados</p>
+<p class="tag in" style="--i:11">Datos no salen del banco</p>
+<p class="tag in" style="--i:12">Nunca inventa objetos</p>
+<p class="tag in" style="--i:13">Solo lectura</p>
+<p class="tag in" style="--i:14">Todo auditado</p>
+</div>
+</div>
+<aside>RELOJ 0:50–1:30 (40 s, ~100 palabras) · [Integrante 2]. La persona pregunta en español dónde está un dato y el agente responde con el campo, la tabla, la base, la regla de negocio, el responsable y cuánto confiar. No es un buscador: decide su camino. Califica si lo encontrado cubre la pregunta y, si no, reformula y vuelve a buscar; si la confianza es baja, no inventa y escala al experto; si piden modificar datos, se niega. Y sigue cinco reglas que nunca rompe: permisos heredados, datos que no salen del banco, nada inventado, solo lectura y todo auditado. Todo sin intervención humana.
+
+PARA PREGUNTAS: LangGraph orquesta el flujo; Amazon Bedrock reformula y redacta; el orden de resultados es determinista y auditable. Detalle de herramientas MCP en el anexo.</aside>
+</section>
+<section id="arquitectura">
+<div class="head">
+<p class="eyebrow">Arquitectura en AWS</p>
+<h2>10 servicios de AWS, desplegados con Terraform</h2>
+</div>
+<div class="row grow" style="gap:20px; align-items:center">
+<div class="col" style="width:250px; gap:16px">
+<div class="box"><p class="bt">Usuarios del banco</p><p class="bs">Chat web</p></div>
+<div class="box hot"><p class="bt">Otros agentes</p><p class="bs">Kiro, Claude Code · 10 herramientas MCP</p></div>
+</div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="aws grow">
+<p class="awsl">AWS · us-east-1 · entorno demo</p>
+<div class="row" style="gap:12px; align-items:center">
+<div class="box" style="width:170px"><p class="bt">ALB</p><p class="bs">Solo IP del equipo · /mcp</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="box hot grow"><p class="bt">ECS Fargate Spot</p><p class="bs">Web Next.js · API FastAPI + LangGraph · SQL Server Express</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="box" style="width:230px"><p class="bt">Amazon Bedrock</p><p class="bs">Claude Sonnet 5.5, rol de la tarea</p></div>
+</div>
+<div class="row" style="gap:12px; align-items:center">
+<div class="box" style="width:260px"><p class="bt">Agente de esquemas</p><p class="bs">Descubrir esquemas</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="box grow"><p class="bt">Catálogo en SQL Server</p><p class="bs">Extrae metadatos y describe con IA en Bedrock</p></div>
+</div>
+<div class="row" style="gap:12px">
+<p class="svc">VPC</p><p class="svc">EventBridge</p><p class="svc">ECR</p><p class="svc">Secrets Manager</p><p class="svc">KMS</p><p class="svc">CloudWatch</p><p class="svc">SNS</p>
+</div>
+</div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="col" style="width:250px; gap:16px">
+<div class="box"><p class="bt">Datos de prueba</p><p class="bs">BancosSQL 100 % ficticio, en la tarea</p></div>
+<div class="box dk"><p class="bt">En producción</p><p class="bs">VPN al SQL Server del banco: solo metadatos</p></div>
+</div>
+</div>
+<aside>RELOJ 1:30–1:50 (20 s, ~50 palabras) · [Integrante 3]. Todo está desplegado en AWS con Terraform: web, API y un SQL Server con datos ficticios en Fargate, y Claude Sonnet en Bedrock, que también describe el catálogo que arma el agente de esquemas. Son diez servicios. Otros agentes, como Kiro, usan las diez herramientas MCP. En producción, la misma imagen se conecta por VPN al SQL Server del banco. Vamos a la demo.
+
+PARA PREGUNTAS: los diez servicios son VPC, ALB, ECS Fargate, Bedrock, EventBridge, ECR, Secrets Manager, KMS, CloudWatch y SNS. Diferencias del demo con producción: tarea con IP pública en lugar de subredes privadas con VPC endpoints; ALB por HTTP limitado a la IP del equipo en lugar de interno con HTTPS; SQL Server Express con datos ficticios en lugar del SQL Server del banco por Site-to-Site VPN; el catálogo se arma desde Administración → Descubrir esquemas, mientras que en producción lo refresca cada noche un Builder lanzado por EventBridge Scheduler. En el demo EventBridge avisa si la tarea se detiene. Todo está en el mismo Terraform (deploy/aws).</aside>
+</section>
+<section id="demo" class="red">
+<div class="head">
+<p class="eyebrow">3 · Demo en vivo · desplegada en AWS</p>
+<h2>Míralo decidir</h2>
+</div>
+<div class="col grow" style="gap:20px">
+<div class="step in" style="--i:0"><p class="sn">1</p><p class="st"><b>Encuentra.</b> Pregunta por el identificador del cliente de onboarding: <b>ClientCode al 96 %</b>, con su regla y sus relaciones.</p></div>
+<div class="step in" style="--i:1"><p class="sn">2</p><p class="st"><b>Respeta permisos.</b> Abre el catálogo y <b>no ve RRHH</b>: hereda los permisos de SQL Server.</p></div>
+<div class="step in" style="--i:2"><p class="sn">3</p><p class="st"><b>No inventa.</b> Puntaje de riesgo crediticio: <b>44 %</b>. Lo dice y escala al responsable.</p></div>
+<div class="step in" style="--i:3"><p class="sn">4</p><p class="st"><b>Aprende.</b> El responsable responde una vez y la misma pregunta sube a <b>93 %</b>.</p></div>
+</div>
+<aside>RELOJ 1:50–3:50 (2:00) · [Integrante 4] maneja, [Integrante 5] narra. Es la parte que más pesa: no pasar de 3:50.
+PASO 1 (1:50–2:30, 40 s): analista pregunta por el identificador del cliente de onboarding; mostrar ClientCode al 96 %, la regla BR-ONB-004 y las relaciones. Decir: “el agente califica, ordena y expande relaciones solo”.
+PASO 2 (2:30–3:00, 30 s): abrir el catálogo y mostrar que no aparece RRHH. “Hereda los permisos de SQL Server: nadie ve más de lo que ya puede ver”.
+PASO 3 (3:00–3:25, 25 s): preguntar el puntaje de riesgo crediticio; confianza 44 %. “No inventa: lo dice y escala al responsable”.
+PASO 4 (3:25–3:50, 25 s): el responsable responde una vez; la misma pregunta sube a 93 %. “El agente aprende del experto”.
+
+ANTES DE SUBIR: sesiones de analista y responsable ya iniciadas, preguntas copiadas en un bloc, demo ensayada con cronómetro. Ir directo a los cuatro pasos, sin explorar menús. Solo mostrar lo que está funcionando en vivo (criterio de desempate: “todo lo descrito se demostró”).
+OPCIONAL, solo si ya está probado y cabe sin pasar de 3:50: 10 s mostrando a Kiro o Claude Code consultando el mismo catálogo por MCP.
+PLAN B si falla la conexión: usar los 2 min de gracia; si sigue fallando, ir al anexo “Pregunta en español, respuesta con evidencia” y narrar los cuatro pasos sobre esa pantalla. No se aceptan demos grabadas.</aside>
+</section>
+<section id="impacto">
+<div class="head">
+<p class="eyebrow">4 · Impacto</p>
+<h2>Medido hoy, comprometido para el piloto</h2>
+</div>
+<div class="col" style="gap:16px">
+<p class="small" style="font-weight:700">Medido en nuestras evaluaciones</p>
+<div class="grid3">
+<div class="card in" style="--i:0"><p class="k">98 %</p><p class="small">acierta a la primera en 58 preguntas sobre bases bancarias</p></div>
+<div class="card in" style="--i:1"><p class="k">0</p><p class="small">fugas de permisos y objetos inventados en todas las corridas</p></div>
+<div class="card in" style="--i:2"><p class="k">1 332</p><p class="small">pruebas automáticas y compuerta de calidad en cada cambio</p></div>
+</div>
+</div>
+<div class="col" style="gap:16px">
+<div class="row" style="justify-content:space-between; align-items:baseline">
+<p class="small" style="font-weight:700">Metas de negocio, contra la línea base que mide el propio agente</p>
+<p class="hl" style="font-size:30px; font-weight:800">≈ [__] h por semana liberadas</p>
+</div>
+<div class="grid4">
+<div class="card soft in" style="--i:3"><p class="k" style="font-size:56px">−50 %</p><p class="small">tiempo para localizar una fuente</p></div>
+<div class="card soft in" style="--i:4"><p class="k" style="font-size:56px">−30 %</p><p class="small">consultas a expertos</p></div>
+<div class="card soft in" style="--i:5"><p class="k" style="font-size:56px">−20 a 40 %</p><p class="small">tiempo de análisis de requerimientos</p></div>
+<div class="card soft in" style="--i:6"><p class="k" style="font-size:56px">−20 %</p><p class="small">reprocesos por fuente equivocada</p></div>
+</div>
+</div>
+<aside>RELOJ 3:50–4:25 (35 s, ~85 palabras) · [Integrante 6]. Lo medido: 98 % de acierto a la primera en 58 preguntas, cero fugas de permisos y cero objetos inventados, con 1 332 pruebas automáticas. Lo que comprometemos en el piloto: 50 % menos de tiempo para localizar datos y 30 % menos de consultas a expertos. En horas: con [N] analistas que dedican [x] h por semana a buscar datos, son [N·x/2] h por semana liberadas. Y como el agente mide la línea base desde el primer día, el ahorro se puede demostrar.
+
+ANTES DEL PITCH: reemplazar [__] en el slide por el resultado de N·x/2 (mismos N y x del slide del problema). Si hay costo por hora, agregar “≈ US$ [__] al mes”.
+Distinguir siempre “medido” (evaluaciones) de “meta” (piloto): el jurado valora impacto cuantificado y honesto.</aside>
+</section>
+<section id="cierre" class="dark">
+<div class="head">
+<p class="eyebrow">Think Big</p>
+<h2>Que ninguna pregunta sobre datos dependa de una sola persona</h2>
+</div>
+<div class="grid3">
+<div class="card in" style="--i:0"><p class="eyebrow">Hoy</p><p class="dt">Clientes y onboarding</p><p class="small">Descubrimiento con permisos heredados, desplegado en AWS con 10 servicios.</p></div>
+<div class="card in" style="--i:1"><p class="eyebrow">Siguiente paso</p><p class="dt">Piloto de 8 semanas</p><p class="small">10–15 usuarios de la Gerencia de Datos, medidos contra la línea base.</p></div>
+<div class="card in" style="--i:2"><p class="eyebrow">Visión</p><p class="dt">Todo el patrimonio</p><p class="small">Cada base del banco, para personas y para otros agentes por MCP.</p></div>
+</div>
+<div class="col grow" style="justify-content:flex-end; gap:12px">
+<p class="small" style="font-weight:700; color:#F4F4F7">Equipo · un repositorio, seis integrantes, Spec-Driven Development (PRD, 39 specs y backlog)</p>
+<p class="small equipo">Vanessa Bonilla · [nombre] (roberflo) · [nombre] (rebecahernandezrend) · [nombre] (amcordero17) · [nombre] (ivethaguilar10) · [nombre] (CarolinaIPD)</p>
+</div>
+<aside>RELOJ 4:25–4:50 (25 s, ~65 palabras) · [Integrante 1] cierra. Hoy resolvemos clientes y onboarding. El siguiente paso es un piloto de 8 semanas con 10 a 15 usuarios de la Gerencia de Datos. Y la visión: que todo el patrimonio de datos del banco sea consultable por personas y por agentes. Somos seis, trabajamos en un repositorio con Spec-Driven Development, y cualquiera de nosotras puede explicar cualquier parte. Que ninguna pregunta sobre datos dependa de una sola persona. Gracias.
+
+TERMINAR EN 4:50 como máximo; a los 5:00 el tiempo cuenta en Presentación. Para las preguntas (2 min), todo el equipo al frente: responde quien conozca el tema, sin silencios. Anexos listos: respuesta del agente, herramientas MCP y reglas, evidencia.</aside>
+</section>
+<section id="solucion">
+<div class="head">
+<p class="eyebrow">Anexo · Respuesta del agente</p>
+<h2>Pregunta en español, respuesta con evidencia</h2>
+</div>
+<div class="row grow" style="gap:48px; align-items:flex-start">
+<div class="col" style="width:560px; gap:28px">
+<p class="lead" style="font-size:32px">El agente razona sobre los metadatos de todas las bases, los diccionarios, el linaje ETL y lo que ya respondieron los expertos.</p>
+<div class="col" style="gap:16px">
+<p style="font-size:28px"><b class="hl">Dónde</b> está: campo, tabla, base, ambiente, servidor</p>
+<p style="font-size:28px"><b class="hl">Qué</b> significa y qué regla de negocio aplica</p>
+<p style="font-size:28px"><b class="hl">Con qué</b> se relaciona y quién es el responsable</p>
+<p style="font-size:28px"><b class="hl">Cuánto</b> confiar: confianza calibrada</p>
+</div>
+</div>
+<div class="card grow in" style="--i:1; gap:18px; padding:40px; border-color:#C9CCD6">
+<p class="small" style="font-weight:700">Posibles coincidencias</p>
+<div class="row" style="justify-content:space-between; align-items:center">
+<p class="mono" style="font-size:40px; font-weight:600">1. ClientCode</p>
+<p class="tag" style="background:#E3F3EA; color:#1F5C3C">Confianza 92 %</p>
+</div>
+<p class="mono" style="font-size:24px; color:#555A66">VBank_ING · dbo.Users · Producción · SQL Producción Canales</p>
+<p style="font-size:26px">Código que identifica a los clientes digitales registrados. <b style="color:#1F7A4D">Revisada por Banca Digital</b></p>
+<p style="font-size:26px"><b>Regla BR-ONB-004:</b> se asigna al completar la verificación de identidad.</p>
+<p style="font-size:26px"><b>Relacionadas:</b> UserDevices (FK UserId) · DWH.dim.Cliente (ETL ONB_CargaUsuarios)</p>
+<hr style="border-top:2px solid #D9DBE2">
+<p class="small">Alternativas: LegalClientId 71 % · UserId 64 %  ·  Botones: Es este / No es</p>
+</div>
+</div>
+<aside>Anexo para preguntas y plan B de la demo. La persona escribe como habla. El agente devuelve una lista priorizada con la ubicación exacta, la descripción y quién la revisó, la regla de negocio, las relaciones y la confianza. Con “Es este” el conocimiento se fortalece para los siguientes usuarios.</aside>
+</section>
+<section id="usecase">
+<div class="head">
+<p class="eyebrow">Annex · Use case</p>
+<h2>One question replaces a chain of messages to experts</h2>
+</div>
+<div class="row grow" style="gap:48px; align-items:flex-start">
+<div class="col" style="width:640px; gap:24px">
+<div class="card soft in" style="--i:0">
+<p class="small" style="color:#A50F13; font-weight:700">A BI analyst, building a report, asks in Spanish:</p>
+<p style="font-size:34px; font-weight:700">“Where is the unique client identifier for digital onboarding?”</p>
+</div>
+<div class="card in" style="--i:1">
+<p class="small" style="font-weight:700">Without the agent</p>
+<p style="font-size:28px">She messages two or three experts, waits, and may end up on the wrong source.</p>
+</div>
+</div>
+<div class="grid2 grow" style="align-content:start">
+<div class="card in" style="--i:2"><p class="nn">1 · Finds</p><h3>Right field, with context</h3><p class="small">Returns ClientCode with its business rule (BR-ONB-004) and related tables, ranked by confidence.</p></div>
+<div class="card in" style="--i:3"><p class="nn">2 · Respects permissions</p><h3>Nobody sees more than allowed</h3><p class="small">HR objects never appear: the agent inherits the person’s SQL Server permissions.</p></div>
+<div class="card in" style="--i:4"><p class="nn">3 · Does not invent</p><h3>Low confidence, so it escalates</h3><p class="small">Asked for the credit risk score, confidence is 44 %. It says so and routes the question to the data owner.</p></div>
+<div class="card in" style="--i:5"><p class="nn">4 · Learns</p><h3>The expert answers once</h3><p class="small">The same question now returns 93 %, for this analyst and for the next one.</p></div>
+</div>
+</div>
+<div class="card soft in" style="--i:6; flex-direction:row; align-items:center; gap:40px">
+<p class="k" style="font-size:56px">1 question</p>
+<p style="font-size:30px">gives a sourced answer with a confidence level, and what the owner confirms stays available to everyone.</p>
+</div>
+<aside>Annex for Q&amp;A. Use case in English: a BI analyst asks in Spanish where the digital onboarding client identifier lives. The agent finds ClientCode with its business rule and relations, respects inherited SQL Server permissions, declines to invent an answer when confidence is low (credit risk score, 44 %) and escalates to the owner, and learns from the owner’s answer (same question, 93 %). The four steps mirror the live demo, so it also works as the plan B narration.</aside>
+</section>
+<section id="mcp" class="alt">
+<div class="head">
+<p class="eyebrow">Anexo · Herramientas y reglas</p>
+<h2>10 herramientas por MCP y 5 reglas que nunca rompe</h2>
+</div>
+<div class="row grow" style="gap:56px">
+<div class="col" style="width:760px; gap:20px">
+<div class="grid2" style="gap:14px">
+<p class="chip">discover</p>
+<p class="chip">search_catalog</p>
+<p class="chip">get_asset</p>
+<p class="chip">get_related</p>
+<p class="chip">find_alternatives</p>
+<p class="chip">list_business_rules</p>
+<p class="chip">get_lineage</p>
+<p class="chip">where_is</p>
+<p class="chip">find_join_path</p>
+<p class="chip">estate_overview</p>
+</div>
+<p class="small">Servidor MCP propio (SDK oficial, Apache-2.0): el chat web y cualquier otro agente, como Kiro o Claude Code, consultan el mismo catálogo con el login de la persona.</p>
+</div>
+<div class="col grow" style="gap:20px">
+<div class="rule in" style="--i:0"><p class="dt">Nadie ve más de lo que ya puede ver</p><p class="small">Usa el login SQL de cada persona: hereda sus permisos.</p></div>
+<div class="rule in" style="--i:1"><p class="dt">Los datos de clientes no salen del banco</p><p class="small">El catálogo guarda solo metadatos, nunca valores.</p></div>
+<div class="rule in" style="--i:2"><p class="dt">Nunca inventa objetos</p><p class="small">Todo lo que menciona existe en el catálogo.</p></div>
+<div class="rule in" style="--i:3"><p class="dt">Solo lectura</p><p class="small">No escribe ni modifica datos en ninguna base.</p></div>
+<div class="rule in" style="--i:4"><p class="dt">Todo queda auditado</p><p class="small">Si la auditoría falla, la respuesta no sale.</p></div>
+</div>
+</div>
+<aside>Anexo para preguntas. El agente expone diez herramientas por MCP, así otros agentes lo usan igual que el chat. Y sigue cinco reglas fijas, probadas en cada cambio por una compuerta de calidad: permisos heredados, residencia de datos, cero objetos inventados, solo lectura y auditoría fail-closed.</aside>
+</section>
+<section id="evidencia" class="alt">
+<div class="head">
+<p class="eyebrow">Anexo · Evidencia</p>
+<h2>Cómo sabemos que el problema es real</h2>
+</div>
+<div class="grid3 grow" style="align-content:start">
+<div class="card in" style="--i:0">
+<h3>Lo pidió el cliente</h3>
+<p class="small">La Gerencia de Datos lo planteó en su Propuesta 1: el acceso al dato depende del conocimiento tribal y de documentación parcial.</p>
+</div>
+<div class="card in" style="--i:1">
+<h3>El patrimonio es grande</h3>
+<p class="small">[N] servidores SQL Server, [N] bases de datos y [N] tablas entre producción, QA, DWH y desarrollo.</p>
+</div>
+<div class="card in" style="--i:2">
+<h3>Nadie lo mide hoy</h3>
+<p class="small">No existe medición del tiempo de búsqueda. El agente mide la línea base desde el primer día.</p>
+</div>
+</div>
+<div class="card soft in" style="--i:3; flex-direction:row; align-items:center; gap:40px">
+<p class="k">[x h]</p>
+<p style="font-size:30px">por semana dedica cada analista a localizar y entender fuentes de datos, según [N] entrevistas con la Gerencia de Datos.</p>
+</div>
+<aside>Anexo para preguntas. Tres pruebas: lo pidió el propio cliente, el patrimonio es grande y nadie lo mide. Dar la cifra de las entrevistas (completar antes del pitch). Si no hay entrevistas, decir que el producto mide la línea base desde el día uno: tiempo hasta encontrar el dato, escalamientos y brechas.</aside>
+</section>
+</div>
+<div id="notes"></div>
+<div id="hud"></div>
+<script>
+const slides = [...document.querySelectorAll('#stage > section')];
+const notes = document.getElementById('notes'), hud = document.getElementById('hud'), stage = document.getElementById('stage');
+let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.replace('#slide-', '')) || 1) - 1));
+function fit() { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; }
+function show(n) {
+  i = Math.max(0, Math.min(slides.length - 1, n));
+  slides.forEach((s, k) => s.classList.toggle('on', k === i));
+  const a = slides[i].querySelector('aside'); notes.textContent = a ? a.textContent.trim() : '(sin notas)';
+  hud.textContent = `${i + 1} / ${slides.length} · N notas · F pantalla completa`;
+  history.replaceState(null, '', '#slide-' + (i + 1));
+}
+addEventListener('keydown', e => {
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) show(i + 1);
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) show(i - 1);
+  else if (e.key === 'Home') show(0);
+  else if (e.key === 'End') show(slides.length - 1);
+  else if (e.key.toLowerCase() === 'n') notes.classList.toggle('on');
+  else if (e.key.toLowerCase() === 'f') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+addEventListener('click', e => { if (!notes.contains(e.target)) show(e.clientX > innerWidth / 2 ? i + 1 : i - 1); });
+addEventListener('resize', fit); fit(); show(i);
+</script>
+</body>
+</html>

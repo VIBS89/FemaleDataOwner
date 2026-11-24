@@ -35,12 +35,12 @@ from discovery_data_agent.models.identity import UserContext
 from discovery_data_agent.models.knowledge import BusinessRule, GoldenDiscovery
 from discovery_data_agent.storage.connection import describe
 
-from discovery_data_agent_api.connector import Connector
+from discovery_data_agent_api.connector import Connector, server_from_host
 from discovery_data_agent_api.demo import apply_fixture_knowledge, demo_inventory
 from discovery_data_agent_api.demo_history import HISTORY_MARKER, seed_history
 from discovery_data_agent_api.pii import find_pii
 from discovery_data_agent_api.settings import ApiSettings
-from discovery_data_agent_api.vault import Session, SessionVault
+from discovery_data_agent_api.vault import Credential, Session, SessionVault
 
 log = logging.getLogger(__name__)
 MAX_TRACES = 500
@@ -84,6 +84,22 @@ def open_api_stores(settings: ApiSettings) -> Stores:
                        inventory_path=settings.inventory_path)
 
 
+PRELOAD_ENVIRONMENTS = ("produccion", "qa", "desarrollo", "dr")
+
+
+def preloaded_server(spec: str) -> ServerConfig:
+    """`host|alias|ambiente` de DISCOVERY_DATA_AGENT_PRELOAD_SERVER → el servidor que registraría el primer login.
+
+    Solo para entornos de prueba con SQL Server en la propia tarea, cuyo certificado es autofirmado: por eso se confía
+    en él, y por eso `production_violations` no acepta la variable en qa ni en prod."""
+    parts = [p.strip() for p in spec.split("|")]
+    if len(parts) != 3 or not all(parts) or parts[2] not in PRELOAD_ENVIRONMENTS:
+        raise ValueError("DISCOVERY_DATA_AGENT_PRELOAD_SERVER debe ser 'host|alias|ambiente' "
+                         f"(ambiente: {', '.join(PRELOAD_ENVIRONMENTS)})")
+    host, alias, environment = parts
+    return server_from_host(host, alias, environment, True, Inventory(servers=[]))
+
+
 class AgentRuntime:
     def __init__(self, settings: ApiSettings, connector: Connector, vault: SessionVault, audit,
                  stores: Stores | None = None):
@@ -118,7 +134,12 @@ class AgentRuntime:
         self._pull()
         if settings.demo and settings.demo_preload_inventory and not self.inventory.servers:
             self.save_inventory(demo_inventory(settings.demo_fixtures), by="demo")
+        if settings.preload_server and not self.inventory.servers:
+            self.save_inventory([preloaded_server(settings.preload_server)], by="instalador")
         self.reload()
+        if (settings.preload_server and settings.preload_build_login and settings.preload_build_password
+                and self.service is None):
+            self.start_initial_build(settings.preload_build_login, settings.preload_build_password)
 
     # --- inventario -------------------------------------------------------------------------------
     def save_inventory(self, servers: list[ServerConfig], *, by: str) -> None:
@@ -602,14 +623,38 @@ class AgentRuntime:
                 return self.job
             self.job = BuildJob(status="running", started_at=_now(), triggered_by=session.user_id,
                                 enrich=enrich is not False and self.settings.models_path is not None)
-        threading.Thread(target=self._run_build, args=(session, self.job), daemon=True).start()
+        threading.Thread(target=self._run_build, args=(session.user_id, self._session_credential(session), self.job),
+                         daemon=True).start()
         return self.job
 
-    def _run_build(self, session: Session, job: BuildJob) -> None:
+    def start_initial_build(self, login: str, password: str) -> BuildJob:
+        """Entorno de pruebas con servidor precargado: descubre los esquemas al arrancar con un login fijado por el
+        operador al desplegar, para que el demo tenga catálogo sin que nadie pulse «Descubrir esquemas»."""
+        with self._lock:
+            if self.job.status == "running":
+                return self.job
+            self.job = BuildJob(status="running", started_at=_now(), triggered_by=login,
+                                enrich=self.settings.models_path is not None)
+
+        def credential(server: ServerConfig) -> Credential:
+            return Credential(server.id, login, password)
+
+        threading.Thread(target=self._run_build, args=(login, credential, self.job), daemon=True).start()
+        return self.job
+
+    def _session_credential(self, session: Session):
+        def credential(server: ServerConfig) -> Credential:
+            cred = self.vault.credential(session, server.id)
+            if cred is None:
+                raise PermissionError("Tu sesión no tiene credencial para este servidor; vuelve a iniciar sesión")
+            return cred
+        return credential
+
+    def _run_build(self, user_id: str, credential_for, job: BuildJob) -> None:
         work = self.settings.data_root
         scratch: Path | None = None
         try:
-            self.audit.event("catalog_build_started", session.user_id, enrich=job.enrich)
+            self.audit.event("catalog_build_started", user_id, enrich=job.enrich)
             # Copia: el flujo reemplaza `databases: ["*"]` por lo descubierto y el inventario guardado conserva "*".
             inventory = Inventory(servers=[s.model_copy(deep=True) for s in self.inventory.servers])
             if self.repository is not None:
@@ -618,10 +663,7 @@ class AgentRuntime:
                 scratch = work = Path(tempfile.mkdtemp(prefix="discovery-data-agent-build-"))
 
             def source_factory(server: ServerConfig):
-                cred = self.vault.credential(session, server.id)
-                if cred is None:
-                    raise PermissionError("Tu sesión no tiene credencial para este servidor; vuelve a iniciar sesión")
-                return self.connector.metadata_source(server, cred)
+                return self.connector.metadata_source(server, credential_for(server))
 
             enricher = None
             if job.enrich:
@@ -634,7 +676,7 @@ class AgentRuntime:
             demo = self.settings.demo
             result = refresh_catalog(
                 inventory, work, source_factory=source_factory, enricher=enricher, repository=self.repository,
-                published_by=session.user_id, scope="all" if demo else "build",
+                published_by=user_id, scope="all" if demo else "build",
                 # La BD de trabajo no se cataloga a sí misma, se llame como se llame.
                 own_databases={describe(self.settings.db).split("/")[-1]} if self.settings.db else frozenset(),
                 after_build=(lambda root: apply_fixture_knowledge(self.settings.demo_fixtures, root)) if demo else None)
@@ -651,7 +693,7 @@ class AgentRuntime:
                 seeded = seed_history(self.service, self.audit, self.curation, self.settings.demo_fixtures,
                                       marker=self.settings.curation_dir / HISTORY_MARKER)
                 if seeded:  # antes de marcar "ok": el tablero ya tiene el historial cuando la web lo pide
-                    self.audit.event("demo_history_seeded", session.user_id, client="demo-seed", simulated=True,
+                    self.audit.event("demo_history_seeded", user_id, client="demo-seed", simulated=True,
                                      **seeded)
         except Exception as exc:
             log.error("catalog.build_failed", extra={"error_type": type(exc).__name__})
@@ -664,6 +706,6 @@ class AgentRuntime:
         job.status = "error" if job.error else "ok"
         with contextlib.suppress(Exception):  # sin auditoría el trabajo igualmente termina (no queda "running")
             # Sin el texto del error: un mensaje de conexión puede traer host, instancia o login (solo lo ve el admin).
-            self.audit.event("catalog_build_finished", session.user_id, status=job.status,
+            self.audit.event("catalog_build_finished", user_id, status=job.status,
                              objects=(job.report or {}).get("objects"),
                              servers_failed=sorted((job.report or {}).get("servers_failed") or {}))

@@ -249,6 +249,16 @@ variable "sql_sidecar" {
   default     = false
 }
 
+variable "sql_demo_login" {
+  description = "Con sql_sidecar: habilita el login `demo` (contraseña `demo`, permisos de dda_admin) y registra el SQL Server de la tarea al arrancar, sin código de instalación. Solo para mostrar la solución con datos de prueba y el ALB limitado por IP."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.sql_demo_login || var.sql_sidecar
+    error_message = "sql_demo_login necesita sql_sidecar = true."
+  }
+}
+
 variable "sql_memory_mb" {
   description = "Memoria máxima de SQL Server dentro de la tarea (MSSQL_MEMORY_LIMIT_MB). SQL Server pide al menos 2000."
   type        = number
