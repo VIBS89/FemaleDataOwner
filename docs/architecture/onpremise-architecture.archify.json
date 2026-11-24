@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — Arquitectura on-premise (fase 1a, descubrimiento)",
+    "title": "DiscoveryDataAgent — Arquitectura on-premise (fase 1a, descubrimiento)",
     "output": "docs/architecture/onpremise-architecture.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -21,7 +21,7 @@
         160,
         64
       ],
-      "description": "Clientes como Claude Code o Claude Desktop que usan ConverData como herramienta MCP (discover, where_is, get_asset, get_lineage y otras) en https://<servidor>/mcp, con el token de sesión obtenido en /login como Bearer. Heredan los mismos permisos SQL que en el chat. Implementado: integration.mcp montado en ConverData-API. (F12, OP-04, HU-16, HU-42)"
+      "description": "Clientes como Claude Code o Claude Desktop que usan DiscoveryDataAgent como herramienta MCP (discover, where_is, get_asset, get_lineage y otras) en https://<servidor>/mcp, con el token de sesión obtenido en /login como Bearer. Heredan los mismos permisos SQL que en el chat. Implementado: integration.mcp montado en DiscoveryDataAgent-API. (F12, OP-04, HU-16, HU-42)"
     },
     {
       "id": "bedrock",
@@ -68,7 +68,7 @@
         64
       ],
       "tag": "PKI corporativa",
-      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, envía / al frontend web y /mcp a ConverData-API. Con HttpPlatformHandler lanza, supervisa y reinicia los dos procesos, sin servicios de Windows propios. Sus logs no registran cuerpos ni la cabecera Authorization. Pendiente: scripts de instalación (HU-37); hoy el desarrollo corre con docker compose. (OP-04)"
+      "description": "Puerta de entrada en el Windows Server: termina TLS con el certificado de la PKI corporativa, envía / al frontend web y /mcp a DiscoveryDataAgent-API. Con HttpPlatformHandler lanza, supervisa y reinicia los dos procesos, sin servicios de Windows propios. Sus logs no registran cuerpos ni la cabecera Authorization. Pendiente: scripts de instalación (HU-37); hoy el desarrollo corre con docker compose. (OP-04)"
     },
     {
       "id": "web",
@@ -83,12 +83,12 @@
         160,
         64
       ],
-      "description": "Frontend Next.js (web/): chat con tarjetas de candidatos y confirmación ✔/✖, Catálogo, Mis solicitudes, Métricas, Curación para responsables (dudas escaladas, documentación, reglas, diccionario e historial de cada descripción) y Administración (esquemas, servidores, responsables, auditoría y manual de desarrollo). Es un proceso Node porque su ruta /api/[...path] reenvía las llamadas a ConverData-API, que no se publica directamente. No guarda credenciales. (F12, F24, OP-04)"
+      "description": "Frontend Next.js (web/): chat con tarjetas de candidatos y confirmación ✔/✖, Catálogo, Mis solicitudes, Métricas, Curación para responsables (dudas escaladas, documentación, reglas, diccionario e historial de cada descripción) y Administración (esquemas, servidores, responsables, auditoría y manual de desarrollo). Es un proceso Node porque su ruta /api/[...path] reenvía las llamadas a DiscoveryDataAgent-API, que no se publica directamente. No guarda credenciales. (F12, F24, OP-04)"
     },
     {
       "id": "api",
       "type": "backend",
-      "label": "ConverData-API",
+      "label": "DiscoveryDataAgent-API",
       "sublabel": "FastAPI · DiscoverFlow · MCP",
       "pos": [
         760,
@@ -99,7 +99,7 @@
         64
       ],
       "tag": "sin estado en disco",
-      "description": "Un solo proceso Python: API REST, servidor MCP en /mcp y el DiscoverFlow de LangGraph (intención, recuperar, evaluar, ordenar, expandir relaciones, responder). Carga el catálogo de la BD ConverData en un índice léxico en memoria (BM25, decenas de ms), lo recarga cuando el Builder publica o alguien cura, y busca solo entre los objetos que el usuario ve. No guarda estado en disco: el login SQL de cada sesión vive cifrado en memoria y todo lo demás en la BD. No ejecuta SQL sobre datos de clientes en la fase 1a. (F12, F14, F22, OP-01, OP-03)"
+      "description": "Un solo proceso Python: API REST, servidor MCP en /mcp y el DiscoverFlow de LangGraph (intención, recuperar, evaluar, ordenar, expandir relaciones, responder). Carga el catálogo de la BD DiscoveryDataAgent en un índice léxico en memoria (BM25, decenas de ms), lo recarga cuando el Builder publica o alguien cura, y busca solo entre los objetos que el usuario ve. No guarda estado en disco: el login SQL de cada sesión vive cifrado en memoria y todo lo demás en la BD. No ejecuta SQL sobre datos de clientes en la fase 1a. (F12, F14, F22, OP-01, OP-03)"
     },
     {
       "id": "sqldata",
@@ -114,12 +114,12 @@
         160,
         64
       ],
-      "description": "Las BDs de negocio, en sus versiones actuales. En la fase 1a ConverData solo lee metadatos: al iniciar sesión pregunta con el login del propio usuario qué objetos puede ver, y el Builder lee la estructura con un login de solo metadatos. Sigue siendo la fuente de verdad de los permisos. La consulta de datos queda para la fase 1b. (F8, F14, OP-03)"
+      "description": "Las BDs de negocio, en sus versiones actuales. En la fase 1a DiscoveryDataAgent solo lee metadatos: al iniciar sesión pregunta con el login del propio usuario qué objetos puede ver, y el Builder lee la estructura con un login de solo metadatos. Sigue siendo la fuente de verdad de los permisos. La consulta de datos queda para la fase 1b. (F8, F14, OP-03)"
     },
     {
       "id": "convdb",
       "type": "database",
-      "label": "BD ConverData",
+      "label": "BD DiscoveryDataAgent",
       "sublabel": "tablas normales · SQL Server 2016+",
       "pos": [
         760,
@@ -130,7 +130,7 @@
         64
       ],
       "tag": "todo el estado",
-      "description": "Única BD de trabajo, gestionada por el DBA. Esquemas catalog (objetos con historial y autor, inventario de servidores), knowledge (diccionarios, reglas, linaje, confirmaciones como plantilla sin literales), curation (responsables, dudas escaladas, votos) y audit. Solo tablas normales: sin VECTOR, Full-Text ni grafo. Se crea con converdata db migrate (001 y 002). La cuenta de la API inserta y lee la auditoría pero no puede modificarla ni borrarla; el Builder no lee preguntas. La purga de 180 días alcanza auditoría y dudas escaladas. (F2, F11, F23, F24, OP-02, OP-05)"
+      "description": "Única BD de trabajo, gestionada por el DBA. Esquemas catalog (objetos con historial y autor, inventario de servidores), knowledge (diccionarios, reglas, linaje, confirmaciones como plantilla sin literales), curation (responsables, dudas escaladas, votos) y audit. Solo tablas normales: sin VECTOR, Full-Text ni grafo. Se crea con discovery-data-agent db migrate (001 y 002). La cuenta de la API inserta y lee la auditoría pero no puede modificarla ni borrarla; el Builder no lee preguntas. La purga de 180 días alcanza auditoría y dudas escaladas. (F2, F11, F23, F24, OP-02, OP-05)"
     },
     {
       "id": "builder",
@@ -146,7 +146,7 @@
         64
       ],
       "tag": "mismo código, otro proceso",
-      "description": "Comando de línea (converdata catalog build --db) que mapea BDs y ambientes con consultas fijas a sys.*, construye las relaciones entre BDs y el linaje, y puede generar descripciones con el LLM. Publica sin pisar lo que editaron las personas. No es un servicio: corre y termina. La tarea programada entra con la cuenta del proceso y solo a los hosts de CONVERDATA_BUILDER_HOSTS. Desde Administración (POST /admin/catalog/build) corre el mismo caso de uso con la credencial del administrador, sin esa lista. (F1, F19, F23, OP-02)"
+      "description": "Comando de línea (discovery-data-agent catalog build --db) que mapea BDs y ambientes con consultas fijas a sys.*, construye las relaciones entre BDs y el linaje, y puede generar descripciones con el LLM. Publica sin pisar lo que editaron las personas. No es un servicio: corre y termina. La tarea programada entra con la cuenta del proceso y solo a los hosts de DISCOVERY_DATA_AGENT_BUILDER_HOSTS. Desde Administración (POST /admin/catalog/build) corre el mismo caso de uso con la credencial del administrador, sin esa lista. (F1, F19, F23, OP-02)"
     },
     {
       "id": "sources",
@@ -178,7 +178,7 @@
         64
       ],
       "tag": "pendiente",
-      "description": "Tarea programada de Windows que ejecuta el Builder cada noche para que el catálogo refleje los cambios de esquema, y después la evaluación de regresión del descubrimiento. Sustituye al servicio ConverData-Builder con API de administración y al job de SQL Server Agent de las specs: menos piezas que instalar y vigilar. (OP-02, HU-24)"
+      "description": "Tarea programada de Windows que ejecuta el Builder cada noche para que el catálogo refleje los cambios de esquema, y después la evaluación de regresión del descubrimiento. Sustituye al servicio DiscoveryDataAgent-Builder con API de administración y al job de SQL Server Agent de las specs: menos piezas que instalar y vigilar. (OP-02, HU-24)"
     }
   ],
   "boundaries": [
@@ -298,7 +298,7 @@
       "dot": "amber",
       "title": "Estado y evolución",
       "items": [
-        "Hoy: todo el estado en la BD ConverData; dependencias e imágenes fijadas; LLM local; docker compose",
+        "Hoy: todo el estado en la BD DiscoveryDataAgent; dependencias e imágenes fijadas; LLM local; docker compose",
         "Piloto: Bedrock, IIS y tareas programadas en el servidor del banco",
         "Después: grupos de Active Directory (HU-13), consulta de datos (fase 1b), despliegue en AWS"
       ]

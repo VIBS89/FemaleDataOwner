@@ -383,7 +383,7 @@ cryptography==50.0.2 \
     --hash=sha256:fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb \
     --hash=sha256:fdd28f912fccfec1846a94e2e1e8f9b0012f557f0c46fe4f3eb0d7a87afcf90b
     # via
-    #   converdata (pyproject.toml)
+    #   discovery-data-agent (pyproject.toml)
     #   pyjwt
 distro==1.9.0 \
     --hash=sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed \
@@ -392,7 +392,7 @@ distro==1.9.0 \
 fastapi==0.163.2 \
     --hash=sha256:825a8fdd18d7bfcb1b86735e9805c59b7400d55c4060d3df5331b62ae452f004 \
     --hash=sha256:e605c4c9b94be78b43aa8239a62ccf7b6684346cdc9e053633feab0ab21b87c7
-    # via converdata (pyproject.toml)
+    # via discovery-data-agent (pyproject.toml)
 h11==0.16.0 \
     --hash=sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
@@ -577,12 +577,12 @@ jsonschema-specifications==2025.9.1 \
 langchain-aws==1.9.3 \
     --hash=sha256:7b23c0dff0190c94094a7aa285118d219eeb9ed4f2d005caf554a5800a10e915 \
     --hash=sha256:d37b442a16ffdc52ead72a92b8225bf8c66eb76ee91368e5ffe65eabca3dd8c1
-    # via converdata (pyproject.toml)
+    # via discovery-data-agent (pyproject.toml)
 langchain-core==1.8.1 \
     --hash=sha256:778b9bf1d18d4b7a716311defa230db190006ef75fe175930e00012d82df603b \
     --hash=sha256:e093de87371e648af23517f1e98cefc316f8be7c72a137b0e0f94d3e8e8cc421
     # via
-    #   converdata (pyproject.toml)
+    #   discovery-data-agent (pyproject.toml)
     #   langchain-aws
     #   langgraph
     #   langgraph-checkpoint
@@ -597,7 +597,7 @@ langchain-protocol==0.0.21 \
 langgraph==1.2.22 \
     --hash=sha256:0f8ebec55a58667e40474a0e55bdb4f06a8c7a1d98cde2b7c8d996a2ee78fe3f \
     --hash=sha256:32700dc34b5cf9ebb397258c2e56392f017d4dbc51c9591339225c3c1b7b5126
-    # via converdata (pyproject.toml)
+    # via discovery-data-agent (pyproject.toml)
 langgraph-checkpoint==4.3.2 \
     --hash=sha256:60e02eb2c2eefc4c22fb1549f1c90b85ce9617377604596c5f34fbd6af0bd6e9 \
     --hash=sha256:fcab8468c7e965d7055e2a35c253d73a145624ef4728b150ca7c361f4afca286
@@ -619,7 +619,7 @@ langsmith==0.15.0 \
 mcp==2.3.0 \
     --hash=sha256:8b147a50441cf059dc88c684e0aeed3687f0aa0f39c6cde7b90330effd2b34d8 \
     --hash=sha256:dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377
-    # via converdata (pyproject.toml)
+    # via discovery-data-agent (pyproject.toml)
 mcp-types==2.3.0 \
     --hash=sha256:968efdbdaedfab06adae40d378a34395f1090c5921d4be3c9cde283aaf76d91d \
     --hash=sha256:d1e46549edb35ee19a94940fcee6d1addd7e589ab7ea92dda83f5d84781fc362
@@ -826,7 +826,7 @@ pydantic==2.14.3 \
     --hash=sha256:1054f237f4d4733e5a30e1e2333bd33a2004ab9ab1510bd053a9a31bb48e232d \
     --hash=sha256:3f7b347782ab7e4cf4c798496ae3a82787d9f21ec12676a9c564355eeef8daa8
     # via
-    #   converdata (pyproject.toml)
+    #   discovery-data-agent (pyproject.toml)
     #   fastapi
     #   langchain-aws
     #   langchain-core
@@ -1045,7 +1045,7 @@ pyodbc==5.5.0 \
     --hash=sha256:eeb75bc666882d249d48b5c6994d67d56661b947c00c789c93f4c6ca6492d470 \
     --hash=sha256:fd3fbf8c41aecbede38888403f24706b63dc1853bddca80fd0f11e4c608bc9ee \
     --hash=sha256:ffff3ac80927178be710ccbc877535e0618a6157e38058030d596b43a69a17bd
-    # via converdata (pyproject.toml)
+    # via discovery-data-agent (pyproject.toml)
 python-dateutil==2.9.0.post0 \
     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3 \
     --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
@@ -1156,7 +1156,7 @@ pyyaml==6.0.3 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
     # via
-    #   converdata (pyproject.toml)
+    #   discovery-data-agent (pyproject.toml)
     #   langchain-core
     #   uvicorn
 referencing==0.37.0 \
@@ -1319,6 +1319,10 @@ sniffio==1.3.1 \
     --hash=sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2 \
     --hash=sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc
     # via langsmith
+sqlglot==30.34.0 \
+    --hash=sha256:43cf9a6bb558bf2fe6fd4493a64f870dae76e21d43dace8819be7c3432c078d9 \
+    --hash=sha256:5ce4763ac98c6b24422a3c062b6e63f30ec4e6be9a81333c8dfa74adc9fb07bf
+    # via discovery-data-agent (pyproject.toml)
 sse-starlette==3.7.0 \
     --hash=sha256:326416da2ab52e9a41b3f409d3ff897eda45aa68c9f3b7b17d0913aab8d219c3 \
     --hash=sha256:f1d3136caa12d129284fca3d2ded79bc9af943320b6472712955fea52a6d3eea
@@ -1338,7 +1342,7 @@ truststore==0.10.5 \
     --hash=sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd \
     --hash=sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c
     # via
-    #   converdata (pyproject.toml)
+    #   discovery-data-agent (pyproject.toml)
     #   httpcore2
     #   httpx2
 typing-extensions==4.16.0 \
@@ -1433,7 +1437,7 @@ uvicorn==0.54.0 \
     --hash=sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf \
     --hash=sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620
     # via
-    #   converdata (pyproject.toml)
+    #   discovery-data-agent (pyproject.toml)
     #   mcp
 uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32' \
     --hash=sha256:0305871ac712f54b62af73f943dbf21ae3ce80a44bc0f0151424484affa85645 \

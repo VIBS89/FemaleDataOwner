@@ -17,31 +17,33 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 
 # Prefijo de módulo → capa. Gana el prefijo más largo.
 LAYERS = {
-    "converdata.models": "domain",
-    "converdata.catalog": "domain",
-    "converdata.config": "domain",
-    "converdata.curation": "domain",
-    "converdata.discovery": "domain",
-    "converdata.graph": "domain",
-    "converdata.builder": "domain",
-    "converdata.identity": "domain",
-    "converdata.audit": "domain",
-    "converdata.memory.base": "domain",
-    "converdata.memory.text": "domain",
-    "converdata.metadata.ports": "domain",
-    "converdata.audit.sqlserver": "infrastructure",
-    "converdata.audit.chain": "infrastructure",
-    "converdata.flows": "application",
-    "converdata.application": "application",
-    "converdata.memory": "infrastructure",
-    "converdata.metadata": "infrastructure",
-    "converdata.llm": "infrastructure",
-    "converdata.observability": "infrastructure",
-    "converdata.storage": "infrastructure",
-    "converdata.integration": "integration",
-    "converdata.bootstrap": "integration",
-    "converdata.cli": "integration",
-    "converdata.evaluation": "integration",
+    "discovery_data_agent.models": "domain",
+    "discovery_data_agent.catalog": "domain",
+    "discovery_data_agent.config": "domain",
+    "discovery_data_agent.curation": "domain",
+    "discovery_data_agent.discovery": "domain",
+    "discovery_data_agent.graph": "domain",
+    "discovery_data_agent.builder": "domain",
+    "discovery_data_agent.identity": "domain",
+    "discovery_data_agent.audit": "domain",
+    "discovery_data_agent.memory.base": "domain",
+    "discovery_data_agent.memory.text": "domain",
+    "discovery_data_agent.metadata.ports": "domain",
+    "discovery_data_agent.ask": "domain",  # AskFlow: motor, validador y puertos (F6–F10)
+    "discovery_data_agent.ask.planner": "infrastructure",  # el planner con LLM (langchain)
+    "discovery_data_agent.audit.sqlserver": "infrastructure",
+    "discovery_data_agent.audit.chain": "infrastructure",
+    "discovery_data_agent.flows": "application",
+    "discovery_data_agent.application": "application",
+    "discovery_data_agent.memory": "infrastructure",
+    "discovery_data_agent.metadata": "infrastructure",
+    "discovery_data_agent.llm": "infrastructure",
+    "discovery_data_agent.observability": "infrastructure",
+    "discovery_data_agent.storage": "infrastructure",
+    "discovery_data_agent.integration": "integration",
+    "discovery_data_agent.bootstrap": "integration",
+    "discovery_data_agent.cli": "integration",
+    "discovery_data_agent.evaluation": "integration",
 }
 
 ALLOWED = {
@@ -63,7 +65,7 @@ def layer_of(module: str) -> str | None:
 
 
 def modules():
-    for path in sorted((SRC / "converdata").rglob("*.py")):
+    for path in sorted((SRC / "discovery_data_agent").rglob("*.py")):
         rel = path.relative_to(SRC).with_suffix("")
         parts = list(rel.parts)
         if parts[-1] == "__init__":
@@ -83,7 +85,7 @@ def imports_of(path: Path) -> set[str]:
 
 
 def test_every_module_has_a_layer():
-    missing = [m for m, _ in modules() if m != "converdata" and layer_of(m) is None]
+    missing = [m for m, _ in modules() if m != "discovery_data_agent" and layer_of(m) is None]
     assert missing == [], f"Módulos sin capa asignada en LAYERS: {missing}"
 
 
@@ -94,7 +96,7 @@ def test_dependencies_point_inwards():
         if layer is None:
             continue
         for imported in imports_of(path):
-            if not imported.startswith("converdata."):
+            if not imported.startswith("discovery_data_agent."):
                 continue
             target = layer_of(imported)
             if target and target not in ALLOWED[layer]:

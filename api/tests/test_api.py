@@ -1,4 +1,4 @@
-"""ConverData-API de punta a punta con el servidor simulado (`DemoConnector` sobre tests/fixtures/bancos).
+"""DiscoveryDataAgent-API de punta a punta con el servidor simulado (`DemoConnector` sobre tests/fixtures/bancos).
 
 Primer arranque sin catálogo → login del admin con su usuario de BD → descubrimiento de esquemas → chat, explorador,
 retroalimentación y auditoría; y la herencia de permisos con un login que solo lee dos BDs (F14).
@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
-from converdata_api.settings import ApiSettings
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.settings import ApiSettings
 
 FIXTURE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "bancos"
 
@@ -141,7 +141,7 @@ def test_manual_de_desarrollo_solo_para_administradores(ready, settings):
     """El manual describe controles y sus puntos débiles: solo `data_admin`, y cada lectura queda en la auditoría."""
     body = ready.get("/admin/manual")
     assert body.status_code == 200
-    assert body.json()["markdown"].startswith("# Manual de desarrollo de ConverData")
+    assert body.json()["markdown"].startswith("# Manual de desarrollo de DiscoveryDataAgent")
     assert body.json()["updated_at"]
     assert body.headers["cache-control"] == "no-store"
     reads = ready.get("/admin/audit", params={"kind": "manual_read"}).json()["items"]
@@ -193,7 +193,7 @@ def test_manual_de_desarrollo_al_dia():
     local = {"config/models.yaml"}  # ignorado por git: existe en cada instalación, no en un clon limpio
     missing = sorted(path for path in cited - local if not (root / path).exists())
     assert missing == []
-    packages = {p.name for p in (root / "src" / "converdata").iterdir() if p.is_dir() and not p.name.startswith("_")}
+    packages = {p.name for p in (root / "src" / "discovery_data_agent").iterdir() if p.is_dir() and not p.name.startswith("_")}
     documented = set(re.findall(r"^\| `(\w+)/[\w/]*` \|", text, flags=re.M))
     assert packages <= documented, packages - documented
 
@@ -245,9 +245,9 @@ def test_logs_json_sin_contenido(settings, tmp_path):
     secret = "pregunta-secreta-sobre-el-dui-del-cliente"
     r = client.post("/discover", json={"question": secret}, headers={"Authorization": "Bearer token-que-no-debe-salir"})
     client.get("/catalog/objects", params={"q": "termino-de-busqueda-privado"})
-    for handler in logging.getLogger("converdata").handlers:
+    for handler in logging.getLogger("discovery_data_agent").handlers:
         handler.flush()
-    text = (tmp_path / "logs" / "converdata.log").read_text(encoding="utf-8")
+    text = (tmp_path / "logs" / "discovery-data-agent.log").read_text(encoding="utf-8")
     events = [json.loads(line) for line in text.splitlines()]
     assert any(e["event"] == "http.request" and e["route"] == "discover" and e["http_status"] == r.status_code for e in events)
     for forbidden in (secret, "token-que-no-debe-salir", "Authorization", "Bearer", "termino-de-busqueda-privado", "demo"):
@@ -302,7 +302,7 @@ def test_tope_diario_de_tokens_por_usuario(settings):
 
 def test_el_tope_se_restablece_al_cambiar_de_dia():
     import datetime as dt
-    from converdata_api.tokens import TokenLedger
+    from discovery_data_agent_api.tokens import TokenLedger
 
     now = [dt.datetime(2026, 10, 27, 23, 0, tzinfo=dt.timezone.utc)]
     ledger = TokenLedger(100, clock=lambda: now[0])
@@ -436,7 +436,7 @@ def test_un_rechazo_no_retira_lo_que_confirmaron_dos_usuarios(ready, settings):
 
 def test_una_pregunta_que_es_solo_literales_no_se_aprende(ready, settings):
     """Sin nada que quede en la plantilla, el voto cuenta y se audita, pero no se convierte en conocimiento."""
-    from converdata_api.runtime import ShownTrace
+    from discovery_data_agent_api.runtime import ShownTrace
 
     runtime = ready.app.state.runtime
     session = next(s for s in runtime.vault.sessions() if s.user_id == "demo")

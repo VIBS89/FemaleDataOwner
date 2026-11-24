@@ -2,7 +2,7 @@
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
 >
-> Implementación en la fase 1a, igual en ambos despliegues: **índice léxico en memoria (BM25)** dentro de `ConverData-API` ([OP-02](../on-premise/OP-02-catalogo-memoria.md)). El despliegue en AWS usa el mismo índice dentro del contenedor de la API ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)).
+> Implementación en la fase 1a, igual en ambos despliegues: **índice léxico en memoria (BM25)** dentro de `DiscoveryDataAgent-API` ([OP-02](../on-premise/OP-02-catalogo-memoria.md)). El despliegue en AWS usa el mismo índice dentro del contenedor de la API ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)).
 
 ## Historia de usuario
 Como **agente**, necesito buscar rápidamente qué tablas, columnas y consultas previas son relevantes para una pregunta,
@@ -28,22 +28,22 @@ Las descripciones de `tables` y `columns` usan la mejor fuente disponible (`huma
 - **Filtrado por permisos**: toda búsqueda recibe el `visible_ids` de la sesión (F14) y lo aplica como pre-filtro, antes del ranking.
 
 ## Decisión: búsqueda léxica como único canal de la fase 1a (PRD §13, decisión 9)
-- `ConverData-API` carga el catálogo y el conocimiento al arrancar en un índice **BM25 en memoria** (`InMemoryVectorStore`) y lo
+- `DiscoveryDataAgent-API` carga el catálogo y el conocimiento al arrancar en un índice **BM25 en memoria** (`InMemoryVectorStore`) y lo
   recarga tras cada build, confirmación o cambio de curación. No hay embeddings, ni columnas de vectores, ni índices de texto en SQL Server.
 - **Medición que lo justifica** (HU-34, 2026-10-29): el canal léxico solo dio **Hit@1 93,1 % y Hit@3 93,1 %**; añadir
   embeddings `bge-m3` **no cambió ningún caso** y subió el **p95 de 73 ms a 4,6 s**.
 - El **canal semántico se retiró del código** (2026-11-17). Existió como experimento de desarrollo para hacer esa medición; ya no hay
   rol `embed`, `config/models.embed.yaml` ni opción `--embeddings-only`, así que la medición no se puede repetir con este código (solo
   desde el historial de git). Un `config/models.yaml` que declare el rol `embed` se carga ignorándolo con un aviso, y en qa y prod la
-  API se niega a arrancar. Reabrir la decisión exige volver a construir el canal, medir con `converdata eval discovery` por tipo de
+  API se niega a arrancar. Reabrir la decisión exige volver a construir el canal, medir con `discovery-data-agent eval discovery` por tipo de
   pregunta (A–G) y mejorar el acierto sin romper la latencia de F22.
 - Las preguntas largas de reporte, donde el léxico solo acierta menos, se atacan con el paso `intent` del LLM y con las fuentes de
   conocimiento (F22, F23), no con embeddings.
 
 ## Interfaz `VectorStore` (puerto; idéntico en ambos despliegues)
-El puerto conserva su nombre aunque la implementación desplegada sea léxica (`src/converdata/memory/base.py`).
+El puerto conserva su nombre aunque la implementación desplegada sea léxica (`src/discovery_data_agent/memory/base.py`).
 ```python
-index_catalog(source: CatalogSource) -> IndexStats      # tablas `catalog` de la BD ConverData; hoy, archivos YAML
+index_catalog(source: CatalogSource) -> IndexStats      # tablas `catalog` de la BD DiscoveryDataAgent; hoy, archivos YAML
 search_tables(query, k=30, visible_ids, databases=None) -> list[TableHit]
 search_columns(query, k=50, visible_ids, table_ids=None) -> list[ColumnHit]
 search_golden(query, k=5, visible_ids, database=None) -> list[GoldenHit]        # fase 1b
@@ -57,7 +57,7 @@ Un golden SQL o golden discovery solo se devuelve si **todos** sus objetos está
 
 Implementaciones:
 - **`InMemoryVectorStore`**: la única que se despliega. Construida y cubierta por tests.
-- **`SqlServerVectorStore`**: **retirada** (PRD §13, decisión 9). El archivo `src/converdata/memory/sqlserver_store.py` y su test se eliminaron el 2026-11-16.
+- **`SqlServerVectorStore`**: **retirada** (PRD §13, decisión 9). El archivo `src/discovery_data_agent/memory/sqlserver_store.py` y su test se eliminaron el 2026-11-16.
 - No hay implementación sobre un servicio de búsqueda gestionado en la nube.
 
 ## Glosario de negocio

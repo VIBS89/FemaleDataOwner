@@ -1,15 +1,15 @@
-"""HU-20 · ConverData-API con la auditoría en la BD `ConverData` real (esquema `audit`, OP-05).
+"""HU-20 · DiscoveryDataAgent-API con la auditoría en la BD `DiscoveryDataAgent` real (esquema `audit`, OP-05).
 
-Necesita `CONVERDATA_TEST_DB` (ver `conftest.py` de la raíz); sin ella se omite. El resto de `api/tests` cubre los mismos
+Necesita `DISCOVERY_DATA_AGENT_TEST_DB` (ver `conftest.py` de la raíz); sin ella se omite. El resto de `api/tests` cubre los mismos
 flujos con la auditoría en archivos: aquí se comprueba que el destino de SQL Server los sostiene igual y que es fail-closed.
 """
 
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.audit.sqlserver import SqlServerAuditSink
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
+from discovery_data_agent.audit.sqlserver import SqlServerAuditSink
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
 
 from test_api import FIXTURE, build, login, settings  # noqa: F401  (fixtures de la API)
 
@@ -93,7 +93,7 @@ def test_si_la_bd_no_responde_no_hay_respuesta_ni_cambios(client, db_connect, mo
     sink = client.app.state.runtime.audit
 
     def down():
-        raise ConnectionError("BD ConverData inaccesible")
+        raise ConnectionError("BD DiscoveryDataAgent inaccesible")
 
     monkeypatch.setattr(sink, "_connect", down)
     r = client.post("/discover", json={"question": QUESTION})

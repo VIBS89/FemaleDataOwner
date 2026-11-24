@@ -1,6 +1,6 @@
 ---
 name: nueva-historia
-description: Flujo completo para implementar una historia de usuario (HU-xx) del backlog de ConverData con TDD y DDD, desde leer los criterios de aceptación hasta revisar, actualizar la documentación viva y dejar el commit listo.
+description: Flujo completo para implementar una historia de usuario (HU-xx) del backlog de DiscoveryDataAgent con TDD y DDD, desde leer los criterios de aceptación hasta revisar, actualizar la documentación viva y dejar el commit listo.
 argument-hint: "HU-xx"
 disable-model-invocation: true
 ---

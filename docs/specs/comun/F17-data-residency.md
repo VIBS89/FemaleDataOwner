@@ -12,15 +12,19 @@ persistir y puede contener datos vive **on-premise**.
 ## Clasificación de la información
 | Clase | Ejemplos | Dónde puede persistir |
 |---|---|---|
-| **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición |
+| **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición. Con las cifras agregadas activas (apagadas por defecto), el servicio lee totales de las BDs de negocio con el login del usuario y los muestra; no los persiste ni se los pasa al LLM |
 | **D2: texto derivado del usuario** | Pregunta, pregunta reescrita, SQL con literales, narrativa, historial | Solo en la auditoría on-premise (F11) |
 | **D3: metadatos estructurales** | Nombres y descripciones de BDs, tablas y columnas, tipos, FKs, conteos, parámetros de SPs; reglas de negocio, linaje ETL y fragmentos de documentos **ya redactados** (F23) | Catálogo e índice (cloud u on-prem) |
-| **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders (fase 1b) y golden discovery como plantilla sin literales: la pregunta normalizada sin ninguna palabra que lleve un dígito o una arroba (tras normalizar con NFKC), salvo el vocabulario conocido del banco: nombres del catálogo con dígitos (`Ultimos4`) y códigos del conocimiento con letras y dígitos (`NCB-022`, `BR-ONB-004`) (F24; `converdata.memory.text.strip_literals`). Limitación: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido por espacios | Índice (cloud u on-prem). El original queda en la auditoría on-prem y, solo si la pregunta no traía ningún literal ni parece llevar datos personales, en el esquema `golden` on-prem, con la misma retención |
+| **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders (fase 1b) y golden discovery como plantilla sin literales: la pregunta normalizada sin ninguna palabra que lleve un dígito o una arroba (tras normalizar con NFKC), salvo el vocabulario conocido del banco: nombres del catálogo con dígitos (`Ultimos4`) y códigos del conocimiento con letras y dígitos (`NCB-022`, `BR-ONB-004`) (F24; `discovery_data_agent.memory.text.strip_literals`). Limitación: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido por espacios | Índice (cloud u on-prem). El original queda en la auditoría on-prem y, solo si la pregunta no traía ningún literal ni parece llevar datos personales, en el esquema `golden` on-prem, con la misma retención |
 | **D5: telemetría sin contenido** | Latencias, tokens, códigos de error, ids de traza, nombres de tablas usadas | Logs y métricas (cloud u on-prem) |
 | **C: credenciales** | Login SQL por usuario | Custodia cifrada según F14 (CN-03 / OP-03) |
 
 ## Reglas comunes
 - El catálogo nunca contiene valores (F1) y no existe índice de valores (F5).
+- **Cifras agregadas** (2026-11-23, PRD §13, decisión 17): solo `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` de plantilla fija, nunca filas ni columnas `pii`, con la credencial
+  de la sesión y en una transacción que se revierte. El número no pasa por el LLM (el texto lo arma el código) y no se guarda fuera de la respuesta; el sobre lleva el SQL ejecutado,
+  que usa solo nombres del catálogo. Es la excepción a "nunca lee valores" de las versiones anteriores de esta spec; antes de activarla en el piloto hay que aceptarla con Seguridad de la
+  Información (la revisión independiente terminó el 2026-11-23 sin fugas de permisos ni inyección SQL; sus dos bloqueantes, la supresión de totales y grupos de menos de 10 registros y la auditoría antes de ejecutar, están corregidos).
 - Una pregunta que, quitados los literales, aún parece llevar datos personales no se guarda como golden discovery: el voto cuenta y
   queda en la auditoría, pero no se aprende (F24).
 - Los sketches MinHash del descubrimiento (F18, F19) se calculan en memoria con hashes salados y se descartan; solo persisten las relaciones inferidas.
@@ -44,9 +48,9 @@ revisión de seguridad, alfanumérico corto, dígitos en superíndice, raya en v
 completo), hechas por la API con tres usuarios (el literal va también en `history` de `/discover`), votadas, 20 escaladas con nota
 y varias respondidas por un responsable. El literal se busca después, también transformado (minúsculas, normalizado con NFKC y
 recortado a los 6 caracteres del stemmer), en el índice en memoria, en todo el disco del servidor (logs incluidos) y en toda
-columna de toda tabla de la BD `ConverData` que no sea número, fecha, bit o `uniqueidentifier`, convertida a texto (historial
+columna de toda tabla de la BD `DiscoveryDataAgent` que no sea número, fecha, bit o `uniqueidentifier`, convertida a texto (historial
 incluido). Comprueba además que las plantillas solo contienen palabras de las preguntas base. Solo aparece en `audit.audit_question.question`, `curation.request.question` y `curation.request.note` (en
 modo archivos, en `audit/*.jsonl` y `curation/requests.json`): las dudas escaladas son texto D2 on-premise con la retención de la
-auditoría (OP-06). Corre en archivos y, con `CONVERDATA_TEST_DB`, en SQL Server real. No cubre el cliente MCP, `/discover/stream`, el Visor de eventos de Windows (`event_log` va apagado en la prueba), `TEMP` de las
+auditoría (OP-06). Corre en archivos y, con `DISCOVERY_DATA_AGENT_TEST_DB`, en SQL Server real. No cubre el cliente MCP, `/discover/stream`, el Visor de eventos de Windows (`event_log` va apagado en la prueba), `TEMP` de las
 cuentas de servicio, las carpetas de IIS ni los volcados de memoria (servidor del piloto, HU-37), ni el despliegue cloud (CN-06),
 y los nombres de personas siguen sin detectarse.

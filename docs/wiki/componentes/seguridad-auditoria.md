@@ -2,9 +2,9 @@
 
 Actualizado el 2026-11-17.
 
-**Para qué sirve.** Reúne los controles que hacen que ConverData no amplíe permisos, no filtre lo que un usuario no ve, no guarde
+**Para qué sirve.** Reúne los controles que hacen que DiscoveryDataAgent no amplíe permisos, no filtre lo que un usuario no ve, no guarde
 secretos ni valores, y deje constancia de cada pregunta y cada cambio. No es un módulo único: son piezas repartidas entre la API
-(`api/converdata_api/`) y el núcleo (`src/converdata/identity/`, `audit/`, `observability/`, `memory/text.py`, `curation.py`).
+(`api/discovery_data_agent_api/`) y el núcleo (`src/discovery_data_agent/identity/`, `audit/`, `observability/`, `memory/text.py`, `curation.py`).
 
 **Lo esencial**
 - Cada usuario descubre solo lo que su login SQL puede leer: `visible_ids` se calcula con su propia conexión.
@@ -30,21 +30,21 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 ## Piezas internas
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| `VISIBILITY_SQL`, `PyodbcObjectLister` | `src/converdata/identity/visibility.py` | Lista lo que un login puede leer o ejecutar |
-| `AgentRuntime.visible_ids` | `api/converdata_api/runtime.py:266` | Arma y cachea `visible_ids` por sesión |
-| `SessionVault`, `Credential` | `api/converdata_api/vault.py` | Sesiones y contraseñas cifradas con Fernet |
-| `SecurityMiddleware` | `api/converdata_api/security.py:138` | Cabeceras, CSRF por `Origin`, tope del cuerpo |
-| `LoginThrottle` | `api/converdata_api/security.py:52` | Bloqueo por login y por origen |
+| `VISIBILITY_SQL`, `PyodbcObjectLister` | `src/discovery_data_agent/identity/visibility.py` | Lista lo que un login puede leer o ejecutar |
+| `AgentRuntime.visible_ids` | `api/discovery_data_agent_api/runtime.py:266` | Arma y cachea `visible_ids` por sesión |
+| `SessionVault`, `Credential` | `api/discovery_data_agent_api/vault.py` | Sesiones y contraseñas cifradas con Fernet |
+| `SecurityMiddleware` | `api/discovery_data_agent_api/security.py:138` | Cabeceras, CSRF por `Origin`, tope del cuerpo |
+| `LoginThrottle` | `api/discovery_data_agent_api/security.py:52` | Bloqueo por login y por origen |
 | `valid_login`, `valid_host`, `valid_identifier`, `_braced` | `security.py:33`, `connector.py:48` | Nada entra a la cadena ODBC sin validar y entre llaves |
-| `production_violations`, `inventory_violations` | `api/converdata_api/security.py:219` | Condiciones de arranque en qa/prod |
-| Roles | `api/converdata_api/main.py:337-398` | `admin_session`, `steward_session`, `identity_trusted`, `require_curable`, `manages_rule` |
-| `applying` | `api/converdata_api/main.py:400` | Audita antes de aplicar; `<evento>_failed` si falla |
-| `TraceRecord`, `question_row` | `src/converdata/audit/recorder.py` | Forma de una pregunta auditada |
-| `SqlServerAuditSink` | `src/converdata/audit/sqlserver.py` | Auditoría en el esquema `audit`, una transacción por pregunta |
-| `FileAuditSink`, cadena | `api/converdata_api/audit.py`, `src/converdata/audit/chain.py` | JSONL diario con cadena de hashes (desarrollo) |
-| Logs y métricas | `src/converdata/observability/logging.py`, `metrics.py` | Lista blanca D5; contadores sin contenido |
-| Literales | `src/converdata/memory/text.py:65-87`, `src/converdata/curation.py:38` | `strip_literals`, `has_literals`, `question_template` |
-| `find_pii` | `api/converdata_api/pii.py` | DUI, NIT, correo, teléfono, IBAN, tarjeta (Luhn) |
+| `production_violations`, `inventory_violations` | `api/discovery_data_agent_api/security.py:219` | Condiciones de arranque en qa/prod |
+| Roles | `api/discovery_data_agent_api/main.py:337-398` | `admin_session`, `steward_session`, `identity_trusted`, `require_curable`, `manages_rule` |
+| `applying` | `api/discovery_data_agent_api/main.py:400` | Audita antes de aplicar; `<evento>_failed` si falla |
+| `TraceRecord`, `question_row` | `src/discovery_data_agent/audit/recorder.py` | Forma de una pregunta auditada |
+| `SqlServerAuditSink` | `src/discovery_data_agent/audit/sqlserver.py` | Auditoría en el esquema `audit`, una transacción por pregunta |
+| `FileAuditSink`, cadena | `api/discovery_data_agent_api/audit.py`, `src/discovery_data_agent/audit/chain.py` | JSONL diario con cadena de hashes (desarrollo) |
+| Logs y métricas | `src/discovery_data_agent/observability/logging.py`, `metrics.py` | Lista blanca D5; contadores sin contenido |
+| Literales | `src/discovery_data_agent/memory/text.py:65-87`, `src/discovery_data_agent/curation.py:38` | `strip_literals`, `has_literals`, `question_template` |
+| `find_pii` | `api/discovery_data_agent_api/pii.py` | DUI, NIT, correo, teléfono, IBAN, tarjeta (Luhn) |
 
 ## Cómo funciona: cada control
 
@@ -61,7 +61,7 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
   `tests/test_visibility.py` (una base inaccesible no oculta las demás), `::test_la_visibilidad_se_vuelve_a_leer_de_sql_server`, `::test_la_ficha_de_un_activo_no_revela_tablas_ocultas_por_sus_llaves_foraneas`,
   `::test_curar_no_revela_activos_que_el_login_no_puede_ver`, `tests/test_core.py::test_visible_ids_es_obligatorio`,
   `tests/test_discover_flow_e2e.py::test_usuario_sin_permiso_no_descubre_nada_de_vbank`,
-  `tests/test_graph_rag.py::test_camino_de_union_respeta_permisos`, suite `permisos` de `converdata eval gate`.
+  `tests/test_graph_rag.py::test_camino_de_union_respeta_permisos`, suite `permisos` de `discovery-data-agent eval gate`.
 
 ### 2. SessionVault
 - **Protege**: la contraseña SQL del usuario y el token de sesión.
@@ -78,18 +78,18 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 - **Dónde**: `security.py:119-212`. Cabeceras en toda respuesta, también errores: `nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`, CSP `default-src 'none'`, `Cache-Control: no-store`, `Permissions-Policy`, HSTS con cookie segura.
   En `POST/PUT/DELETE` con cookie y sin `Bearer`, rechaza (403) un `Origin` que no sea el propio, el de `X-Forwarded-Host`, el de CORS o
-  el de `CONVERDATA_PUBLIC_URL`; sin `Origin`, rechaza `Sec-Fetch-Site: cross-site`. Cuerpo > `CONVERDATA_MAX_BODY_BYTES` → 413,
+  el de `DISCOVERY_DATA_AGENT_PUBLIC_URL`; sin `Origin`, rechaza `Sec-Fetch-Site: cross-site`. Cuerpo > `DISCOVERY_DATA_AGENT_MAX_BODY_BYTES` → 413,
   también en transferencia por trozos. Es el middleware más externo (`main.py:311`). Estas cabeceras son las de la API. Las de las páginas de la web
   (CSP con `frame-ancestors 'none'`, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS en producción) las pone `web/next.config.ts`.
   El proxy de la web reenvía `Origin` y envía `X-Forwarded-Host`, así que el control de origen sí alcanza al navegador; con un proxy delante que cambie `Host`,
-  el origen público va en `CONVERDATA_CORS_ORIGINS`. Verificado en el navegador el 2026-11-17: otro origen da 403 "Origen no permitido"; el mismo, 200.
+  el origen público va en `DISCOVERY_DATA_AGENT_CORS_ORIGINS`. Verificado en el navegador el 2026-11-17: otro origen da 403 "Origen no permitido"; el mismo, 200.
 - **Pruebas**: `api/tests/test_security.py::test_cabeceras_de_seguridad_en_todas_las_respuestas`,
   `::test_cambio_de_estado_con_cookie_desde_otro_origen_se_rechaza`, `::test_cuerpo_demasiado_grande_se_rechaza`.
 
 ### 4. Cadena de conexión
 - **Protege**: que un login o un host añadan atributos ODBC (p. ej. `Trusted_Connection=yes`).
 - **Dónde**: regex en `security.py:33-35`; `UID`/`PWD` entre llaves con `}` duplicada (`connector.py:48`); `Encrypt=yes` siempre;
-  `APP=ConverData`; `readonly=True`.
+  `APP=DiscoveryDataAgent`; `readonly=True`.
 - **Pruebas**: `api/tests/test_security.py::test_un_login_con_caracteres_de_cadena_odbc_se_rechaza`,
   `::test_la_cadena_de_conexion_escapa_usuario_y_contrasena`, `::test_formatos_de_host_y_base_de_datos`,
   `::test_el_inventario_rechaza_hosts_y_bases_no_validos`.
@@ -98,7 +98,7 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 - **Protege**: frente a fuerza bruta y relleno de credenciales.
 - **Dónde**: `LoginThrottle` con dos instancias (`main.py:263`): 5 fallos por login y 30 por origen en 10 min, bloqueo de 15 min.
   Bloqueado, ni se prueba la credencial contra SQL Server. Un servidor caído no cuenta. Un acierto limpia el login, no el origen.
-  El origen es la IP que ve la API. Detrás de la web, solo es la del cliente con `TRUST_FORWARDED_FOR=1` (web) y `CONVERDATA_TRUST_PROXY=1` (API); van apagadas por
+  El origen es la IP que ve la API. Detrás de la web, solo es la del cliente con `TRUST_FORWARDED_FOR=1` (web) y `DISCOVERY_DATA_AGENT_TRUST_PROXY=1` (API); van apagadas por
   defecto y falta activarlas y probarlas detrás de IIS (DT-02, mitigada).
   Eventos `login_failed` y `login_locked`.
 - **Pruebas**: `api/tests/test_security.py::test_el_login_se_bloquea_tras_cinco_fallos`,
@@ -107,9 +107,9 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 ### 6. Roles
 - **Protege**: administración y curación frente a usuarios sin rol, y la lectura frente a responsables.
 - **Dónde** (`main.py`):
-  - `data_admin`: se fija al iniciar sesión (`main.py:533-536`). Con `CONVERDATA_ADMINS_ONLY=1`, solo logins de `CONVERDATA_ADMINS`.
+  - `data_admin`: se fija al iniciar sesión (`main.py:533-536`). Con `DISCOVERY_DATA_AGENT_ADMINS_ONLY=1`, solo logins de `DISCOVERY_DATA_AGENT_ADMINS`.
     Sin él, también sysadmin o `VIEW ANY DEFINITION` en algún servidor validado.
-  - Responsable: por petición, de la lista de responsables por login y dominio (caché de 5 s, `api/converdata_api/curation.py:26`).
+  - Responsable: por petición, de la lista de responsables por login y dominio (caché de 5 s, `api/discovery_data_agent_api/curation.py:26`).
   - **Regla del servidor de producción** (`identity_trusted`, `main.py:343`): un rol dado por nombre de login (lista de admins o de
     responsables) solo cuenta si la sesión validó el login en un servidor `produccion`, cuando el inventario tiene alguno.
   - Ser responsable no da lectura: 403 solo si ya ve el activo, 404 si no; la bandeja filtra `shown` a sus dominios; una regla de otro
@@ -124,10 +124,10 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 ### 7. Condiciones de arranque en qa/prod
 - **Protege**: frente a un despliegue con ajustes de desarrollo.
 - **Dónde**: `production_violations` (`security.py:219`) e `inventory_violations` (`security.py:272`), llamados en `create_app`. Con
-  `CONVERDATA_ENV=qa|prod` exige: Windows auth apagada; `CONVERDATA_ADMINS_ONLY=1` y `CONVERDATA_ADMINS`; `audit.fail_open` falso;
-  `models.yaml` con `data_mode: real` y sin rol `embed`; `CONVERDATA_DB` sin contraseña, sin `TrustServerCertificate` y sin
-  `Encrypt=no`; sin demo; cookie segura; CORS solo `https://`; `CONVERDATA_MCP_HOSTS` si `/mcp` está activo; bloqueo de logins activo;
-  `CONVERDATA_LOG_DIR`; sesión ≤ 8 h/12 h; webhook `https`; código de instalación si el inventario está vacío; ningún servidor con
+  `DISCOVERY_DATA_AGENT_ENV=qa|prod` exige: Windows auth apagada; `DISCOVERY_DATA_AGENT_ADMINS_ONLY=1` y `DISCOVERY_DATA_AGENT_ADMINS`; `audit.fail_open` falso;
+  `models.yaml` con `data_mode: real` y sin rol `embed`; `DISCOVERY_DATA_AGENT_DB` sin contraseña, sin `TrustServerCertificate` y sin
+  `Encrypt=no`; sin demo; cookie segura; CORS solo `https://`; `DISCOVERY_DATA_AGENT_MCP_HOSTS` si `/mcp` está activo; bloqueo de logins activo;
+  `DISCOVERY_DATA_AGENT_LOG_DIR`; sesión ≤ 8 h/12 h; webhook `https`; código de instalación si el inventario está vacío; ningún servidor con
   `trust_server_certificate`. Además `audit.verify()` debe aprobar (`main.py:250`) y `/docs`, `/redoc`, `/openapi.json` no existen.
 - **Pruebas**: `api/tests/test_security.py::test_la_configuracion_de_produccion_valida_arranca`,
   `::test_la_api_no_arranca_en_produccion_con_ajustes_inseguros`, `::test_produccion_revisa_inventario_modelos_y_auditoria_del_catalogo`,
@@ -138,11 +138,11 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 - **Protege**: la trazabilidad de quién preguntó qué, qué vio y qué cambió.
 - **Dónde**:
   - Preguntas: `finalize` del DiscoverFlow escribe un `TraceRecord`; si falla y no hay `fail_open`, la respuesta es
-    `status: error` sin contenido (`src/converdata/flows/discover.py:363`).
+    `status: error` sin contenido (`src/discovery_data_agent/flows/discover.py:363`).
   - SQL Server (`audit/sqlserver.py`): `audit_question`, `audit_step` y `audit_discovery` en una transacción; rollback y relanzar si
     falla. Eventos en `audit_event`; un voto además en `audit_discovery_feedback`. `verify()` falla si la cuenta puede `UPDATE`,
     `DELETE` o `ALTER` en `audit`, ejecutar `audit.usp_purge` o alterar `catalog`, `knowledge` o `curation`.
-  - Archivos (`api/converdata_api/audit.py`, `audit/chain.py`): una fila JSON por línea con `prev` y `hash` = SHA-256; la primera fila
+  - Archivos (`api/discovery_data_agent_api/audit.py`, `audit/chain.py`): una fila JSON por línea con `prev` y `hash` = SHA-256; la primera fila
     del día enlaza con el archivo anterior; `fsync` antes de devolver. Detecta, no impide.
   - Cambios: `applying` (`main.py:400`) audita antes y deja `<evento>_failed` si falla. El login borra la sesión si su evento no se escribe.
 - **Eventos que existen** (de `audit.event` y `applying` en el código): `question` (pregunta), `login`, `login_failed`,
@@ -161,7 +161,7 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 ### 9. Logs con lista blanca
 - **Protege**: que preguntas, SQL, valores o mensajes de error con datos terminen en logs o en el Visor de eventos.
 - **Dónde**: `observability/logging.py`. `JsonFormatter` solo copia campos de `D5_FIELDS`, no interpola argumentos y de una excepción
-  deja solo el tipo. `log_event` descarta lo demás antes de llegar al handler. Errores al Visor de eventos (origen `ConverData`).
+  deja solo el tipo. `log_event` descarta lo demás antes de llegar al handler. Errores al Visor de eventos (origen `DiscoveryDataAgent`).
   `MetricsMiddleware` registra plantilla de ruta, método, código y duración. `/health/metrics` solo números.
 - **Pruebas**: `tests/test_observability.py` (10 pruebas), `api/tests/test_api.py::test_logs_json_sin_contenido`,
   `::test_health_metrics_cuenta_sin_contenido_y_solo_para_admin`.
@@ -180,7 +180,7 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 ### 11. Detector de PII
 - **Protege**: que un responsable escriba datos personales en descripciones, sinónimos, reglas, notas o diccionarios (se indexan,
   los ven todos y viajan al LLM).
-- **Dónde**: `find_pii` (`api/converdata_api/pii.py`), llamado por `reject_pii` en cada ruta de curación → 422 y contador `pii_rejected`.
+- **Dónde**: `find_pii` (`api/discovery_data_agent_api/pii.py`), llamado por `reject_pii` en cada ruta de curación → 422 y contador `pii_rejected`.
 - **Pruebas**: `api/tests/test_security.py::test_las_ediciones_de_curacion_no_aceptan_datos_personales`,
   `::test_textos_normales_de_curacion_no_se_confunden_con_datos_personales`.
 
@@ -193,19 +193,19 @@ Diagramas: [permisos heredados](../../architecture/permisos-heredados.html) ·
 Las guardas sobre lo que genera el modelo están en [LLM](llm.md).
 
 ## Contratos y datos
-- `UserContext` (`src/converdata/models/identity.py`): `user_id`, `groups`, `visible_ids`, `roles`; nunca credenciales.
+- `UserContext` (`src/discovery_data_agent/models/identity.py`): `user_id`, `groups`, `visible_ids`, `roles`; nunca credenciales.
 - Fila de pregunta (`question_row`): `ts`, `trace_id`, `user_id`, `client`, `question`, `intent`, `status`, `confidence`,
   `databases`, `duration_ms`, `steps[]`, `discovery[]` (candidato, alternativa o relación).
 - Clases de dato (F17): la pregunta completa (D2) solo vive en la auditoría; los logs solo llevan D5.
 
 ## Configuración
-Las variables de seguridad están en la tabla de [ConverData-API](api.md#configuración). Las que bloquean el arranque en qa/prod son
+Las variables de seguridad están en la tabla de [DiscoveryDataAgent-API](api.md#configuración). Las que bloquean el arranque en qa/prod son
 las de la sección 7. En `config/settings.yaml`, `audit.fail_open` debe ser `false` fuera de desarrollo.
 
 ## Pruebas que lo cubren
 Resumen: `api/tests/test_security.py` (42 pruebas), `tests/test_audit_sqlserver.py`, `api/tests/test_audit_db.py`,
 `tests/test_observability.py`, `tests/test_curation.py`, `tests/test_storage_migrations.py`, `tests/test_gate.py`
-(suites `permisos`, `inyeccion`, `guardas`, `auditoria`). Las de SQL Server real necesitan `CONVERDATA_TEST_DB`.
+(suites `permisos`, `inyeccion`, `guardas`, `auditoria`). Las de SQL Server real necesitan `DISCOVERY_DATA_AGENT_TEST_DB`.
 
 ## Límites conocidos y deuda
 Ver [deuda técnica](../deuda-tecnica.md) y [calidad bancaria §5](../../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto).
@@ -220,8 +220,8 @@ Ver [deuda técnica](../deuda-tecnica.md) y [calidad bancaria §5](../../calidad
 ### Fallos encontrados al revisar el código
 La lectura de permisos que perdía bases (DT-57) se cerró el 2026-11-17.
 
-1. **Logs de la API fuera del archivo JSON y del Visor de eventos.** `configure_logging` configura el logger `converdata`
-   (`observability/logging.py:54`), pero `runtime.py` y `curation.py` de la API usan `converdata_api.*`, que no cuelga de él.
+1. **Logs de la API fuera del archivo JSON y del Visor de eventos.** `configure_logging` configura el logger `discovery-data-agent`
+   (`observability/logging.py:54`), pero `runtime.py` y `curation.py` de la API usan `discovery_data_agent_api.*`, que no cuelga de él.
    `catalog.load_failed`, `catalog.refresh_failed`, `catalog.build_failed`, `catalog.reload_failed`, la visibilidad no disponible y el
    aviso fallido no llegan al log del monitoreo.
 2. **Aclaración del modelo sin guarda.** Con ruta `clarify`, `finalize` muestra `intent.clarification.question` tal como la devolvió
@@ -229,22 +229,22 @@ La lectura de permisos que perdía bases (DT-57) se cerró el 2026-11-17.
 3. **Revocación auditada después de aplicarse.** `DELETE /admin/sessions/{user_id}` (`main.py:1059-1063`) y `/auth/logout` escriben
    el evento después de cerrar las sesiones; contradice "cada cambio se audita antes de aplicarse" (OP-04). No abre un acceso, pero si
    la auditoría falla la revocación queda sin registro.
-4. **Descripciones sugeridas por IA sin guarda.** El enriquecimiento del build (`src/converdata/flows/catalog_build.py:162-170`) guarda
+4. **Descripciones sugeridas por IA sin guarda.** El enriquecimiento del build (`src/discovery_data_agent/flows/catalog_build.py:162-170`) guarda
    el texto del modelo sin `unsafe_generated_text` ni `find_pii`. Se muestra como "sugerida por IA" en fichas y tarjetas.
 
 ## Dónde cambiar qué
 | Si quieres… | Toca… |
 |---|---|
-| Cambiar la consulta de visibilidad | `VISIBILITY_SQL` y `PyodbcObjectLister` en `src/converdata/identity/visibility.py` |
-| Cambiar caducidad o tope de sesiones | `SessionVault` y las variables `CONVERDATA_SESSION_*`, `CONVERDATA_MAX_SESSIONS` |
+| Cambiar la consulta de visibilidad | `VISIBILITY_SQL` y `PyodbcObjectLister` en `src/discovery_data_agent/identity/visibility.py` |
+| Cambiar caducidad o tope de sesiones | `SessionVault` y las variables `DISCOVERY_DATA_AGENT_SESSION_*`, `DISCOVERY_DATA_AGENT_MAX_SESSIONS` |
 | Añadir una cabecera o regla CSRF | `security_headers` y `SecurityMiddleware._cross_site` en `security.py` |
 | Añadir una condición de arranque en qa/prod | `production_violations` en `security.py` y su prueba en `test_security.py` |
 | Cambiar cómo se asignan roles | `identity_trusted`, `domains_of`, bloque de roles de `login` en `main.py` |
 | Añadir un evento auditado | Usar `applying(...)` en la ruta (antes de aplicar) |
 | Añadir un campo permitido en logs | `D5_FIELDS` en `observability/logging.py` (revisar F17 antes) |
-| Ampliar el detector de PII | `_PATTERNS` en `api/converdata_api/pii.py` |
-| Cambiar qué es un literal | `_is_literal` en `src/converdata/memory/text.py` |
-| Cambiar permisos exigidos a la cuenta | `VERIFY_PERMISSIONS` en `src/converdata/audit/sqlserver.py` y `db/converdata/` |
+| Ampliar el detector de PII | `_PATTERNS` en `api/discovery_data_agent_api/pii.py` |
+| Cambiar qué es un literal | `_is_literal` en `src/discovery_data_agent/memory/text.py` |
+| Cambiar permisos exigidos a la cuenta | `VERIFY_PERMISSIONS` en `src/discovery_data_agent/audit/sqlserver.py` y `db/discovery_data_agent/` |
 
 ## Specs y contradicciones
 Specs: [F14](../../specs/comun/F14-identity.md), [F11](../../specs/comun/F11-audit.md), [F17](../../specs/comun/F17-data-residency.md),
@@ -255,6 +255,6 @@ La spec contradice al código en:
 - F14 paso 1: credencial "por servidor" y prueba con `ORIGINAL_LOGIN()`; el código usa una sola credencial para todos los servidores
   elegidos y otra consulta. F14 paso 3: visibilidad en paralelo y `DENY` por columna; el código es secuencial y por objeto.
 - OP-04 y OP-05: "cada cambio se audita antes de aplicarse"; la revocación de sesiones y el logout se auditan después.
-- OP-05 §Correlación: "cada línea de log lleva el `trace_id`"; las líneas `http.request` no lo llevan, y los logs de `converdata_api.*`
+- OP-05 §Correlación: "cada línea de log lleva el `trace_id`"; las líneas `http.request` no lo llevan, y los logs de `discovery_data_agent_api.*`
   no llegan al archivo (fallo 2).
 - OP-05 §Auditoría y F11: las dudas escaladas "todavía en un archivo"; con BD viven en `curation.request`.

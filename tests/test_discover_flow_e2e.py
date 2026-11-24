@@ -1,6 +1,6 @@
 """E2E del DiscoverFlow: pregunta en lenguaje natural → grafo de LangGraph → candidatos descubiertos entre varias BDs."""
 
-from converdata.audit.recorder import discovery_rows
+from discovery_data_agent.audit.recorder import discovery_rows
 from conftest import ONBOARDING_Q
 
 
@@ -84,7 +84,7 @@ def test_rrhh_invisible_para_el_analista(service, analyst):
 
 def test_ubicacion_sin_permiso_no_aparece(service):
     """Si solo puede leer la copia de QA, solo ve la ubicación de QA (F14)."""
-    from converdata.models.identity import UserContext
+    from discovery_data_agent.models.identity import UserContext
 
     ids = frozenset({"qa:SRVQASQL01.VBank_ING.dbo.Users"})
     env = service.run(ONBOARDING_Q, UserContext(user_id="qa", visible_ids=ids))
@@ -109,7 +109,7 @@ def test_pregunta_de_datos_sin_askflow_indica_donde_estan(service, analyst):
     """F3: con `features.ask_flow: false` una pregunta de cifras se responde como descubrimiento."""
     env = service.run("¿cuántos clientes se registraron por onboarding el mes pasado?", analyst)
     assert env.flow == "discover" and env.status == "ok"
-    assert env.assumptions and "no está habilitada" in env.assumptions[0]
+    assert env.assumptions and "Todavía no calculo cifras" in env.assumptions[0]
     assert env.discovery.candidates[0].asset_key == "VBank_ING.dbo.Users"
 
 
@@ -152,10 +152,10 @@ def test_auditoria_un_registro_por_pregunta(service, analyst):
 def test_auditoria_fail_closed(service, analyst):
     class Broken:
         def write(self, record):
-            raise ConnectionError("BD ConverData caída")
+            raise ConnectionError("BD DiscoveryDataAgent caída")
 
     service.deps.audit = Broken()
-    from converdata.flows.discover import DiscoverService
+    from discovery_data_agent.flows.discover import DiscoverService
 
     env = DiscoverService(service.deps).run(ONBOARDING_Q, analyst)
     assert env.status == "error" and env.discovery is None

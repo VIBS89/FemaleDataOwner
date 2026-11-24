@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "ConverData — DiscoverFlow: cómo se responde una pregunta",
+    "title": "DiscoveryDataAgent — DiscoverFlow: cómo se responde una pregunta",
     "output": "docs/architecture/flujo-descubrimiento.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -140,7 +140,7 @@
       "type": "database",
       "label": "Catálogo e índice",
       "sublabel": "BM25 en memoria",
-      "description": "Catálogo, conocimiento (diccionarios, reglas, confirmaciones) y grafo del patrimonio cargados de la BD ConverData. Se recargan cuando el Builder publica o alguien cura."
+      "description": "Catálogo, conocimiento (diccionarios, reglas, confirmaciones) y grafo del patrimonio cargados de la BD DiscoveryDataAgent. Se recargan cuando el Builder publica o alguien cura."
     },
     {
       "id": "llm",
@@ -281,7 +281,7 @@
       "dot": "amber",
       "title": "Cómo se mide",
       "items": [
-        "converdata eval discovery: acierto por tipo de pregunta A–G",
+        "discovery-data-agent eval discovery: acierto por tipo de pregunta A–G",
         "58 y 31 casos del equipo: 98,0 % y 96,2 % sin modelo",
         "Un cambio de lógica entra solo si la compuerta no baja"
       ]

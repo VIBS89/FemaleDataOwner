@@ -1,0 +1,74 @@
+# Gateway de LLM del entorno de AWS con datos de prueba (BancosSQL, 100 % ficticios). Tres perfiles elegibles en
+# pantalla (Administración → Modelos de IA): Claude Sonnet en Bedrock (por defecto: sin claves, con el rol de la tarea),
+# NVIDIA NIM y Claude por la API de Anthropic. Las claves de NIM y Anthropic llegan a la tarea desde Secrets Manager
+# (NVIDIA_API_KEY, ANTHROPIC_API_KEY); nunca van en este archivo ni en pantalla.
+#
+# NIM y la API de Anthropic son terceros (`allowed_data: test`): con datos reales este archivo no sirve.
+# Antes de dar por bueno un modelo: `discovery-data-agent eval discovery --root tests/fixtures/bancos --models <archivo>`.
+data_mode: test
+
+providers:
+  bedrock:
+    enabled: true
+    region: us-east-1
+    allowed_data: real   # Bedrock dentro de la cuenta, sin invocation logging (F17)
+    timeout_s: 60
+  nvidia_nim:
+    enabled: true
+    base_url: null
+    api_key_env: NVIDIA_API_KEY
+    allowed_data: test
+    timeout_s: 30
+  anthropic:
+    enabled: true
+    api_key_env: ANTHROPIC_API_KEY
+    allowed_data: test
+    timeout_s: 60
+
+# Sin perfil elegido rigen estos roles (los mismos del perfil `bedrock-nova`). Una cuenta nueva de AWS tiene cuota 0
+# para Claude en Bedrock hasta que AWS la amplía (Service Quotas): mientras tanto, Amazon Nova Pro, que sí está
+# disponible. Medido el 2026-11-24 con BancosSQL: set base 98,0 %, chat 97,8 % Hit@1 (100 % Hit@3), reportes 28 %,
+# 0 fugas y 0 inventados. Con Sonnet los reportes suben al 68 %: cambiar de perfil cuando haya cuota.
+roles:
+  fast:   {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 1000}
+  enrich: {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 4000}
+
+fallback: null
+
+circuit: {errors: 3, window_s: 60, open_s: 300}
+
+# La elección se guarda en models.yaml.active, en el disco efímero de la tarea: tras un reinicio vuelve a este.
+active_profile: bedrock-nova
+profiles:
+  bedrock-nova:
+    label: "Amazon Nova Pro en Bedrock"
+    description: "Amazon Nova Pro en Amazon Bedrock, dentro de la cuenta de AWS, por Converse con el rol de la tarea. Sin claves."
+    roles:
+      fast:   {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 1000}
+      enrich: {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 4000}
+  bedrock:
+    label: "Claude Sonnet en Bedrock"
+    description: "Claude Sonnet 5.5 en Amazon Bedrock, dentro de la cuenta de AWS. Sin claves. Necesita cuota de Claude en la cuenta."
+    roles:
+      # Sonnet 5.5: 2 / 10 USD por millón de tokens (precio de Anthropic; el de Bedrock puede variar). Sin
+      # `temperature` (Claude la rechaza) y sin respaldo de servidor (Bedrock no lo tiene).
+      fast:   {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 4000}
+      enrich: {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 16000}
+  bedrock-haiku:
+    label: "Claude Haiku en Bedrock"
+    description: "Claude Haiku 5.5 en Amazon Bedrock: unas 20 veces más barato que Sonnet, menos capaz."
+    roles:
+      fast:   {provider: bedrock, model: anthropic.claude-haiku-5-5, effort: low, max_tokens: 4000}
+      enrich: {provider: bedrock, model: anthropic.claude-haiku-5-5, effort: low, max_tokens: 16000}
+  nvidia:
+    label: "NVIDIA NIM"
+    description: "Nemotron en la API alojada de NVIDIA (medido el 2026-11-24). Solo datos de prueba."
+    roles:
+      fast:   {provider: nvidia_nim, model: nvidia/nemotron-3-ultra-550b-a55b, temperature: 0.0, max_tokens: 400}
+      enrich: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
+  claude:
+    label: "Claude (API de Anthropic)"
+    description: "Claude Sonnet 5.5 por la API de Anthropic. Solo datos de prueba."
+    roles:
+      fast:   {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 4000}
+      enrich: {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 16000}

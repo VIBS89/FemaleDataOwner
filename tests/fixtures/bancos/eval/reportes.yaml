@@ -2,8 +2,8 @@
 #
 # Miden cuánto aportan las fuentes de conocimiento (glosario, manual de reportes, normativa) frente al catálogo solo.
 # Se corre dos veces con el mismo catálogo:
-#   converdata eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
-#   converdata eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml \
+#   discovery-data-agent eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
+#   discovery-data-agent eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml \
 #       --knowledge tests/fixtures/bancos/eval/conocimiento
 #
 # Sustituye a la prueba de 25 preguntas que citaba el diagrama on-premise y cuyo set nunca se versionó. Las preguntas

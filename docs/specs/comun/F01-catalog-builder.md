@@ -5,7 +5,7 @@
 > Infraestructura de ingesta por entorno: **cloud native** → [CN-02](../cloud-native/CN-02-catalogo-memoria.md) · **on-premise** → [OP-02](../on-premise/OP-02-catalogo-memoria.md)
 
 ## Historia de usuario
-Como **administrador de datos**, quiero que ConverData recorra todas las bases SQL Server configuradas y genere un
+Como **administrador de datos**, quiero que DiscoveryDataAgent recorra todas las bases SQL Server configuradas y genere un
 catálogo descriptivo, para que los agentes entiendan la estructura sin consultarla en cada pregunta.
 
 ## Ambientes y servidores (campos adicionales en `config/databases.yaml`)
@@ -34,16 +34,16 @@ servers:
 - Las búsquedas por defecto priorizan el ambiente con `is_reference: true`.
 
 ## Fuentes (las mismas en ambos entornos)
-1. **`converdata-discovery`** ([F18](F18-discovery-mcp.md)): MCP propio Apache-2.0 con el login de metadatos. Expone inventario, columnas, FKs, dependencias (también entre BDs), firmas de SPs, estadísticas, Query Store y clasificación de sensibilidad. Cubre, entre otras, estas vistas de catálogo:
+1. **`discovery-data-agent-discovery`** ([F18](F18-discovery-mcp.md)): MCP propio Apache-2.0 con el login de metadatos. Expone inventario, columnas, FKs, dependencias (también entre BDs), firmas de SPs, estadísticas, Query Store y clasificación de sensibilidad. Cubre, entre otras, estas vistas de catálogo:
    - FKs: `sys.foreign_keys` + `sys.foreign_key_columns`
    - Descripciones: `sys.extended_properties` (`MS_Description`)
    - Stored procedures y parámetros: `sys.procedures` + `sys.parameters`
    - Vistas: `sys.views` + `sys.sql_expression_dependencies`
    - Conteo aproximado de filas: `sys.dm_db_partition_stats`
    - Índices y PKs: `sys.indexes` + `sys.index_columns`
-2. **Muestras en memoria** (herramienta `get_sample_rows` de `converdata-discovery`, solo en modo biblioteca y contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad, sin columnas `pii` ni clasificadas como sensibles. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
+2. **Muestras en memoria** (herramienta `get_sample_rows` de `discovery-data-agent-discovery`, solo en modo biblioteca y contra la réplica): `SELECT TOP (5)` por tabla y `SELECT DISTINCT TOP (50)` en columnas de baja cardinalidad, sin columnas `pii` ni clasificadas como sensibles. **Solo se usan para que el LLM genere descripciones y se descartan; nunca se escriben** (F17).
 
-> **Estado al 2026-11-17 (Fuentes):** `converdata-discovery` es una biblioteca (`SqlServerMetadata`, `src/converdata/metadata/sqlserver.py`), no un MCP, y el código no lee valores de datos: no existen `get_sample_rows` ni las muestras en memoria. Se cuentan filas con `sys.partitions` (no `sys.dm_db_partition_stats`) y no se resuelven `sys.synonyms` (solo tablas, vistas y procedimientos). Ver [F18](F18-discovery-mcp.md) y [brechas funcionales](../../wiki/brechas-funcionales.md).
+> **Estado al 2026-11-17 (Fuentes):** `discovery-data-agent-discovery` es una biblioteca (`SqlServerMetadata`, `src/discovery_data_agent/metadata/sqlserver.py`), no un MCP, y el código no lee valores de datos: no existen `get_sample_rows` ni las muestras en memoria. Se cuentan filas con `sys.partitions` (no `sys.dm_db_partition_stats`) y no se resuelven `sys.synonyms` (solo tablas, vistas y procedimientos). Ver [F18](F18-discovery-mcp.md) y [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Enriquecimiento con LLM
 Lo hace el Catalog Builder (comando batch en Python que corre y termina, separado del servicio interactivo, con llamadas directas por lotes al rol `planner` de F16; on-premise lo lanza el Programador de tareas de Windows, OP-02). Para cada tabla y columna sin `MS_Description` genera:
@@ -57,12 +57,12 @@ Todo se marca como `generated: true` hasta que un humano lo revise.
 Las fuentes de conocimiento no estructurales (diccionarios de datos, documentación, paquetes SSIS, jobs de SQL Agent y reglas de negocio)
 se ingieren con F23 y se vinculan a este catálogo por `asset_key`.
 
-> **Estado al 2026-11-17 (Enriquecimiento):** el LLM (`LlmEnricher`, rol `planner`, lotes de 6 tablas, `src/converdata/flows/catalog_build.py`) solo propone `description` y `synonyms` de tablas y columnas. `domain` sale del nombre de la BD (`domain_of`) y `pii` de una expresión regular sobre el nombre de la columna y de `sys.sensitivity_classifications` (`src/converdata/builder/catalog_builder.py`); ninguno lo decide el LLM. Sin `--models` el Builder no enriquece.
+> **Estado al 2026-11-17 (Enriquecimiento):** el LLM (`LlmEnricher`, rol `planner`, lotes de 6 tablas, `src/discovery_data_agent/flows/catalog_build.py`) solo propone `description` y `synonyms` de tablas y columnas. `domain` sale del nombre de la BD (`domain_of`) y `pii` de una expresión regular sobre el nombre de la columna y de `sys.sensitivity_classifications` (`src/discovery_data_agent/builder/catalog_builder.py`); ninguno lo decide el LLM. Sin `--models` el Builder no enriquece.
 
 ## Salida: `<catálogo>/<environment>/<server>/<db>/<schema>.<table>.yaml`
-Este es el **formato lógico** de un objeto del catálogo. Se persiste en las tablas del esquema `catalog` de la BD `ConverData`
+Este es el **formato lógico** de un objeto del catálogo. Se persiste en las tablas del esquema `catalog` de la BD `DiscoveryDataAgent`
 ([OP-02](../on-premise/OP-02-catalogo-memoria.md)), que sigue on-premise también en el despliegue en AWS (PRD §13, decisión 14).
-El YAML es el formato de desarrollo, el área de trabajo del Builder y el de exportación (`converdata catalog export`); las reglas sobre
+El YAML es el formato de desarrollo, el área de trabajo del Builder y el de exportación (`discovery-data-agent catalog export`); las reglas sobre
 "el YAML" aplican a ambos formatos.
 ```yaml
 id: produccion:SRV01.Ventas.dbo.Pedido
@@ -97,7 +97,7 @@ foreign_keys:
 schema_hash: "sha256:…"
 ```
 > **Estado al 2026-11-17 (Salida):**
-> - `drift` no se escribe en el YAML: el aviso se calcula al responder, comparando el `schema_hash` de las copias entre ambientes (`drift_of` en `src/converdata/discovery/engine.py`).
+> - `drift` no se escribe en el YAML: el aviso se calcula al responder, comparando el `schema_hash` de las copias entre ambientes (`drift_of` en `src/discovery_data_agent/discovery/engine.py`).
 > - `low_cardinality` existe en el modelo pero ningún paso lo calcula (no hay muestras).
 > - Un objeto eliminado en la BD se borra del catálogo; no se marca `deprecated: true` (`write_output`; con la BD, la baja queda en el historial).
 > - `_database.yaml` no se genera; el cargador solo ignora los archivos que empiezan por `_`.
@@ -109,14 +109,14 @@ Para un procedimiento, la salida incluye `parameters[{name, type, direction, has
 Además se genera `_database.yaml` por BD con el resumen, los dominios detectados y el hash global.
 
 ## Comandos
-- `converdata catalog build [--database Ventas] [--no-llm]`: ingesta completa.
-- `converdata catalog refresh`: compara `schema_hash` por objeto y procesa solo lo que cambió. Los objetos eliminados se marcan como `deprecated: true` y salen del índice.
-- `converdata catalog review --unreviewed`: lista los objetos pendientes de revisión humana.
+- `discovery-data-agent catalog build [--database Ventas] [--no-llm]`: ingesta completa.
+- `discovery-data-agent catalog refresh`: compara `schema_hash` por objeto y procesa solo lo que cambió. Los objetos eliminados se marcan como `deprecated: true` y salen del índice.
+- `discovery-data-agent catalog review --unreviewed`: lista los objetos pendientes de revisión humana.
 
-Estado: hoy existe `converdata catalog build --config <inventario> --out <dir> [--models <models.yaml>] [--db]`, que también sirve de
-refresco (con `--db` parte del catálogo publicado en la BD `ConverData` y publica el resultado; con `--db` y sin `--config` toma el
-inventario de la BD, y sin `--out` usa un directorio temporal), `converdata catalog publish` y
-`converdata catalog export`, y el mismo caso de uso (`converdata.application.catalog_refresh`) bajo demanda desde Administración (`POST /admin/catalog/build`). `refresh` incremental, `review` y las opciones
+Estado: hoy existe `discovery-data-agent catalog build --config <inventario> --out <dir> [--models <models.yaml>] [--db]`, que también sirve de
+refresco (con `--db` parte del catálogo publicado en la BD `DiscoveryDataAgent` y publica el resultado; con `--db` y sin `--config` toma el
+inventario de la BD, y sin `--out` usa un directorio temporal), `discovery-data-agent catalog publish` y
+`discovery-data-agent catalog export`, y el mismo caso de uso (`discovery_data_agent.application.catalog_refresh`) bajo demanda desde Administración (`POST /admin/catalog/build`). `refresh` incremental, `review` y las opciones
 `--database` y `--no-llm` están pendientes; la revisión se hace en la vista Curación (F24).
 
 ## Reglas

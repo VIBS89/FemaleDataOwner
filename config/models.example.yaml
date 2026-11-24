@@ -1,8 +1,8 @@
 # Gateway de LLM (F16). Copiar a config/models.yaml (ignorado por git).
-# Sin este archivo, `converdata discover` corre en modo determinista.
+# Sin este archivo, `discovery-data-agent discover` corre en modo determinista.
 #
 # Cada rol elige proveedor y modelo. Cambiar de NVIDIA NIM a OpenAI, Claude o Bedrock es cambiar este archivo, sin
-# tocar código. Tras cada cambio: `converdata llm smoke` (cada rol debe devolver salida estructurada).
+# tocar código. Tras cada cambio: `discovery-data-agent llm smoke` (cada rol debe devolver salida estructurada).
 
 # test = solo datos ficticios. Con datos reales poner "real": el gateway se niega a arrancar si algún rol
 # (o el respaldo) apunta a un proveedor con allowed_data: test (F17, OP-06).
@@ -48,19 +48,75 @@ providers:
 #   planner + fast = nemotron-3.5-bolt-e4b         Hit@1 62,7 %  Hit@3 74,5 %  p50 6,2 s
 #   planner + fast = nemotron-3-ultra-550b-a55b    Hit@1 64,7 %  Hit@3 66,7 %  p50 39 s
 # Un rol que falta usa su camino determinista. Antes de activar `planner` con otro modelo o proveedor, medir con
-# `converdata eval discovery --root tests/fixtures/bancos --models config/models.yaml`.
+# `discovery-data-agent eval discovery --root tests/fixtures/bancos --models config/models.yaml`.
 roles:
-  fast:    {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
+  fast:    {provider: nvidia_nim, model: nvidia/nemotron-3-ultra-550b-a55b, temperature: 0.0, max_tokens: 400}
+  # enrich: describe las tablas y columnas nuevas al refrescar el catálogo (sugerencias marcadas "sin revisar"). Necesita
+  # una salida larga; medido el 2026-11-23: 7 tablas y 72 columnas en 26 s con este modelo.
+  enrich:  {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
   # planner: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 1024}
 
 # Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Puede ser cualquier otro
-# proveedor activo; con data_mode: real, también debe tener allowed_data: real.
-fallback: null
+# proveedor activo, o el mismo con otro modelo; con data_mode: real, también debe tener allowed_data: real.
+# Aquí: si `ultra` agota el tiempo, responde `bolt`. El circuito es por proveedor: con 3 fallos en 60 s se apaga NIM
+# entero y el chat sigue por su camino determinista.
+fallback:
+  provider: nvidia_nim
+  models: {fast: nvidia/nemotron-3.5-bolt-e4b}
 # fallback:
 #   provider: anthropic
 #   models: {planner: claude-opus-5-5, fast: claude-haiku-5-5}
 
 circuit: {errors: 3, window_s: 60, open_s: 300}
+
+# --- Perfiles elegibles en pantalla (Administración → Modelos de IA) --------------------------------------------
+# Cada perfil es un juego completo de roles. El administrador elige uno sin editar este archivo; la elección se
+# guarda al lado, en `models.yaml.active`. Con perfiles, el activo sustituye a `roles` de arriba. Las claves nunca se
+# escriben aquí ni en pantalla: van en las variables de entorno de `api_key_env`.
+# Roles: fast = redacta la respuesta, reformula la búsqueda y orienta al usuario · enrich = describe tablas nuevas.
+active_profile: nvidia
+profiles:
+  nvidia:
+    label: "NVIDIA NIM"
+    description: "Nemotron en la API alojada de NVIDIA. Solo datos de prueba."
+    roles:
+      # Comparación del 2026-11-23 de los 13 modelos generativos de la API alojada de NVIDIA con las llamadas reales
+      # del chat (reformular una pregunta de reporte, orientar sin resultados, redactar):
+      #   nvidia/nemotron-3.5-bolt-e4b        6 de 6 correctas, 1,2 s de media; reportes 52 % Hit@1 a 2 s
+      #   nvidia/nemotron-3-ultra-550b-a55b   5 de 6, 5–8 s; reformula con más detalle, pero bajo carga agota el tiempo y
+      #                                       el circuito lo desconecta: reportes 36 % Hit@1
+      #   nvidia/nemotron-3.5-super-vl-120b   solo pidiendo JSON en el mensaje (rechaza `guided_json`), 5 s, con timeouts
+      # No sirven hoy: rechazan `guided_json` y no devuelven JSON por mensaje (nemotron-3.5-lightning, nano-omni), agotan
+      # el tiempo (mistral-large-4, kimi-k3.1-pro, muse-glimmer, step-5-preview, gemma-4-31b, glm-5.3-flash,
+      # minimax-m3.1-flash) o ya no están (gemma-3-12b). El catálogo cambia: repetir la medición antes de cambiar.
+      #
+      # Repetido el 2026-11-24 con los 15 generativos del catálogo. Completos (`fast` y `enrich` con `guided_json`):
+      # bolt-e4b, ultra-550b y poolside/laguna-xs-2.1 (nuevo). Medidos uno tras otro, sin carga concurrente, con
+      # `eval discovery --root tests/fixtures/bancos` (Hit@1 · p50):
+      #                                     reportes+conocimiento (25)   chat (67)        base (58)
+      #   sin modelo                        64 % · 0,05 s                97,8 % · 0,05 s  98,0 % · 0,05 s
+      #   nvidia/nemotron-3.5-bolt-e4b      80 % · 1,9 s                 97,8 % · 1,8 s   98,0 % · 1,9 s
+      #   poolside/laguna-xs-2.1            76 % · 1,8 s                 97,8 % · 1,6 s   98,0 % · 2,0 s
+      #   nvidia/nemotron-3-ultra-550b-a55b 88 % · 9,4 s (p95 19 s)      97,8 % · 7,0 s   98,0 % · 8,5 s
+      #     el mismo, sin razonamiento      84 % · 3,3 s (p95 6 s)       97,8 % · 2,2 s   98,0 %           ← elegido
+      # `ultra` piensa antes de responder: con `max_tokens: 400` la redacción se queda sin espacio y vuelve vacía (el
+      # chat mostraba la respuesta sin texto). El gateway apaga el razonamiento en NIM salvo `reasoning: true`
+      # (F16): 4 puntos menos que pensando, pero redacta siempre y tarda un tercio. Sigue por encima de `bolt` en
+      # reportes, sin fugas ni inventados. Si la latencia pesa más que esos puntos, volver a `bolt`. La API alojada
+      # devuelve 429 tras muchas llamadas seguidas y algún 400 de `guided_json`: el respaldo y el circuito los cubren.
+      fast:   {provider: nvidia_nim, model: nvidia/nemotron-3-ultra-550b-a55b, temperature: 0.0, max_tokens: 400}
+      # Medido el 2026-11-23 describiendo 7 tablas y 72 columnas: este modelo, 7 de 7 en 26 s; el grande
+      # (nemotron-3-ultra-550b-a55b), 6 de 7 en 101 s con un error intermitente; Claude Sonnet 5.5, 7 de 7 en 32 s.
+      # Repetido el 2026-11-24 con el catálogo real de BancosSQL (71 objetos, 652 columnas): este modelo describe
+      # 70 objetos y el 94 % de las columnas (8 avisos, 18 min); `ultra`, 70 objetos y solo el 76 % de las columnas
+      # (4 avisos, 20 min). Sigue este. Los avisos son rechazos intermitentes de `guided_json` de la API alojada.
+      enrich: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
+  claude:
+    label: "Claude (Anthropic)"
+    description: "Claude Sonnet 5.5 por la API de Anthropic. Solo datos de prueba."
+    roles:
+      fast:   {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 4000}
+      enrich: {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 16000}
 
 # --- Claude (API de Anthropic) como principal ---
 # providers: {anthropic: {enabled: true, api_key_env: ANTHROPIC_API_KEY, timeout_s: 60}}

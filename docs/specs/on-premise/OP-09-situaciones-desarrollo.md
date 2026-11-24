@@ -6,9 +6,9 @@
 >
 > **Nota (2026-11-22, fusión con la arquitectura simplificada, PRD §13):** siguen vigentes las situaciones SD-1 a SD-5 y las marcas de
 > pytest (§Tests por situación, `tests/situaciones.py`). No lo están §Selección de adaptadores ni §Puertos que faltan, ni los CA 2 y 3 en
-> lo que dependen de ellos: no hay `CONVERDATA_STORE`/`CONVERDATA_AUDIT` ni puerto `CatalogStore`; el almacén lo decide `CONVERDATA_DB`
+> lo que dependen de ellos: no hay `DISCOVERY_DATA_AGENT_STORE`/`DISCOVERY_DATA_AGENT_AUDIT` ni puerto `CatalogStore`; el almacén lo decide `DISCOVERY_DATA_AGENT_DB`
 > (`bootstrap.open_stores`, puertos `CatalogRepository`, `KnowledgeWriter`, `CurationRepository` e `InventoryStore`), la guarda de qa/prod
-> es `production_violations` (`api/converdata_api/security.py`) y SD-3 pide SQL Server 2016 o posterior, sin Full-Text ni `VECTOR`.
+> es `production_violations` (`api/discovery_data_agent_api/security.py`) y SD-3 pide SQL Server 2016 o posterior, sin Full-Text ni `VECTOR`.
 
 ## Objetivo
 Que cualquier persona (o sesión de Claude Code) pueda avanzar el backlog on-premise **con la infraestructura que tenga a mano**, sin esperar a
@@ -31,7 +31,7 @@ probarse en otra situación, salvo que la historia sea solo de infraestructura (
 - Imagen de Microsoft `mcr.microsoft.com/mssql/server:2025-latest` con `ACCEPT_EULA=Y` y `MSSQL_PID=Developer`. La imagen base **no trae
   Full-Text Search**: hace falta una imagen derivada con el paquete `mssql-server-fts` (`deploy/dev/sqlserver/Dockerfile`, ⚠️ propuesto) o una
   instalación Developer en Windows.
-- `deploy/dev/sqlserver/init.sql` crea la BD `ConverData`, aplica `db/converdata/*.sql` en orden y crea dos logins de prueba
+- `deploy/dev/sqlserver/init.sql` crea la BD `DiscoveryDataAgent`, aplica `db/discovery_data_agent/*.sql` en orden y crea dos logins de prueba
   (`cd_analista`, con acceso a `VBank_ING`; `cd_rrhh`, con acceso a `RRHH`) para los CA de visibilidad (OP-03 CA1, F14).
 - Las contraseñas de los logins de prueba van en `.env` (ignorado por git), nunca en el repo.
 
@@ -41,20 +41,20 @@ La situación se elige **solo por configuración**, sin cambiar código:
 
 | Variable | Valores | Por defecto | Efecto |
 |---|---|---|---|
-| `CONVERDATA_STORE` | `files` · `sqlserver` | `files` | Catálogo, conocimiento, curación y golden: YAML/JSON en `CONVERDATA_DATA_ROOT` y `CONVERDATA_CURATION_DIR`, o BD `ConverData` |
-| `CONVERDATA_AUDIT` | `files` · `sqlserver` | igual que `CONVERDATA_STORE` | `FileAuditSink` o `SqlServerAuditSink` (OP-05) |
-| `CONVERDATA_DB` | Cadena ODBC **sin contraseña** (`Trusted_Connection=yes` o gMSA; en SD-3, `UID` y la contraseña en `CONVERDATA_DB_PASSWORD` desde `.env`) | — | Conexión a la BD `ConverData`; obligatoria si algún adaptador es `sqlserver` |
-| `CONVERDATA_MODELS` | Ruta a `models.yaml` | sin LLM | Gateway de F16; sin archivo, flujo determinista |
-| `CONVERDATA_ENV` | `dev` · `qa` · `prod` | `dev` | Fuera de `dev`: prohíbe `files`, Ollama, NIM, `CONVERDATA_DEMO=1`, `audit.fail_open: true` y cookies sin `Secure` (el arranque falla con un mensaje claro) |
+| `DISCOVERY_DATA_AGENT_STORE` | `files` · `sqlserver` | `files` | Catálogo, conocimiento, curación y golden: YAML/JSON en `DISCOVERY_DATA_AGENT_DATA_ROOT` y `DISCOVERY_DATA_AGENT_CURATION_DIR`, o BD `DiscoveryDataAgent` |
+| `DISCOVERY_DATA_AGENT_AUDIT` | `files` · `sqlserver` | igual que `DISCOVERY_DATA_AGENT_STORE` | `FileAuditSink` o `SqlServerAuditSink` (OP-05) |
+| `DISCOVERY_DATA_AGENT_DB` | Cadena ODBC **sin contraseña** (`Trusted_Connection=yes` o gMSA; en SD-3, `UID` y la contraseña en `DISCOVERY_DATA_AGENT_DB_PASSWORD` desde `.env`) | — | Conexión a la BD `DiscoveryDataAgent`; obligatoria si algún adaptador es `sqlserver` |
+| `DISCOVERY_DATA_AGENT_MODELS` | Ruta a `models.yaml` | sin LLM | Gateway de F16; sin archivo, flujo determinista |
+| `DISCOVERY_DATA_AGENT_ENV` | `dev` · `qa` · `prod` | `dev` | Fuera de `dev`: prohíbe `files`, Ollama, NIM, `DISCOVERY_DATA_AGENT_DEMO=1`, `audit.fail_open: true` y cookies sin `Secure` (el arranque falla con un mensaje claro) |
 
-`src/converdata/bootstrap.py` es el **único** lugar que lee estas variables y ensambla los adaptadores (HU-09). Ningún módulo de dominio ni
+`src/discovery_data_agent/bootstrap.py` es el **único** lugar que lee estas variables y ensambla los adaptadores (HU-09). Ningún módulo de dominio ni
 de aplicación importa `pyodbc` (lo comprueba `tests/test_architecture.py`).
 
 ### Puertos que faltan
 | Puerto | Hoy | Necesario para |
 |---|---|---|
 | `CatalogStore` (lectura y escritura del catálogo con historial) | `catalog/store.py` lee YAML | HU-06, HU-09 |
-| `CurationStore` (descripciones humanas, reglas, solicitudes, owners) | Archivos en `api/converdata_api/curation.py`, sin puerto | HU-28 a HU-31 en BD |
+| `CurationStore` (descripciones humanas, reglas, solicitudes, owners) | Archivos en `api/discovery_data_agent_api/curation.py`, sin puerto | HU-28 a HU-31 en BD |
 | `GoldenStore` (confirmaciones y plantillas anonimizadas) | YAML desde el feedback | HU-29 en BD |
 | `Notifier` (Database Mail, Teams) | Webhook opcional en la API | HU-30 |
 
@@ -66,8 +66,8 @@ Cada puerto nuevo nace con **un adaptador de archivos y una batería de tests de
 |---|---|---|
 | (ninguna) | SD-1 | nunca: es la suite que exigen los hooks (`pytest` antes de `git commit`) |
 | `llm_local` | SD-2 | no responde `OLLAMA_HOST` ni hay `NVIDIA_API_KEY` |
-| `sqlserver` | SD-3 | no hay `CONVERDATA_TEST_DB` |
-| `bedrock` | SD-4 | no hay credenciales de AWS ni `CONVERDATA_MODELS` con proveedor `bedrock` |
+| `sqlserver` | SD-3 | no hay `DISCOVERY_DATA_AGENT_TEST_DB` |
+| `bedrock` | SD-4 | no hay credenciales de AWS ni `DISCOVERY_DATA_AGENT_MODELS` con proveedor `bedrock` |
 | `windows_server` | SD-5 | no se ejecuta en un Windows Server con IIS (`10-verificar.ps1` llama a estos tests) |
 
 Las marcas se registran en `[tool.pytest.ini_options] markers` de `pyproject.toml`; un test con marca y sin su situación queda **omitido con
@@ -81,9 +81,9 @@ y Pester con `-WhatIf`, y en SD-5 de verdad.
 ## Criterios de aceptación
 1. Con un clon limpio y solo SD-1, `pip install -e .[dev,api]`, `python -m pytest -q` y, en `web/`, `npm ci` y `npx tsc --noEmit` terminan sin errores
    y los tests de SD-2 a SD-5 aparecen como omitidos con su motivo.
-2. Cambiar `CONVERDATA_STORE` y `CONVERDATA_AUDIT` de `files` a `sqlserver` en SD-3 no exige cambios de código y los tests de contrato de
+2. Cambiar `DISCOVERY_DATA_AGENT_STORE` y `DISCOVERY_DATA_AGENT_AUDIT` de `files` a `sqlserver` en SD-3 no exige cambios de código y los tests de contrato de
    cada puerto pasan con los dos adaptadores.
-3. Con `CONVERDATA_ENV=qa` y `CONVERDATA_STORE=files`, `CONVERDATA_DEMO=1` u Ollama configurado, el servicio no arranca y el mensaje dice qué variable corregir.
+3. Con `DISCOVERY_DATA_AGENT_ENV=qa` y `DISCOVERY_DATA_AGENT_STORE=files`, `DISCOVERY_DATA_AGENT_DEMO=1` u Ollama configurado, el servicio no arranca y el mensaje dice qué variable corregir.
 4. Ningún archivo del repo contiene contraseñas de los logins de prueba ni claves de AWS o NVIDIA (búsqueda de patrones en CI y en el hook de commit).
 5. `tests/test_architecture.py` falla si un módulo de las capas de dominio o aplicación ([capas del backend](../../architecture/capas-backend.md))
    importa `pyodbc`, `boto3`, `fastapi` o un adaptador concreto.

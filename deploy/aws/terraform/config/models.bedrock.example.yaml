@@ -1,0 +1,22 @@
+# Gateway de LLM en AWS (F16, CN-01): un modelo de Bedrock, llamado con el rol de la tarea y por el VPC endpoint.
+# Copiar a models.<entorno>.yaml y poner el modelo; el archivo no lleva secretos y llega a la tarea como variable.
+# El mismo perfil debe estar en bedrock_resource_arns del tfvars.
+#
+# Antes de aceptar un modelo o activar `planner`: medir con
+#   discovery-data-agent eval discovery --root tests/fixtures/bancos --models <este archivo>
+# (con los modelos medidos hasta hoy conviene declarar solo `fast`; ver config/models.example.yaml).
+data_mode: real
+
+providers:
+  bedrock:
+    enabled: true
+    region: us-east-1
+    allowed_data: real # sin model invocation logging (F17)
+
+roles:
+  fast: {provider: bedrock, model: "<inference-profile>", temperature: 0.0, max_tokens: 400}
+  # planner: {provider: bedrock, model: "<inference-profile>", temperature: 0.0, max_tokens: 1024}
+
+fallback: null
+
+circuit: {errors: 3, window_s: 60, open_s: 300}

@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "ConverData: controles de una petición y compuerta de calidad",
+    "title": "DiscoveryDataAgent: controles de una petición y compuerta de calidad",
     "locale": "es",
     "quality_profile": "showcase",
     "output": "docs/architecture/controles-calidad-bancaria.html"
@@ -296,7 +296,7 @@
     },
     {
       "dot": "amber",
-      "title": "Con CONVERDATA_ENV=qa|prod",
+      "title": "Con DISCOVERY_DATA_AGENT_ENV=qa|prod",
       "items": [
         "La API no arranca con demo, cookie sin Secure, CORS abierto o auth de Windows",
         "Tampoco con migraciones pendientes ni si su cuenta puede modificar la auditoría",

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — Despliegue mínimo en AWS (posterior al piloto)",
+    "title": "DiscoveryDataAgent — Despliegue mínimo en AWS (posterior al piloto)",
     "output": "docs/architecture/cloud-native-architecture.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -21,7 +21,7 @@
         160,
         64
       ],
-      "description": "Clientes como Claude Desktop, Claude Code o un IDE que consumen ConverData como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de ConverData-API. (F12, CN-04)"
+      "description": "Clientes como Claude Desktop, Claude Code o un IDE que consumen DiscoveryDataAgent como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de DiscoveryDataAgent-API. (F12, CN-04)"
     },
     {
       "id": "secrets",
@@ -36,7 +36,7 @@
         160,
         64
       ],
-      "description": "Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD ConverData. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de ConverData-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)"
+      "description": "Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD DiscoveryDataAgent. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de DiscoveryDataAgent-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)"
     },
     {
       "id": "bedrock",
@@ -67,7 +67,7 @@
         160,
         64
       ],
-      "description": "Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD ConverData on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)"
+      "description": "Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD DiscoveryDataAgent on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)"
     },
     {
       "id": "users",
@@ -112,12 +112,12 @@
         160,
         64
       ],
-      "description": "La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a ConverData-API dentro de la misma tarea. (F12, CN-04)"
+      "description": "La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a DiscoveryDataAgent-API dentro de la misma tarea. (F12, CN-04)"
     },
     {
       "id": "api",
       "type": "backend",
-      "label": "ConverData-API",
+      "label": "DiscoveryDataAgent-API",
       "sublabel": "contenedor FastAPI · MCP",
       "pos": [
         760,
@@ -188,12 +188,12 @@
         160,
         64
       ],
-      "description": "La misma imagen de la API ejecutando el comando converdata catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD ConverData. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)"
+      "description": "La misma imagen de la API ejecutando el comando discovery-data-agent catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD DiscoveryDataAgent. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)"
     },
     {
       "id": "convdb",
       "type": "database",
-      "label": "BD ConverData",
+      "label": "BD DiscoveryDataAgent",
       "sublabel": "catálogo · curación · auditoría",
       "pos": [
         1240,
@@ -347,7 +347,7 @@
       "title": "Mismo código que on-premise",
       "items": [
         "Las dos imágenes que ya construye docker compose: base por digest y dependencias con hash",
-        "Misma BD ConverData, mismo login SQL, mismo SessionVault",
+        "Misma BD DiscoveryDataAgent, mismo login SQL, mismo SessionVault",
         "Cambia solo dónde corren los procesos y quién los programa"
       ]
     },
@@ -364,9 +364,9 @@
       "dot": "amber",
       "title": "Estado",
       "items": [
-        "Nada de esto está desplegado: es el destino después del piloto on-premise",
-        "Especificado en CN-01 a CN-06; no hay infraestructura como código en el repo",
-        "Por confirmar con Seguridad: Guardrails y si la VPN puede llevar tráfico de usuarios"
+        "Destino de qa y prod; todavía sin desplegar",
+        "Infraestructura como código en deploy/aws (Terraform y despliegue.sh); bloqueos en la hoja de ruta cloud §5",
+        "El entorno demo, sin VPN ni banco, está en aws-demo-architecture"
       ]
     }
   ]

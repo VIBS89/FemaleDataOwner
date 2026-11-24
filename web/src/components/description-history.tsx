@@ -42,7 +42,7 @@ export function DescriptionHistory({ assetKey, onClose }: { assetKey: string | n
           <Skeleton className="h-28 w-full" />
         ) : !data.available ? (
           <p className="text-muted-foreground text-sm">
-            El historial se guarda en la base de datos ConverData. Esta instalación trabaja con archivos (modo de desarrollo o demo) y no lo
+            El historial se guarda en la base de datos DiscoveryDataAgent. Esta instalación trabaja con archivos (modo de desarrollo o demo) y no lo
             conserva.
           </p>
         ) : data.items.length === 0 ? (

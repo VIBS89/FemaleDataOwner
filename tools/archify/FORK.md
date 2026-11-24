@@ -1,4 +1,4 @@
-# Archify — fork de ConverData
+# Archify — fork de DiscoveryDataAgent
 
 Copia de [tt-a1i/archify](https://github.com/tt-a1i/archify) v3.1.0 (MIT) con un cambio: los componentes aceptan un
 campo **`description`**, que se muestra en la ficha del componente (*Semantic Passport*) al hacer clic.

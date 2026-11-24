@@ -1,8 +1,10 @@
 """Guardas sobre la salida de los nodos con LLM: el modelo razona dentro del nodo, pero no puede inventar ni saltarse pasos."""
 
-from converdata.discovery.ports import RerankScore
-from converdata.flows.discover import DiscoverService
-from converdata.models.intent import IntentResult
+import pytest
+
+from discovery_data_agent.discovery.ports import RerankScore
+from discovery_data_agent.flows.discover import DiscoverService
+from discovery_data_agent.models.intent import IntentResult
 from conftest import ONBOARDING_Q
 
 
@@ -52,6 +54,40 @@ def test_narrativa_con_objetos_ajenos_se_reemplaza(service, analyst):
     assert respond.error.startswith("narrativa_rechazada")
 
 
+class EmptyNarrator:
+    """Un modelo de razonamiento que gasta `max_tokens` pensando devuelve el contenido vacío."""
+
+    def __init__(self, text):
+        self.text = text
+
+    def narrate(self, question, discovery):
+        return self.text
+
+
+@pytest.mark.parametrize("text", ["", "   \n "])
+def test_narrativa_vacia_usa_el_texto_determinista(service, analyst, text):
+    service.deps.narrator = EmptyNarrator(text)
+    env = DiscoverService(service.deps).run(ONBOARDING_Q, analyst)
+    assert "ClientCode" in env.answer_text  # el usuario nunca recibe una respuesta sin texto
+    respond = next(s for s in service.deps.audit.records[-1].steps if s.step == "respond")
+    assert respond.error == "narrativa_vacia"
+
+
+def test_narrativa_del_modelo_llega_como_texto_plano():
+    """La web muestra `answer_text` tal cual: sin Markdown, el usuario vería los asteriscos."""
+    from types import SimpleNamespace as NS
+
+    from discovery_data_agent.llm.nodes import LlmNarrator
+    from discovery_data_agent.models.discovery import Discovery
+
+    class MarkdownLlm:
+        def invoke(self, messages):
+            return NS(content="## Resultado\nEncontré el **DUI** en la tabla __Clientes__ de `BancaPrestamos`.")
+
+    text = LlmNarrator(MarkdownLlm()).narrate("¿Dónde está el DUI?", Discovery(question="¿Dónde está el DUI?"))
+    assert text == "Resultado\nEncontré el DUI en la tabla Clientes de BancaPrestamos."
+
+
 def test_fallo_del_modelo_usa_el_respaldo_determinista(service, analyst):
     service.deps.intent_classifier = FailingClassifier()
     env = DiscoverService(service.deps).run(ONBOARDING_Q, analyst)
@@ -71,7 +107,7 @@ def test_flows_es_la_unica_capa_con_langgraph():
     """PRD §8: herramientas, VectorStore, motor y modelos no importan LangGraph."""
     import pathlib
 
-    src = pathlib.Path(__file__).parents[1] / "src" / "converdata"
+    src = pathlib.Path(__file__).parents[1] / "src" / "discovery_data_agent"
     offenders = [
         p.relative_to(src).as_posix()
         for p in src.rglob("*.py")

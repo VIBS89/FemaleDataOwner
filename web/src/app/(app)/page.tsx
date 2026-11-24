@@ -195,7 +195,7 @@ export default function ChatPage() {
             placeholder={noCatalog ? "Disponible cuando el catálogo esté listo" : undefined}
           />
           <p className="text-muted-foreground mt-2 text-center text-[11px]">
-            ConverData solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
+            Discovery Data Agent solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
           </p>
         </div>
       </div>
@@ -211,7 +211,7 @@ function Welcome({ name, onPick }: { name: string; onPick: (q: string) => void }
       <div className="bg-primary/10 text-primary mb-5 flex size-14 items-center justify-center rounded-2xl">
         <Sparkles className="size-6" />
       </div>
-      <h2 className="text-2xl font-semibold tracking-tight">Hola, {name.replace(/^.*\\/, "")}. ¿Qué dato buscas?</h2>
+      <h2 className="text-[1.75rem] font-extrabold tracking-tight">Hola, {name.replace(/^.*\\/, "")}. ¿Qué dato buscas?</h2>
       <p className="text-muted-foreground mt-2 max-w-lg text-sm">
         Te digo en qué base, tabla y columna está, qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece.
       </p>

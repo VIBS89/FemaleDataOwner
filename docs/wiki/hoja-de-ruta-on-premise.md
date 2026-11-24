@@ -1,8 +1,8 @@
 # Hoja de ruta on-premise
 
-Actualizado el 2026-11-17.
+Actualizado el 2026-11-23 (chat de negocio, cifras agregadas y tareas programadas de Windows); el resto, el 2026-11-17.
 
-ConverData ya funciona de punta a punta en desarrollo: agente, API, web, MCP, BD `ConverData` en SQL Server y compuerta de calidad. Lo que falta para el piloto no es la lógica del descubrimiento. Falta medirla con un LLM real y con preguntas reales, instalarla en un Windows Server del banco, cargar el conocimiento del dominio piloto y firmar la línea base. El destino es el piloto de 8 semanas con 10–15 usuarios en el dominio clientes / onboarding digital, evaluado contra los criterios D1–D7 de OP-01. Después del piloto vienen los roles desde Active Directory y la fase 1b (consulta de datos).
+DiscoveryDataAgent ya funciona de punta a punta en desarrollo: agente, API, web, MCP, BD `DiscoveryDataAgent` en SQL Server y compuerta de calidad. Lo que falta para el piloto no es la lógica del descubrimiento. Falta medirla con un LLM real y con preguntas reales, instalarla en un Windows Server del banco, cargar el conocimiento del dominio piloto y firmar la línea base. El destino es el piloto de 8 semanas con 10–15 usuarios en el dominio clientes / onboarding digital, evaluado contra los criterios D1–D7 de OP-01. Después del piloto vienen los roles desde Active Directory y la fase 1b (consulta de datos).
 
 Diagrama de referencia: [arquitectura on-premise](../architecture/onpremise-architecture.html). Despliegue posterior en AWS: [hoja de ruta cloud](hoja-de-ruta-cloud.md).
 
@@ -14,21 +14,22 @@ Verificado al 2026-11-17 (fuente: [plan de desarrollo](../PLAN-desarrollo.md) §
 
 | Qué | Estado | Dónde |
 |---|---|---|
-| DiscoverFlow, lógica determinista, grafo del patrimonio, MCP | Hecho y medido, sin LLM | `src/converdata/flows/`, `discovery/`, `graph/` |
-| `ConverData-API` y web Next.js (chat, Catálogo, Curación, Solicitudes, Métricas, Administración) | Hecho; web compilada el 2026-11-17 | `api/converdata_api/`, `web/` |
-| BD `ConverData` (migraciones `001` y `002`, cuatro roles, historial temporal) | Hecho; probada en SQL Server 2022, no en 2016 | `db/converdata/` |
-| Auditoría fail-closed, catálogo, curación e inventario en la BD (bloques A, B, C1, C2) | Hecho; con `CONVERDATA_DB` la API no guarda estado en disco | `storage/`, `audit/` |
-| Compuerta `converdata eval gate` (7 suites) y CI (`backend`, `web`, `cadena-de-suministro`) | Hecho; aprobada en los dos catálogos de prueba | `evaluation/gate.py`, `.github/workflows/calidad.yml` |
+| DiscoverFlow, lógica determinista, grafo del patrimonio, MCP | Hecho y medido, sin LLM | `src/discovery_data_agent/flows/`, `discovery/`, `graph/` |
+| `DiscoveryDataAgent-API` y web Next.js (chat, Catálogo, Curación, Solicitudes, Métricas, Administración) | Hecho; web compilada el 2026-11-17 | `api/discovery_data_agent_api/`, `web/` |
+| BD `DiscoveryDataAgent` (migraciones `001` y `002`, cuatro roles, historial temporal) | Hecho; probada en SQL Server 2022, no en 2016 | `db/discovery_data_agent/` |
+| Auditoría fail-closed, catálogo, curación e inventario en la BD (bloques A, B, C1, C2) | Hecho; con `DISCOVERY_DATA_AGENT_DB` la API no guarda estado en disco | `storage/`, `audit/` |
+| Compuerta `discovery-data-agent eval gate` (7 suites) y CI (`backend`, `web`, `cadena-de-suministro`) | Hecho; aprobada en los dos catálogos de prueba | `evaluation/gate.py`, `.github/workflows/calidad.yml` |
 | Cadena de suministro: bloqueos con hash, imágenes base por digest, `pip-audit`, `npm audit`, SBOM | Hecho; la imagen no se ha construido con los bloqueos | `requirements/`, `api/Dockerfile`, `web/Dockerfile` |
-| Calidad medida | Hit@1 y Hit@3 98,0 % (58 casos, BancosSQL) y 96,2 % (31 casos, VBank); 0 fugas | [plan §2](../PLAN-desarrollo.md#2-resultados-medidos) |
+| Chat de negocio y cifras agregadas (2026-11-23) | Chat hecho (asistente, seguimientos, aclaración por áreas, LLM `fast` en tres pasos, enriquecimiento con IA por defecto). Cifras: primer corte apagado por defecto (PRD §13, decisión 17); su revisión de seguridad independiente terminó el 2026-11-23 y sus bloqueantes están corregidos (quedan DT-78 a DT-80) | `discovery/assistant.py`, `discovery/figures.py`, `llm/nodes.py` |
+| Calidad medida | Hit@1 y Hit@3 98,0 % (58 casos, BancosSQL) y 96,2 % (31 casos, VBank); 0 fugas. Set de chat de negocio (67 casos, 2026-11-23): Hit@1 97,8 % y Hit@3 100 %, con un fallo abierto (L09) | [plan §2](../PLAN-desarrollo.md#2-resultados-medidos) |
 
 Lo que no existe, comprobado en el repo:
-- No hay carpeta `deploy/` ni scripts PowerShell: hoy solo hay `docker-compose.yml` (web y API) y los dos Dockerfile.
-- No hay comando `converdata metrics report`: el CLI tiene `discover`, `llm smoke`, `eval`, `audit`, `db migrate`, `catalog` y `mcp serve`.
-- No hay AskFlow (consulta de datos) ni lectura de grupos de AD.
-- Ninguna tarea está programada: ni el refresco, ni la purga, ni la evaluación.
+- No hay instalación para Windows Server: hoy solo hay `docker-compose.yml` (web y API) y los dos Dockerfile. De `deploy/windows/` existe solo `registrar-tareas.ps1` (tareas programadas); faltan IIS, `web.config`, certificado, firewall y respaldo.
+- No hay comando `discovery-data-agent metrics report`: el CLI tiene `discover`, `llm smoke`, `eval`, `audit`, `db migrate`, `catalog` y `mcp serve`.
+- No hay AskFlow completo (SQL generado, filtros, cruces, capa semántica ni `/ask`) ni lectura de grupos de AD. Existe un primer corte apagado por defecto: cifras agregadas (`COUNT`, `COUNT DISTINCT`, `SUM`, `AVG`) sobre una tabla (o con una unión a una tabla relacionada para desglosar), con plantilla de SQL fija (`src/discovery_data_agent/discovery/figures.py`; PRD §13, decisión 17). La revisión de seguridad independiente ya terminó y sus bloqueantes están corregidos; antes de activarlo en el piloto hay que resolver DT-78 a DT-80, aceptarlo con Seguridad de la Información y revisar D1–D7 de OP-01.
+- Ninguna tarea está programada en un servidor: el script `deploy/windows/registrar-tareas.ps1` (refresco nocturno, purga semanal y, opcional, regresión semanal) está escrito y solo se verificó con análisis de sintaxis y `-WhatIf` en un equipo de desarrollo; no se ha registrado ni ejecutado en un Windows Server.
 
-Límites de lo medido: los 89 casos de descubrimiento y las 25 preguntas de reporte los escribió el equipo, y todo se midió sin LLM. Los porcentajes no predicen el uso real.
+Límites de lo medido: los 89 casos de descubrimiento, las 25 preguntas de reporte y los 67 casos de chat los escribió el equipo, y todo se midió sin LLM. Los porcentajes no predicen el uso real.
 
 ## 2. Fases
 
@@ -39,7 +40,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 
 | Entregable | HU / spec |
 |---|---|
-| `converdata metrics report --from --to` con CSV y HTML, calculado desde vistas SQL del esquema `audit` | HU-23, OP-05 CA2, F25 CA2 |
+| `discovery-data-agent metrics report --from --to` con CSV y HTML, calculado desde vistas SQL del esquema `audit` | HU-23, OP-05 CA2, F25 CA2 |
 | Reporte de brechas abiertas y cerradas por dominio | HU-32, F24 CA5 |
 | Columna `recorded_at` en la auditoría y purga por ella (migración `003`, la añade el único dueño de migraciones) | Deuda de [calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto) |
 
@@ -50,7 +51,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 **Riesgos.** La línea base (HU-40) necesita el mismo vocabulario de métricas: conviene fijarlo con la Gerencia de Datos antes de firmarla.
 
 ### Fase E · Fuentes de conocimiento (bloque E)
-**Objetivo.** Que el conocimiento del dominio piloto esté ingerido con datos personales redactados antes de que los usuarios lo prueben. Es lo que más mueve las preguntas de reporte: 16 % de Hit@1 solo con catálogo y 60 % con un glosario de prueba, sin LLM (medición del equipo, [plan §2](../PLAN-desarrollo.md#2-resultados-medidos)).
+**Objetivo.** Que el conocimiento del dominio piloto esté ingerido con datos personales redactados antes de que los usuarios lo prueben. Es lo que más mueve las preguntas de reporte: 28 % de Hit@1 solo con catálogo y 64 % con un glosario de prueba, sin LLM (16 % y 60 % el 2026-11-17; medición del equipo, [plan §2](../PLAN-desarrollo.md#2-resultados-medidos)).
 
 | Entregable | HU / spec |
 |---|---|
@@ -70,19 +71,19 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 | Entregable | HU / spec |
 |---|---|
 | Scripts `deploy/windows/01…10` y `entorno.<env>.psd1` sin secretos: IIS con HttpPlatformHandler para la web (`/`) y la API (`/mcp`), cuentas gMSA, BD, aplicación, tareas, firewall, secretos con DPAPI, endurecimiento y verificación | HU-37, OP-07 |
-| Tareas programadas: build nocturno (`catalog build --db` con `CONVERDATA_BUILDER_HOSTS`), evaluación de regresión, purga de 180 días con la cuenta de mantenimiento; aviso por webhook de Teams | HU-18, HU-24 |
+| Tareas programadas: build nocturno (`catalog build --db` con `DISCOVERY_DATA_AGENT_BUILDER_HOSTS`), evaluación de regresión, purga de 180 días con la cuenta de mantenimiento; aviso por webhook de Teams. **Script escrito** (`deploy/windows/registrar-tareas.ps1`, con `-WhatIf` y `-Remove`; sin el aviso por Teams) y **sin probar en un servidor**: falta registrarlo con la gMSA, comprobar que cada tarea corre sin sesión iniciada y decidir si la purga usa la cuenta de mantenimiento (el script ejecuta las tres con la misma cuenta) | HU-18, HU-24 |
 | Respaldo cifrado y prueba de restauración en otra instancia | HU-39 |
 | Login de metadatos con DPAPI y Bedrock con IAM Roles Anywhere, sin claves de larga duración | HU-38 |
 | SQL Server en la CI y DDL probado en la versión de la instancia del piloto | Deudas |
 | Construir la imagen con los bloqueos, fijar `msodbcsql18` y `unixodbc`, firmar y escanear | Deudas |
 
-**Terminado cuando.** Los criterios 1–8 de OP-07: los scripts 01–10 dejan el entorno funcionando y una segunda ejecución no cambia nada; ningún archivo lleva secretos; un build largo termina aunque IIS recicle; nunca hay dos procesos de la API; actualización y rollback en ≤ 30 min; la restauración cumple el RPO y el RTO; un proceso caído se reinicia; con `CONVERDATA_ENV=prod` y un ajuste inseguro la API no arranca. Hoy ninguno se ha comprobado en un Windows Server. Además: la búsqueda del literal marcado en `TEMP` de las gMSA, carpetas de IIS y Visor de eventos (OP-06 CA4), y el streaming de `/api/discover/stream` sin búfer a través de IIS.
+**Terminado cuando.** Los criterios 1–8 de OP-07: los scripts 01–10 dejan el entorno funcionando y una segunda ejecución no cambia nada; ningún archivo lleva secretos; un build largo termina aunque IIS recicle; nunca hay dos procesos de la API; actualización y rollback en ≤ 30 min; la restauración cumple el RPO y el RTO; un proceso caído se reinicia; con `DISCOVERY_DATA_AGENT_ENV=prod` y un ajuste inseguro la API no arranca. Hoy ninguno se ha comprobado en un Windows Server. Además: la búsqueda del literal marcado en `TEMP` de las gMSA, carpetas de IIS y Visor de eventos (OP-06 CA4), y el streaming de `/api/discover/stream` sin búfer a través de IIS.
 
-**Dependencias.** Del equipo: los scripts se pueden escribir ya. Del banco (S10): Windows Server de qa y del piloto, gMSA, certificado de la PKI, instancia SQL Server para la BD `ConverData`, permisos del DBA. Los scripts solo se validan con el servidor.
+**Dependencias.** Del equipo: los scripts se pueden escribir ya. Del banco (S10): Windows Server de qa y del piloto, gMSA, certificado de la PKI, instancia SQL Server para la BD `DiscoveryDataAgent`, permisos del DBA. Los scripts solo se validan con el servidor.
 
 **Riesgos.**
 - El DDL se probó en SQL Server 2022: puede fallar en 2016.
-- El instalador debe fijar `CONVERDATA_ENV`: sin ella vale `dev` y no se exige ningún ajuste seguro.
+- El instalador debe fijar `DISCOVERY_DATA_AGENT_ENV`: sin ella vale `dev` y no se exige ningún ajuste seguro.
 - Los valores "⚠️ propuesto" de OP-07 (99 % de disponibilidad en horario laboral, RPO 15 min, RTO 4 h, reinstalación en ≤ 1 día) los tienen que confirmar Plataformas y el DBA.
 - Un reinicio de la API cierra las sesiones por diseño: hay que avisar a los usuarios en cada actualización.
 
@@ -91,7 +92,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 
 | Entregable | HU / spec |
 |---|---|
-| Bedrock de punta a punta: `converdata llm smoke`, `eval gate --models`, p50/p95 y coste por pregunta; invocation logging desactivado | HU-35, F16 |
+| Bedrock de punta a punta: `discovery-data-agent llm smoke`, `eval gate --models`, p50/p95 y coste por pregunta; invocation logging desactivado | HU-35, F16 |
 | Batería de inyección y guardas repetida con el modelo real y revisada con Seguridad | HU-36 |
 | Set de 50–80 preguntas reales con los activos validados por un experto y 5 sin respuesta | HU-33, F25 |
 | Decisión sobre Guardrails de Bedrock | PRD §13, pregunta 6 |
@@ -110,7 +111,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 | 0–1 | Estudio de tiempos (15–20 búsquedas por perfil), encuesta de 2 semanas a expertos, etiquetas `usa-discovery-agent` y `reproceso-fuente` | Línea base firmada (HU-40) |
 | 1–3 | Ingesta del dominio piloto con steward asignado | Catálogo y set validado |
 | 2–3 | El steward revisa los 100 activos más relevantes | % de descripciones revisadas |
-| 4–7 | Uso real de 10–15 colaboradores de varios perfiles | `converdata metrics report` semanal |
+| 4–7 | Uso real de 10–15 colaboradores de varios perfiles | `discovery-data-agent metrics report` semanal |
 | 8 | Evaluación contra la línea base | Informe con D1–D7 y las 4 métricas de negocio (HU-41) |
 
 **Terminado cuando.** Existe el informe de la semana 8 que compara D1–D7 con sus umbrales (D1 Hit@3 ≥ 85 % y Hit@1 ≥ 65 %, D2 calibración ≥ 85 %, D3 −50 % de tiempo de localización, D4 −30 % de consultas a expertos, D5 p50/p95 < 5 s / < 10 s, D6 0 fugas, D7 ≥ 70 % de usuarios activos 2 de 4 semanas) y termina en una recomendación: fase 1b, más dominios, AWS o producción on-premise.
@@ -122,7 +123,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 ### Fase R · Roles desde Active Directory (después del piloto)
 **Objetivo.** Sustituir la lista de responsables por login por grupos de AD (HU-13, *Should*).
 
-**Entregables.** Asociación login–cuenta de AD (`curation.user_directory`) y lectura de grupos por LDAP de solo lectura con la gMSA. Con ella queda superada la política de roles por nombre de login (`identity_trusted`, pregunta 9 del PRD). En el piloto los roles se asignan por login SQL (`CONVERDATA_ADMINS` y la tabla `curation.steward`), que OP-04 admite "en su defecto".
+**Entregables.** Asociación login–cuenta de AD (`curation.user_directory`) y lectura de grupos por LDAP de solo lectura con la gMSA. Con ella queda superada la política de roles por nombre de login (`identity_trusted`, pregunta 9 del PRD). En el piloto los roles se asignan por login SQL (`DISCOVERY_DATA_AGENT_ADMINS` y la tabla `curation.steward`), que OP-04 admite "en su defecto".
 
 **Terminado cuando.** Un login asociado inicia sesión con los grupos de su cuenta; uno sin asociación tiene `groups = []` y solo el rol `consumer`.
 
@@ -131,11 +132,13 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 ### Fase 1b · Consulta de datos (después del piloto, si 1a cumple)
 **Objetivo.** Responder preguntas de cifras: AskFlow, métricas certificadas y análisis (RF-40 a RF-42).
 
+**Ya adelantado (2026-11-23).** Un subconjunto acotado de F3, F6 y F8: cifras agregadas sobre una tabla con plantilla fija y la credencial del usuario, apagadas por defecto. Sigue aquí todo lo que ese corte no hace: SQL generado por un LLM, filtros de fecha y de valor, condiciones que combinan tablas, cruces entre bases o sistemas, uniones de más de un salto, capa semántica, `/ask` y `sqlglot` (PRD §13, decisión 17).
+
 **Alcance (OP-01).** F3 a F10 completos (intención, enlace a esquema, valores en vivo, planner, validator, executor, verifier con juez y analyst), F20 con biblioteca de análisis determinista sin código libre, F21 capa semántica (esquema `semantic` de la BD, una migración nueva) y `/ask` en la API, la web y `/mcp`. Consulta sobre 1 o 2 BDs del dominio, en réplica o copia de solo lectura.
 
 **Terminado cuando.** Los 7 criterios de OP-01 §fase 1b: precisión de ejecución ≥ 80 % en 30–50 preguntas con SQL de referencia, calibración (≥ 70 % de las incorrectas con confianza < 0,6), 0 ejecuciones indebidas, permisos por usuario con error 229 manejado, latencia p50/p95 < 15 s / < 40 s en el MVP, coste Bedrock por pregunta medido y ≥ 70 % de 👍.
 
-**Riesgos.** La infraestructura que citan las specs de 1b (juez, sandbox) se revisa contra PRD §13 antes de implementarla: las decisiones 9–16 retiraron piezas que esas specs todavía nombran. Ejecutar SQL sobre datos de clientes cambia el perfil de residencia: el diseño de hoy lee solo metadatos.
+**Riesgos.** La infraestructura que citan las specs de 1b (juez, sandbox) se revisa contra PRD §13 antes de implementarla: las decisiones 9–16 retiraron piezas que esas specs todavía nombran. Ejecutar SQL sobre datos de clientes cambia el perfil de residencia: el diseño de 1a lee solo metadatos, y el primer corte de cifras ya lee agregados con el login del usuario cuando se activa (sin persistir valores).
 
 ## 3. Requisitos de infraestructura
 
@@ -146,10 +149,10 @@ Fuentes: [OP-01](../specs/on-premise/OP-01-despliegue-local.md) y [OP-07](../spe
 | Servidor de aplicación (piloto) | Windows Server 2022 o 2025; 4 vCPU, 16 GB de RAM, 100 GB de disco para 3–20 usuarios; el catálogo y el conocimiento del dominio piloto deben caber en RAM | OP-01 §Dimensionamiento |
 | Servidor de qa | Otro Windows Server instalado con los mismos scripts; no comparte BD, gMSA ni certificado con el piloto | OP-07 §Entornos |
 | Software en el servidor | Roles de IIS, HttpPlatformHandler, ODBC Driver 18 for SQL Server, Python 3.12, Node.js LTS | OP-07 script 01 |
-| Cuentas | gMSA para la web, la API, el Builder y mantenimiento; la de la API en `converdata_app`, la del Builder en `converdata_builder`, la de mantenimiento en `converdata_maintenance` | OP-03, OP-07 scripts 02–03 |
+| Cuentas | gMSA para la web, la API, el Builder y mantenimiento; la de la API en `discovery_data_agent_app`, la del Builder en `discovery_data_agent_builder`, la de mantenimiento en `discovery_data_agent_maintenance` | OP-03, OP-07 scripts 02–03 |
 | Certificados | TLS de la PKI corporativa en IIS (443, HTTP redirige, HSTS); certificado de clave no exportable para IAM Roles Anywhere | OP-04, OP-01 |
 | Firewall | Entrada solo en 443 desde las redes de usuarios; salida a SQL Server (1433), al proxy (Bedrock, webhook de Teams, SharePoint Online si se usa), a AD (LDAP y Kerberos) y al servidor de archivos (SMB 445) | OP-04 §IIS |
-| BD `ConverData` | Instancia SQL Server 2016 o posterior gestionada por el DBA; la BD vacía la crea el DBA; modelo de recuperación completo; TLS validado (`Encrypt=yes`, sin `TrustServerCertificate`) | OP-02, OP-07 |
+| BD `DiscoveryDataAgent` | Instancia SQL Server 2016 o posterior gestionada por el DBA; la BD vacía la crea el DBA; modelo de recuperación completo; TLS validado (`Encrypt=yes`, sin `TrustServerCertificate`) | OP-02, OP-07 |
 | Respaldo | Completo diario, diferencial cada 6 h, log cada 15 min, con `WITH ENCRYPTION`; retención no mayor que la de la auditoría (180 días) | OP-07 |
 | Recuperación | RPO 15 min y RTO 4 h (propuesto); reinstalación del servidor en ≤ 1 día laboral | OP-07 |
 | Disponibilidad | 99 % en horario laboral, lunes a viernes de 7:00 a 19:00 (propuesto); un solo servidor, sin alta disponibilidad | OP-07 |
@@ -157,9 +160,9 @@ Fuentes: [OP-01](../specs/on-premise/OP-01-despliegue-local.md) y [OP-07](../spe
 | AWS (solo Bedrock) | IAM Roles Anywhere; política de mínimo privilegio con `bedrock:InvokeModel` y `bedrock:InvokeModelWithResponseStream` sobre un modelo; invocation logging desactivado | OP-01 §Configuración AWS |
 | Monitoreo | El existente del banco (SCOM o Zabbix, supuesto S11) con alertas desde el Visor de eventos y `/health/metrics` | OP-05 |
 
-Para confirmar con el banco: ningún documento dimensiona la instancia SQL Server de la BD `ConverData` (CPU, memoria, disco). Como vive en una instancia gestionada por el DBA, hay que pedirle el tamaño.
+Para confirmar con el banco: ningún documento dimensiona la instancia SQL Server de la BD `DiscoveryDataAgent` (CPU, memoria, disco). Como vive en una instancia gestionada por el DBA, hay que pedirle el tamaño.
 
-Configuración obligatoria en qa y prod: la API no arranca sin los ajustes de [calidad bancaria §4](../calidad-bancaria.md#4-configuración-obligatoria-en-qa-y-prod), entre ellos `CONVERDATA_ENV`, cookie segura, `CONVERDATA_MCP_HOSTS`, `CONVERDATA_ADMINS_ONLY` con `CONVERDATA_ADMINS`, `CONVERDATA_LOG_DIR` y `CONVERDATA_DB` sin contraseña.
+Configuración obligatoria en qa y prod: la API no arranca sin los ajustes de [calidad bancaria §4](../calidad-bancaria.md#4-configuración-obligatoria-en-qa-y-prod), entre ellos `DISCOVERY_DATA_AGENT_ENV`, cookie segura, `DISCOVERY_DATA_AGENT_MCP_HOSTS`, `DISCOVERY_DATA_AGENT_ADMINS_ONLY` con `DISCOVERY_DATA_AGENT_ADMINS`, `DISCOVERY_DATA_AGENT_LOG_DIR` y `DISCOVERY_DATA_AGENT_DB` sin contraseña.
 
 ## 4. Dependencias externas
 
@@ -170,7 +173,7 @@ Configuración obligatoria en qa y prod: la API no arranca sin los ajustes de [c
 | 50–80 preguntas reales validadas (HU-33) | Gerencia de Datos y usuarios | G | Nada que sustituya el set; el del equipo sigue como regresión |
 | Ubicación y acceso a diccionarios y documentos; acceso a `SSISDB` y `msdb` (S6) | Gerencia de Datos | E | Excel, conector de carpeta, redacción con documentos sembrados |
 | Windows Server de qa y del piloto, gMSA, certificado PKI (S10) | Plataformas y Seguridad | F | Escribir los scripts; SQL Server en la CI |
-| Instancia SQL Server 2016+ para la BD `ConverData`, DBA | Plataformas | F | Probar el DDL en una 2016 de desarrollo si se consigue |
+| Instancia SQL Server 2016+ para la BD `DiscoveryDataAgent`, DBA | Plataformas | F | Probar el DDL en una 2016 de desarrollo si se consigue |
 | LDAP de solo lectura (S10) | Plataformas y Seguridad | R | Diseño de la asociación login–AD |
 | Gestor de requerimientos y canal de consultas (S13) | Gerencia de Datos | H (línea base) | Plantilla del estudio de tiempos y de la encuesta |
 | Decisiones de Seguridad: Guardrails, lecturas auditadas, batería de inyección (S7, preguntas 6 y 8) | Seguridad | G, D | Implementar ambas variantes detrás de configuración |
@@ -183,7 +186,7 @@ La secuencia mínima, en orden de dependencia:
 
 1. **Pedir ya al banco** lo que más tarda: cuenta AWS (S4), steward y preguntas (S9), servidores, gMSA y certificado (S10), documentos y `SSISDB` (S6), gestor de requerimientos (S13).
 2. **Mientras llega:** bloque D (`metrics report`), scripts de F, conector y redacción de E, SQL Server en la CI.
-3. **Servidor del banco disponible** → validar los scripts 01–10, crear la BD, `converdata db migrate`, probar el DDL en la versión real → prueba de restauración (HU-39, OP-07 la exige antes del piloto) → tareas programadas.
+3. **Servidor del banco disponible** → validar los scripts 01–10, crear la BD, `discovery-data-agent db migrate`, probar el DDL en la versión real → prueba de restauración (HU-39, OP-07 la exige antes del piloto) → tareas programadas.
 4. **Cuenta AWS disponible** → `llm smoke` → `eval gate --models` → set real con el steward → Hit@k, calibración y latencia con Bedrock (O8).
 5. **Línea base firmada** (semanas 0–1 de F25) → ingesta del dominio piloto (E) y curación de los 100 activos → arranca el uso real.
 
@@ -225,7 +228,7 @@ lo que conviene cerrar junto con sus entregables.
 | Antes de repartir el trabajo | DT-39 (SQL Server en la CI), DT-17 y DT-16 (partir `main.py`) | Son baratas o evitan que cinco personas choquen |
 | Fase D | DT-04 (fecha de la auditoría, migración `003`), DT-35 y DT-27 (métricas desde la BD), DT-32 (calibración) | El informe del piloto sale de la auditoría |
 | Fase E | DT-05 y DT-61 (datos personales en textos), DT-70 (entrada de diccionarios y dueños) | Es el mismo código que la ingesta de documentos |
-| Fase F | DT-44 y DT-33 (instalación y purga programada), DT-02 (activar `TRUST_FORWARDED_FOR` en la web y `CONVERDATA_TRUST_PROXY` en la API detrás de IIS y probar el bloqueo de login por origen), DT-45 y DT-47 (imagen), DT-06, DT-07 y DT-58 (configuración y logs que fallan en silencio), DT-66 y DT-69 (cuenta de mínimo privilegio y hosts del Builder), DT-36 (SQL Server 2016) | Solo se ven al instalar en un servidor real |
+| Fase F | DT-44 y DT-33 (instalación y purga programada), DT-02 (activar `TRUST_FORWARDED_FOR` en la web y `DISCOVERY_DATA_AGENT_TRUST_PROXY` en la API detrás de IIS y probar el bloqueo de login por origen), DT-45 y DT-47 (imagen), DT-06, DT-07 y DT-58 (configuración y logs que fallan en silencio), DT-66 y DT-69 (cuenta de mínimo privilegio y hosts del Builder), DT-36 (SQL Server 2016) | Solo se ven al instalar en un servidor real |
 | Fase G | DT-30 y DT-29 (modelo y preguntas reales), DT-59, DT-60 y DT-63 (lo que falta del camino con modelo), DT-21 (corte por fallos) | Se cierran al probar Bedrock de punta a punta |
 | Fase H | DT-10 y DT-11 (decisiones del banco sobre lecturas auditadas y alcance del responsable), DT-37 (alerta si falla la auditoría) | Deben estar resueltas antes de abrir el piloto a usuarios |
 | Después del piloto | DT-46 (estado en memoria de un solo proceso), DT-09 (token en el cuerpo del login) | Solo pesan con más usuarios o con más de un proceso |
@@ -239,4 +242,4 @@ lo que conviene cerrar junto con sus entregables.
 - **Duración del piloto.** PRD §10 dice fase 1a en las semanas 1–8, tras la preparación de las semanas 0–1; el plan de F25 numera de 0 a 8, nueve semanas. Aquí "8 semanas" es la ventana 1–8 y la línea base va en 0–1.
 - **Calendario.** El del backlog (S2) es anterior a la simplificación y no se usa.
 - **Texto antiguo.** El estado de HU-33 del 2026-11-16 aún cita 56 casos y la cifra "4 % → 40 %"; lo vigente es 89 casos y 16 % → 60 % (el propio bloque lo corrige después).
-- **Vacíos.** No hay tamaño de la instancia SQL Server de `ConverData`; el servidor de qa no figura en la lista de necesidades al banco del plan §7 aunque OP-07 lo exige; los puntos de las historias no se han reestimado tras los cambios de contenido de HU-04, HU-05 y HU-07.
+- **Vacíos.** No hay tamaño de la instancia SQL Server de `DiscoveryDataAgent`; el servidor de qa no figura en la lista de necesidades al banco del plan §7 aunque OP-07 lo exige; los puntos de las historias no se han reestimado tras los cambios de contenido de HU-04, HU-05 y HU-07.

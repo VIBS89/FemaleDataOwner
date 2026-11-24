@@ -2,16 +2,16 @@
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
 >
-> Publicación y autenticación: **on-premise** → IIS + web Next.js + `ConverData-API` + `/mcp` ([OP-04](../on-premise/OP-04-interfaces.md)) · **cloud native** → los mismos dos contenedores detrás de un ALB interno ([CN-04](../cloud-native/CN-04-interfaces.md))
+> Publicación y autenticación: **on-premise** → IIS + web Next.js + `DiscoveryDataAgent-API` + `/mcp` ([OP-04](../on-premise/OP-04-interfaces.md)) · **cloud native** → los mismos dos contenedores detrás de un ALB interno ([CN-04](../cloud-native/CN-04-interfaces.md))
 
 ## Contrato de la API (igual en ambos despliegues)
-Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15). La API no se publica directamente: la web le reenvía
+Rutas de `DiscoveryDataAgent-API` (`api/discovery_data_agent_api/main.py`; PRD §13, decisión 15). La API no se publica directamente: la web le reenvía
 `/api/*`, así que el navegador las ve con el prefijo `/api`. Solo `/mcp` se publica desde la API.
 
 **Fase 1a (construidas)**
 | Método | Ruta | Cuerpo / respuesta |
 |---|---|---|
-| POST | `/auth/login` (alias `/login`) | `{login, password, auth, servers[]}` (una sola credencial; `servers` lista los servidores donde se usa, y en el primer arranque `host`, `alias`, `environment`, `setup_token`; modelo `LoginRequest` en `api/converdata_api/main.py`) → sesión, servidores y roles; deja la cookie de sesión y devuelve el token para clientes API y MCP (F14) |
+| POST | `/auth/login` (alias `/login`) | `{login, password, auth, servers[]}` (una sola credencial; `servers` lista los servidores donde se usa, y en el primer arranque `host`, `alias`, `environment`, `setup_token`; modelo `LoginRequest` en `api/discovery_data_agent_api/main.py`) → sesión, servidores y roles; deja la cookie de sesión y devuelve el token para clientes API y MCP (F14) |
 | POST · GET | `/auth/logout` (alias `/logout`) · `/auth/me` | Cierra la sesión · usuario, roles, dominios y servidores de la sesión |
 | POST | `/discover` | `{question, history?}` → `AnswerEnvelope` con `flow=discover` (F22) |
 | POST | `/discover/stream` | Lo mismo por SSE, con eventos `step` (progreso de cada nodo) y `answer` |
@@ -25,7 +25,7 @@ Rutas de `ConverData-API` (`api/converdata_api/main.py`; PRD §13, decisión 15)
 | GET | `/health` · `/setup/status` | Públicas: proceso vivo · estado del inventario, del catálogo, del último build y del LLM, sin hosts |
 | GET | `/health/metrics` | Contadores para el monitoreo, sin contenido (OP-05) |
 
-> **Estado al 2026-11-17:** la ficha de `GET /assets/{asset_key}` (`object_detail` en `api/converdata_api/main.py`) devuelve ubicaciones (`copies`), descripción, llaves foráneas visibles, reglas, responsables y `referenced_by`; no devuelve linaje ni documentos vinculados. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+> **Estado al 2026-11-17:** la ficha de `GET /assets/{asset_key}` (`object_detail` en `api/discovery_data_agent_api/main.py`) devuelve ubicaciones (`copies`), descripción, llaves foráneas visibles, reglas, responsables y `referenced_by`; no devuelve linaje ni documentos vinculados. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 **Fase 1b (pendientes)**
 | Método | Ruta | Cuerpo / respuesta |
@@ -63,8 +63,8 @@ Alternativas: LegalClientId (71 %) · UserId (64 %)
 - Solo se muestran activos, ubicaciones y relaciones que el usuario puede leer (F14); lo que no puede ver no aparece en la tarjeta.
 - Con `knowledge_gap`, se muestra el botón "Preguntar al responsable" (F24).
 
-## Herramientas MCP de `converdata-mcp`
-Montado en `/mcp` de `ConverData-API` (`src/converdata/integration/mcp/`); también por stdio para desarrollo (`converdata mcp serve`).
+## Herramientas MCP de `discovery-data-agent-mcp`
+Montado en `/mcp` de `DiscoveryDataAgent-API` (`src/discovery_data_agent/integration/mcp/`); también por stdio para desarrollo (`discovery-data-agent mcp serve`).
 - **Fase 1a (construidas, todas de solo lectura)**: `discover`, `get_asset`, `get_related`, `get_lineage`, `list_business_rules`,
   `find_alternatives` (F22–F24), `search_catalog`, `where_is`, `estate_overview` y `find_join_path` entre BDs (F19).
   `discover` devuelve el `AnswerEnvelope` con `flow=discover`.

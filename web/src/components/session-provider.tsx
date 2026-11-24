@@ -19,6 +19,14 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
+function clearConversations() {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("discovery-data-agent:conversations:")) localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<SetupStatus | null>(null);
@@ -44,7 +52,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const me = await api.me();
         if (!cancelled) setUser(me);
       } catch (e) {
-        if (!cancelled && e instanceof ApiError && e.status === 401) setUser(null);
+        if (!cancelled && e instanceof ApiError && e.status === 401) {
+          clearConversations(); // sesión expirada: lo conversado (preguntas y cifras) no se queda en este equipo
+          setUser(null);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,8 +70,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       router.replace("/login");
     };
-    window.addEventListener("converdata:unauthorized", onUnauthorized);
-    return () => window.removeEventListener("converdata:unauthorized", onUnauthorized);
+    window.addEventListener("discovery-data-agent:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("discovery-data-agent:unauthorized", onUnauthorized);
   }, [router]);
 
   useEffect(() => {
@@ -73,11 +84,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       await api.logout();
     } catch {}
     // Las conversaciones llevan las preguntas tal como se escribieron: no deben quedar en el navegador al salir.
-    try {
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("converdata:conversations:")) localStorage.removeItem(key);
-      }
-    } catch {}
+    clearConversations();
     setUser(null);
     router.replace("/login");
   }, [router]);

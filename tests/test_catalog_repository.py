@@ -1,6 +1,6 @@
-"""HU-06 y HU-09 · El catálogo en la BD `ConverData`: publicar con historial, cargar, exportar y responder igual que con YAML.
+"""HU-06 y HU-09 · El catálogo en la BD `DiscoveryDataAgent`: publicar con historial, cargar, exportar y responder igual que con YAML.
 
-Las pruebas de este archivo necesitan un SQL Server real (`CONVERDATA_TEST_DB`, ver `conftest.py` de la raíz).
+Las pruebas de este archivo necesitan un SQL Server real (`DISCOVERY_DATA_AGENT_TEST_DB`, ver `conftest.py` de la raíz).
 """
 
 import time
@@ -8,15 +8,15 @@ from pathlib import Path
 
 import pytest
 
-from converdata.bootstrap import build_service, build_service_from_db
-from converdata.builder.catalog_builder import write_snapshot
-from converdata.catalog.store import CatalogSnapshot, StaleCatalog, load_snapshot
-from converdata.curation import DescriptionEdit
-from converdata.evaluation.discovery_eval import evaluate, load_cases
-from converdata.models.knowledge import BusinessRule, GoldenDiscovery
-from converdata.audit.sqlserver import SqlServerAuditSink
-from converdata.storage.catalog_repository import SqlServerCatalogRepository
-from converdata.storage.curation_repository import SqlServerCurationRepository
+from discovery_data_agent.bootstrap import build_service, build_service_from_db
+from discovery_data_agent.builder.catalog_builder import write_snapshot
+from discovery_data_agent.catalog.store import CatalogSnapshot, StaleCatalog, load_snapshot
+from discovery_data_agent.curation import DescriptionEdit
+from discovery_data_agent.evaluation.discovery_eval import evaluate, load_cases
+from discovery_data_agent.models.knowledge import BusinessRule, GoldenDiscovery
+from discovery_data_agent.audit.sqlserver import SqlServerAuditSink
+from discovery_data_agent.storage.catalog_repository import SqlServerCatalogRepository
+from discovery_data_agent.storage.curation_repository import SqlServerCurationRepository
 from conftest import FIXTURE
 
 pytestmark = pytest.mark.sqlserver
@@ -187,8 +187,8 @@ def acting_as(db_connect, role: str):
 
 
 def test_la_cuenta_de_la_api_publica_carga_audita_y_pasa_verify(db_connect, vbank):
-    """Con el rol `converdata_app` (no como dueño de la BD): todo lo que hace la API funciona, y `verify` aprueba."""
-    connect = acting_as(db_connect, "converdata_app")
+    """Con el rol `discovery_data_agent_app` (no como dueño de la BD): todo lo que hace la API funciona, y `verify` aprueba."""
+    connect = acting_as(db_connect, "discovery_data_agent_app")
     repo, sink = SqlServerCatalogRepository(connect), SqlServerAuditSink(connect)
     edited = load_snapshot(FIXTURE)
     edited.objects[0].description = "Edición con la cuenta de la API"
@@ -223,7 +223,7 @@ def test_la_cuenta_del_builder_refresca_sin_leer_ni_tocar_lo_curado(db_connect, 
     repo.publish(curated, published_by="prueba", reason="import")
     rules_before = {r.id for r in repo.load()[0].knowledge.rules}
 
-    connect = acting_as(db_connect, "converdata_builder")
+    connect = acting_as(db_connect, "discovery_data_agent_builder")
     builder = SqlServerCatalogRepository(connect)
     working, _version = builder.load("build")
     assert working.objects and working.knowledge.entities and working.knowledge.lineage
@@ -343,6 +343,15 @@ def test_el_inventario_con_hosts_vive_aparte_del_catalogo(repo, vbank):
     repo.save_inventory([], by="admin")
 
 
+def test_el_inventario_conserva_figures_de_cada_servidor(repo, vbank):
+    """`figures` (None / True / False) se guarda y se lee tal cual: de él depende el cálculo de cifras en producción."""
+    valores = [None, True, False]
+    servers = [s.model_copy(update={"figures": valores[i % 3]}) for i, s in enumerate(vbank.inventory.servers)]
+    repo.save_inventory(servers, by="admin")
+    assert [(s.id, s.figures) for s in repo.inventory()] == [(s.id, s.figures) for s in servers]
+    repo.save_inventory([], by="admin")
+
+
 def test_la_exportacion_para_git_no_lleva_preguntas(repo, vbank, tmp_path):
     loaded, _ = repo.load()
     assert loaded.knowledge.golden
@@ -395,7 +404,7 @@ def test_la_purga_alcanza_las_dudas_y_los_originales_pero_no_los_votos(repo, vba
 
 
 def test_la_cuenta_de_la_api_no_puede_cambiar_ni_borrar_votos_ni_originales(db_connect, repo, vbank):
-    connect = acting_as(db_connect, "converdata_app")
+    connect = acting_as(db_connect, "discovery_data_agent_app")
     SqlServerCurationRepository(connect).add_vote(
         {"golden_id": "u-fijo", "user_id": "ana", "trace_id": "t", "asset_key": USERS, "verdict": "confirm"})
     for sql in ("UPDATE curation.vote SET verdict = 'reject' WHERE golden_id = 'u-fijo'",

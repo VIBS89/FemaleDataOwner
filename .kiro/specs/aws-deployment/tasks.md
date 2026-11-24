@@ -1,0 +1,22 @@
+# Tareas: Despliegue en AWS
+
+- [x] 1. Red: VPC privada, VPC endpoints y Site-to-Site VPN opcional
+  - _Requisito: 2.2_
+- [x] 2. ALB con HTTPS y reglas `/` y `/mcp`
+  - _Requisito: 1.2_
+- [x] 3. Tarea de ECS Fargate con web y API, despliegue que detiene la tarea anterior
+  - _Requisitos: 1.1, 1.3_
+- [x] 4. Rol de la tarea con `bedrock:InvokeModel` sobre el modelo elegido y `models.yaml` de Bedrock
+  - _Requisito: 2.1_
+- [x] 5. Builder programado con EventBridge Scheduler y roles separados
+  - _Requisitos: 3.1, 3.2_
+- [x] 6. Secrets Manager, ECR inmutable, logs cifrados con KMS y alarmas por SNS
+  - _Requisitos: 4.1, 4.2, 4.3_
+- [x] 7. Script `despliegue.sh` y pruebas de Terraform con el proveedor simulado
+  - _Requisitos: 1.1–4.3_
+- [x] 8. Desplegar el entorno `demo` en la cuenta del equipo
+  - _Requisitos: 1.1, 2.1_
+- [ ] 9. Medir el descubrimiento con Bedrock (`eval discovery --models`) y fijar el modelo de qa
+  - _Requisito: 2.1_
+- [ ] 10. Resolver los bloqueos de qa y prod: gMSA, CA del banco en la imagen, VPN y firewall
+  - _Requisito: 4.4_

@@ -1,0 +1,362 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DiscoveryDataAgent — Entorno demo en AWS (económico, efímero)",
+    "output": "docs/architecture/aws-demo-architecture.html",
+    "locale": "es",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "operator",
+      "type": "external",
+      "label": "Equipo",
+      "sublabel": "despliegue.sh up · teardown",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Quien despliega, desde su máquina con Docker, Terraform y AWS CLI. `despliegue.sh up demo` crea el bucket del estado, la infraestructura y los secretos, construye y sube las tres imágenes y arranca la tarea. `teardown demo` lo destruye todo, también el bucket. `credentials demo` muestra los usuarios y el código de instalación. (deploy/aws/README.md)"
+    },
+    {
+      "id": "ecr",
+      "type": "cloud",
+      "label": "ECR",
+      "sublabel": "web · api · sqlserver",
+      "pos": [
+        280,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Tres repositorios con etiquetas inmutables (el hash del commit) y análisis al subir; conservan las 3 imágenes más recientes. La de SQL Server (2,5 GB) lleva las cinco bases de BancosSQL ya cargadas. Se borran con el entorno."
+    },
+    {
+      "id": "secrets",
+      "type": "security",
+      "label": "Secrets Manager",
+      "sublabel": "contraseñas · claves · cadena BD",
+      "pos": [
+        520,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Contraseñas de SQL Server que genera Terraform (sa, dda_admin, analista, dda_app), la cadena ODBC de la BD DiscoveryDataAgent, el código de instalación y las claves de NVIDIA NIM y Anthropic que `up` carga desde el .env. ECS las inyecta como variables: SQL Server recibe las de los logins y la API solo la cadena de dda_app y las claves de LLM."
+    },
+    {
+      "id": "bedrock",
+      "type": "cloud",
+      "label": "Amazon Bedrock",
+      "sublabel": "Claude Sonnet 5.5 · Mantle",
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "perfil por defecto",
+      "description": "Claude Sonnet 5.5 (o Haiku 5.5) por la Messages API de Bedrock (bedrock-mantle), con el SDK oficial de Anthropic y el rol de la tarea: sin claves. Permiso bedrock-mantle:CreateInference limitado a la región del entorno. Hay que habilitar el acceso al modelo en la consola de Bedrock antes de desplegar."
+    },
+    {
+      "id": "logs",
+      "type": "cloud",
+      "label": "CloudWatch Logs",
+      "sublabel": "3 días · cifrados con KMS",
+      "pos": [
+        1000,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Un grupo por contenedor (api, web, sqlserver) con retención de 3 días, cifrados con la clave KMS del entorno. Sin el texto de las preguntas. `despliegue.sh logs demo [api|web|sqlserver]`."
+    },
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Usuario",
+      "sublabel": "navegador · IP permitida",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Entra con un login SQL del SQL Server de pruebas: dda_admin (administrador, las cinco bases) o analista (solo BancaCuentasDebito y BancaPrestamos). El primer acceso tras cada arranque registra el servidor localhost,1433 con el código de instalación."
+    },
+    {
+      "id": "alb",
+      "type": "security",
+      "label": "ALB público",
+      "sublabel": "solo las IP indicadas",
+      "pos": [
+        280,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Reparte / a la web y /mcp a la API. Acepta solo las redes de alb_ingress_cidrs; si la lista está vacía, `up` pone la IP pública de quien despliega (/32). Sin certificado escucha en HTTP: con más de una IP conviene HTTPS (domain_name y route53_zone_id). Es la pieza más cara del demo, unos 0,028 USD por hora."
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web",
+      "sublabel": "contenedor Next.js · 3000",
+      "pos": [
+        520,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "La misma imagen de web/Dockerfile: chat, Catálogo, Curación, Administración (con la elección del modelo) y Documentación. Reenvía /api a la API por localhost dentro de la tarea."
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "DiscoveryDataAgent-API",
+      "sublabel": "FastAPI · MCP · 8000",
+      "pos": [
+        760,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "migra la BD al arrancar",
+      "description": "La misma imagen de api/Dockerfile, construida con requirements/dev.lock para tener los clientes de NIM y Anthropic. Al arrancar aplica las migraciones de DiscoveryDataAgent y escribe el models.yaml con los cuatro perfiles: Claude Sonnet o Haiku en Bedrock, NVIDIA NIM y Claude por la API de Anthropic. El catálogo se descubre desde Administración con el login del administrador."
+    },
+    {
+      "id": "sqlserver",
+      "type": "database",
+      "label": "SQL Server 2022 Express",
+      "sublabel": "5 BDs de prueba · BD de trabajo",
+      "pos": [
+        1000,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "sin RDS",
+      "description": "Contenedor de la misma tarea (deploy/aws/sqlserver), con licencia Express gratuita. Hace de servidor del banco con las cinco bases de prueba (datos 100 % ficticios) y aloja la BD de trabajo DiscoveryDataAgent. Solo la API lo alcanza, por localhost: el grupo de seguridad no abre el 1433. Cada arranque parte de la imagen, así que lo escrito se pierde al parar la tarea."
+    },
+    {
+      "id": "nim",
+      "type": "external",
+      "label": "NVIDIA NIM",
+      "sublabel": "perfil elegible",
+      "pos": [
+        640,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "solo datos de prueba",
+      "description": "API alojada de NVIDIA (Nemotron), con NVIDIA_API_KEY. Es un tercero: el gateway solo la permite con data_mode test, y Terraform rechaza la salida a internet junto a la VPN o a un SQL Server del banco."
+    },
+    {
+      "id": "anthropic",
+      "type": "external",
+      "label": "API de Anthropic",
+      "sublabel": "perfil elegible",
+      "pos": [
+        880,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "solo datos de prueba",
+      "description": "Claude Sonnet 5.5 por la API de Anthropic, con ANTHROPIC_API_KEY. Mismas reglas que NIM: solo con datos de prueba."
+    },
+    {
+      "id": "scheduler",
+      "type": "messagebus",
+      "label": "EventBridge Scheduler",
+      "sublabel": "encender · apagar (opcional)",
+      "pos": [
+        400,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "Con schedule.enabled, pone la tarea en 1 por la mañana y en 0 por la noche: fuera de horario no se paga Fargate. A mano: `despliegue.sh start|stop demo`. Para una demostración de un día no hace falta."
+    },
+    {
+      "id": "state",
+      "type": "cloud",
+      "label": "S3 · estado de Terraform",
+      "sublabel": "versionado · bloqueo nativo",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "description": "El bucket del estado (bootstrap), cifrado y solo por TLS. Guarda también las contraseñas que genera Terraform. `teardown` lo vacía con todas sus versiones y lo borra si no guarda otro entorno."
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Tarea Fargate Spot · 1 vCPU · 4 GB · IP pública sin NAT",
+      "wraps": [
+        "web",
+        "api",
+        "sqlserver"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Terceros · solo datos de prueba",
+      "wraps": [
+        "nim",
+        "anthropic"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "op-ecr",
+      "from": "operator",
+      "to": "ecr",
+      "label": "docker push",
+      "variant": "dashed"
+    },
+    {
+      "id": "user-alb",
+      "from": "users",
+      "to": "alb",
+      "label": "HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "alb-web",
+      "from": "alb",
+      "to": "web",
+      "label": "/",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-api",
+      "from": "web",
+      "to": "api",
+      "label": "/api",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-sql",
+      "from": "api",
+      "to": "sqlserver",
+      "label": "localhost:1433",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-bedrock",
+      "from": "api",
+      "to": "bedrock",
+      "label": "rol de la tarea"
+    },
+    {
+      "id": "api-secrets",
+      "from": "secrets",
+      "to": "api",
+      "label": "inyectados por ECS",
+      "variant": "security"
+    },
+    {
+      "id": "api-logs",
+      "from": "api",
+      "to": "logs",
+      "label": "logs",
+      "variant": "dashed"
+    },
+    {
+      "id": "api-nim",
+      "from": "api",
+      "to": "nim",
+      "label": "HTTPS",
+      "variant": "dashed"
+    },
+    {
+      "id": "api-anthropic",
+      "from": "api",
+      "to": "anthropic",
+      "label": "HTTPS",
+      "variant": "dashed"
+    },
+    {
+      "id": "sched-web",
+      "from": "scheduler",
+      "to": "web",
+      "label": "1 / 0 tareas",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Coste",
+      "items": [
+        "Unos 0,065 USD por hora de infraestructura: 1,6 USD por 24 h",
+        "Más los tokens: una demostración con Sonnet ronda 1 USD (Haiku, unas 20 veces menos)",
+        "Encendido todo el mes, unos 50 USD más tokens; stop deja de pagar Fargate"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Qué se quitó para ahorrar",
+      "items": [
+        "NAT y VPC endpoints: la tarea sale por su IP pública (unos 60 USD al mes)",
+        "RDS: SQL Server Express como contenedor de la misma tarea",
+        "Fargate normal: Spot, unos 70 % más barato; logs de 3 días, 3 imágenes"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Crear, mostrar y destruir",
+      "items": [
+        "up demo: unos 20 minutos la primera vez",
+        "Registrar localhost,1433 como dda_admin y Descubrir esquemas",
+        "teardown demo: queda solo la clave KMS, 7 días en espera de borrado"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Límites",
+      "items": [
+        "Datos ficticios y efímeros: cada arranque parte de la imagen",
+        "HTTP sin dominio propio: solo para IP conocidas",
+        "qa y prod rechazan estos atajos; su destino es cloud-native-architecture"
+      ]
+    }
+  ]
+}

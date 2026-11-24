@@ -1,7 +1,7 @@
-"""HU-06 y HU-09 · ConverData-API con todo su estado en la BD `ConverData` real (OP-02).
+"""HU-06 y HU-09 · DiscoveryDataAgent-API con todo su estado en la BD `DiscoveryDataAgent` real (OP-02).
 
 Catálogo, conocimiento, curación e inventario viven en la BD; el servidor de aplicación no guarda archivos. Necesita
-`CONVERDATA_TEST_DB` (ver `conftest.py` de la raíz); sin ella se omite.
+`DISCOVERY_DATA_AGENT_TEST_DB` (ver `conftest.py` de la raíz); sin ella se omite.
 """
 
 import tempfile
@@ -11,11 +11,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.models.knowledge import BusinessRule
-from converdata.storage.catalog_repository import SqlServerCatalogRepository
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
-from converdata_api.settings import ApiSettings
+from discovery_data_agent.models.knowledge import BusinessRule
+from discovery_data_agent.storage.catalog_repository import SqlServerCatalogRepository
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.settings import ApiSettings
 
 from test_api import FIXTURE, build, login, settings  # noqa: F401  (fixtures de la API)
 
@@ -93,7 +93,7 @@ def test_el_servidor_no_guarda_estado_en_disco(client, settings, repo, monkeypat
         made.append(Path(real(*args, **kwargs)))
         return str(made[-1])
 
-    monkeypatch.setattr("converdata_api.runtime.tempfile.mkdtemp", recording)
+    monkeypatch.setattr("discovery_data_agent_api.runtime.tempfile.mkdtemp", recording)
     assert describe(client, "Clientes del banco").status_code == 200
     env, top = ask(client)
     vote(client, env, top)
@@ -103,7 +103,7 @@ def test_el_servidor_no_guarda_estado_en_disco(client, settings, repo, monkeypat
     assert build(client)["status"] == "ok"
     for path in (settings.data_root, settings.inventory_path, settings.curation_dir):
         assert not path.exists(), path
-    assert len(made) == 1 and made[0].name.startswith("converdata-build-") and not made[0].exists()
+    assert len(made) == 1 and made[0].name.startswith("discovery-data-agent-build-") and not made[0].exists()
     assert [s.host for s in repo.inventory()] == ["demo-sql"]  # el inventario, con su host, está en la BD
 
 
@@ -211,7 +211,7 @@ def test_si_la_escritura_falla_no_queda_nada_a_medias(client, repo):
     csv = "asset_key,description\nBancaPrestamos.dbo.Clientes.DUI,Documento único de identidad del cliente\n"
 
     def broken(edits, **kwargs):
-        raise ConnectionError("BD ConverData inaccesible")
+        raise ConnectionError("BD DiscoveryDataAgent inaccesible")
 
     runtime.writer.write_descriptions = broken
     quiet = TestClient(client.app, raise_server_exceptions=False, cookies=client.cookies)

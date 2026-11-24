@@ -5,14 +5,14 @@
 > Implementa en AWS: [F14](../comun/F14-identity.md) · equivalente on-premise: [OP-03](../on-premise/OP-03-identidad.md). El principio y el flujo de herencia de permisos son los de F14.
 
 ## Una sola identidad: el login SQL del usuario
-- El inicio de sesión es **el mismo que on-premise**: el usuario entra con su propio login SQL, uno por servidor (`POST /auth/login`), y `ConverData-API` lo valida con una conexión de prueba por la VPN. No hay proveedor de identidad adicional (PRD §13, decisión 11).
-- SQL Server sigue siendo la fuente de verdad de los permisos: la API pregunta con el login del propio usuario qué objetos puede ver y lo vuelve a leer cada 15 minutos (`CONVERDATA_VISIBILITY_TTL_S`).
-- La autenticación de Windows no existe dentro del contenedor y `CONVERDATA_ALLOW_WINDOWS_AUTH` debe estar apagada en qa y prod.
+- El inicio de sesión es **el mismo que on-premise**: el usuario entra con su propio login SQL, uno por servidor (`POST /auth/login`), y `DiscoveryDataAgent-API` lo valida con una conexión de prueba por la VPN. No hay proveedor de identidad adicional (PRD §13, decisión 11).
+- SQL Server sigue siendo la fuente de verdad de los permisos: la API pregunta con el login del propio usuario qué objetos puede ver y lo vuelve a leer cada 15 minutos (`DISCOVERY_DATA_AGENT_VISIBILITY_TTL_S`).
+- La autenticación de Windows no existe dentro del contenedor y `DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH` debe estar apagada en qa y prod.
 
-> **Estado al 2026-11-17 (bloqueo conocido, sin resolver):** en qa y prod la API no arranca si `CONVERDATA_DB` lleva contraseña (`production_violations` en `api/converdata_api/security.py`: exige `Trusted_Connection=yes` con la gMSA), y un contenedor Linux no tiene gMSA ni autenticación de Windows. La tabla de secretos de abajo dice que el login de la BD `ConverData` es un secreto, por confirmar: las dos cosas chocan. Hace falta una decisión de Seguridad y un cambio de código, o un mecanismo sin contraseña distinto. Además, `POST /auth/login` recibe una sola credencial que prueba en cada servidor marcado, no una por servidor. Ver [hoja de ruta cloud](../../wiki/hoja-de-ruta-cloud.md).
+> **Estado al 2026-11-17 (bloqueo conocido, sin resolver):** en qa y prod la API no arranca si `DISCOVERY_DATA_AGENT_DB` lleva contraseña (`production_violations` en `api/discovery_data_agent_api/security.py`: exige `Trusted_Connection=yes` con la gMSA), y un contenedor Linux no tiene gMSA ni autenticación de Windows. La tabla de secretos de abajo dice que el login de la BD `DiscoveryDataAgent` es un secreto, por confirmar: las dos cosas chocan. Hace falta una decisión de Seguridad y un cambio de código, o un mecanismo sin contraseña distinto. Además, `POST /auth/login` recibe una sola credencial que prueba en cada servidor marcado, no una por servidor. Ver [hoja de ruta cloud](../../wiki/hoja-de-ruta-cloud.md).
 
 ## Custodia: SessionVault en memoria
-- Los logins SQL de los usuarios **no se guardan en ningún almacén**: viven cifrados en la memoria de `ConverData-API` mientras dura la sesión (PRD §13, decisión 14). La clave de cifrado se genera al arrancar el proceso y no sale de él.
+- Los logins SQL de los usuarios **no se guardan en ningún almacén**: viven cifrados en la memoria de `DiscoveryDataAgent-API` mientras dura la sesión (PRD §13, decisión 14). La clave de cifrado se genera al arrancar el proceso y no sale de él.
 - Sesión: 8 h de inactividad, 12 h de vida total, 5 por usuario, revocable por el administrador (`/admin/sessions`). Cookie `cd_session` con `Secure`; el mismo token sirve como Bearer para `/mcp`.
 - Bloqueo del login: 5 fallos en 10 minutos por usuario y 30 por origen, 15 minutos de bloqueo.
 - Por eso el servicio corre con **una sola tarea y un worker**: un reinicio cierra las sesiones y los usuarios vuelven a entrar.
@@ -23,9 +23,9 @@ Equivale a DPAPI on-premise. Solo secretos del servicio, inyectados como variabl
 | Secreto | Quién lo lee |
 |---|---|
 | Login de metadatos del Builder | Solo el rol de la tarea del Builder |
-| Código de instalación (`CONVERDATA_SETUP_TOKEN`), mientras no exista inventario | Tarea de la API |
-| Login con el que la API escribe en la BD `ConverData` (catálogo, curación, auditoría) | Tarea de la API (y del Builder para `catalog`); por confirmar con HU-04 y HU-20 |
-| Webhook de notificaciones (`CONVERDATA_NOTIFY_WEBHOOK`), si se usa | Tarea de la API |
+| Código de instalación (`DISCOVERY_DATA_AGENT_SETUP_TOKEN`), mientras no exista inventario | Tarea de la API |
+| Login con el que la API escribe en la BD `DiscoveryDataAgent` (catálogo, curación, auditoría) | Tarea de la API (y del Builder para `catalog`); por confirmar con HU-04 y HU-20 |
+| Webhook de notificaciones (`DISCOVERY_DATA_AGENT_NOTIFY_WEBHOOK`), si se usa | Tarea de la API |
 
 ## Roles de IAM
 | Rol | Permisos |
@@ -37,7 +37,7 @@ Equivale a DPAPI on-premise. Solo secretos del servicio, inyectados como variabl
 Bedrock se llama con el rol de la tarea, sin claves (on-premise: IAM Roles Anywhere).
 
 ## Roles y grupos de la aplicación
-Igual que on-premise: `data_admin` por lista explícita (`CONVERDATA_ADMINS_ONLY=1` + `CONVERDATA_ADMINS`), `steward` por los responsables
+Igual que on-premise: `data_admin` por lista explícita (`DISCOVERY_DATA_AGENT_ADMINS_ONLY=1` + `DISCOVERY_DATA_AGENT_ADMINS`), `steward` por los responsables
 de dominio de Curación (F24) y `consumer` para el resto. El uso de grupos de Active Directory (HU-13) está **por confirmar** en ambos despliegues.
 
 ## Criterios de aceptación
@@ -46,4 +46,4 @@ de dominio de Curación (F24) y `consumer` para el resto. El uso de grupos de Ac
 3. El rol de la tarea de la API recibe `AccessDenied` al leer el secreto del login de metadatos.
 4. Dos usuarios con permisos distintos hacen la misma pregunta y cada uno ve solo sus objetos.
 5. Al reiniciar la tarea, las sesiones anteriores devuelven 401.
-6. Ser `sysadmin` de un servidor no da el rol `data_admin` si el login no está en `CONVERDATA_ADMINS`.
+6. Ser `sysadmin` de un servidor no da el rol `data_admin` si el login no está en `DISCOVERY_DATA_AGENT_ADMINS`.

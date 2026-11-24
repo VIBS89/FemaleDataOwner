@@ -1,4 +1,4 @@
-// Proxy hacia ConverData-API: el navegador solo habla con este origen, así la cookie de sesión es httpOnly y
+// Proxy hacia DiscoveryDataAgent-API: el navegador solo habla con este origen, así la cookie de sesión es httpOnly y
 // del mismo sitio, y la URL interna de la API (API_URL) se lee en tiempo de ejecución, no al compilar.
 import type { NextRequest } from "next/server";
 
@@ -23,7 +23,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     if (value) headers.set(name, value);
   }
   // El sitio que el navegador ve: la API lo compara con `origin`. Si delante hay un proxy que cambia `Host`, el
-  // origen público debe estar además en CONVERDATA_CORS_ORIGINS de la API.
+  // origen público debe estar además en DISCOVERY_DATA_AGENT_CORS_ORIGINS de la API.
   const host = req.headers.get("x-forwarded-host")?.split(",")[0].trim() || req.headers.get("host");
   if (host) headers.set("x-forwarded-host", host);
   if (TRUST_FORWARDED_FOR) {
@@ -40,7 +40,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
       redirect: "manual",
     });
   } catch {
-    return Response.json({ detail: "No se pudo contactar a ConverData-API" }, { status: 502 });
+    return Response.json({ detail: "No se pudo contactar a la API de Discovery Data Agent" }, { status: 502 });
   }
   const out = new Headers();
   const type = upstream.headers.get("content-type");

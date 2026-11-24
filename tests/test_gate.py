@@ -1,4 +1,4 @@
-"""La compuerta de calidad (`converdata eval gate`) aprueba el producto tal como está y **falla cuando debe**.
+"""La compuerta de calidad (`discovery-data-agent eval gate`) aprueba el producto tal como está y **falla cuando debe**.
 
 Una compuerta que nunca falla no verifica nada: por cada suite hay un test que rompe a propósito el control que vigila
 y comprueba que la suite lo detecta.
@@ -9,17 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from converdata.application.discovery import DiscoveryTools
-from converdata.bootstrap import build_service, user_with_databases
-from converdata.builder import catalog_builder as cb
-from converdata.cli import main
-from converdata.config import ServerConfig
-from converdata.discovery import engine
-from converdata.evaluation import gate
-from converdata.evaluation.adversarial import FUZZ, INJECTIONS
-from converdata.evaluation.discovery_eval import load_cases
-from converdata.flows.discover import DiscoverService
-from converdata.metadata.ports import RawColumn, RawObject
+from discovery_data_agent.application.discovery import DiscoveryTools
+from discovery_data_agent.bootstrap import build_service, user_with_databases
+from discovery_data_agent.builder import catalog_builder as cb
+from discovery_data_agent.cli import main
+from discovery_data_agent.config import ServerConfig
+from discovery_data_agent.discovery import engine
+from discovery_data_agent.evaluation import gate
+from discovery_data_agent.evaluation.adversarial import FUZZ, INJECTIONS
+from discovery_data_agent.evaluation.discovery_eval import load_cases
+from discovery_data_agent.flows.discover import DiscoverService
+from discovery_data_agent.metadata.ports import RawColumn, RawObject
 
 FIXTURES = Path(__file__).parent / "fixtures"
 VBANK, BANCOS = FIXTURES / "vbank", FIXTURES / "bancos"
@@ -103,7 +103,7 @@ def test_permisos_falla_si_una_herramienta_ignora_la_visibilidad(cases, monkeypa
     service = build_service(VBANK)
 
     def leaky_related(self, user, asset_key):  # sin comprobar `visible_ids`
-        from converdata.catalog.ids import table_key
+        from discovery_data_agent.catalog.ids import table_key
 
         d = self.service.deps
         everything = frozenset(o.id for o in d.catalog.objects)
@@ -207,7 +207,7 @@ def test_texto_generado_normal_se_muestra(text):
 
 
 def test_los_prompts_delimitan_el_contenido_no_confiable():
-    from converdata.llm import nodes
+    from discovery_data_agent.llm import nodes
 
     captured = []
 
@@ -256,8 +256,8 @@ def test_un_objeto_no_se_escribe_fuera_del_catalogo(tmp_path):
 
 
 def test_el_build_omite_los_objetos_con_nombres_no_admitidos(tmp_path):
-    from converdata.config import Inventory
-    from converdata.flows.catalog_build import build_catalog
+    from discovery_data_agent.config import Inventory
+    from discovery_data_agent.flows.catalog_build import build_catalog
 
     class Source:
         def list_databases(self):
@@ -279,7 +279,7 @@ def test_el_build_omite_los_objetos_con_nombres_no_admitidos(tmp_path):
 
 # --- CLI de verificación de la auditoría ---------------------------------------------------------------
 def test_cli_audit_verify(tmp_path, capsys):
-    from converdata.audit.chain import GENESIS, seal
+    from discovery_data_agent.audit.chain import GENESIS, seal
 
     first = seal({"type": "login", "user_id": "ana"}, GENESIS)
     second = seal({"type": "question", "user_id": "ana"}, first["hash"])

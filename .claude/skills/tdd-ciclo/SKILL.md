@@ -1,10 +1,10 @@
 ---
 name: tdd-ciclo
-description: Ciclo TDD rojo-verde-refactor para ConverData, partiendo de los criterios de aceptación (CA) de una historia HU-xx o spec. Úsalo al implementar una funcionalidad o corregir un bug; fuerza escribir y ver fallar el test antes del código de producción.
+description: Ciclo TDD rojo-verde-refactor para DiscoveryDataAgent, partiendo de los criterios de aceptación (CA) de una historia HU-xx o spec. Úsalo al implementar una funcionalidad o corregir un bug; fuerza escribir y ver fallar el test antes del código de producción.
 argument-hint: "[HU-xx | descripción del comportamiento | bug]"
 ---
 
-# TDD en ConverData
+# TDD en DiscoveryDataAgent
 
 Objetivo: `$ARGUMENTS`. Si está vacío, pregunta qué comportamiento o HU se va a desarrollar.
 
@@ -18,7 +18,7 @@ Objetivo: `$ARGUMENTS`. Si está vacío, pregunta qué comportamiento o HU se va
    aplicación (`test_application_discovery.py`, `test_discover_flow_e2e.py`) → integración (`api/tests/`, `test_mcp_server.py`).
 2. Reutiliza lo existente antes de crear nada: fixtures `service`, `analyst`, `rrhh_user` (`tests/conftest.py`);
    `FakeDb`/`FakeConnection`/`FakeCursor` (`tests/fakes.py`) para SQL Server; catálogos en `tests/fixtures/vbank` y `bancos`;
-   modo demo (`CONVERDATA_DEMO=1`) para la API.
+   modo demo (`DISCOVERY_DATA_AGENT_DEMO=1`) para la API.
 3. Escribe **un** test: nombre en español que describa el comportamiento
    (`test_get_asset_no_revela_lo_que_el_usuario_no_ve`), `from __future__ import annotations`, y el CA en el docstring.
 4. Córrelo y **confirma que falla por la razón correcta** (no por un `ImportError` o un typo):
@@ -47,7 +47,7 @@ Siguiente CA → vuelve al paso 1. Un commit por ciclo o por CA coherente.
 | Permisos / visibilidad (F14) | Caso **negativo**: usuario sin acceso no ve el activo por API, MCP, caminos de unión ni sugerencias |
 | Auditoría (F11) | Fail-closed: si el registrador falla, no hay respuesta |
 | Logs / observabilidad (HU-21) | Los logs no contienen pregunta, SQL ni valores |
-| `discovery/`, `flows/discover.py`, `graph/`, `memory/`, `llm/` | `converdata eval discovery` sin regresión (subagente `evaluador-descubrimiento`) |
+| `discovery/`, `flows/discover.py`, `graph/`, `memory/`, `llm/` | `discovery-data-agent eval discovery` sin regresión (subagente `evaluador-descubrimiento`) |
 | Endpoints de la API o `web/src/lib/api.ts` | Subagente `verificador-contrato-web-api` |
 | Prompts / LLM | Una inyección más en `tests/test_prompt_injection.py` |
 

@@ -79,14 +79,14 @@ export function AppSidebar() {
               <Link href="/" onClick={newChat}>
                 <BrandMark />
                 <div className="grid flex-1 text-left leading-tight">
-                  <span className="font-semibold tracking-tight">ConverData</span>
+                  <span className="font-heading text-[15px] font-extrabold tracking-tight">Discovery Data Agent</span>
                   <span className="text-muted-foreground text-xs">Descubrimiento de datos</span>
                 </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <Button onClick={newChat} className="mt-1 w-full justify-start gap-2 group-data-[collapsible=icon]:hidden">
+        <Button onClick={newChat} className="mt-1 w-full justify-start gap-2 font-semibold shadow-sm group-data-[collapsible=icon]:hidden">
           <MessageSquarePlus /> Nueva pregunta
         </Button>
       </SidebarHeader>
@@ -101,6 +101,7 @@ export function AppSidebar() {
                     asChild
                     tooltip={item.label}
                     isActive={item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)}
+                    className="relative font-medium data-[active=true]:font-semibold data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:left-0 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-brand"
                   >
                     <Link href={item.href} onClick={() => setOpenMobile(false)}>
                       <item.icon />

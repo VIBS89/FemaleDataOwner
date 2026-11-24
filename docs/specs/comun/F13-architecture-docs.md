@@ -8,14 +8,14 @@ Mantener ocho diagramas interactivos y versionados que expliquen la solución, y
 ## Vistas
 | Archivo | Tipo (`diagram_type`) | Qué explica |
 |---|---|---|
-| `docs/architecture/c4-contexto.html` | `architecture` | **C4 nivel 1, contexto**: quién usa ConverData y con qué sistemas habla |
-| `docs/architecture/cloud-native-architecture.html` | `architecture` | **Despliegue mínimo en AWS (posterior al piloto)**: ALB interno con ACM, una tarea de ECS Fargate con los contenedores web (Next.js) y `ConverData-API` (DiscoverFlow + MCP), Builder como tarea lanzada por EventBridge Scheduler, Bedrock por VPC endpoint, Secrets Manager para secretos de servicio, CloudWatch Logs sin contenido y Site-to-Site VPN hacia la red del banco, donde quedan SQL Server, la BD `ConverData` y las fuentes de conocimiento. No incluye AgentCore, OpenSearch, Cognito, WAF, S3 ni Transit Gateway (CN-01 a CN-06) |
-| `docs/architecture/onpremise-architecture.html` | `architecture` | **Arquitectura on-premise, fase 1a**: Windows Server con IIS delante de dos procesos (web Next.js y `ConverData-API` con DiscoverFlow + MCP e índice léxico en memoria), Builder como comando lanzado por el Programador de tareas, BD `ConverData` en tablas normales (sin vectores, Full-Text ni grafo; SQL Server 2016+), fuentes de conocimiento y Bedrock como único servicio externo. Las fichas indican qué está construido y qué está pendiente (OP-01 a OP-07) |
-| `docs/architecture/controles-calidad-bancaria.html` | `workflow` | **Controles de una petición y compuerta de calidad**: qué comprueba la API antes de responder y las siete suites de `converdata eval gate` ([calidad bancaria](../../calidad-bancaria.md)) |
+| `docs/architecture/c4-contexto.html` | `architecture` | **C4 nivel 1, contexto**: quién usa DiscoveryDataAgent y con qué sistemas habla |
+| `docs/architecture/cloud-native-architecture.html` | `architecture` | **Despliegue mínimo en AWS (posterior al piloto)**: ALB interno con ACM, una tarea de ECS Fargate con los contenedores web (Next.js) y `DiscoveryDataAgent-API` (DiscoverFlow + MCP), Builder como tarea lanzada por EventBridge Scheduler, Bedrock por VPC endpoint, Secrets Manager para secretos de servicio, CloudWatch Logs sin contenido y Site-to-Site VPN hacia la red del banco, donde quedan SQL Server, la BD `DiscoveryDataAgent` y las fuentes de conocimiento. No incluye AgentCore, OpenSearch, Cognito, WAF, S3 ni Transit Gateway (CN-01 a CN-06) |
+| `docs/architecture/onpremise-architecture.html` | `architecture` | **Arquitectura on-premise, fase 1a**: Windows Server con IIS delante de dos procesos (web Next.js y `DiscoveryDataAgent-API` con DiscoverFlow + MCP e índice léxico en memoria), Builder como comando lanzado por el Programador de tareas, BD `DiscoveryDataAgent` en tablas normales (sin vectores, Full-Text ni grafo; SQL Server 2016+), fuentes de conocimiento y Bedrock como único servicio externo. Las fichas indican qué está construido y qué está pendiente (OP-01 a OP-07) |
+| `docs/architecture/controles-calidad-bancaria.html` | `workflow` | **Controles de una petición y compuerta de calidad**: qué comprueba la API antes de responder y las siete suites de `discovery-data-agent eval gate` ([calidad bancaria](../../calidad-bancaria.md)) |
 | `docs/architecture/permisos-heredados.html` | `sequence` | **Permisos de BD heredados**: el login SQL del usuario determina qué ve el catálogo al descubrir (construido) y, en la fase 1b planificada, con qué login se ejecuta cada consulta y cómo se deniega un acceso fuera de permisos (F14) |
-| `docs/architecture/c4-componentes-api.html` | `architecture` | **C4 nivel 3, componentes**: las piezas internas de `ConverData-API` |
+| `docs/architecture/c4-componentes-api.html` | `architecture` | **C4 nivel 3, componentes**: las piezas internas de `DiscoveryDataAgent-API` |
 | `docs/architecture/flujo-descubrimiento.html` | `workflow` | **Cómo se responde una pregunta**, paso a paso (F22) |
-| `docs/architecture/modelo-datos-converdata.html` | `erd` | **Tablas de la BD `ConverData`** (esquemas `catalog`, `knowledge`, `audit`, `curation`; `db/converdata/`) |
+| `docs/architecture/modelo-datos-discovery-data-agent.html` | `erd` | **Tablas de la BD `DiscoveryDataAgent`** (esquemas `catalog`, `knowledge`, `audit`, `curation`; `db/discovery_data_agent/`) |
 
 Las fuentes de cada diagrama (`*.archify.json`) se guardan junto al HTML, así que se pueden regenerar:
 ```bash
@@ -29,5 +29,5 @@ Cada componente o participante tiene un campo `description` (extensión del fork
 
 ## Criterios de aceptación
 1. Los ocho diagramas abren sin conexión a internet en un navegador.
-2. Cada componente corresponde a un módulo de `src/converdata/` o de `api/converdata_api/`, a un proceso (web Next.js, `ConverData-API`, comando del Builder lanzado por el Programador de tareas) o a un recurso de SQL Server (on-premise), o a un recurso de la IaC de AWS (cloud native). No hay servicios de Windows propios (PRD §13, decisiones 11 y 12).
+2. Cada componente corresponde a un módulo de `src/discovery_data_agent/` o de `api/discovery_data_agent_api/`, a un proceso (web Next.js, `DiscoveryDataAgent-API`, comando del Builder lanzado por el Programador de tareas) o a un recurso de SQL Server (on-premise), o a un recurso de la IaC de AWS (cloud native). No hay servicios de Windows propios (PRD §13, decisiones 11 y 12).
 3. Los diagramas se regeneran cuando cambia la arquitectura (checklist del PR).

@@ -6,7 +6,7 @@ export function BrandMark({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+        "bg-brand-gradient text-white flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1 ring-black/5",
         className,
       )}
     >
@@ -20,7 +20,7 @@ export function Brand({ subtitle = "Descubrimiento de datos" }: { subtitle?: str
     <div className="flex items-center gap-2.5">
       <BrandMark />
       <div className="grid leading-tight">
-        <span className="font-semibold tracking-tight">ConverData</span>
+        <span className="font-heading text-[15px] font-extrabold tracking-tight">Discovery Data Agent</span>
         <span className="text-muted-foreground text-xs">{subtitle}</span>
       </div>
     </div>

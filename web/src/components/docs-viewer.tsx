@@ -328,12 +328,12 @@ function rank(section: string): number {
   return i < 0 ? SECTION_ORDER.length - 1 : i; // otra carpeta de la wiki, antes de la arquitectura
 }
 
-/** Títulos cortos para el índice: "ConverData — C4 nivel 1: contexto" → "C4 nivel 1: contexto". */
+/** Títulos cortos para el índice: "DiscoveryDataAgent — C4 nivel 1: contexto" → "C4 nivel 1: contexto". */
 function shortTitle(entry: DocsEntry): string {
   if (entry.path === "wiki/README.md") return "Inicio de la wiki";
   if (entry.path === "architecture/README.md") return "Arquitectura (C4)";
   if (entry.path === MANUAL) return "Manual de desarrollo";
-  return entry.title.replace(/^ConverData\s+—\s+/, "");
+  return entry.title.replace(/^Discovery ?Data ?Agent\s+—\s+/, "");
 }
 
 /** El título ya va en la cabecera de la tarjeta. */

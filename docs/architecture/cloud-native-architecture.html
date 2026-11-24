@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.1.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>ConverData — Despliegue mínimo en AWS (posterior al piloto) · Diagrama</title>
+  <title>DiscoveryDataAgent — Despliegue mínimo en AWS (posterior al piloto) · Diagrama</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5161,7 +5161,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="PLANO / REV 01"
            data-preset-badge-editorial="EDITORIAL / NOTA DE CAMPO">
         <div class="pulse-dot"></div>
-        <h1>ConverData — Despliegue mínimo en AWS (posterior al piloto)</h1>
+        <h1>DiscoveryDataAgent — Despliegue mínimo en AWS (posterior al piloto)</h1>
       </div>
     </div>
 
@@ -5171,7 +5171,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
       <svg viewBox="0 0 1470 672" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
-        <title id="archify-diagram-title">ConverData — Despliegue mínimo en AWS (posterior al piloto)</title>
+        <title id="archify-diagram-title">DiscoveryDataAgent — Despliegue mínimo en AWS (posterior al piloto)</title>
         <desc id="archify-diagram-description">Un diagrama de arquitectura generado por Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5276,8 +5276,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
 
         <!-- Components -->
-        <g id="node-mcpclient" data-node-id="mcpclient" data-node-label="Cliente MCP" tabindex="0" role="button" aria-label="Enfocar Cliente MCP, Claude / IDE, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="Claude / IDE" data-node-description="Clientes como Claude Desktop, Claude Code o un IDE que consumen ConverData como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de ConverData-API. (F12, CN-04)" data-node-context="Componente de arquitectura">
-          <title>Cliente MCP · Claude / IDE · Componente de arquitectura · Clientes como Claude Desktop, Claude Code o un IDE que consumen ConverData como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de ConverData-API. (F12, CN-04)</title>
+        <g id="node-mcpclient" data-node-id="mcpclient" data-node-label="Cliente MCP" tabindex="0" role="button" aria-label="Enfocar Cliente MCP, Claude / IDE, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="Claude / IDE" data-node-description="Clientes como Claude Desktop, Claude Code o un IDE que consumen DiscoveryDataAgent como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de DiscoveryDataAgent-API. (F12, CN-04)" data-node-context="Componente de arquitectura">
+          <title>Cliente MCP · Claude / IDE · Componente de arquitectura · Clientes como Claude Desktop, Claude Code o un IDE que consumen DiscoveryDataAgent como herramienta MCP. Entran por el mismo balanceador interno, desde la red corporativa, con el token de sesión como Bearer, y heredan los permisos del login SQL del usuario. No hace falta AgentCore Gateway: el servidor MCP ya vive dentro de DiscoveryDataAgent-API. (F12, CN-04)</title>
           <rect x="280" y="40" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="280" y="40" width="160" height="64" rx="8" class="c-external" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(286 46) scale(0.6875)">
@@ -5288,8 +5288,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="360" y="86" class="t-muted" font-size="9" text-anchor="middle">Claude / IDE</text>
         </g>
 
-        <g id="node-secrets" data-node-id="secrets" data-node-label="Secrets Manager" tabindex="0" role="button" aria-label="Enfocar Secrets Manager, secretos de servicio, Componente de arquitectura" aria-pressed="false" data-node-kind="security" data-node-sublabel="secretos de servicio" data-node-description="Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD ConverData. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de ConverData-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)" data-node-context="Componente de arquitectura">
-          <title>Secrets Manager · secretos de servicio · Componente de arquitectura · Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD ConverData. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de ConverData-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)</title>
+        <g id="node-secrets" data-node-id="secrets" data-node-label="Secrets Manager" tabindex="0" role="button" aria-label="Enfocar Secrets Manager, secretos de servicio, Componente de arquitectura" aria-pressed="false" data-node-kind="security" data-node-sublabel="secretos de servicio" data-node-description="Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD DiscoveryDataAgent. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de DiscoveryDataAgent-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)" data-node-context="Componente de arquitectura">
+          <title>Secrets Manager · secretos de servicio · Componente de arquitectura · Guarda solo los secretos del servicio: el login de metadatos del Builder y el login con el que la API y el Builder entran a la BD DiscoveryDataAgent. Los logins SQL de los usuarios no se guardan aquí ni en ningún otro almacén: viven en la memoria de DiscoveryDataAgent-API mientras dura la sesión, cifrados con una clave que se genera al arrancar y nunca sale del proceso, igual que on-premise. Equivalente on-premise: DPAPI. (F14, CN-03)</title>
           <rect x="520" y="40" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="520" y="40" width="160" height="64" rx="8" class="c-security" data-animate="node" style="--step:5" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(526 46) scale(0.6875)">
@@ -5312,8 +5312,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="840" y="96" class="t-cloud" font-size="7" text-anchor="middle">sin invocation logging</text>
         </g>
 
-        <g id="node-logs" data-node-id="logs" data-node-label="CloudWatch Logs" tabindex="0" role="button" aria-label="Enfocar CloudWatch Logs, logs sin contenido, Componente de arquitectura" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="logs sin contenido" data-node-description="Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD ConverData on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)" data-node-context="Componente de arquitectura">
-          <title>CloudWatch Logs · logs sin contenido · Componente de arquitectura · Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD ConverData on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)</title>
+        <g id="node-logs" data-node-id="logs" data-node-label="CloudWatch Logs" tabindex="0" role="button" aria-label="Enfocar CloudWatch Logs, logs sin contenido, Componente de arquitectura" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="logs sin contenido" data-node-description="Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD DiscoveryDataAgent on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)" data-node-context="Componente de arquitectura">
+          <title>CloudWatch Logs · logs sin contenido · Componente de arquitectura · Logs JSON y contadores de la tarea, sin el texto de las preguntas, sin SQL y sin nombres de objetos que el usuario no pueda ver. La auditoría completa no está aquí: se escribe en la BD DiscoveryDataAgent on-premise. Equivalente on-premise: logs JSON y Visor de eventos. (CN-05, CN-06)</title>
           <rect x="1000" y="40" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1000" y="40" width="160" height="64" rx="8" class="c-cloud" data-animate="node" style="--step:7" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1006 46) scale(0.6875)">
@@ -5347,8 +5347,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="360" y="246" class="t-muted" font-size="9" text-anchor="middle">HTTPS · certificado ACM</text>
         </g>
 
-        <g id="node-web" data-node-id="web" data-node-label="Web" tabindex="0" role="button" aria-label="Enfocar Web, contenedor Next.js, Tarea ECS Fargate" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="contenedor Next.js" data-node-description="La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a ConverData-API dentro de la misma tarea. (F12, CN-04)" data-node-context="Tarea ECS Fargate">
-          <title>Web · contenedor Next.js · Tarea ECS Fargate · La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a ConverData-API dentro de la misma tarea. (F12, CN-04)</title>
+        <g id="node-web" data-node-id="web" data-node-label="Web" tabindex="0" role="button" aria-label="Enfocar Web, contenedor Next.js, Tarea ECS Fargate" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="contenedor Next.js" data-node-description="La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a DiscoveryDataAgent-API dentro de la misma tarea. (F12, CN-04)" data-node-context="Tarea ECS Fargate">
+          <title>Web · contenedor Next.js · Tarea ECS Fargate · La misma imagen del frontend Next.js que se usa hoy con docker compose (web/Dockerfile): chat, tarjetas de candidatos, Curación y Administración. Reenvía /api a DiscoveryDataAgent-API dentro de la misma tarea. (F12, CN-04)</title>
           <rect x="520" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="520" y="200" width="160" height="64" rx="8" class="c-frontend" data-animate="node" style="--step:3" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(526 206) scale(0.6875)">
@@ -5361,14 +5361,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="600" y="246" class="t-muted" font-size="9" text-anchor="middle">contenedor Next.js</text>
         </g>
 
-        <g id="node-api" data-node-id="api" data-node-label="ConverData-API" tabindex="0" role="button" aria-label="Enfocar ConverData-API, contenedor FastAPI · MCP, Tarea ECS Fargate" aria-pressed="false" data-node-kind="backend" data-node-sublabel="contenedor FastAPI · MCP" data-node-tag="SessionVault en memoria" data-node-description="La misma imagen de la API (api/Dockerfile): REST, MCP y DiscoverFlow, con el catálogo cargado en un índice léxico en memoria. Sin AgentCore Runtime, OpenSearch ni Lambda: el flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea, porque las sesiones viven en memoria; si se reinicia, los usuarios vuelven a iniciar sesión. Escalar a varias tareas exigiría sesiones compartidas y no es necesario para 10–15 usuarios. (F12, F14, F22, CN-01)" data-node-context="Tarea ECS Fargate">
-          <title>ConverData-API · contenedor FastAPI · MCP · Tarea ECS Fargate · SessionVault en memoria · La misma imagen de la API (api/Dockerfile): REST, MCP y DiscoverFlow, con el catálogo cargado en un índice léxico en memoria. Sin AgentCore Runtime, OpenSearch ni Lambda: el flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea, porque las sesiones viven en memoria; si se reinicia, los usuarios vuelven a iniciar sesión. Escalar a varias tareas exigiría sesiones compartidas y no es necesario para 10–15 usuarios. (F12, F14, F22, CN-01)</title>
+        <g id="node-api" data-node-id="api" data-node-label="DiscoveryDataAgent-API" tabindex="0" role="button" aria-label="Enfocar DiscoveryDataAgent-API, contenedor FastAPI · MCP, Tarea ECS Fargate" aria-pressed="false" data-node-kind="backend" data-node-sublabel="contenedor FastAPI · MCP" data-node-tag="SessionVault en memoria" data-node-description="La misma imagen de la API (api/Dockerfile): REST, MCP y DiscoverFlow, con el catálogo cargado en un índice léxico en memoria. Sin AgentCore Runtime, OpenSearch ni Lambda: el flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea, porque las sesiones viven en memoria; si se reinicia, los usuarios vuelven a iniciar sesión. Escalar a varias tareas exigiría sesiones compartidas y no es necesario para 10–15 usuarios. (F12, F14, F22, CN-01)" data-node-context="Tarea ECS Fargate">
+          <title>DiscoveryDataAgent-API · contenedor FastAPI · MCP · Tarea ECS Fargate · SessionVault en memoria · La misma imagen de la API (api/Dockerfile): REST, MCP y DiscoverFlow, con el catálogo cargado en un índice léxico en memoria. Sin AgentCore Runtime, OpenSearch ni Lambda: el flujo es un grafo de pasos fijos que cabe en un proceso. Una sola tarea, porque las sesiones viven en memoria; si se reinicia, los usuarios vuelven a iniciar sesión. Escalar a varias tareas exigiría sesiones compartidas y no es necesario para 10–15 usuarios. (F12, F14, F22, CN-01)</title>
           <rect x="760" y="200" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="760" y="200" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 206) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="840" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData-API</text>
+          <text data-node-label="" data-detail-anchor="" x="840" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">DiscoveryDataAgent-API</text>
         <text data-detail="context" x="840" y="246" class="t-muted" font-size="9" text-anchor="middle">contenedor FastAPI · MCP</text>
         <text data-detail="fine" x="840" y="256" class="t-backend" font-size="7" text-anchor="middle">SessionVault en memoria</text>
         </g>
@@ -5410,8 +5410,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="600" y="406" class="t-muted" font-size="9" text-anchor="middle">refresco nocturno</text>
         </g>
 
-        <g id="node-builder" data-node-id="builder" data-node-label="Builder" tabindex="0" role="button" aria-label="Enfocar Builder, tarea ECS · corre y termina, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tarea ECS · corre y termina" data-node-description="La misma imagen de la API ejecutando el comando converdata catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD ConverData. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)" data-node-context="Componente de arquitectura">
-          <title>Builder · tarea ECS · corre y termina · Componente de arquitectura · La misma imagen de la API ejecutando el comando converdata catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD ConverData. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)</title>
+        <g id="node-builder" data-node-id="builder" data-node-label="Builder" tabindex="0" role="button" aria-label="Enfocar Builder, tarea ECS · corre y termina, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tarea ECS · corre y termina" data-node-description="La misma imagen de la API ejecutando el comando discovery-data-agent catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD DiscoveryDataAgent. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)" data-node-context="Componente de arquitectura">
+          <title>Builder · tarea ECS · corre y termina · Componente de arquitectura · La misma imagen de la API ejecutando el comando discovery-data-agent catalog build: lee metadatos con consultas fijas, ingiere diccionarios, documentos y reglas, redacta datos personales en memoria y escribe el catálogo en la BD DiscoveryDataAgent. No escribe en S3: el catálogo no se guarda en AWS. (F1, F19, F23, CN-02)</title>
           <rect x="760" y="360" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="760" y="360" width="160" height="64" rx="8" class="c-backend" data-animate="node" style="--step:11" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(766 366) scale(0.6875)">
@@ -5421,15 +5421,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="840" y="406" class="t-muted" font-size="9" text-anchor="middle">tarea ECS · corre y termina</text>
         </g>
 
-        <g id="node-convdb" data-node-id="convdb" data-node-label="BD ConverData" tabindex="0" role="button" aria-label="Enfocar BD ConverData, catálogo · curación · auditoría, Red del banco (on-premise)" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo · curación · auditoría" data-node-tag="on-premise" data-node-description="La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)" data-node-context="Red del banco (on-premise)">
-          <title>BD ConverData · catálogo · curación · auditoría · Red del banco (on-premise) · on-premise · La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)</title>
+        <g id="node-convdb" data-node-id="convdb" data-node-label="BD DiscoveryDataAgent" tabindex="0" role="button" aria-label="Enfocar BD DiscoveryDataAgent, catálogo · curación · auditoría, Red del banco (on-premise)" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo · curación · auditoría" data-node-tag="on-premise" data-node-description="La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)" data-node-context="Red del banco (on-premise)">
+          <title>BD DiscoveryDataAgent · catálogo · curación · auditoría · Red del banco (on-premise) · on-premise · La misma BD de trabajo que en el despliegue on-premise, en el SQL Server del banco: catálogo con historial, conocimiento, curación (responsables, dudas escaladas, votos), inventario de servidores y auditoría. Al quedarse on-premise, AWS no persiste catálogo, preguntas ni auditoría, y migrar entre los dos despliegues es cambiar dónde corren los contenedores. Si no se puede auditar, no se responde. (F2, F11, CN-05, CN-06)</title>
           <rect x="1240" y="360" width="160" height="64" rx="8" class="c-mask"/>
           <rect x="1240" y="360" width="160" height="64" rx="8" class="c-database" data-animate="node" style="--step:10" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1246 366) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1320" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BD ConverData</text>
+          <text data-node-label="" data-detail-anchor="" x="1320" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BD DiscoveryDataAgent</text>
         <text data-detail="context" x="1320" y="406" class="t-muted" font-size="8.1" text-anchor="middle">catálogo · curación · auditoría</text>
         <text data-detail="fine" x="1320" y="416" class="t-database" font-size="7" text-anchor="middle">on-premise</text>
         </g>
@@ -5740,7 +5740,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>Las dos imágenes que ya construye docker compose: base por digest y dependencias con hash</li>
-          <li>Misma BD ConverData, mismo login SQL, mismo SessionVault</li>
+          <li>Misma BD DiscoveryDataAgent, mismo login SQL, mismo SessionVault</li>
           <li>Cambia solo dónde corren los procesos y quién los programa</li>
         </ul>
       </div>
@@ -5763,9 +5763,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Estado</h3>
         </div>
         <ul>
-          <li>Nada de esto está desplegado: es el destino después del piloto on-premise</li>
-          <li>Especificado en CN-01 a CN-06; no hay infraestructura como código en el repo</li>
-          <li>Por confirmar con Seguridad: Guardrails y si la VPN puede llevar tráfico de usuarios</li>
+          <li>Destino de qa y prod; todavía sin desplegar</li>
+          <li>Infraestructura como código en deploy/aws (Terraform y despliegue.sh); bloqueos en la hoja de ruta cloud §5</li>
+          <li>El entorno demo, sin VPN ni banco, está en aws-demo-architecture</li>
         </ul>
       </div>
     </div>

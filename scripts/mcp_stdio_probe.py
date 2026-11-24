@@ -1,4 +1,4 @@
-"""Prueba de humo de converdata-mcp con el cliente oficial de MCP contra `converdata mcp serve` (stdio), como lo usa Claude Desktop/Code.
+"""Prueba de humo de discovery-data-agent-mcp con el cliente oficial de MCP contra `discovery-data-agent mcp serve` (stdio), como lo usa Claude Desktop/Code.
 
     .venv/Scripts/python scripts/mcp_stdio_probe.py [raíz del catálogo]      (por defecto tests/fixtures/vbank)
 """
@@ -17,7 +17,7 @@ ASSET = "VBank_ING.dbo.Users.ClientCode"
 async def main(catalog: str) -> None:
     params = StdioServerParameters(
         command=sys.executable, cwd=str(ROOT),
-        args=["-m", "converdata.cli", "mcp", "serve", "--root", catalog, "--user", "analista"])
+        args=["-m", "discovery_data_agent.cli", "mcp", "serve", "--root", catalog, "--user", "analista"])
     async with Client(params) as client:
         print("herramientas:", sorted(t.name for t in (await client.list_tools()).tools))
         envelope = (await client.call_tool("discover", {"question": QUESTION})).structured_content

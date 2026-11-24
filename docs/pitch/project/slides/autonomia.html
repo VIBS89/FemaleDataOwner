@@ -1,0 +1,41 @@
+<section id="autonomia">
+<div class="head">
+<p class="eyebrow">2 · Solución agéntica</p>
+<h2>El agente decide su camino, no sigue un guion</h2>
+</div>
+<div class="col" style="gap:16px">
+<div class="row" style="gap:12px; align-items:center">
+<div class="node in" style="--i:0"><p class="nn">1</p><p class="nt">Entiende la intención</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node in" style="--i:1"><p class="nn">2</p><p class="nt">Busca en catálogo y grafo</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node hot in" style="--i:2"><p class="nn">3</p><p class="nt">Califica: ¿cubre la pregunta?</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node in" style="--i:3"><p class="nn">4</p><p class="nt">Ordena y expande relaciones</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node hot in" style="--i:4"><p class="nn">5</p><p class="nt">Revisa: ¿existe y tiene permiso?</p></div>
+<x-shape kind="arrow-right" class="arr"></x-shape>
+<div class="node in" style="--i:5"><p class="nn">6</p><p class="nt">Responde con evidencia</p></div>
+</div>
+<p class="small">Los pasos 3 y 5 pueden devolver el flujo atrás (ciclos acotados). Cuando no encuentra, decide:</p>
+</div>
+<div class="grid4" style="align-content:start">
+<div class="card in" style="--i:6"><p class="dt">Cubre poco</p><p class="small">Reformula la pregunta con el LLM y vuelve a buscar.</p></div>
+<div class="card in" style="--i:7"><p class="dt">Confianza baja</p><p class="small">No inventa: lo dice y escala al responsable del dato.</p></div>
+<div class="card in" style="--i:8"><p class="dt">Varias áreas</p><p class="small">Responde y ofrece aclarar si el dato existe en varias áreas.</p></div>
+<div class="card in" style="--i:9"><p class="dt">Piden modificar</p><p class="small">Rechaza la orden: el agente es de solo lectura.</p></div>
+</div>
+<div class="col" style="gap:12px">
+<p class="small" style="font-weight:700">Cinco reglas que nunca rompe</p>
+<div class="row" style="gap:16px">
+<p class="tag in" style="--i:10">Permisos heredados</p>
+<p class="tag in" style="--i:11">Datos no salen del banco</p>
+<p class="tag in" style="--i:12">Nunca inventa objetos</p>
+<p class="tag in" style="--i:13">Solo lectura</p>
+<p class="tag in" style="--i:14">Todo auditado</p>
+</div>
+</div>
+<aside>RELOJ 0:50–1:30 (40 s, ~100 palabras) · [Integrante 2]. La persona pregunta en español dónde está un dato y el agente responde con el campo, la tabla, la base, la regla de negocio, el responsable y cuánto confiar. No es un buscador: decide su camino. Califica si lo encontrado cubre la pregunta y, si no, reformula y vuelve a buscar; si la confianza es baja, no inventa y escala al experto; si piden modificar datos, se niega. Y sigue cinco reglas que nunca rompe: permisos heredados, datos que no salen del banco, nada inventado, solo lectura y todo auditado. Todo sin intervención humana.
+
+PARA PREGUNTAS: LangGraph orquesta el flujo; Amazon Bedrock reformula y redacta; el orden de resultados es determinista y auditable. Detalle de herramientas MCP en el anexo.</aside>
+</section>
