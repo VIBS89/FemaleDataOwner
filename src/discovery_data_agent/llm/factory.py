@@ -187,6 +187,10 @@ def build_nim_chat(role: RoleConfig, provider: ProviderConfig):
         kwargs["temperature"] = role.temperature
     if role.max_tokens is not None:
         kwargs["max_completion_tokens"] = role.max_tokens
+    if not role.reasoning:
+        # F16: sin razonamiento. Los modelos que piensan (nemotron-3-ultra) gastan si no `max_tokens` en el
+        # razonamiento y devuelven el contenido vacío; los que no piensan ignoran la opción.
+        kwargs["model_kwargs"] = {"chat_template_kwargs": {"enable_thinking": False}}
     return ChatNVIDIA(**kwargs)
 
 

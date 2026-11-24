@@ -464,7 +464,10 @@ def build_discover_graph(deps: DiscoverDeps):
                 text = deps.narrator.narrate(asked, discovery)
             except Exception as exc:
                 error = f"fallback:{type(exc).__name__}"
-            if text is not None and not engine.narrative_mentions_ok(text, discovery, deps.catalog):
+            if text is not None and not text.strip():
+                # Un modelo de razonamiento que agota `max_tokens` pensando devuelve el contenido vacío.
+                error, text = "narrativa_vacia", None
+            elif text is not None and not engine.narrative_mentions_ok(text, discovery, deps.catalog):
                 error, text = "narrativa_rechazada:objeto_fuera_de_respuesta", None
             elif text is not None and engine.unsafe_generated_text(text):
                 error, text = "narrativa_rechazada:contenido_no_permitido", None

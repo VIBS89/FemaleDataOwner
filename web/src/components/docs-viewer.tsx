@@ -333,7 +333,7 @@ function shortTitle(entry: DocsEntry): string {
   if (entry.path === "wiki/README.md") return "Inicio de la wiki";
   if (entry.path === "architecture/README.md") return "Arquitectura (C4)";
   if (entry.path === MANUAL) return "Manual de desarrollo";
-  return entry.title.replace(/^DiscoveryDataAgent\s+—\s+/, "");
+  return entry.title.replace(/^Discovery ?Data ?Agent\s+—\s+/, "");
 }
 
 /** El título ya va en la cabecera de la tarjeta. */

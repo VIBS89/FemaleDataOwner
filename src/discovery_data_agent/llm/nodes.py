@@ -6,6 +6,7 @@ Reciben un `RoutedChat` del gateway (el proveedor de `config/models.yaml`) o cua
 from __future__ import annotations
 
 import json
+import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
@@ -53,7 +54,18 @@ técnica. Redacta de 2 a 4 frases en español claro y cercano:
 5. Di solo lo que consta en el JSON. Si una descripción falta o es "sugerida por IA, sin revisar", di que todavía no
    está confirmada; no supongas qué significa el dato ni des ejemplos de sus valores.
 Menciona únicamente objetos que aparecen en el JSON recibido. No inventes tablas, columnas, reglas ni cifras. No uses
-jerga (nada de "candidato", "asset", "FK", "join") ni nombres de campos del JSON, y no uses comillas invertidas."""
+jerga (nada de "candidato", "asset", "FK", "join") ni nombres de campos del JSON, y no uses comillas invertidas.
+Escribe texto plano: sin Markdown, sin negritas ni asteriscos, sin títulos ni viñetas."""
+
+_MARKDOWN = [(re.compile(r"\*\*(.+?)\*\*|__(.+?)__", re.S), r"\1\2"), (re.compile(r"`([^`]*)`"), r"\1"),
+             (re.compile(r"^\s{0,3}#{1,6}\s+", re.M), "")]
+
+
+def plain_text(text: str) -> str:
+    """La web muestra la respuesta tal cual: se quita el Markdown que algunos modelos escriben aunque se les pida que no."""
+    for pattern, repl in _MARKDOWN:
+        text = pattern.sub(repl, text)
+    return text.strip()
 
 EXPAND_SYSTEM = """Un usuario de negocio de un banco hizo una pregunta y la búsqueda en el catálogo de datos encontró
 poco, porque la pregunta habla de un reporte, un indicador, una norma o un análisis y no del dato en sí. Propón hasta 3
@@ -124,9 +136,9 @@ class LlmNarrator:
             [SystemMessage(RESPOND_SYSTEM + UNTRUSTED),
              HumanMessage(f"Pregunta: {_data(question)}\n{_data(json.dumps(compact, ensure_ascii=False))}")]
         )
-        return msg.content if isinstance(msg.content, str) else "".join(
+        return plain_text(msg.content if isinstance(msg.content, str) else "".join(
             part.get("text", "") for part in msg.content if isinstance(part, dict)
-        )
+        ))
 
 
 class _Variants(BaseModel):

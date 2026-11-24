@@ -91,13 +91,32 @@ llamadas reales del chat (redactar, reformular la búsqueda, orientar), a travé
 
 | Modelo | Resultado | Hit@1 en preguntas de reporte |
 |---|---|---|
-| `nvidia/nemotron-3.5-bolt-e4b` | **Elegido para `fast` y `enrich`.** 6 de 6 llamadas correctas, 1,2 s de media | 52 % (p50 de 2 s) |
+| `nvidia/nemotron-3.5-bolt-e4b` | **Elegido para `enrich`** (y para `fast` hasta el 2026-11-24). 6 de 6 llamadas correctas, 1,2 s de media | 52 % (p50 de 2 s) |
 | `nvidia/nemotron-3-ultra-550b-a55b` | 5 de 6, 5–8 s por llamada. Reformula con más detalle, pero bajo carga agota el tiempo y el circuito del gateway lo desconecta | 36 % |
 | `nvidia/nemotron-3.5-super-vl-120b-a12b` | Solo funciona pidiendo JSON en el mensaje (rechaza `guided_json`); 5 s y con timeouts | — |
 | `nvidia/nemotron-3.5-lightning-30b-a3b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | No sirven hoy: rechazan `guided_json` y no devuelven JSON por mensaje | — |
 | `mistral-large-4`, `kimi-k3.1-pro`, `muse-glimmer-30b`, `step-5-preview`, `gemma-4-31b-it`, `glm-5.3-flash`, `minimax-m3.1-flash` | No sirven hoy: agotan el tiempo | — |
 | `gemma-3-12b-it` | No sirve: 404 | — |
 | Referencia: `claude-sonnet-5-5` (proveedor `anthropic`) | Correcto | 68 % (Hit@3 80 %) |
+
+**Repetido el 2026-11-24 (decide `fast`).** Con los 15 generativos del catálogo de ese día solo tres cumplen `fast` y `enrich` con
+`guided_json`: `bolt-e4b`, `ultra-550b` y `poolside/laguna-xs-2.1` (nuevo); el resto rechaza `guided_json`, agota el tiempo o da 404.
+Medidos uno tras otro, sin carga concurrente, con `eval discovery --root tests/fixtures/bancos` (Hit@1 · p50):
+
+| Modelo | Reportes + conocimiento (25) | Chat (67) | Base (58) |
+|---|---|---|---|
+| Sin modelo | 64 % · 0,05 s | 97,8 % | 98,0 % |
+| `nvidia/nemotron-3.5-bolt-e4b` | 80 % · 1,9 s | 97,8 % · 1,8 s | 98,0 % · 1,9 s |
+| `poolside/laguna-xs-2.1` | 76 % · 1,8 s | 97,8 % · 1,6 s | 98,0 % · 2,0 s |
+| `nvidia/nemotron-3-ultra-550b-a55b` | **88 %** · 9,4 s (p95 19 s) | 97,8 % · 7,0 s | 98,0 % · 8,5 s |
+| `ultra` sin razonamiento (**elegido**) | 84 % · 3,3 s (p95 6 s) | 97,8 % · 2,2 s | 98,0 % |
+
+`fast` pasa a `ultra` sin razonamiento. `ultra` piensa antes de responder y, con `max_tokens: 400`, la redacción volvía vacía y el
+chat mostraba la respuesta sin texto; por eso el gateway apaga el razonamiento en NIM (`chat_template_kwargs.enable_thinking: false`)
+salvo que el rol declare `reasoning: true`, y una redacción vacía cae en el texto determinista (`narrativa_vacia`). Así acierta 4
+puntos más que `bolt` en reportes, sin fugas ni inventados, a ~3 s por respuesta; el respaldo es `bolt` en el mismo proveedor (el
+circuito es por proveedor). La API alojada responde 429 tras muchas llamadas seguidas: medir sin otras pruebas en paralelo. `enrich` sigue en `bolt`: sobre el catálogo
+real de BancosSQL (71 objetos, 652 columnas) describe el 94 % de las columnas y `ultra` solo el 76 %.
 
 Todas las llamadas a modelos pasan por el gateway (`src/discovery_data_agent/llm/gateway.py`): no hay ningún uso directo de un proveedor fuera de
 `src/discovery_data_agent/llm/`. Por eso el chat, la reformulación de la búsqueda y el refresco del catálogo usan el perfil que el administrador

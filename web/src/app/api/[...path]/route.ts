@@ -40,7 +40,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
       redirect: "manual",
     });
   } catch {
-    return Response.json({ detail: "No se pudo contactar a DiscoveryDataAgent-API" }, { status: 502 });
+    return Response.json({ detail: "No se pudo contactar a la API de Discovery Data Agent" }, { status: 502 });
   }
   const out = new Headers();
   const type = upstream.headers.get("content-type");

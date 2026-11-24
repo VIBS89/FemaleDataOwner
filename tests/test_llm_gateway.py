@@ -233,6 +233,22 @@ def test_timeout_del_proveedor_llega_al_cliente_de_nim(monkeypatch):
     assert seen["timeout"] == 30.0  # valor por defecto de ProviderConfig
 
 
+def test_nim_apaga_el_razonamiento_salvo_que_el_rol_lo_pida(monkeypatch):
+    """F16: con razonamiento, nemotron-3-ultra gasta `max_tokens` pensando y devuelve el contenido vacío."""
+    import langchain_nvidia_ai_endpoints
+
+    from discovery_data_agent.llm.factory import ProviderConfig, RoleConfig, build_nim_chat
+
+    seen = {}
+    monkeypatch.setattr(langchain_nvidia_ai_endpoints, "ChatNVIDIA", lambda **kw: seen.update(kw) or seen.copy())
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+    build_nim_chat(RoleConfig(provider="nvidia_nim", model="nvidia/nemotron-3-ultra-550b-a55b"), ProviderConfig())
+    assert seen["model_kwargs"] == {"chat_template_kwargs": {"enable_thinking": False}}
+    seen.clear()
+    build_nim_chat(RoleConfig(provider="nvidia_nim", model="m", reasoning=True), ProviderConfig())
+    assert "model_kwargs" not in seen
+
+
 def test_ejemplo_de_configuracion_es_valido():
     """config/models.example.yaml carga y valida (sin construir modelos reales)."""
     from pathlib import Path

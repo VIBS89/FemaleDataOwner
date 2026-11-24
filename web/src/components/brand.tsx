@@ -20,7 +20,7 @@ export function Brand({ subtitle = "Descubrimiento de datos" }: { subtitle?: str
     <div className="flex items-center gap-2.5">
       <BrandMark />
       <div className="grid leading-tight">
-        <span className="font-semibold tracking-tight">DiscoveryDataAgent</span>
+        <span className="font-semibold tracking-tight">Discovery Data Agent</span>
         <span className="text-muted-foreground text-xs">{subtitle}</span>
       </div>
     </div>
