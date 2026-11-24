@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.1.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>ConverData — C4 nivel 3: componentes de ConverData-API · Diagrama</title>
+  <title>DiscoveryDataAgent — C4 nivel 3: componentes de DiscoveryDataAgent-API · Diagrama</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5161,7 +5161,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="PLANO / REV 01"
            data-preset-badge-editorial="EDITORIAL / NOTA DE CAMPO">
         <div class="pulse-dot"></div>
-        <h1>ConverData — C4 nivel 3: componentes de ConverData-API</h1>
+        <h1>DiscoveryDataAgent — C4 nivel 3: componentes de DiscoveryDataAgent-API</h1>
       </div>
     </div>
 
@@ -5171,7 +5171,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
       <svg viewBox="0 0 1750 556" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
-        <title id="archify-diagram-title">ConverData — C4 nivel 3: componentes de ConverData-API</title>
+        <title id="archify-diagram-title">DiscoveryDataAgent — C4 nivel 3: componentes de DiscoveryDataAgent-API</title>
         <desc id="archify-diagram-description">Un diagrama de arquitectura generado por Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5340,8 +5340,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="125" y="446" class="t-muted" font-size="9" text-anchor="middle">Bearer = token de sesión</text>
         </g>
 
-        <g id="node-middleware" data-node-id="middleware" data-node-label="SecurityMiddleware" tabindex="0" role="button" aria-label="Enfocar SecurityMiddleware, cabeceras · origen · tamaño, Borde HTTP" aria-pressed="false" data-node-kind="security" data-node-sublabel="cabeceras · origen · tamaño" data-node-description="Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/converdata_api/security.py)" data-node-context="Borde HTTP">
-          <title>SecurityMiddleware · cabeceras · origen · tamaño · Borde HTTP · Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/converdata_api/security.py)</title>
+        <g id="node-middleware" data-node-id="middleware" data-node-label="SecurityMiddleware" tabindex="0" role="button" aria-label="Enfocar SecurityMiddleware, cabeceras · origen · tamaño, Borde HTTP" aria-pressed="false" data-node-kind="security" data-node-sublabel="cabeceras · origen · tamaño" data-node-description="Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/discovery_data_agent_api/security.py)" data-node-context="Borde HTTP">
+          <title>SecurityMiddleware · cabeceras · origen · tamaño · Borde HTTP · Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/discovery_data_agent_api/security.py)</title>
           <rect x="290" y="60" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="290" y="60" width="170" height="64" rx="8" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(296 66) scale(0.6875)">
@@ -5352,8 +5352,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="375" y="106" class="t-muted" font-size="9" text-anchor="middle">cabeceras · origen · tamaño</text>
         </g>
 
-        <g id="node-routes" data-node-id="routes" data-node-label="Rutas REST" tabindex="0" role="button" aria-label="Enfocar Rutas REST, main.py · comprobación de rol, Borde HTTP" aria-pressed="false" data-node-kind="backend" data-node-sublabel="main.py · comprobación de rol" data-node-description="Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/converdata_api/main.py)" data-node-context="Borde HTTP">
-          <title>Rutas REST · main.py · comprobación de rol · Borde HTTP · Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/converdata_api/main.py)</title>
+        <g id="node-routes" data-node-id="routes" data-node-label="Rutas REST" tabindex="0" role="button" aria-label="Enfocar Rutas REST, main.py · comprobación de rol, Borde HTTP" aria-pressed="false" data-node-kind="backend" data-node-sublabel="main.py · comprobación de rol" data-node-description="Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/discovery_data_agent_api/main.py)" data-node-context="Borde HTTP">
+          <title>Rutas REST · main.py · comprobación de rol · Borde HTTP · Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/discovery_data_agent_api/main.py)</title>
           <rect x="290" y="230" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="290" y="230" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(296 236) scale(0.6875)">
@@ -5363,8 +5363,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="375" y="276" class="t-muted" font-size="9" text-anchor="middle">main.py · comprobación de rol</text>
         </g>
 
-        <g id="node-mcpmount" data-node-id="mcpmount" data-node-label="Servidor MCP" tabindex="0" role="button" aria-label="Enfocar Servidor MCP, /mcp · mismas sesiones, Borde HTTP" aria-pressed="false" data-node-kind="backend" data-node-sublabel="/mcp · mismas sesiones" data-node-description="Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/converdata_api/mcp_mount.py, src/converdata/integration/mcp/server.py)" data-node-context="Borde HTTP">
-          <title>Servidor MCP · /mcp · mismas sesiones · Borde HTTP · Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/converdata_api/mcp_mount.py, src/converdata/integration/mcp/server.py)</title>
+        <g id="node-mcpmount" data-node-id="mcpmount" data-node-label="Servidor MCP" tabindex="0" role="button" aria-label="Enfocar Servidor MCP, /mcp · mismas sesiones, Borde HTTP" aria-pressed="false" data-node-kind="backend" data-node-sublabel="/mcp · mismas sesiones" data-node-description="Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/discovery_data_agent_api/mcp_mount.py, src/discovery_data_agent/integration/mcp/server.py)" data-node-context="Borde HTTP">
+          <title>Servidor MCP · /mcp · mismas sesiones · Borde HTTP · Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/discovery_data_agent_api/mcp_mount.py, src/discovery_data_agent/integration/mcp/server.py)</title>
           <rect x="290" y="400" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="290" y="400" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(296 406) scale(0.6875)">
@@ -5374,8 +5374,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="375" y="446" class="t-muted" font-size="9" text-anchor="middle">/mcp · mismas sesiones</text>
         </g>
 
-        <g id="node-vault" data-node-id="vault" data-node-label="SessionVault" tabindex="0" role="button" aria-label="Enfocar SessionVault, credenciales cifradas en memoria, Estado del proceso" aria-pressed="false" data-node-kind="security" data-node-sublabel="credenciales cifradas en memoria" data-node-tag="solo memoria" data-node-description="Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/converdata_api/vault.py)" data-node-context="Estado del proceso">
-          <title>SessionVault · credenciales cifradas en memoria · Estado del proceso · solo memoria · Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/converdata_api/vault.py)</title>
+        <g id="node-vault" data-node-id="vault" data-node-label="SessionVault" tabindex="0" role="button" aria-label="Enfocar SessionVault, credenciales cifradas en memoria, Estado del proceso" aria-pressed="false" data-node-kind="security" data-node-sublabel="credenciales cifradas en memoria" data-node-tag="solo memoria" data-node-description="Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/discovery_data_agent_api/vault.py)" data-node-context="Estado del proceso">
+          <title>SessionVault · credenciales cifradas en memoria · Estado del proceso · solo memoria · Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/discovery_data_agent_api/vault.py)</title>
           <rect x="540" y="60" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="540" y="60" width="170" height="64" rx="8" class="c-security" data-animate="node" style="--step:8" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(546 66) scale(0.6875)">
@@ -5387,8 +5387,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="625" y="116" class="t-security" font-size="7" text-anchor="middle">solo memoria</text>
         </g>
 
-        <g id="node-runtime" data-node-id="runtime" data-node-label="AgentRuntime" tabindex="0" role="button" aria-label="Enfocar AgentRuntime, estado del proceso, Estado del proceso" aria-pressed="false" data-node-kind="backend" data-node-sublabel="estado del proceso" data-node-description="Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/converdata_api/runtime.py)" data-node-context="Estado del proceso">
-          <title>AgentRuntime · estado del proceso · Estado del proceso · Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/converdata_api/runtime.py)</title>
+        <g id="node-runtime" data-node-id="runtime" data-node-label="AgentRuntime" tabindex="0" role="button" aria-label="Enfocar AgentRuntime, estado del proceso, Estado del proceso" aria-pressed="false" data-node-kind="backend" data-node-sublabel="estado del proceso" data-node-description="Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/discovery_data_agent_api/runtime.py)" data-node-context="Estado del proceso">
+          <title>AgentRuntime · estado del proceso · Estado del proceso · Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/discovery_data_agent_api/runtime.py)</title>
           <rect x="540" y="230" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="540" y="230" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 236) scale(0.6875)">
@@ -5398,8 +5398,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="625" y="276" class="t-muted" font-size="9" text-anchor="middle">estado del proceso</text>
         </g>
 
-        <g id="node-desk" data-node-id="desk" data-node-label="CurationDesk" tabindex="0" role="button" aria-label="Enfocar CurationDesk, dudas · responsables · métricas, Estado del proceso" aria-pressed="false" data-node-kind="backend" data-node-sublabel="dudas · responsables · métricas" data-node-description="Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/converdata_api/curation.py, pii.py, tokens.py)" data-node-context="Estado del proceso">
-          <title>CurationDesk · dudas · responsables · métricas · Estado del proceso · Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/converdata_api/curation.py, pii.py, tokens.py)</title>
+        <g id="node-desk" data-node-id="desk" data-node-label="CurationDesk" tabindex="0" role="button" aria-label="Enfocar CurationDesk, dudas · responsables · métricas, Estado del proceso" aria-pressed="false" data-node-kind="backend" data-node-sublabel="dudas · responsables · métricas" data-node-description="Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/discovery_data_agent_api/curation.py, pii.py, tokens.py)" data-node-context="Estado del proceso">
+          <title>CurationDesk · dudas · responsables · métricas · Estado del proceso · Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/discovery_data_agent_api/curation.py, pii.py, tokens.py)</title>
           <rect x="540" y="400" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="540" y="400" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 406) scale(0.6875)">
@@ -5409,8 +5409,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="625" y="446" class="t-muted" font-size="8.7" text-anchor="middle">dudas · responsables · métricas</text>
         </g>
 
-        <g id="node-tools" data-node-id="tools" data-node-label="Herramientas" tabindex="0" role="button" aria-label="Enfocar Herramientas, discover · where_is · get_asset, Aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="discover · where_is · get_asset" data-node-description="Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/converdata/application/discovery.py)" data-node-context="Aplicación">
-          <title>Herramientas · discover · where_is · get_asset · Aplicación · Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/converdata/application/discovery.py)</title>
+        <g id="node-tools" data-node-id="tools" data-node-label="Herramientas" tabindex="0" role="button" aria-label="Enfocar Herramientas, discover · where_is · get_asset, Aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="discover · where_is · get_asset" data-node-description="Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/discovery_data_agent/application/discovery.py)" data-node-context="Aplicación">
+          <title>Herramientas · discover · where_is · get_asset · Aplicación · Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/discovery_data_agent/application/discovery.py)</title>
           <rect x="790" y="60" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="790" y="60" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(796 66) scale(0.6875)">
@@ -5420,8 +5420,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="875" y="106" class="t-muted" font-size="8.7" text-anchor="middle">discover · where_is · get_asset</text>
         </g>
 
-        <g id="node-flow" data-node-id="flow" data-node-label="DiscoverFlow" tabindex="0" role="button" aria-label="Enfocar DiscoverFlow, grafo LangGraph de pasos fijos, Aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="grafo LangGraph de pasos fijos" data-node-tag="núcleo" data-node-description="Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/converdata/flows/discover.py)" data-node-context="Aplicación">
-          <title>DiscoverFlow · grafo LangGraph de pasos fijos · Aplicación · núcleo · Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/converdata/flows/discover.py)</title>
+        <g id="node-flow" data-node-id="flow" data-node-label="DiscoverFlow" tabindex="0" role="button" aria-label="Enfocar DiscoverFlow, grafo LangGraph de pasos fijos, Aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="grafo LangGraph de pasos fijos" data-node-tag="núcleo" data-node-description="Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/discovery_data_agent/flows/discover.py)" data-node-context="Aplicación">
+          <title>DiscoverFlow · grafo LangGraph de pasos fijos · Aplicación · núcleo · Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/discovery_data_agent/flows/discover.py)</title>
           <rect x="790" y="230" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="790" y="230" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:9" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(796 236) scale(0.6875)">
@@ -5432,8 +5432,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="875" y="286" class="t-backend" font-size="7" text-anchor="middle">núcleo</text>
         </g>
 
-        <g id="node-refresh" data-node-id="refresh" data-node-label="Refresco del catálogo" tabindex="0" role="button" aria-label="Enfocar Refresco del catálogo, CatalogBuildFlow, Aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="CatalogBuildFlow" data-node-description="Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/converdata/application/catalog_refresh.py, flows/catalog_build.py, builder/)" data-node-context="Aplicación">
-          <title>Refresco del catálogo · CatalogBuildFlow · Aplicación · Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/converdata/application/catalog_refresh.py, flows/catalog_build.py, builder/)</title>
+        <g id="node-refresh" data-node-id="refresh" data-node-label="Refresco del catálogo" tabindex="0" role="button" aria-label="Enfocar Refresco del catálogo, CatalogBuildFlow, Aplicación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="CatalogBuildFlow" data-node-description="Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/discovery_data_agent/application/catalog_refresh.py, flows/catalog_build.py, builder/)" data-node-context="Aplicación">
+          <title>Refresco del catálogo · CatalogBuildFlow · Aplicación · Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/discovery_data_agent/application/catalog_refresh.py, flows/catalog_build.py, builder/)</title>
           <rect x="790" y="400" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="790" y="400" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:11" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(796 406) scale(0.6875)">
@@ -5443,8 +5443,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="875" y="446" class="t-muted" font-size="9" text-anchor="middle">CatalogBuildFlow</text>
         </g>
 
-        <g id="node-index" data-node-id="index" data-node-label="Catálogo e índice" tabindex="0" role="button" aria-label="Enfocar Catálogo e índice, BM25 en memoria · grafo, Dominio" aria-pressed="false" data-node-kind="database" data-node-sublabel="BM25 en memoria · grafo" data-node-description="Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/converdata/catalog/, memory/, graph/)" data-node-context="Dominio">
-          <title>Catálogo e índice · BM25 en memoria · grafo · Dominio · Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/converdata/catalog/, memory/, graph/)</title>
+        <g id="node-index" data-node-id="index" data-node-label="Catálogo e índice" tabindex="0" role="button" aria-label="Enfocar Catálogo e índice, BM25 en memoria · grafo, Dominio" aria-pressed="false" data-node-kind="database" data-node-sublabel="BM25 en memoria · grafo" data-node-description="Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/discovery_data_agent/catalog/, memory/, graph/)" data-node-context="Dominio">
+          <title>Catálogo e índice · BM25 en memoria · grafo · Dominio · Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/discovery_data_agent/catalog/, memory/, graph/)</title>
           <rect x="1040" y="60" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1040" y="60" width="170" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1046 66) scale(0.6875)">
@@ -5455,8 +5455,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1125" y="106" class="t-muted" font-size="9" text-anchor="middle">BM25 en memoria · grafo</text>
         </g>
 
-        <g id="node-engine" data-node-id="engine" data-node-label="Motor de descubrimiento" tabindex="0" role="button" aria-label="Enfocar Motor de descubrimiento, cobertura · confianza · guardas, Dominio" aria-pressed="false" data-node-kind="backend" data-node-sublabel="cobertura · confianza · guardas" data-node-description="Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/converdata/discovery/)" data-node-context="Dominio">
-          <title>Motor de descubrimiento · cobertura · confianza · guardas · Dominio · Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/converdata/discovery/)</title>
+        <g id="node-engine" data-node-id="engine" data-node-label="Motor de descubrimiento" tabindex="0" role="button" aria-label="Enfocar Motor de descubrimiento, cobertura · confianza · guardas, Dominio" aria-pressed="false" data-node-kind="backend" data-node-sublabel="cobertura · confianza · guardas" data-node-description="Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/discovery_data_agent/discovery/)" data-node-context="Dominio">
+          <title>Motor de descubrimiento · cobertura · confianza · guardas · Dominio · Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/discovery_data_agent/discovery/)</title>
           <rect x="1040" y="230" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1040" y="230" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1046 236) scale(0.6875)">
@@ -5466,8 +5466,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1125" y="276" class="t-muted" font-size="8.7" text-anchor="middle">cobertura · confianza · guardas</text>
         </g>
 
-        <g id="node-rules" data-node-id="rules" data-node-label="Reglas de curación" tabindex="0" role="button" aria-label="Enfocar Reglas de curación, plantillas · votos, Dominio" aria-pressed="false" data-node-kind="backend" data-node-sublabel="plantillas · votos" data-node-description="Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/converdata/curation.py)" data-node-context="Dominio">
-          <title>Reglas de curación · plantillas · votos · Dominio · Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/converdata/curation.py)</title>
+        <g id="node-rules" data-node-id="rules" data-node-label="Reglas de curación" tabindex="0" role="button" aria-label="Enfocar Reglas de curación, plantillas · votos, Dominio" aria-pressed="false" data-node-kind="backend" data-node-sublabel="plantillas · votos" data-node-description="Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/discovery_data_agent/curation.py)" data-node-context="Dominio">
+          <title>Reglas de curación · plantillas · votos · Dominio · Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/discovery_data_agent/curation.py)</title>
           <rect x="1040" y="400" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1040" y="400" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1046 406) scale(0.6875)">
@@ -5477,8 +5477,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1125" y="446" class="t-muted" font-size="9" text-anchor="middle">plantillas · votos</text>
         </g>
 
-        <g id="node-llm" data-node-id="llm" data-node-label="Gateway de LLM" tabindex="0" role="button" aria-label="Enfocar Gateway de LLM, roles · respaldo · corte, Infraestructura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="roles · respaldo · corte" data-node-description="Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/converdata/llm/)" data-node-context="Infraestructura">
-          <title>Gateway de LLM · roles · respaldo · corte · Infraestructura · Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/converdata/llm/)</title>
+        <g id="node-llm" data-node-id="llm" data-node-label="Gateway de LLM" tabindex="0" role="button" aria-label="Enfocar Gateway de LLM, roles · respaldo · corte, Infraestructura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="roles · respaldo · corte" data-node-description="Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/discovery_data_agent/llm/)" data-node-context="Infraestructura">
+          <title>Gateway de LLM · roles · respaldo · corte · Infraestructura · Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/discovery_data_agent/llm/)</title>
           <rect x="1290" y="60" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1290" y="60" width="170" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1296 66) scale(0.6875)">
@@ -5488,8 +5488,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1375" y="106" class="t-muted" font-size="9" text-anchor="middle">roles · respaldo · corte</text>
         </g>
 
-        <g id="node-connector" data-node-id="connector" data-node-label="Conector SQL" tabindex="0" role="button" aria-label="Enfocar Conector SQL, login del usuario · visibilidad, Infraestructura" aria-pressed="false" data-node-kind="security" data-node-sublabel="login del usuario · visibilidad" data-node-description="Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/converdata_api/connector.py, src/converdata/identity/visibility.py)" data-node-context="Infraestructura">
-          <title>Conector SQL · login del usuario · visibilidad · Infraestructura · Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/converdata_api/connector.py, src/converdata/identity/visibility.py)</title>
+        <g id="node-connector" data-node-id="connector" data-node-label="Conector SQL" tabindex="0" role="button" aria-label="Enfocar Conector SQL, login del usuario · visibilidad, Infraestructura" aria-pressed="false" data-node-kind="security" data-node-sublabel="login del usuario · visibilidad" data-node-description="Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/discovery_data_agent_api/connector.py, src/discovery_data_agent/identity/visibility.py)" data-node-context="Infraestructura">
+          <title>Conector SQL · login del usuario · visibilidad · Infraestructura · Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/discovery_data_agent_api/connector.py, src/discovery_data_agent/identity/visibility.py)</title>
           <rect x="1290" y="230" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1290" y="230" width="170" height="64" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1296 236) scale(0.6875)">
@@ -5500,8 +5500,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1375" y="276" class="t-muted" font-size="8.7" text-anchor="middle">login del usuario · visibilidad</text>
         </g>
 
-        <g id="node-storage" data-node-id="storage" data-node-label="Repositorios y auditoría" tabindex="0" role="button" aria-label="Enfocar Repositorios y auditoría, adaptadores de la BD, Infraestructura" aria-pressed="false" data-node-kind="database" data-node-sublabel="adaptadores de la BD" data-node-tag="fail-closed" data-node-description="Adaptadores de la BD ConverData: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/converdata/storage/, audit/)" data-node-context="Infraestructura">
-          <title>Repositorios y auditoría · adaptadores de la BD · Infraestructura · fail-closed · Adaptadores de la BD ConverData: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/converdata/storage/, audit/)</title>
+        <g id="node-storage" data-node-id="storage" data-node-label="Repositorios y auditoría" tabindex="0" role="button" aria-label="Enfocar Repositorios y auditoría, adaptadores de la BD, Infraestructura" aria-pressed="false" data-node-kind="database" data-node-sublabel="adaptadores de la BD" data-node-tag="fail-closed" data-node-description="Adaptadores de la BD DiscoveryDataAgent: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/discovery_data_agent/storage/, audit/)" data-node-context="Infraestructura">
+          <title>Repositorios y auditoría · adaptadores de la BD · Infraestructura · fail-closed · Adaptadores de la BD DiscoveryDataAgent: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/discovery_data_agent/storage/, audit/)</title>
           <rect x="1290" y="400" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1290" y="400" width="170" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1296 406) scale(0.6875)">
@@ -5536,15 +5536,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1625" y="276" class="t-muted" font-size="9" text-anchor="middle">permisos y metadatos</text>
         </g>
 
-        <g id="node-convdb" data-node-id="convdb" data-node-label="BD ConverData" tabindex="0" role="button" aria-label="Enfocar BD ConverData, catálogo · curación · auditoría, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo · curación · auditoría" data-node-description="Todo el estado persistente. Detalle en modelo-datos-converdata.html." data-node-context="Componente de arquitectura">
-          <title>BD ConverData · catálogo · curación · auditoría · Componente de arquitectura · Todo el estado persistente. Detalle en modelo-datos-converdata.html.</title>
+        <g id="node-convdb" data-node-id="convdb" data-node-label="BD DiscoveryDataAgent" tabindex="0" role="button" aria-label="Enfocar BD DiscoveryDataAgent, catálogo · curación · auditoría, Componente de arquitectura" aria-pressed="false" data-node-kind="database" data-node-sublabel="catálogo · curación · auditoría" data-node-description="Todo el estado persistente. Detalle en modelo-datos-discovery-data-agent.html." data-node-context="Componente de arquitectura">
+          <title>BD DiscoveryDataAgent · catálogo · curación · auditoría · Componente de arquitectura · Todo el estado persistente. Detalle en modelo-datos-discovery-data-agent.html.</title>
           <rect x="1540" y="400" width="170" height="64" rx="8" class="c-mask"/>
           <rect x="1540" y="400" width="170" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1546 406) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1625" y="430" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BD ConverData</text>
+          <text data-node-label="" data-detail-anchor="" x="1625" y="430" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BD DiscoveryDataAgent</text>
         <text data-detail="context" x="1625" y="446" class="t-muted" font-size="8.7" text-anchor="middle">catálogo · curación · auditoría</text>
         </g>
 
@@ -5885,7 +5885,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>Login del usuario: solo para preguntar a SQL Server qué puede leer</li>
-          <li>Cuenta de servicio: solo para la BD ConverData</li>
+          <li>Cuenta de servicio: solo para la BD DiscoveryDataAgent</li>
           <li>El modelo nunca recibe ninguna de las dos</li>
         </ul>
       </div>

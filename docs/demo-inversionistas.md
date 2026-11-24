@@ -1,9 +1,9 @@
-# Guion de demo · ConverData (10 minutos)
+# Guion de demo · DiscoveryDataAgent (10 minutos)
 
 Modo demo: servidores simulados con **metadatos** de prueba (VBank de la propuesta + BancosSQL); ningún dato real.
 
 ```bash
-CONVERDATA_DEMO=1 docker compose up --build      # http://localhost:3000
+DISCOVERY_DATA_AGENT_DEMO=1 docker compose up --build      # http://localhost:3000
 ```
 Usuarios (contraseña `demo`): `demo` (administrador), `analista` (consulta, sin RRHH), `responsable` (responsable de datos).
 

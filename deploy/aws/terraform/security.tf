@@ -23,7 +23,7 @@ data "aws_iam_policy_document" "kms" {
     condition {
       test     = "ArnLike"
       variable = "kms:EncryptionContext:aws:logs:arn"
-      values   = ["arn:${local.partition}:logs:${var.region}:${local.account_id}:log-group:/converdata/${var.environment}/*"]
+      values   = ["arn:${local.partition}:logs:${var.region}:${local.account_id}:log-group:/discovery-data-agent/${var.environment}/*"]
     }
   }
 
@@ -39,7 +39,7 @@ data "aws_iam_policy_document" "kms" {
 }
 
 resource "aws_kms_key" "this" {
-  description             = "ConverData ${var.environment}"
+  description             = "DiscoveryDataAgent ${var.environment}"
   enable_key_rotation     = true
   deletion_window_in_days = local.production ? 30 : 7
   policy                  = data.aws_iam_policy_document.kms.json
@@ -91,8 +91,8 @@ resource "random_password" "setup_token" {
 
 resource "aws_secretsmanager_secret" "setup_token" {
   count                   = var.demo ? 0 : 1
-  name                    = "converdata/${var.environment}/setup-token"
-  description             = "CONVERDATA_SETUP_TOKEN: lo pide el registro del primer servidor del inventario"
+  name                    = "discovery-data-agent/${var.environment}/setup-token"
+  description             = "DISCOVERY_DATA_AGENT_SETUP_TOKEN: lo pide el registro del primer servidor del inventario"
   kms_key_id              = aws_kms_key.this.arn
   recovery_window_in_days = local.production ? 30 : 0
 }
@@ -105,15 +105,15 @@ resource "aws_secretsmanager_secret_version" "setup_token" {
 
 resource "aws_secretsmanager_secret" "db" {
   count                   = var.db_secret_enabled ? 1 : 0
-  name                    = "converdata/${var.environment}/db"
-  description             = "CONVERDATA_DB: cadena ODBC de la BD ConverData"
+  name                    = "discovery-data-agent/${var.environment}/db"
+  description             = "DISCOVERY_DATA_AGENT_DB: cadena ODBC de la BD DiscoveryDataAgent"
   kms_key_id              = aws_kms_key.this.arn
   recovery_window_in_days = local.production ? 30 : 0
 }
 
 resource "aws_secretsmanager_secret" "metadata" {
   for_each                = var.builder.enabled ? toset(["metadata-user", "metadata-password"]) : toset([])
-  name                    = "converdata/${var.environment}/${each.key}"
+  name                    = "discovery-data-agent/${var.environment}/${each.key}"
   description             = "Login de metadatos del Builder (solo lo lee la tarea del Builder)"
   kms_key_id              = aws_kms_key.this.arn
   recovery_window_in_days = local.production ? 30 : 0

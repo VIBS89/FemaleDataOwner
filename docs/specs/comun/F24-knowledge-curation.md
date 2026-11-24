@@ -31,8 +31,8 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
 ## Captura desde el uso
 1. **Confirmación de candidatos**: cada candidato de F22 tiene "✔ Es este", "✖ No es" y "El correcto es…" (búsqueda en el catálogo).
 2. **Golden discovery**: una confirmación genera un par `plantilla de la pregunta → asset_key`.
-   - **Plantilla anónima** (`converdata.curation.question_template`): la pregunta normalizada y sin literales. Regla
-     (`converdata.memory.text.strip_literals(question, known)`, endurecida tras la revisión de seguridad del 2026-11-17; ya no hay
+   - **Plantilla anónima** (`discovery_data_agent.curation.question_template`): la pregunta normalizada y sin literales. Regla
+     (`discovery_data_agent.memory.text.strip_literals(question, known)`, endurecida tras la revisión de seguridad del 2026-11-17; ya no hay
      lista de formatos): la pregunta se normaliza con NFKC (los dígitos en superíndice, de ancho completo o en círculo cuentan como
      dígitos) y **toda palabra con algún dígito o con arroba es un literal**, salvo que sea vocabulario conocido del banco: un
      nombre del catálogo con dígitos (`Catalog.names_with_digits`, p. ej. `Ultimos4`) o un código del conocimiento con letras y
@@ -53,7 +53,7 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
      Prueba de punta a punta con 100 literales distintos en 10 formas: `api/tests/test_marked_literals.py` (ninguno llega a las
      plantillas, a los votos ni al índice, y las plantillas solo contienen palabras de las preguntas base).
    - El voto no lleva comentario ni otro texto libre.
-   - **Regla de votos** (`converdata.curation.resolve_golden`):
+   - **Regla de votos** (`discovery_data_agent.curation.resolve_golden`):
      - Voto de un `steward` del dominio: entra al índice de inmediato (`confirmation_score = 1.0`), y su "✖" retira el par. El
        índice se actualiza antes de responderle, así que rige en la siguiente búsqueda (CA2); el voto de un usuario reindexa en
        segundo plano.
@@ -64,7 +64,7 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
 3. **Escalamiento al responsable**: con `knowledge_gap = true` o a petición del usuario, "Preguntar al responsable" crea una
    `curation_request` (pregunta reescrita, candidatos mostrados y dominio probable) asignada al grupo `steward` del dominio.
    - La crea la ruta `POST /curation/requests` de la API (F12) y se guarda solo on-premise (F17).
-  - Se notifica por un webhook de Teams (`CONVERDATA_NOTIFY_WEBHOOK`). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
+  - Se notifica por un webhook de Teams (`DISCOVERY_DATA_AGENT_NOTIFY_WEBHOOK`). La notificación solo lleva el dominio y un enlace a la vista Curación; el texto de la pregunta se lee dentro de la aplicación (OP-04, CN-04).
    - La respuesta del steward puede: elegir un activo, escribir o corregir una descripción, crear una regla de negocio o marcar el dato como
      "no existe en las fuentes catalogadas" (registrado como brecha).
    - La respuesta se convierte en conocimiento revisado (`description_source: human`, `reviewed: true`) y en golden discovery, y se notifica al
@@ -73,7 +73,7 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
      el usuario solo recibe "el responsable indicó que requieres acceso; solicítalo por el proceso de accesos", sin nombres de objetos;
      el steward es quien decide si lo concede.
 
-> **Estado al 2026-11-17:** "El correcto es…" no existe: `POST /discover/feedback` acepta solo `verdict` = `confirm` o `reject` (`FeedbackRequest` en `api/converdata_api/main.py`). Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+> **Estado al 2026-11-17:** "El correcto es…" no existe: `POST /discover/feedback` acepta solo `verdict` = `confirm` o `reject` (`FeedbackRequest` en `api/discovery_data_agent_api/main.py`). Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Revisión del catálogo
 - **Ser responsable no da lectura**: fuera de sus dominios, un activo que su login no puede ver responde igual que uno que no
@@ -86,16 +86,16 @@ guardan en el catálogo, solo grupos o roles. On-premise, `owners.yaml` se carga
   - reglas sugeridas y vínculos documento→activo sin revisar;
   - solicitudes escaladas pendientes, con antigüedad.
 - Las ediciones humanas se guardan separadas de lo generado (`description_source: human`) y **nunca se sobrescriben en un `refresh`**;
-  quedan versionadas con el autor (hoy el login; el grupo, con HU-13) y la fecha en las *temporal tables* de la BD `ConverData`
+  quedan versionadas con el autor (hoy el login; el grupo, con HU-13) y la fecha en las *temporal tables* de la BD `DiscoveryDataAgent`
   (OP-02). Cada edición escribe sus filas en la BD y queda en la auditoría; tras cada una se recarga el índice en memoria. Sin BD
   (desarrollo y modo demo) se guardan en archivos.
 - **Historial de una descripción**: el botón "Historial" de la vista Curación y de la ficha del activo muestra sus versiones con
   autor y fecha (`GET /curation/history?asset_key=`, solo para responsables del dominio del activo que además pueden verlo con su login; sin BD
   no hay historial). Cada entrada es un cambio real de la descripción, atribuido a quien la escribió.
-- `converdata catalog review --unreviewed --domain <d>` por CLI: pendiente.
+- `discovery-data-agent catalog review --unreviewed --domain <d>` por CLI: pendiente.
 
 ## Reporte de brechas de conocimiento
-`converdata knowledge gaps` (pendiente como comando; hoy, la cola de revisión de Curación, `GET /curation/review`) lista:
+`discovery-data-agent knowledge gaps` (pendiente como comando; hoy, la cola de revisión de Curación, `GET /curation/review`) lista:
 - preguntas sin candidato ≥ 0.6, agrupadas por similitud (temas que nadie ha documentado);
 - activos más buscados con descripción `generated` o sin descripción;
 - activos con conflictos entre fuentes;

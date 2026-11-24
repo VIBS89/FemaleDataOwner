@@ -1,8 +1,8 @@
 """Guardas sobre la salida de los nodos con LLM: el modelo razona dentro del nodo, pero no puede inventar ni saltarse pasos."""
 
-from converdata.discovery.ports import RerankScore
-from converdata.flows.discover import DiscoverService
-from converdata.models.intent import IntentResult
+from discovery_data_agent.discovery.ports import RerankScore
+from discovery_data_agent.flows.discover import DiscoverService
+from discovery_data_agent.models.intent import IntentResult
 from conftest import ONBOARDING_Q
 
 
@@ -71,7 +71,7 @@ def test_flows_es_la_unica_capa_con_langgraph():
     """PRD §8: herramientas, VectorStore, motor y modelos no importan LangGraph."""
     import pathlib
 
-    src = pathlib.Path(__file__).parents[1] / "src" / "converdata"
+    src = pathlib.Path(__file__).parents[1] / "src" / "discovery_data_agent"
     offenders = [
         p.relative_to(src).as_posix()
         for p in src.rglob("*.py")

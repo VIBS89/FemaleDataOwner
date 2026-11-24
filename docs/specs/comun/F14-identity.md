@@ -2,7 +2,7 @@
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
 >
-> Dónde vive la credencial: SessionVault en memoria de `ConverData-API` ([OP-03](../on-premise/OP-03-identidad.md)). El despliegue en AWS, posterior al piloto, no usa un IdP gestionado (PRD §13, decisión 14; [CN-03](../cloud-native/CN-03-identidad.md)).
+> Dónde vive la credencial: SessionVault en memoria de `DiscoveryDataAgent-API` ([OP-03](../on-premise/OP-03-identidad.md)). El despliegue en AWS, posterior al piloto, no usa un IdP gestionado (PRD §13, decisión 14; [CN-03](../cloud-native/CN-03-identidad.md)).
 > Controles implementados y su prueba: [calidad bancaria §3](../../calidad-bancaria.md).
 > Diagrama: `docs/architecture/permisos-heredados.html`
 
@@ -11,9 +11,9 @@ Como **usuario**, quiero ver y consultar solo los datos a los que mi login de SQ
 sin que la aplicación amplíe mis permisos.
 
 ## Principio
-**ConverData nunca amplía permisos.** Cada consulta de datos se ejecuta con el **login SQL del propio usuario**, así que SQL Server
+**DiscoveryDataAgent nunca amplía permisos.** Cada consulta de datos se ejecuta con el **login SQL del propio usuario**, así que SQL Server
 aplica sus permisos reales (GRANT, DENY, roles, esquemas, seguridad a nivel de fila). Lo que el usuario no ve en SSMS, tampoco
-lo ve en ConverData.
+lo ve en DiscoveryDataAgent.
 
 ## Flujo (igual en ambos entornos)
 1. **Validación del login**: los logins SQL son por instancia, y el descubrimiento recorre varios servidores y ambientes (F1). El usuario
@@ -35,9 +35,9 @@ lo ve en ConverData.
 4. **Ejecución**: toda consulta (F5, F7 compilación, F8) usa una conexión abierta con la credencial del usuario.
 
 > **Estado al 2026-11-17:**
-> - La prueba de conexión del login ejecuta `SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION')` (`api/converdata_api/connector.py`); no usa `ORIGINAL_LOGIN()`.
-> - El login recibe una sola credencial y la prueba en cada servidor marcado (`POST /auth/login`, `api/converdata_api/main.py`); no hay una credencial distinta por servidor ni ruta para añadir credenciales después.
-> - La visibilidad se calcula servidor por servidor, en secuencia, no en paralelo (`AgentRuntime.visible_ids` en `api/converdata_api/runtime.py`; `PyodbcObjectLister` en `src/converdata/identity/visibility.py`). `PyodbcObjectLister` pregunta `HAS_DBACCESS` desde `master` antes de abrir cada base y solo abre las que el login puede usar, así que una base inaccesible no oculta las siguientes del servidor. Si el servidor falla, el usuario no ve nada de él.
+> - La prueba de conexión del login ejecuta `SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION')` (`api/discovery_data_agent_api/connector.py`); no usa `ORIGINAL_LOGIN()`.
+> - El login recibe una sola credencial y la prueba en cada servidor marcado (`POST /auth/login`, `api/discovery_data_agent_api/main.py`); no hay una credencial distinta por servidor ni ruta para añadir credenciales después.
+> - La visibilidad se calcula servidor por servidor, en secuencia, no en paralelo (`AgentRuntime.visible_ids` en `api/discovery_data_agent_api/runtime.py`; `PyodbcObjectLister` en `src/discovery_data_agent/identity/visibility.py`). `PyodbcObjectLister` pregunta `HAS_DBACCESS` desde `master` antes de abrir cada base y solo abre las que el login puede usar, así que una base inaccesible no oculta las siguientes del servidor. Si el servidor falla, el usuario no ve nada de él.
 > - `PyodbcObjectLister` usa `HAS_DBACCESS` (desde `master`) y `HAS_PERMS_BY_NAME(..., 'OBJECT', ...)` por objeto; no detecta `DENY` a nivel de columna (no existe consulta con `'COLUMN'`).
 >
 > Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
@@ -50,7 +50,7 @@ métricas (`user_group`, F25) necesitan saber a qué grupos corporativos pertene
 | Cloud native | La misma que on-premise (PRD §13, decisión 14) |
 | On-premise | Tabla `curation.user_directory` (login SQL → cuenta de AD), mantenida por `data_admin`; al iniciar sesión, el servicio consulta AD por LDAP (solo lectura, con su gMSA) los grupos de esa cuenta (OP-03) |
 
-Estado: la consulta LDAP está pendiente (HU-13). Hoy `data_admin` sale de una lista explícita de logins (`CONVERDATA_ADMINS`) y
+Estado: la consulta LDAP está pendiente (HU-13). Hoy `data_admin` sale de una lista explícita de logins (`DISCOVERY_DATA_AGENT_ADMINS`) y
 `steward` de la lista de responsables de curación por login y dominio que mantiene el administrador (F24).
 
 **Confianza en el nombre del login (2026-11-17).** Un rol que se da por nombre de login solo cuenta si la sesión validó ese login en un servidor con `environment: produccion`, cuando el inventario tiene alguno (`identity_trusted`): quien administra un servidor de desarrollo o de QA puede crear allí un login con cualquier nombre. Es una política por confirmar con el banco (PRD §13, pregunta abierta 9). Queda superada cuando los roles salgan de grupos de AD (HU-13).
@@ -82,7 +82,7 @@ un usuario solo descubre los objetos que están en sus `visible_ids`, aunque se 
 ## Reglas
 - **El LLM nunca ve credenciales**: las herramientas reciben la identidad desde el contexto autenticado (`state.user`), no como argumento.
 - **No se revela lo que no se puede ver**: si una pregunta solo podría responderse con objetos fuera de la visibilidad, la respuesta es "no encontré datos disponibles para ti sobre …", sin confirmar que esas tablas existen.
-- **Login de metadatos**: solo lo usan `converdata-discovery` (F18) y el Catalog Builder (F1); nunca se usa para responder preguntas de usuarios.
+- **Login de metadatos**: solo lo usan `discovery-data-agent-discovery` (F18) y el Catalog Builder (F1); nunca se usa para responder preguntas de usuarios.
 - **Consultas entre BDs y servidores** (F19): cada rama se ejecuta con el login del usuario en su servidor; si no tiene permisos en una de ellas, esa parte se omite y se indica.
 - TLS en todas las conexiones (`Encrypt=yes; TrustServerCertificate=no` en producción).
 - Bloqueo tras 5 logins fallidos en 10 min por login (y 30 por origen).

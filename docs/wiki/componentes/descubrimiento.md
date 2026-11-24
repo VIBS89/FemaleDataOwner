@@ -9,7 +9,7 @@ Lo usan la API (`/discover`, `/discover/stream`), el MCP (`discover`) y la CLI a
 
 **Lo esencial**
 - Es un grafo de LangGraph con pasos fijos y dos ciclos acotados a un reintento cada uno. El orden nunca lo decide el modelo.
-- Toda búsqueda exige `visible_ids`; sin ellos el índice lanza `ValueError` (`src/converdata/memory/memory_store.py:198`).
+- Toda búsqueda exige `visible_ids`; sin ellos el índice lanza `ValueError` (`src/discovery_data_agent/memory/memory_store.py:198`).
 - La búsqueda es léxica (BM25 en memoria + coincidencia exacta del nombre técnico, fusionadas con RRF). No hay embeddings.
 - Con o sin LLM el flujo responde: cada nodo con modelo tiene un respaldo determinista.
 - La confianza es una suma ponderada con topes que la bajan del umbral de brecha (0,6) cuando la respuesta no es segura.
@@ -29,20 +29,20 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 ## Piezas internas
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| `DiscoverService`, `build_discover_graph` | `src/converdata/flows/discover.py` | Grafo, estado, nodos, `run` y `stream` |
-| `DiscoverDeps` | `src/converdata/flows/discover.py:61` | Catálogo, conocimiento, índice, puertos LLM, grafo, auditoría |
-| Motor determinista | `src/converdata/discovery/engine.py` | Recuperación, cobertura, confianza, revisión, expansión, guardas |
-| Implementaciones sin LLM | `src/converdata/discovery/deterministic.py` | `RuleBasedIntentClassifier`, `ScoreReranker`, `TemplateNarrator` |
-| Plan de consulta | `src/converdata/discovery/expansion.py` | Léxico es→en, `decompose`, `QueryPlan`, `plan_query` |
-| Puertos | `src/converdata/discovery/ports.py` | `IntentClassifier`, `Reranker`, `Narrator`, `QueryExpander`, `Reviewer` |
-| Índice | `src/converdata/memory/memory_store.py` | `InMemoryVectorStore`: BM25 + nombre exacto + RRF, filtrado por visibilidad |
-| Puerto del índice | `src/converdata/memory/base.py` | `VectorStore` (nombre histórico; no hay vectores) |
-| Texto | `src/converdata/memory/text.py` | `tokenize`, stemmer de prefijo, `strip_literals`, `normalized_name` |
-| Grafo del patrimonio | `src/converdata/graph/estate.py` | Aristas `fk`, `same_entity`, `etl`, `view`; copias y caminos de unión |
-| Catálogo en memoria | `src/converdata/catalog/store.py` | `Catalog`, `KnowledgeBase`, `CatalogSnapshot`, puertos de repositorio |
-| Modelos | `src/converdata/models/` | `IntentResult`, `Discovery`, `Candidate`, `AnswerEnvelope`, `UserContext`, `CatalogObject` |
-| Ajustes | `src/converdata/config.py:81` | `DiscoverySettings`, `ConfidenceWeights`, `Patterns` |
-| Ensamblado | `src/converdata/bootstrap.py:83` | Indexa y conecta los puertos LLM según el gateway |
+| `DiscoverService`, `build_discover_graph` | `src/discovery_data_agent/flows/discover.py` | Grafo, estado, nodos, `run` y `stream` |
+| `DiscoverDeps` | `src/discovery_data_agent/flows/discover.py:61` | Catálogo, conocimiento, índice, puertos LLM, grafo, auditoría |
+| Motor determinista | `src/discovery_data_agent/discovery/engine.py` | Recuperación, cobertura, confianza, revisión, expansión, guardas |
+| Implementaciones sin LLM | `src/discovery_data_agent/discovery/deterministic.py` | `RuleBasedIntentClassifier`, `ScoreReranker`, `TemplateNarrator` |
+| Plan de consulta | `src/discovery_data_agent/discovery/expansion.py` | Léxico es→en, `decompose`, `QueryPlan`, `plan_query` |
+| Puertos | `src/discovery_data_agent/discovery/ports.py` | `IntentClassifier`, `Reranker`, `Narrator`, `QueryExpander`, `Reviewer` |
+| Índice | `src/discovery_data_agent/memory/memory_store.py` | `InMemoryVectorStore`: BM25 + nombre exacto + RRF, filtrado por visibilidad |
+| Puerto del índice | `src/discovery_data_agent/memory/base.py` | `VectorStore` (nombre histórico; no hay vectores) |
+| Texto | `src/discovery_data_agent/memory/text.py` | `tokenize`, stemmer de prefijo, `strip_literals`, `normalized_name` |
+| Grafo del patrimonio | `src/discovery_data_agent/graph/estate.py` | Aristas `fk`, `same_entity`, `etl`, `view`; copias y caminos de unión |
+| Catálogo en memoria | `src/discovery_data_agent/catalog/store.py` | `Catalog`, `KnowledgeBase`, `CatalogSnapshot`, puertos de repositorio |
+| Modelos | `src/discovery_data_agent/models/` | `IntentResult`, `Discovery`, `Candidate`, `AnswerEnvelope`, `UserContext`, `CatalogObject` |
+| Ajustes | `src/discovery_data_agent/config.py:81` | `DiscoverySettings`, `ConfidenceWeights`, `Patterns` |
+| Ensamblado | `src/discovery_data_agent/bootstrap.py:83` | Indexa y conecta los puertos LLM según el gateway |
 
 ## Cómo funciona
 
@@ -53,7 +53,7 @@ START → intent ─┬─► retrieve → grade ─┬─► rerank → expand 
                 └─► finalize   (aclaración, fuera de alcance o pregunta sobre el asistente)
 ```
 
-`compute` solo corre con `features.ask_flow` (o `CONVERDATA_ASK_FLOW=1`) y un ejecutor de la sesión; calcula cifras agregadas de plantilla fija
+`compute` solo corre con `features.ask_flow` (o `DISCOVERY_DATA_AGENT_ASK_FLOW=1`) y un ejecutor de la sesión; calcula cifras agregadas de plantilla fija
 (`discovery/figures.py`, apagadas por defecto; PRD §13, decisión 17).
 
 Cada nodo (salvo `finalize`) va envuelto en `_timed` (`flows/discover.py:102`), que crea un `StepRecord` con duración, modelo,
@@ -144,17 +144,17 @@ de consulta junta todas las traducciones. Plurales en `-s`/`-es` se resuelven an
 | review | chequeos + `fix_candidate` | juez (`judge`) — **no hay implementación conectada** |
 | respond | `TemplateNarrator` | `LlmNarrator` (`fast`); rechazo o fallo → plantilla |
 
-`bootstrap.build_service_from_snapshot` (`src/converdata/bootstrap.py:96`) solo conecta `intent_classifier`, `reranker` y `narrator`.
+`bootstrap.build_service_from_snapshot` (`src/discovery_data_agent/bootstrap.py:96`) solo conecta `intent_classifier`, `reranker` y `narrator`.
 
 ## Contratos y datos
 - Entrada: `question`, `UserContext` (`user_id`, `groups`, `visible_ids`, `roles`), `history`, `client`. `visible_ids = None` lanza
   `ValueError` (`flows/discover.py:413`).
-- Ids: físico `<env>:<server>.<db>.<schema>.<obj>`; lógico `asset_key` `<db>.<schema>.<obj>[.<col>]` (`src/converdata/catalog/ids.py`).
-- Salida: `AnswerEnvelope` (`src/converdata/models/discovery.py:113`) con `status` `ok | needs_clarification | rejected | error`,
+- Ids: físico `<env>:<server>.<db>.<schema>.<obj>`; lógico `asset_key` `<db>.<schema>.<obj>[.<col>]` (`src/discovery_data_agent/catalog/ids.py`).
+- Salida: `AnswerEnvelope` (`src/discovery_data_agent/models/discovery.py:113`) con `status` `ok | needs_clarification | rejected | error`,
   `answer_text`, `assumptions`, `confidence`, `databases`, `tables_used`, `validation` (chequeos y veredicto del juez) y `discovery`.
 - `Candidate`: rango, tipo, BD/esquema/tabla/columna, tipo de dato, `locations` (ambiente y alias, nunca host), `drift_warning`,
   descripción y fuente, reglas, responsables, linaje, evidencias, `why`, `confidence`, `copies`.
-- Auditoría: `TraceRecord` con la pregunta, el envelope, la intención y los `StepRecord` (`src/converdata/audit/recorder.py`).
+- Auditoría: `TraceRecord` con la pregunta, el envelope, la intención y los `StepRecord` (`src/discovery_data_agent/audit/recorder.py`).
 
 ## Configuración
 `config/settings.yaml` (opcional; `load_settings`), bajo `discovery:`, `patterns:`, `features:` y `audit:`.
@@ -173,7 +173,7 @@ de consulta junta todas las traducciones. Plurales en `-s`/`-es` se resuelven an
 | `cascade_min_confidence`, `cascade_margin` | 0,85, 0,10 | Patrón E |
 | `review_judge_band`, `ambiguous_margin` | (0,5, 0,75), 0,05 | Patrón B |
 | `patterns.query_expansion/grade/review/cascade/graph` | todos `true` | Activan cada patrón |
-| `features.ask_flow` | `false` | Fase 1a: preguntas de datos como descubrimiento. Con `true` (o `CONVERDATA_ASK_FLOW=1` en la API) se calculan cifras agregadas |
+| `features.ask_flow` | `false` | Fase 1a: preguntas de datos como descubrimiento. Con `true` (o `DISCOVERY_DATA_AGENT_ASK_FLOW=1` en la API) se calculan cifras agregadas |
 | `audit.fail_open` | `false` | Solo desarrollo; qa/prod no arranca con `true` |
 
 ## Pruebas que lo cubren
@@ -183,7 +183,7 @@ de consulta junta todas las traducciones. Plurales en `-s`/`-es` se resuelven an
 - `tests/test_core.py`: índice (nombre técnico primero, visibilidad, ACL, golden), intención, fórmula y tope de confianza, PII redactada.
 - `tests/test_llm_guards.py`, `tests/test_prompt_injection.py`: reranker sin ids nuevos, narrativa ajena reemplazada, respaldo.
 - `tests/test_application_discovery.py`: herramientas MCP sobre el mismo motor.
-- Medición: `converdata eval discovery` y `converdata eval gate` (`tests/test_gate.py`).
+- Medición: `discovery-data-agent eval discovery` y `discovery-data-agent eval gate` (`tests/test_gate.py`).
 
 ## Límites conocidos y deuda
 Ver [deuda técnica](../deuda-tecnica.md).
@@ -201,19 +201,19 @@ Ver [deuda técnica](../deuda-tecnica.md).
 ## Dónde cambiar qué
 | Si quieres… | Toca… |
 |---|---|
-| Ajustar pesos, umbrales o tamaños | `config/settings.yaml` (modelo en `src/converdata/config.py:71`) |
-| Añadir un término es→en | `LEXICON` en `src/converdata/discovery/expansion.py` |
-| Cambiar qué palabras son de foco | `META_TERMS` en `src/converdata/discovery/expansion.py` |
-| Cambiar la fórmula de confianza o sus topes | `compute_confidence` en `src/converdata/discovery/engine.py` |
+| Ajustar pesos, umbrales o tamaños | `config/settings.yaml` (modelo en `src/discovery_data_agent/config.py:71`) |
+| Añadir un término es→en | `LEXICON` en `src/discovery_data_agent/discovery/expansion.py` |
+| Cambiar qué palabras son de foco | `META_TERMS` en `src/discovery_data_agent/discovery/expansion.py` |
+| Cambiar la fórmula de confianza o sus topes | `compute_confidence` en `src/discovery_data_agent/discovery/engine.py` |
 | Cambiar cuándo se pide tabla o columna | `_kind_hint` (`deterministic.py`) y `entity_kind_hint` (`engine.py`) |
 | Añadir un chequeo de revisión | `review_checks` y `fix_candidate` en `engine.py` |
-| Cambiar el orden o los ciclos del grafo | `build_discover_graph` en `src/converdata/flows/discover.py` |
-| Cambiar la búsqueda | `InMemoryVectorStore` en `src/converdata/memory/memory_store.py` |
-| Cambiar la tokenización o los literales | `src/converdata/memory/text.py` |
-| Conectar un expansor o un juez con LLM | Implementar el puerto en `src/converdata/llm/nodes.py` y pasarlo en `bootstrap.py` |
+| Cambiar el orden o los ciclos del grafo | `build_discover_graph` en `src/discovery_data_agent/flows/discover.py` |
+| Cambiar la búsqueda | `InMemoryVectorStore` en `src/discovery_data_agent/memory/memory_store.py` |
+| Cambiar la tokenización o los literales | `src/discovery_data_agent/memory/text.py` |
+| Conectar un expansor o un juez con LLM | Implementar el puerto en `src/discovery_data_agent/llm/nodes.py` y pasarlo en `bootstrap.py` |
 | Cambiar qué cuenta como objeto mencionado | `mentioned_objects` en `engine.py` |
 
-Toda mejora se mide con `converdata eval discovery` por tipo de pregunta antes de aceptarla.
+Toda mejora se mide con `discovery-data-agent eval discovery` por tipo de pregunta antes de aceptarla.
 
 ## Specs y contradicciones
 Specs: [F22](../../specs/comun/F22-discovery-flow.md), [F02](../../specs/comun/F02-semantic-memory.md),

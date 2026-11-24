@@ -18,14 +18,14 @@ variable "region" {
 provider "aws" {
   region = var.region
   default_tags {
-    tags = { app = "converdata", managed-by = "terraform" }
+    tags = { app = "discovery-data-agent", managed-by = "terraform" }
   }
 }
 
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "state" {
-  bucket = "converdata-tfstate-${data.aws_caller_identity.current.account_id}-${var.region}"
+  bucket = "discovery-data-agent-tfstate-${data.aws_caller_identity.current.account_id}-${var.region}"
 
   lifecycle {
     prevent_destroy = true

@@ -15,9 +15,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
-from converdata_api.settings import INSTALL_ROOT, ApiSettings
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.settings import INSTALL_ROOT, ApiSettings
 
 from test_api import FIXTURE, build, login, make_client, ready, settings  # noqa: F401  (fixtures de la API)
 
@@ -271,7 +271,7 @@ def test_los_enlaces_relativos_de_la_documentacion_llevan_a_algo_que_existe():
 def test_la_documentacion_se_encuentra_aunque_la_api_arranque_desde_otra_carpeta(monkeypatch, tmp_path):
     """Causa de "no veo el manual": la ruta por defecto era relativa al directorio de trabajo. Arrancando desde `api/`
     (o desde cualquier otra carpeta) el manual daba 404 y el modo demo no encontraba sus servidores simulados."""
-    for name in ("CONVERDATA_DOCS", "CONVERDATA_DEMO_FIXTURE"):
+    for name in ("DISCOVERY_DATA_AGENT_DOCS", "DISCOVERY_DATA_AGENT_DEMO_FIXTURE"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(tmp_path)
     defaults = ApiSettings.from_env()
@@ -279,7 +279,7 @@ def test_la_documentacion_se_encuentra_aunque_la_api_arranque_desde_otra_carpeta
     assert defaults.docs_dir == DOCS and defaults.docs_dir.is_absolute()
     assert all(f.is_absolute() and (f / "config" / "databases.yaml").is_file() for f in defaults.demo_fixtures)
     assert ApiSettings().docs_dir == DOCS
-    monkeypatch.setenv("CONVERDATA_DOCS", "docs")  # una ruta relativa en la variable también es de la instalación
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_DOCS", "docs")  # una ruta relativa en la variable también es de la instalación
     assert ApiSettings.from_env().docs_dir == DOCS
 
     settings = ApiSettings(data_root=tmp_path / "catalog", inventory_path=tmp_path / "inventory.yaml",
@@ -287,7 +287,7 @@ def test_la_documentacion_se_encuentra_aunque_la_api_arranque_desde_otra_carpeta
                            demo_fixtures=[FIXTURE], demo_preload_inventory=False, allow_windows_auth=False)
     client = TestClient(create_app(settings, DemoConnector(FIXTURE)))
     login(client, host="demo-sql", alias="SQL demo")
-    assert client.get("/admin/manual").json()["markdown"].startswith("# Manual de desarrollo de ConverData")
+    assert client.get("/admin/manual").json()["markdown"].startswith("# Manual de desarrollo de DiscoveryDataAgent")
     assert client.get("/admin/docs/page", params={"path": "wiki/componentes/web.md"}).status_code == 200
 
 

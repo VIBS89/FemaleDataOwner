@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Despliegue de ConverData en AWS (CN-01). Guía completa: deploy/aws/README.md
+# Despliegue de DiscoveryDataAgent en AWS (CN-01). Guía completa: deploy/aws/README.md
 #
 #   bash deploy/aws/despliegue.sh <comando> <entorno> [opciones de terraform]
 #
@@ -55,8 +55,8 @@ load_env() {
   export AWS_REGION="$REGION" AWS_DEFAULT_REGION="$REGION"
   ACCOUNT="$(aws sts get-caller-identity --query Account --output text)" \
     || die "Sin credenciales de AWS válidas. Configura AWS_PROFILE o inicia sesión con 'aws sso login'."
-  BUCKET="converdata-tfstate-$ACCOUNT-$REGION"
-  NAME="converdata-$ENV_NAME"
+  BUCKET="discovery-data-agent-tfstate-$ACCOUNT-$REGION"
+  NAME="discovery-data-agent-$ENV_NAME"
   echo ">> Entorno $ENV_NAME · cuenta $ACCOUNT · región $REGION" >&2
 }
 
@@ -64,7 +64,7 @@ tf() { (cd terraform && terraform "$@"); }
 
 tf_init() {
   tf init -input=false -reconfigure \
-    -backend-config="bucket=$BUCKET" -backend-config="key=converdata/$ENV_NAME/terraform.tfstate" \
+    -backend-config="bucket=$BUCKET" -backend-config="key=discovery-data-agent/$ENV_NAME/terraform.tfstate" \
     -backend-config="region=$REGION" >/dev/null \
     || die "terraform init falló. ¿Se ejecutó 'bootstrap $REGION' en esta cuenta?"
 }
@@ -100,7 +100,7 @@ cmd_deploy() {
   tag="$(git rev-parse --short=12 HEAD)"
   dirty="$(git status --porcelain)"
   if [ -n "$dirty" ]; then
-    case "$(tfvar converdata_env)" in
+    case "$(tfvar discovery_data_agent_env)" in
       qa|prod) die "Hay cambios sin commit. A qa y prod solo se sube un commit, para que la etiqueta diga qué código corre." ;;
     esac
     [ "${ALLOW_DIRTY:-0}" = "1" ] || die "Hay cambios sin commit. Haz commit o repite con ALLOW_DIRTY=1 (solo entornos de prueba)."
@@ -136,9 +136,9 @@ cmd_rollback() {
 cmd_secret() {
   local name="${1:-}" value
   case "$name" in db|metadata-user|metadata-password) ;; *) die "Secreto desconocido: usa db, metadata-user o metadata-password." ;; esac
-  read -r -s -p "Valor de converdata/$ENV_NAME/$name (no se muestra): " value; echo >&2
+  read -r -s -p "Valor de discovery-data-agent/$ENV_NAME/$name (no se muestra): " value; echo >&2
   [ -n "$value" ] || die "Valor vacío: no se cambió nada."
-  aws secretsmanager put-secret-value --secret-id "converdata/$ENV_NAME/$name" --secret-string "$value" >/dev/null
+  aws secretsmanager put-secret-value --secret-id "discovery-data-agent/$ENV_NAME/$name" --secret-string "$value" >/dev/null
   echo ">> Guardado. La tarea lo lee al arrancar: 'restart $ENV_NAME' para que lo tome." >&2
 }
 
@@ -186,7 +186,7 @@ case "$COMMAND" in
     ;;
   setup-token)
     load_env
-    aws secretsmanager get-secret-value --secret-id "converdata/$ENV_NAME/setup-token" --query SecretString --output text
+    aws secretsmanager get-secret-value --secret-id "discovery-data-agent/$ENV_NAME/setup-token" --query SecretString --output text
     ;;
   status)
     load_env; tf_init
@@ -195,6 +195,6 @@ case "$COMMAND" in
     aws ecs describe-services --cluster "$NAME" --services "$NAME" --output table \
       --query 'services[0].{Estado:status,Deseadas:desiredCount,EnMarcha:runningCount,Despliegue:deployments[0].rolloutState,UltimoEvento:events[0].message}'
     ;;
-  logs)        load_env; aws logs tail "/converdata/$ENV_NAME/${1:-api}" --follow --since 30m ;;
+  logs)        load_env; aws logs tail "/discovery-data-agent/$ENV_NAME/${1:-api}" --follow --since 30m ;;
   *)           echo "Comando desconocido: $COMMAND" >&2; usage 1 ;;
 esac

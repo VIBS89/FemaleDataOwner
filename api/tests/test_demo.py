@@ -1,4 +1,4 @@
-"""Modo demo para inversionistas (CONVERDATA_DEMO=1): el guion completo que muestra la web.
+"""Modo demo para inversionistas (DISCOVERY_DATA_AGENT_DEMO=1): el guion completo que muestra la web.
 
 VBank (propuesta: onboarding digital, prod + QA + DWH) y BancosSQL simulados, conocimiento curado del fixture, tres
 usuarios demo y el ciclo: pregunta → candidato con 92 % → duda sin respuesta → el responsable la contesta → la siguiente
@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
-from converdata_api.settings import ApiSettings
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.settings import ApiSettings
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = [ROOT / "tests" / "fixtures" / "vbank", ROOT / "tests" / "fixtures" / "bancos"]
@@ -157,7 +157,7 @@ def test_cola_de_revision_y_edicion_de_descripciones(demo, app):
 
 
 def test_historial_simulado_para_el_tablero(settings, tmp_path):
-    """CONVERDATA_DEMO_HISTORY: 30 días de actividad simulada, marcada para no confundirla con un piloto real."""
+    """DISCOVERY_DATA_AGENT_DEMO_HISTORY: 30 días de actividad simulada, marcada para no confundirla con un piloto real."""
     import json
 
     settings.demo_history = True

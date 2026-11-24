@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from converdata.bootstrap import build_service, user_with_databases
+from discovery_data_agent.bootstrap import build_service, user_with_databases
 from situaciones import MARCAS, motivo_de_omision
 
 try:

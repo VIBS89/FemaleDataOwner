@@ -1,0 +1,149 @@
+"""Sección `discovery` del AnswerEnvelope (F22) y AnswerEnvelope (PRD §8.3)."""
+
+from __future__ import annotations
+
+import uuid
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from discovery_data_agent.models.catalog import DescriptionSource
+from discovery_data_agent.models.figures import Figure
+from discovery_data_agent.models.intent import Clarification
+
+
+class Location(BaseModel):
+    environment: str
+    server: str  # alias mostrable (config/databases.yaml), nunca el host
+
+
+class RuleRef(BaseModel):
+    id: str
+    text: str
+    reviewed: bool
+
+
+class Owners(BaseModel):
+    business: str | None = None
+    technical: str | None = None
+
+
+class Lineage(BaseModel):
+    upstream: list[str] = Field(default_factory=list)
+    downstream: list[str] = Field(default_factory=list)
+
+
+class Evidence(BaseModel):
+    kind: str
+    source: str
+    reviewed: bool | None = None
+
+
+class Candidate(BaseModel):
+    rank: int
+    kind: Literal["column", "table", "view", "procedure"]
+    asset_key: str
+    database: str
+    schema_: str = Field(alias="schema")
+    table: str
+    column: str | None = None
+    data_type: str | None = None
+    locations: list[Location] = Field(default_factory=list)
+    drift_warning: str | None = None
+    description: str | None = None
+    description_source: DescriptionSource = "generated"
+    business_rules: list[RuleRef] = Field(default_factory=list)
+    owners: Owners = Field(default_factory=Owners)
+    lineage: Lineage = Field(default_factory=Lineage)
+    evidence: list[Evidence] = Field(default_factory=list)
+    why: str = ""
+    confidence: float = 0.0
+    copies: list[str] = Field(default_factory=list)  # el mismo dato en otras BDs (misma entidad, F19)
+
+    model_config = {"populate_by_name": True}
+
+
+class JoinPath(BaseModel):
+    """Cómo cruzar el candidato principal con la tabla que responde otra parte de la pregunta (GraphRAG, F19)."""
+
+    purpose: str  # término de la pregunta que resuelve la tabla destino
+    tables: list[str]
+    steps: list[str]  # "A → B (fk: ClienteID)"
+
+
+class Alternative(BaseModel):
+    asset_key: str
+    why: str
+    confidence: float
+
+
+class Related(BaseModel):
+    from_: str = Field(alias="from")
+    to: str
+    relation: Literal["fk", "etl", "same_entity"]
+    on: str | None = None
+    via: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class Discovery(BaseModel):
+    candidates: list[Candidate] = Field(default_factory=list)
+    alternatives: list[Alternative] = Field(default_factory=list)
+    related: list[Related] = Field(default_factory=list)
+    join_paths: list[JoinPath] = Field(default_factory=list)
+    knowledge_gap: bool = False
+    unresolved_parts: list[str] = Field(default_factory=list)  # partes de una pregunta compuesta sin respuesta
+    suggested_questions: list[str] = Field(default_factory=list)
+
+
+class Check(BaseModel):
+    name: str
+    status: Literal["pass", "warn", "fail", "fixed"]
+    detail: str = ""
+
+
+class Validation(BaseModel):
+    """Revisión del resultado (patrón evaluador-optimizador). En el AskFlow también lleva static/compile/plan (F7)."""
+
+    checks: list[Check] = Field(default_factory=list)
+    judge: dict | None = None  # veredicto del juez LLM, si intervino
+    attempts: int = 1
+
+
+class DataAnswer(BaseModel):
+    """Respuesta con datos del AskFlow (F6–F10): la cifra o la tabla, y la evidencia de dónde salió.
+
+    `rows` solo viaja en la respuesta al usuario que hizo la pregunta (con sus propios permisos): la auditoría guarda
+    la consulta y el número de filas, nunca los valores (`redacted`)."""
+
+    columns: list[str] = Field(default_factory=list)
+    rows: list[list] = Field(default_factory=list)
+    row_count: int = 0
+    truncated: bool = False
+    sql: str = ""  # la consulta ejecutada, ya validada (F7)
+    database: str = ""
+    server: str = ""  # alias mostrable, nunca el host
+    tables: list[str] = Field(default_factory=list)
+    explanation: str = ""  # cómo se calculó, en lenguaje sencillo
+    filters: list[str] = Field(default_factory=list)  # criterios aplicados, en lenguaje sencillo
+
+    def redacted(self) -> "DataAnswer":
+        return self.model_copy(update={"rows": []})
+
+
+class AnswerEnvelope(BaseModel):
+    trace_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    flow: Literal["discover", "ask"] = "discover"
+    status: Literal["ok", "needs_clarification", "rejected", "error"] = "ok"
+    answer_text: str = ""
+    clarification: Clarification | None = None
+    databases: list[str] = Field(default_factory=list)
+    tables_used: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    validation: Validation | None = None
+    confidence: float | None = None
+    discovery: Discovery | None = None
+    figure: Figure | None = None  # cifra agregada (`features.ask_flow`); nunca filas de datos
+    data: DataAnswer | None = None  # fase 1b (`features.ask_llm_sql`): el dato con SQL de un LLM y su evidencia
+    timings_ms: dict[str, int] = Field(default_factory=dict)

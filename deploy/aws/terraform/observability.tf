@@ -40,7 +40,7 @@ resource "aws_cloudwatch_log_metric_filter" "audit_failed" {
   pattern        = "{ $.event = \"audit.write_failed\" }"
 
   metric_transformation {
-    namespace = "ConverData/${var.environment}"
+    namespace = "DiscoveryDataAgent/${var.environment}"
     name      = "AuditWriteFailed"
     value     = "1"
   }
@@ -49,7 +49,7 @@ resource "aws_cloudwatch_log_metric_filter" "audit_failed" {
 resource "aws_cloudwatch_metric_alarm" "audit_failed" {
   alarm_name          = "${local.name}-auditoria"
   alarm_description   = "Critica: fallo al escribir la auditoria"
-  namespace           = "ConverData/${var.environment}"
+  namespace           = "DiscoveryDataAgent/${var.environment}"
   metric_name         = "AuditWriteFailed"
   statistic           = "Sum"
   period              = 60

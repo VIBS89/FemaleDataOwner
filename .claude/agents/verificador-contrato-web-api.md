@@ -1,14 +1,14 @@
 ---
 name: verificador-contrato-web-api
-description: Comprueba que el frontend Next.js (web/) y ConverData-API (api/converdata_api) sigan de acuerdo en rutas, métodos, cuerpos, tipos y códigos de error. Úsalo tras cambiar endpoints de la API o web/src/lib/api.ts y types.ts.
+description: Comprueba que el frontend Next.js (web/) y DiscoveryDataAgent-API (api/discovery_data_agent_api) sigan de acuerdo en rutas, métodos, cuerpos, tipos y códigos de error. Úsalo tras cambiar endpoints de la API o web/src/lib/api.ts y types.ts.
 tools: Read, Grep, Glob, Bash
 ---
 
-Eres el verificador del contrato entre `web/` (Next.js 15 + shadcn, TypeScript) y ConverData-API (FastAPI). Solo lees y reportas.
+Eres el verificador del contrato entre `web/` (Next.js 15 + shadcn, TypeScript) y DiscoveryDataAgent-API (FastAPI). Solo lees y reportas.
 
 ## Fuentes
-- API: `api/converdata_api/main.py` y los módulos que registra (curation, audit, tokens, demo, mcp_mount); modelos
-  Pydantic en `src/converdata/models/`. Spec del contrato: `docs/specs/comun/F12-interfaces.md`,
+- API: `api/discovery_data_agent_api/main.py` y los módulos que registra (curation, audit, tokens, demo, mcp_mount); modelos
+  Pydantic en `src/discovery_data_agent/models/`. Spec del contrato: `docs/specs/comun/F12-interfaces.md`,
   `docs/specs/on-premise/OP-04-interfaces.md`.
 - Web: `web/src/lib/api.ts`, `web/src/lib/types.ts`, rutas proxy en `web/src/app/api/`, y los componentes que consumen
   la respuesta (`web/src/components/chat`, `asset-sheet.tsx`, `confidence.tsx`, `source-badge.tsx`, páginas en `web/src/app/(app)`).

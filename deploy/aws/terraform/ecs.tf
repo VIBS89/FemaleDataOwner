@@ -10,7 +10,7 @@ resource "aws_ecs_cluster" "this" {
 
 resource "aws_cloudwatch_log_group" "this" {
   for_each          = toset(["api", "web", "builder"])
-  name              = "/converdata/${var.environment}/${each.key}"
+  name              = "/discovery-data-agent/${var.environment}/${each.key}"
   retention_in_days = var.log_retention_days
   kms_key_id        = aws_kms_key.this.arn
 }
@@ -29,34 +29,34 @@ locals {
 
   api_env = merge(
     {
-      CONVERDATA_ENV                = var.converdata_env
-      CONVERDATA_DEMO               = var.demo ? "1" : "0"
-      CONVERDATA_DATA_ROOT          = "/app/data/catalog"
-      CONVERDATA_INVENTORY          = "/app/data/inventory.yaml"
-      CONVERDATA_AUDIT_DIR          = "/app/data/audit"
-      CONVERDATA_CURATION_DIR       = "/app/data/curation"
-      CONVERDATA_LOG_DIR            = "/app/data/logs"
-      CONVERDATA_EVENT_LOG          = "0"
-      CONVERDATA_ALLOW_WINDOWS_AUTH = "0"
-      CONVERDATA_COOKIE_SECURE      = local.https ? "1" : "0"
-      CONVERDATA_ADMINS             = join(",", var.admins)
-      CONVERDATA_ADMINS_ONLY        = local.production ? "1" : "0"
-      CONVERDATA_CORS_ORIGINS       = local.public_url
-      CONVERDATA_PUBLIC_URL         = local.public_url
-      CONVERDATA_MCP_HOSTS          = "${local.host},${local.host}:*"
+      DISCOVERY_DATA_AGENT_ENV                = var.discovery_data_agent_env
+      DISCOVERY_DATA_AGENT_DEMO               = var.demo ? "1" : "0"
+      DISCOVERY_DATA_AGENT_DATA_ROOT          = "/app/data/catalog"
+      DISCOVERY_DATA_AGENT_INVENTORY          = "/app/data/inventory.yaml"
+      DISCOVERY_DATA_AGENT_AUDIT_DIR          = "/app/data/audit"
+      DISCOVERY_DATA_AGENT_CURATION_DIR       = "/app/data/curation"
+      DISCOVERY_DATA_AGENT_LOG_DIR            = "/app/data/logs"
+      DISCOVERY_DATA_AGENT_EVENT_LOG          = "0"
+      DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH = "0"
+      DISCOVERY_DATA_AGENT_COOKIE_SECURE      = local.https ? "1" : "0"
+      DISCOVERY_DATA_AGENT_ADMINS             = join(",", var.admins)
+      DISCOVERY_DATA_AGENT_ADMINS_ONLY        = local.production ? "1" : "0"
+      DISCOVERY_DATA_AGENT_CORS_ORIGINS       = local.public_url
+      DISCOVERY_DATA_AGENT_PUBLIC_URL         = local.public_url
+      DISCOVERY_DATA_AGENT_MCP_HOSTS          = "${local.host},${local.host}:*"
       # El ALB añade la dirección del cliente al final de X-Forwarded-For: de ahí sale el origen para el bloqueo de login.
-      CONVERDATA_TRUST_PROXY = "1"
+      DISCOVERY_DATA_AGENT_TRUST_PROXY = "1"
     },
     local.models_yaml == null ? {} : {
-      CONVERDATA_MODELS      = "/tmp/models.yaml"
-      CONVERDATA_MODELS_YAML = local.models_yaml
+      DISCOVERY_DATA_AGENT_MODELS      = "/tmp/models.yaml"
+      DISCOVERY_DATA_AGENT_MODELS_YAML = local.models_yaml
     },
     var.extra_api_env,
   )
 
   api_secrets = concat(
-    [for s in aws_secretsmanager_secret.setup_token : { name = "CONVERDATA_SETUP_TOKEN", valueFrom = s.arn }],
-    [for s in aws_secretsmanager_secret.db : { name = "CONVERDATA_DB", valueFrom = s.arn }],
+    [for s in aws_secretsmanager_secret.setup_token : { name = "DISCOVERY_DATA_AGENT_SETUP_TOKEN", valueFrom = s.arn }],
+    [for s in aws_secretsmanager_secret.db : { name = "DISCOVERY_DATA_AGENT_DB", valueFrom = s.arn }],
   )
 
   data_mount = [{ sourceVolume = "data", containerPath = "/app/data", readOnly = false }]
@@ -77,7 +77,7 @@ resource "aws_ecs_task_definition" "app" {
     cpu_architecture        = "X86_64"
   }
 
-  # Disco efímero de la tarea, no persistente (CN-06): desaparece al parar. Con CONVERDATA_DB solo lleva los logs.
+  # Disco efímero de la tarea, no persistente (CN-06): desaparece al parar. Con DISCOVERY_DATA_AGENT_DB solo lleva los logs.
   volume {
     name = "data"
   }
@@ -105,11 +105,11 @@ resource "aws_ecs_task_definition" "app" {
     },
     {
       # Puente hasta que la API escriba sus logs en la salida estándar (CN-01 §Dependencias, punto 2): hoy van al
-      # archivo de CONVERDATA_LOG_DIR, y este contenedor los lleva a CloudWatch. Se quita con ese cambio de código.
+      # archivo de DISCOVERY_DATA_AGENT_LOG_DIR, y este contenedor los lleva a CloudWatch. Se quita con ese cambio de código.
       name             = "api-eventos"
       image            = local.api_image
       essential        = false
-      command          = ["sh", "-c", "mkdir -p /app/data/logs && touch /app/data/logs/converdata.log && exec tail -n +1 -F /app/data/logs/converdata.log"]
+      command          = ["sh", "-c", "mkdir -p /app/data/logs && touch /app/data/logs/discovery-data-agent.log && exec tail -n +1 -F /app/data/logs/discovery-data-agent.log"]
       mountPoints      = local.data_mount
       logConfiguration = local.log_configuration["eventos"]
     },
@@ -170,15 +170,15 @@ resource "aws_ecs_service" "app" {
   depends_on = [aws_lb_listener_rule.mcp, aws_vpc_endpoint.interface, aws_vpc_endpoint.s3]
 }
 
-# --- Builder: la misma imagen ejecutando `converdata catalog build --db`; corre y termina (CN-02) ---
+# --- Builder: la misma imagen ejecutando `discovery-data-agent catalog build --db`; corre y termina (CN-02) ---
 locals {
-  builder_command = "converdata catalog build --db${var.builder.use_llm ? " --models /tmp/models.yaml" : ""}"
+  builder_command = "discovery-data-agent catalog build --db${var.builder.use_llm ? " --models /tmp/models.yaml" : ""}"
   builder_env = merge(
     {
-      CONVERDATA_ENV           = var.converdata_env
-      CONVERDATA_BUILDER_HOSTS = join(",", var.builder.hosts)
+      DISCOVERY_DATA_AGENT_ENV           = var.discovery_data_agent_env
+      DISCOVERY_DATA_AGENT_BUILDER_HOSTS = join(",", var.builder.hosts)
     },
-    var.builder.use_llm && local.models_yaml != null ? { CONVERDATA_MODELS_YAML = local.models_yaml } : {},
+    var.builder.use_llm && local.models_yaml != null ? { DISCOVERY_DATA_AGENT_MODELS_YAML = local.models_yaml } : {},
   )
 }
 
@@ -207,7 +207,7 @@ resource "aws_ecs_task_definition" "builder" {
     )
     environment = [for k, v in local.builder_env : { name = k, value = v }]
     secrets = [
-      { name = "CONVERDATA_DB", valueFrom = aws_secretsmanager_secret.db[0].arn },
+      { name = "DISCOVERY_DATA_AGENT_DB", valueFrom = aws_secretsmanager_secret.db[0].arn },
       { name = var.builder.metadata_user_env, valueFrom = aws_secretsmanager_secret.metadata["metadata-user"].arn },
       { name = var.builder.metadata_password_env, valueFrom = aws_secretsmanager_secret.metadata["metadata-password"].arn },
     ]
@@ -268,7 +268,7 @@ resource "aws_iam_role_policy" "scheduler" {
 resource "aws_scheduler_schedule" "builder" {
   count                        = local.builder_enabled ? 1 : 0
   name                         = "${local.name}-builder"
-  description                  = "Refresco del catalogo de ConverData"
+  description                  = "Refresco del catalogo de DiscoveryDataAgent"
   schedule_expression          = var.builder.schedule
   schedule_expression_timezone = var.builder.timezone
 

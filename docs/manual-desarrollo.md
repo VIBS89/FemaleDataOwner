@@ -1,6 +1,6 @@
-# Manual de desarrollo de ConverData
+# Manual de desarrollo de DiscoveryDataAgent
 
-Actualizado el 2026-11-17. Este manual es para quien va a desarrollar o mantener ConverData. Explica qué pieza hace
+Actualizado el 2026-11-17. Este manual es para quien va a desarrollar o mantener DiscoveryDataAgent. Explica qué pieza hace
 qué, cómo se conectan y qué falta por construir. En la aplicación solo lo ven los administradores de datos, porque
 describe controles de seguridad y sus puntos débiles; cada lectura queda en la auditoría.
 
@@ -8,7 +8,7 @@ Los detalles viven en otros documentos del repositorio y este manual dice en cu�
 manda el código: corrige el manual en el mismo cambio.
 
 ## 1. Qué hace la solución
-ConverData responde en lenguaje natural dónde vive un dato, qué significa, con qué se relaciona y cuánta confianza
+DiscoveryDataAgent responde en lenguaje natural dónde vive un dato, qué significa, con qué se relaciona y cuánta confianza
 merece la respuesta. Lee solo metadatos de SQL Server (tablas, columnas, llaves, descripciones) y el conocimiento que
 el banco le carga o le enseña. No lee valores de datos de clientes. Una excepción, apagada por defecto: con las cifras agregadas activas
 (`features.ask_flow`), un total (cuántos, suma, promedio) se calcula con el login de la persona y se muestra sin guardarlo.
@@ -27,23 +27,23 @@ Cuatro reglas sostienen el diseño. Un cambio que rompa una de ellas no se acept
 | Componente | Para qué sirve | Dónde está |
 |---|---|---|
 | **Web** | Chat con tarjetas de candidatos, Catálogo, Mis solicitudes, Curación, Métricas y Administración. Reenvía `/api/*` a la API, que no se publica directamente. No guarda credenciales | `web/` (Next.js) |
-| **ConverData-API** | Un solo proceso: rutas REST, servidor MCP en `/mcp` y el flujo de descubrimiento. Guarda el login de cada sesión cifrado en memoria y nada en disco | `api/converdata_api/` (FastAPI) |
-| **BD ConverData** | Todo el estado: catálogo con historial, conocimiento, curación, inventario de servidores y auditoría | `db/converdata/*.sql` (SQL Server 2016 o posterior) |
-| **Builder** | Comando que lee los metadatos de los servidores, arma el catálogo y lo publica en la BD. Corre y termina; lo lanza una tarea programada o un administrador | `converdata catalog build --db` |
+| **DiscoveryDataAgent-API** | Un solo proceso: rutas REST, servidor MCP en `/mcp` y el flujo de descubrimiento. Guarda el login de cada sesión cifrado en memoria y nada en disco | `api/discovery_data_agent_api/` (FastAPI) |
+| **BD DiscoveryDataAgent** | Todo el estado: catálogo con historial, conocimiento, curación, inventario de servidores y auditoría | `db/discovery_data_agent/*.sql` (SQL Server 2016 o posterior) |
+| **Builder** | Comando que lee los metadatos de los servidores, arma el catálogo y lo publica en la BD. Corre y termina; lo lanza una tarea programada o un administrador | `discovery-data-agent catalog build --db` |
 | **Proveedor de LLM** | Un modelo para redactar la respuesta para una persona de negocio, reformular la búsqueda cuando cubre poco y orientar cuando no hay resultados (rol `fast`); entender la pregunta y ordenar los candidatos (rol `planner`) está desaconsejado por la medición. También describe las tablas nuevas al construir el catálogo. Sin él, el flujo funciona en modo determinista | `config/models.yaml` (Bedrock en el piloto) |
-| **SQL Server de datos** | Las BDs de negocio. Son la fuente de verdad de los permisos; ConverData solo les pregunta qué puede ver cada login y cuál es su estructura | Fuera del repositorio |
+| **SQL Server de datos** | Las BDs de negocio. Son la fuente de verdad de los permisos; DiscoveryDataAgent solo les pregunta qué puede ver cada login y cuál es su estructura | Fuera del repositorio |
 
 La arquitectura completa, del contexto a los componentes (modelo C4), está en `docs/architecture/README.md`, con sus
 diagramas: `c4-contexto.html`, `onpremise-architecture.html`, `cloud-native-architecture.html`, `c4-componentes-api.html`,
-`flujo-descubrimiento.html`, `modelo-datos-converdata.html`, `permisos-heredados.html` y `controles-calidad-bancaria.html`.
+`flujo-descubrimiento.html`, `modelo-datos-discovery-data-agent.html`, `permisos-heredados.html` y `controles-calidad-bancaria.html`.
 El detalle interno de cada componente está en la wiki del repositorio, `docs/wiki/README.md`.
 
 En la aplicación, *Administración → Documentación* muestra este manual, la wiki, `docs/architecture/README.md` y los
-diagramas, solo a los administradores de datos y con cada lectura auditada (`api/converdata_api/documentation.py`,
+diagramas, solo a los administradores de datos y con cada lectura auditada (`api/discovery_data_agent_api/documentation.py`,
 `web/src/components/docs-viewer.tsx`). Los documentos de fuera de esa lista se ven como ruta, sin enlace. Si un
-compañero no ve la pestaña, su login no tiene el rol `data_admin`: en desarrollo se añade a `CONVERDATA_ADMINS`.
+compañero no ve la pestaña, su login no tiene el rol `data_admin`: en desarrollo se añade a `DISCOVERY_DATA_AGENT_ADMINS`.
 
-### 2.2 El núcleo (`src/converdata/`)
+### 2.2 El núcleo (`src/discovery_data_agent/`)
 El código se ordena en cuatro capas y las dependencias apuntan hacia adentro: integración → aplicación → dominio ←
 infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/architecture/capas-backend.md`.
 
@@ -59,7 +59,7 @@ infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/ar
 | `flows/` | Aplicación | Los dos grafos de LangGraph: `discover.py` (responder una pregunta) y `catalog_build.py` (construir el catálogo) |
 | `ask/` | Dominio e infraestructura | Fase 1b del AskFlow (`features.ask_llm_sql`, apagada por defecto): responde lo que las cifras de plantilla (`discovery/figures.py`, decisión 17) no pueden, con SQL de un LLM. Corre después de `compute` y solo si no hubo cifra. `engine.py` arma el esquema, corrige hasta 3 veces y rellena la frase con el resultado (el LLM nunca lo ve); `validator.py` deja pasar solo un `SELECT` sobre tablas visibles e inyecta `TOP`; `planner.py` es el planner con LLM (rol `coder`). El ejecutor (`api/converdata_api/executor.py`) pasa por los mismos controles que las cifras (`runtime._run_ask`): servidor autorizado, tope diario, concurrencia y auditoría previa |
 | `application/` | Aplicación | Casos de uso compartidos: herramientas de descubrimiento (las usan el MCP y la compuerta; las rutas REST llaman al flujo directamente) y refresco del catálogo (el mismo para la CLI y la API) |
-| `storage/` | Infraestructura | Adaptadores de la BD `ConverData`: conexión, migraciones, catálogo, curación. Y los mismos puertos sobre archivos, solo para desarrollo |
+| `storage/` | Infraestructura | Adaptadores de la BD `DiscoveryDataAgent`: conexión, migraciones, catálogo, curación. Y los mismos puertos sobre archivos, solo para desarrollo |
 | `audit/` | Dominio e infraestructura | Registro de auditoría: en SQL Server (solo inserción) o en archivos con cadena de hashes |
 | `metadata/` | Infraestructura | Lectura de metadatos de SQL Server con consultas fijas a `sys.*` |
 | `identity/` | Dominio | La consulta que dice qué objetos puede leer un login |
@@ -67,9 +67,9 @@ infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/ar
 | `observability/` | Infraestructura | Logs JSON con lista blanca de campos y contadores para el monitoreo. Sin texto de preguntas |
 | `evaluation/` | Integración | `eval discovery` (acierto por tipo de pregunta) y `eval gate` (la compuerta de siete suites) |
 | `integration/mcp/` | Integración | Servidor MCP: por HTTP dentro de la API y por stdio para desarrollo |
-| `bootstrap.py`, `cli.py` | Integración | Raíz de composición (ensambla el flujo y abre los almacenes) y la línea de comandos `converdata` |
+| `bootstrap.py`, `cli.py` | Integración | Raíz de composición (ensambla el flujo y abre los almacenes) y la línea de comandos `discovery-data-agent` |
 
-### 2.3 La API (`api/converdata_api/`)
+### 2.3 La API (`api/discovery_data_agent_api/`)
 
 | Módulo | Para qué sirve |
 |---|---|
@@ -84,7 +84,7 @@ infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/ar
 | `audit.py`, `mcp_mount.py`, `settings.py` | Auditoría en archivos (desarrollo), montaje de `/mcp` y ajustes por variables de entorno |
 | `demo.py`, `demo_history.py` | Modo demo: servidores simulados y actividad de ejemplo. No se admite en qa ni en prod |
 
-### 2.4 La BD `ConverData`
+### 2.4 La BD `DiscoveryDataAgent`
 
 | Esquema | Qué guarda | Quién lo escribe |
 |---|---|---|
@@ -94,15 +94,15 @@ infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/ar
 | `golden` | Texto original de una confirmación, solo si no traía literales | API (insertar) |
 | `audit` | Preguntas, pasos, candidatos, votos y eventos | API y CLI (insertar); la purga, con su propio rol |
 
-Cuatro roles de mínimo privilegio: `converdata_app`, `converdata_builder`, `converdata_auditor` y
-`converdata_maintenance`. Los cambios de esquema van siempre en un script nuevo de `db/converdata/`; uno ya aplicado no
+Cuatro roles de mínimo privilegio: `discovery_data_agent_app`, `discovery_data_agent_builder`, `discovery_data_agent_auditor` y
+`discovery_data_agent_maintenance`. Los cambios de esquema van siempre en un script nuevo de `db/discovery_data_agent/`; uno ya aplicado no
 se edita. Detalle en `docs/specs/on-premise/OP-02-catalogo-memoria.md`.
 
 ### 2.5 Lo que rodea al código
 
 | Pieza | Para qué sirve |
 |---|---|
-| `tests/`, `api/tests/` | Pruebas. Las marcadas `sqlserver` crean y eliminan su propia BD y necesitan `CONVERDATA_TEST_DB` |
+| `tests/`, `api/tests/` | Pruebas. Las marcadas `sqlserver` crean y eliminan su propia BD y necesitan `DISCOVERY_DATA_AGENT_TEST_DB` |
 | `tests/fixtures/*/eval/` | Sets de evaluación y sus líneas base. `reportes.yaml` mide el aporte del conocimiento y `chat.yaml` el chat de negocio (se corre aparte de la compuerta con `--cases`) |
 | `requirements/*.lock` | Dependencias de Python con versión y hash. `requirements/README.md` dice cómo regenerarlas |
 | `.github/workflows/calidad.yml` | CI: pruebas y compuerta, web, y análisis de dependencias con SBOM |
@@ -130,12 +130,12 @@ deriva de los metadatos, sin tocar lo que escribieron las personas.
 python -m venv .venv
 .venv/Scripts/python -m pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/dev.lock
 .venv/Scripts/python -m pip install --no-deps --no-build-isolation --no-index -e .
-.venv/Scripts/python -m pytest -q                      # sin CONVERDATA_TEST_DB se omiten las pruebas de SQL Server
-.venv/Scripts/python -m converdata.cli eval gate       # la compuerta: debe aprobar en los dos catálogos
+.venv/Scripts/python -m pytest -q                      # sin DISCOVERY_DATA_AGENT_TEST_DB se omiten las pruebas de SQL Server
+.venv/Scripts/python -m discovery_data_agent.cli eval gate       # la compuerta: debe aprobar en los dos catálogos
 npm --prefix web ci && npm --prefix web run build
 ```
 
-- **Antes de pedir revisión.** Si tocaste `storage/`, `audit/` o `db/`, corre las pruebas con `CONVERDATA_TEST_DB`: la CI todavía no las ejecuta. Si tocaste `discovery/` o un set de evaluación, corre `eval discovery` en los dos catálogos y prueba además con preguntas que no estén en el set.
+- **Antes de pedir revisión.** Si tocaste `storage/`, `audit/` o `db/`, corre las pruebas con `DISCOVERY_DATA_AGENT_TEST_DB`: la CI todavía no las ejecuta. Si tocaste `discovery/` o un set de evaluación, corre `eval discovery` en los dos catálogos y prueba además con preguntas que no estén en el set.
 - **Revisores.** Tras tocar identidad, auditoría, almacenamiento, curación o la API, pasa `revisor-seguridad-datos` y `revisor-arquitectura-specs`. Tras cambiar una ruta o la web, `verificador-contrato-web-api`. Tras tocar el descubrimiento, `evaluador-descubrimiento`. Han encontrado fallos reales que las pruebas no veían.
 - **Documentación viva.** El estado y el siguiente paso están en `docs/PLAN-desarrollo.md`; el de cada historia, en `docs/backlog/on-premise.md`. Se actualizan en el mismo cambio que el código.
 - **Dependencias.** Una dependencia nueva exige regenerar el bloqueo y pasar el análisis de vulnerabilidades, en un cambio aparte.
@@ -146,7 +146,7 @@ npm --prefix web ci && npm --prefix web run build
 
 | Bloque | Qué falta | Depende de |
 |---|---|---|
-| **D · Métricas** | Comando `converdata metrics report`, vistas SQL del scorecard y reporte de brechas por dominio | Nadie |
+| **D · Métricas** | Comando `discovery-data-agent metrics report`, vistas SQL del scorecard y reporte de brechas por dominio | Nadie |
 | **E · Fuentes de conocimiento** | Diccionario en Excel, documentos con redacción de datos personales y linaje desde SSIS | Documentos del dominio y acceso a SSISDB |
 | **F · Instalación** | Scripts de `deploy/windows/` para IIS, tareas programadas del refresco, la purga y la evaluación, respaldo y restauración | Un Windows Server para validarlos, gMSA |
 | **G · LLM y calidad real** | Probar Bedrock de punta a punta, repetir la compuerta con el modelo real y reunir 50–80 preguntas de usuarios | Cuenta AWS y un responsable del dominio |
@@ -168,7 +168,7 @@ gravedad, esfuerzo y cómo se cierran. Estas son las 8 de gravedad alta:
 | DT-45 | La CI no construye ni analiza la imagen | Cadena de suministro |
 
 El 2026-11-17 se cerraron DT-01, DT-03, DT-08, DT-57 y DT-67, y DT-02 bajó a gravedad media: queda activar
-`TRUST_FORWARDED_FOR` (web) y `CONVERDATA_TRUST_PROXY` (API) detrás de IIS, en el bloque F.
+`TRUST_FORWARDED_FOR` (web) y `DISCOVERY_DATA_AGENT_TRUST_PROXY` (API) detrás de IIS, en el bloque F.
 
 Las brechas frente al PRD y las specs están en `docs/wiki/brechas-funcionales.md`, y el orden para cerrarlas en
 `docs/wiki/hoja-de-ruta-on-premise.md` y `docs/wiki/hoja-de-ruta-cloud.md`.

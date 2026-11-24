@@ -1,4 +1,4 @@
-# ConverData en AWS (CN-01): una pila por entorno. Se ejecuta con ../despliegue.sh, que pasa el backend y el tfvars.
+# DiscoveryDataAgent en AWS (CN-01): una pila por entorno. Se ejecuta con ../despliegue.sh, que pasa el backend y el tfvars.
 terraform {
   required_version = ">= 1.10"
 
@@ -25,7 +25,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      app        = "converdata"
+      app        = "discovery-data-agent"
       env        = var.environment
       managed-by = "terraform"
     }

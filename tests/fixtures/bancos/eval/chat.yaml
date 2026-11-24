@@ -62,7 +62,7 @@ cases:
   - {id: K04, type: K, question: "ahora lo mismo pero por agencia", history: ["cual es el saldo total de la cartera de prestamos"], expected: [BancaPrestamos.dbo.Prestamos.SaldoCapital, BancaPrestamos.dbo.vw_CarteraPorCategoria.SaldoCapital]}
   - {id: K05, type: K, question: "y esa fecha como la uno con el prestamo para ver cuales se pagaron tarde", history: ["donde esta la fecha de pago de una cuota"], expected: [BancaPrestamos.dbo.CuotasPrestamo, BancaPrestamos.dbo.CuotasPrestamo.FechaPago], expected_related: [BancaPrestamos.dbo.Prestamos]}
   # M — sobre el asistente y cortesía
-  - {id: M01, type: M, question: "si agregan tablas o columnas nuevas a la base, como se entera ConverData?", expect_assistant: freshness}
+  - {id: M01, type: M, question: "si agregan tablas o columnas nuevas a la base, como se entera DiscoveryDataAgent?", expect_assistant: freshness}
   - {id: M02, type: M, question: "¿Cómo te mantienes actualizado si hay nuevas tablas o columnas?", expect_assistant: freshness}
   - {id: M03, type: M, question: "que puedes hacer y que no?", expect_assistant: capabilities}
   - {id: M04, type: M, question: "de donde sacas la informacion que me respondes", expect_assistant: sources}

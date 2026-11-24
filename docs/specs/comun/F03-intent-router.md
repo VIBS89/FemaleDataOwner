@@ -39,9 +39,9 @@ class IntentResult(BaseModel):
   (F22, §Resumen de dominio) con tablas, columnas clave, responsables, reglas y ejemplos de preguntas.
 - `data_query` y `procedure` (piden cifras o filas) se enrutan al AskFlow (F4–F10). Si el despliegue no tiene habilitado el AskFlow
   (`features.ask_flow: false`, fase 1 del piloto), se responden como `discovery` y se indica qué tabla o SP usar. **Primer corte de
-  cifras (2026-11-23, PRD §13, decisión 17):** con `features.ask_flow` (o `CONVERDATA_ASK_FLOW=1`) y un ejecutor de la sesión, una pregunta
+  cifras (2026-11-23, PRD §13, decisión 17):** con `features.ask_flow` (o `DISCOVERY_DATA_AGENT_ASK_FLOW=1`) y un ejecutor de la sesión, una pregunta
   de `data_query` se descubre primero y después el nodo `compute` calcula, si puede, un `COUNT`, `COUNT DISTINCT`, `SUM` o `AVG` sobre una
-  tabla (`src/converdata/discovery/figures.py`); el sobre lleva `flow: "ask"` y `figure`. Con periodo, cruce, medida no numérica o sin saber
+  tabla (`src/discovery_data_agent/discovery/figures.py`); el sobre lleva `flow: "ask"` y `figure`. Con periodo, cruce, medida no numérica o sin saber
   qué contar no calcula y lo dice en `assumptions`.
 - Ante la duda entre `discovery` y `data_query`, gana `discovery` (no ejecuta nada y es más barato).
 - **`asset_kind_hint`** (actualizado el 2026-11-17). Sin LLM lo fija el clasificador por reglas

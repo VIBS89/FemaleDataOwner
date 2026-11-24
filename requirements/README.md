@@ -6,7 +6,7 @@ alterada no entra sin que alguien regenere y revise el bloqueo.
 
 | Archivo | Qué trae | Dónde se usa |
 |---|---|---|
-| `runtime.lock` | Extras `api`, `mcp`, `sqlserver` y `bedrock` | Imagen de ConverData-API (`api/Dockerfile`), análisis de vulnerabilidades y SBOM |
+| `runtime.lock` | Extras `api`, `mcp`, `sqlserver` y `bedrock` | Imagen de DiscoveryDataAgent-API (`api/Dockerfile`), análisis de vulnerabilidades y SBOM |
 | `dev.lock` | Todos los extras (`dev`, `nim`, `openai`, `anthropic`, `ollama` incluidos) | CI y desarrollo |
 | `build.lock` | `setuptools`, para construir el paquete sin descargar nada sin fijar | Imagen y CI |
 | `tools.lock` | `pip-audit` y `cyclonedx-bom` con sus dependencias | Trabajo `cadena-de-suministro` de la CI |
@@ -27,7 +27,7 @@ printf 'pip-audit==2.10.1\ncyclonedx-bom==8.0.1\n' | uv pip compile - --universa
     --generate-hashes --no-header -o requirements/tools.lock
 ```
 Añadir `--upgrade` para subir versiones. Después: instalar `dev.lock` en un entorno limpio, correr `pytest -q` y
-`converdata eval gate`, y `pip-audit -r requirements/runtime.lock --require-hashes --disable-pip`.
+`discovery-data-agent eval gate`, y `pip-audit -r requirements/runtime.lock --require-hashes --disable-pip`.
 
 `tests/test_supply_chain.py` falla si una dependencia de `pyproject.toml` no está en el bloqueo, si falta un hash, o si
 una imagen o una acción de la CI deja de estar fijada.

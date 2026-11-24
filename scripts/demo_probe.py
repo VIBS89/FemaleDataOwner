@@ -15,9 +15,9 @@ sys.path.insert(0, str(ROOT / "api"))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from converdata_api.connector import DemoConnector  # noqa: E402
-from converdata_api.main import create_app  # noqa: E402
-from converdata_api.settings import ApiSettings  # noqa: E402
+from discovery_data_agent_api.connector import DemoConnector  # noqa: E402
+from discovery_data_agent_api.main import create_app  # noqa: E402
+from discovery_data_agent_api.settings import ApiSettings  # noqa: E402
 
 FIXTURES = [ROOT / "tests" / "fixtures" / "vbank", ROOT / "tests" / "fixtures" / "bancos"]
 QUESTIONS = [  # guion de docs/demo-inversionistas.md y pantalla de bienvenida
@@ -32,7 +32,7 @@ QUESTIONS = [  # guion de docs/demo-inversionistas.md y pantalla de bienvenida
 
 
 def main() -> int:
-    tmp = Path(tempfile.mkdtemp(prefix="converdata-demo-"))
+    tmp = Path(tempfile.mkdtemp(prefix="discovery-data-agent-demo-"))
     settings = ApiSettings(data_root=tmp / "catalog", inventory_path=tmp / "inventory.yaml", audit_dir=tmp / "audit",
                            curation_dir=tmp / "curation", demo=True, demo_fixtures=FIXTURES, allow_windows_auth=False)
     app = create_app(settings, DemoConnector(FIXTURES))

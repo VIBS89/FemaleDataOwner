@@ -2,14 +2,14 @@
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
 >
-> Almacenamiento: esquema `audit` de la BD `ConverData` en SQL Server, on-premise en los dos despliegues ([OP-05](../on-premise/OP-05-auditoria-observabilidad.md), [CN-05](../cloud-native/CN-05-auditoria-observabilidad.md))
+> Almacenamiento: esquema `audit` de la BD `DiscoveryDataAgent` en SQL Server, on-premise en los dos despliegues ([OP-05](../on-premise/OP-05-auditoria-observabilidad.md), [CN-05](../cloud-native/CN-05-auditoria-observabilidad.md))
 
 ## Historia de usuario
 Como **auditor o administrador**, quiero saber quién preguntó qué, qué SQL se ejecutó, sobre qué objetos, cuánto costó y
 cómo valoró el usuario la respuesta.
 
 ## Modelo de datos
-Fase 1a, tal como está en `db/converdata/001_esquemas.sql`:
+Fase 1a, tal como está en `db/discovery_data_agent/001_esquemas.sql`:
 ```
 audit_question(trace_id PK, ts, user_id, client{web|ui|api|mcp|cli}, flow{discover|ask},
                question, intent, databases, status, confidence, total_ms)
@@ -27,7 +27,7 @@ Pendiente o de la fase 1b (no están en el DDL):
 ```
 audit_question: sql_login, user_group, rewritten_question      -- user_group: perfil para las métricas de F25 (HU-13)
 audit_step: prompt_tokens, completion_tokens                   -- hoy los tokens solo se cuentan en /health/metrics
-curation.curation_request(id PK, trace_id, ts, domain, assigned_group, status, answer_kind, …)  -- con CONVERDATA_DB vive en curation.request (db/converdata/002_curacion.sql); sin ella, en archivo
+curation.curation_request(id PK, trace_id, ts, domain, assigned_group, status, answer_kind, …)  -- con DISCOVERY_DATA_AGENT_DB vive en curation.request (db/discovery_data_agent/002_curacion.sql); sin ella, en archivo
 audit_query, audit_feedback, golden                            -- AskFlow, fase 1b
 ```
 - `user_id` es el login SQL del usuario (F14). En la fase 1b, `sql_login` será el login con el que se consultó;
@@ -36,17 +36,17 @@ audit_query, audit_feedback, golden                            -- AskFlow, fase 
 - Pasos `retrieve`, `rerank`, `expand` y `respond` son los del DiscoverFlow (F22); el resto, los del AskFlow.
 - **No se guardan datos de resultado**, solo metadatos (número de filas y nombres de columnas).
 - Los parámetros se guardan como hash, salvo que la configuración indique `audit.store_params: true`.
-- Retención de 180 días como mínimo, con una purga programada (`converdata audit purge`; la tarea programada está pendiente, HU-37).
+- Retención de 180 días como mínimo, con una purga programada (`discovery-data-agent audit purge`; la tarea programada está pendiente, HU-37).
 - **Fail-closed**: si no se puede escribir la auditoría, la respuesta no se entrega (`audit.fail_open: true` solo en dev).
 - **Permisos del escritor**: `INSERT` en las tablas `audit_*` (nunca `UPDATE` ni `DELETE`, salvo la tarea de purga); `INSERT`/`UPDATE` en
   `golden`, `golden_discovery` y `curation_request`, que cambian de estado (confirmaciones, rechazos, respuestas).
 
 ## Estado (2026-11-16)
-Con `CONVERDATA_DB` definida la auditoría se escribe en las tablas del esquema `audit` de la BD `ConverData`
-(`converdata.audit.sqlserver`), una transacción por pregunta, fail-closed, con una cuenta que no puede modificarla ni borrarla; la purga es
-`audit.usp_purge` (`converdata audit purge`), que desde el 2026-11-17 alcanza también las dudas escaladas y los originales de las
+Con `DISCOVERY_DATA_AGENT_DB` definida la auditoría se escribe en las tablas del esquema `audit` de la BD `DiscoveryDataAgent`
+(`discovery_data_agent.audit.sqlserver`), una transacción por pregunta, fail-closed, con una cuenta que no puede modificarla ni borrarla; la purga es
+`audit.usp_purge` (`discovery-data-agent audit purge`), que desde el 2026-11-17 alcanza también las dudas escaladas y los originales de las
 confirmaciones. Un cambio anunciado que falla deja además un evento `<evento>_failed` con el tipo del error. Sin la variable, en desarrollo, va a **archivos JSONL con cadena de hashes**
-(`api/converdata_api/audit.py`, `converdata.audit.chain`) con el mismo modelo lógico. Detalle en
+(`api/discovery_data_agent_api/audit.py`, `discovery_data_agent.audit.chain`) con el mismo modelo lógico. Detalle en
 [OP-05](../on-premise/OP-05-auditoria-observabilidad.md) y [calidad bancaria](../../calidad-bancaria.md).
 
 ## Trazabilidad

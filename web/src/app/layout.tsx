@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ConverData · Descubrimiento de datos",
+  title: "DiscoveryDataAgent · Descubrimiento de datos",
   description: "Asistente de IA que responde dónde está un dato, qué significa y cuánta confianza merece.",
 };
 

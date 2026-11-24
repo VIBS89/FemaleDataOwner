@@ -1,4 +1,4 @@
-# ConverData-API
+# DiscoveryDataAgent-API
 
 Actualizado el 2026-11-17.
 
@@ -8,13 +8,13 @@ cifrada en memoria, calcula qué objetos puede ver, ejecuta el DiscoverFlow, sir
 administración, y lanza la construcción del catálogo con la credencial del administrador.
 
 **Lo esencial**
-- FastAPI en **un solo proceso** (`uvicorn converdata_api.main:app --app-dir api`): sesiones, límites y cachés viven en su memoria.
+- FastAPI en **un solo proceso** (`uvicorn discovery_data_agent_api.main:app --app-dir api`): sesiones, límites y cachés viven en su memoria.
 - La identidad sale solo de la cookie `cd_session` o del `Authorization: Bearer`. Ninguna ruta acepta `user_id` ni credenciales,
   salvo el login.
 - `visible_ids` se calcula con el login del propio usuario en cada servidor y se cachea 15 min.
-- Con `CONVERDATA_DB` el catálogo, la curación y la auditoría viven en la BD `ConverData`; sin ella, en archivos (solo desarrollo).
+- Con `DISCOVERY_DATA_AGENT_DB` el catálogo, la curación y la auditoría viven en la BD `DiscoveryDataAgent`; sin ella, en archivos (solo desarrollo).
 - Todo cambio de estado se audita antes de aplicarse; si la auditoría falla, el cambio no ocurre.
-- Con `CONVERDATA_ENV=qa|prod` la API se niega a arrancar con ajustes inseguros.
+- Con `DISCOVERY_DATA_AGENT_ENV=qa|prod` la API se niega a arrancar con ajustes inseguros.
 
 Diagramas: [componentes de la API (C4)](../../architecture/c4-componentes-api.html) ·
 [on-premise](../../architecture/onpremise-architecture.html) · [permisos heredados](../../architecture/permisos-heredados.html).
@@ -31,21 +31,21 @@ Diagramas: [componentes de la API (C4)](../../architecture/c4-componentes-api.ht
 ## Piezas internas
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| `create_app`, rutas | `api/converdata_api/main.py` | Composición, dependencias de rol, rutas, `MetricsMiddleware`, `RateLimiter` |
-| `AgentRuntime` | `api/converdata_api/runtime.py` | Inventario, `DiscoverService` vigente, `visible_ids`, votos, curación, build |
-| `SecurityMiddleware`, `LoginThrottle`, validaciones | `api/converdata_api/security.py` | Cabeceras, CSRF por `Origin`, tope de cuerpo, bloqueo de logins, reglas de qa/prod |
-| `SessionVault` | `api/converdata_api/vault.py` | Sesiones en memoria con contraseñas cifradas (Fernet, clave efímera) |
-| `SqlConnector`, `DemoConnector` | `api/converdata_api/connector.py` | Conexión ODBC con la credencial del usuario; servidores simulados |
-| `CurationDesk`, métricas | `api/converdata_api/curation.py` | Responsables, dudas, aviso por webhook, cola de revisión, scorecard |
-| `find_pii` | `api/converdata_api/pii.py` | Rechaza textos de curación con datos personales |
-| `TokenLedger` | `api/converdata_api/tokens.py` | Tope diario de tokens por usuario (UTC) |
-| `FileAuditSink`, `open_audit` | `api/converdata_api/audit.py` | Auditoría en JSONL encadenado o en SQL Server |
-| `build_mcp_mount` | `api/converdata_api/mcp_mount.py` | `/mcp` con `Bearer` de la misma sesión |
-| `ApiSettings` | `api/converdata_api/settings.py` | Variables `CONVERDATA_*` |
-| Modo demo | `api/converdata_api/demo.py`, `demo_history.py` | Inventario y conocimiento de los fixtures; historial simulado |
+| `create_app`, rutas | `api/discovery_data_agent_api/main.py` | Composición, dependencias de rol, rutas, `MetricsMiddleware`, `RateLimiter` |
+| `AgentRuntime` | `api/discovery_data_agent_api/runtime.py` | Inventario, `DiscoverService` vigente, `visible_ids`, votos, curación, build |
+| `SecurityMiddleware`, `LoginThrottle`, validaciones | `api/discovery_data_agent_api/security.py` | Cabeceras, CSRF por `Origin`, tope de cuerpo, bloqueo de logins, reglas de qa/prod |
+| `SessionVault` | `api/discovery_data_agent_api/vault.py` | Sesiones en memoria con contraseñas cifradas (Fernet, clave efímera) |
+| `SqlConnector`, `DemoConnector` | `api/discovery_data_agent_api/connector.py` | Conexión ODBC con la credencial del usuario; servidores simulados |
+| `CurationDesk`, métricas | `api/discovery_data_agent_api/curation.py` | Responsables, dudas, aviso por webhook, cola de revisión, scorecard |
+| `find_pii` | `api/discovery_data_agent_api/pii.py` | Rechaza textos de curación con datos personales |
+| `TokenLedger` | `api/discovery_data_agent_api/tokens.py` | Tope diario de tokens por usuario (UTC) |
+| `FileAuditSink`, `open_audit` | `api/discovery_data_agent_api/audit.py` | Auditoría en JSONL encadenado o en SQL Server |
+| `build_mcp_mount` | `api/discovery_data_agent_api/mcp_mount.py` | `/mcp` con `Bearer` de la misma sesión |
+| `ApiSettings` | `api/discovery_data_agent_api/settings.py` | Variables `DISCOVERY_DATA_AGENT_*` |
+| Modo demo | `api/discovery_data_agent_api/demo.py`, `demo_history.py` | Inventario y conocimiento de los fixtures; historial simulado |
 
 ## Rutas por rol
-Sacadas de `api/converdata_api/main.py`. La web las llama con el prefijo `/api`.
+Sacadas de `api/discovery_data_agent_api/main.py`. La web las llama con el prefijo `/api`.
 
 **Públicas**
 | Método | Ruta | Qué hace |
@@ -101,7 +101,7 @@ Sacadas de `api/converdata_api/main.py`. La web las llama con el prefijo `/api`.
 
 **MCP**: `/mcp` (montado al final en `/`), con `Bearer` de `/auth/login`. Herramientas de solo lectura: `discover`, `get_asset`,
 `get_related`, `find_alternatives`, `list_business_rules`, `get_lineage`, `search_catalog`, `where_is`, `find_join_path`,
-`estate_overview` (`src/converdata/integration/mcp/server.py`).
+`estate_overview` (`src/discovery_data_agent/integration/mcp/server.py`).
 
 Códigos habituales: 401 sin sesión, 403 sin rol, 404 lo que no existe o no se ve, 409 sin catálogo, 422 texto con datos personales,
 429 ritmo, tope de tokens o login bloqueado.
@@ -115,20 +115,20 @@ Códigos habituales: 401 sin sesión, 403 sin rol, 404 lo que no existe o no se 
 3. `connector.identify` ejecuta `SELECT SUSER_SNAME(), IS_SRVROLEMEMBER('sysadmin'), HAS_PERMS_BY_NAME(... 'VIEW ANY DEFINITION')`.
    Credencial errónea suma un fallo; un servidor caído no.
 4. Sin ningún servidor válido: evento `login_failed` (y `login_locked` si bloquea) y 401.
-5. Rol `data_admin` (`main.py:533`): con `CONVERDATA_ADMINS_ONLY`, solo si el login está en `CONVERDATA_ADMINS` y la identidad es
+5. Rol `data_admin` (`main.py:533`): con `DISCOVERY_DATA_AGENT_ADMINS_ONLY`, solo si el login está en `DISCOVERY_DATA_AGENT_ADMINS` y la identidad es
    de confianza; sin él, también si es sysadmin o tiene `VIEW ANY DEFINITION` en algún servidor validado.
 6. `vault.create` guarda la sesión (token de 256 bits; cierra la más antigua si pasa de 5). Evento `login`; si no se escribe, la
    sesión se borra y no se entrega (`main.py:548`).
-7. Cookie `cd_session`: `HttpOnly`, `SameSite=Lax`, `Secure` según `CONVERDATA_COOKIE_SECURE`, `max_age = min(ttl, vida máxima)`.
+7. Cookie `cd_session`: `HttpOnly`, `SameSite=Lax`, `Secure` según `DISCOVERY_DATA_AGENT_COOKIE_SECURE`, `max_age = min(ttl, vida máxima)`.
 8. En cada petición, `vault.get` renueva `last_seen`. Caduca a las 8 h sin actividad o 12 h de vida.
 9. Termina con `/auth/logout`, `DELETE /admin/sessions/{user_id}`, caducidad o reinicio del proceso (la clave Fernet es efímera).
 
 ### Cómo se arma `visible_ids`
 `AgentRuntime.visible_ids` (`runtime.py:266`):
 1. Sin catálogo, conjunto vacío.
-2. Caché por sesión válida si coincide la versión del catálogo y no pasaron `CONVERDATA_VISIBILITY_TTL_S` (900 s).
+2. Caché por sesión válida si coincide la versión del catálogo y no pasaron `DISCOVERY_DATA_AGENT_VISIBILITY_TTL_S` (900 s).
 3. Por cada servidor de la sesión: BDs del catálogo en ese servidor; `PyodbcObjectLister` usa la conexión del usuario:
-   pregunta `HAS_DBACCESS` desde `master`, abre solo las bases con acceso y lista tablas/vistas con `SELECT` y SPs con `EXECUTE` (`src/converdata/identity/visibility.py:14`).
+   pregunta `HAS_DBACCESS` desde `master`, abre solo las bases con acceso y lista tablas/vistas con `SELECT` y SPs con `EXECUTE` (`src/discovery_data_agent/identity/visibility.py:14`).
 4. Cada objeto se convierte en id físico `<env>:<server>.<db>.<schema>.<obj>`.
 5. Si un servidor falla, no aporta nada (fail-closed) y se registra un aviso.
 Cada recarga del catálogo sube `version` y vacía la caché.
@@ -136,7 +136,7 @@ Cada recarga del catálogo sube `version` y vacía la caché.
 ### Primer arranque
 Con el inventario vacío (`main.py:489`):
 1. El login exige `host` (validado por `valid_host`).
-2. Si hay `CONVERDATA_SETUP_TOKEN`, el `setup_token` debe coincidir (`hmac.compare_digest`); si no, evento `setup_denied` y fallo
+2. Si hay `DISCOVERY_DATA_AGENT_SETUP_TOKEN`, el `setup_token` debe coincidir (`hmac.compare_digest`); si no, evento `setup_denied` y fallo
    por origen. En qa/prod el código es obligatorio (`inventory_violations`).
 3. En qa/prod no se admite `trust_server_certificate`.
 4. `server_from_host` crea el servidor (id derivado del host, `is_reference`, `databases: ["*"]`).
@@ -149,8 +149,8 @@ El catálogo aún no existe: `/discover` y el explorador responden 409 hasta el 
 1. Evento `catalog_build_started`.
 2. Copia el inventario. Con BD, trabaja en un directorio temporal que se borra al terminar.
 3. Cada servidor se lee con la **credencial del administrador** en la sesión (`source_factory`); sin ella, `PermissionError`.
-4. `enrich: true` y `CONVERDATA_MODELS` → descripciones sugeridas por el rol `planner` (`LlmEnricher`).
-5. `refresh_catalog` construye y, con BD, publica (alcance `build`; `all` en demo). La BD `ConverData` no se cataloga.
+4. `enrich: true` y `DISCOVERY_DATA_AGENT_MODELS` → descripciones sugeridas por el rol `planner` (`LlmEnricher`).
+5. `refresh_catalog` construye y, con BD, publica (alcance `build`; `all` en demo). La BD `DiscoveryDataAgent` no se cataloga.
 6. Si algún servidor respondió, recarga el servicio antes de marcar el estado.
 7. Evento `catalog_build_finished` con estado, objetos e ids de servidores fallidos, sin el texto del error.
 Además, `runtime.refresh` (como mucho cada 15 s) carga lo que publique otro proceso, como el Builder programado.
@@ -164,7 +164,7 @@ El asistente "Conectar base de datos" de Administración usa dos rutas (`main.py
 3. Evento `inventory_probe` (host, sin contraseña) **antes** de conectar; si no se registra, no se conecta.
 4. `connector.probe` lee `sys.databases` y `HAS_DBACCESS` desde `master`; solo abre las bases con acceso para contar tablas y
    vistas en `sys.objects` (lo que el login ve). Un conteo que falla sale `null` y sigue; a partir de 100 bases no se cuenta.
-5. Se quitan las bases de sistema y la propia (`ConverData` o la de `CONVERDATA_DB`), como en el build.
+5. Se quitan las bases de sistema y la propia (`DiscoveryDataAgent` o la de `DISCOVERY_DATA_AGENT_DB`), como en el build.
 6. Un fallo de login o de red responde 200 con `connected: false` y el mensaje de `LoginFailed` (sin host, login ni texto del
    driver); cualquier otro error, un mensaje genérico. No se guarda nada.
 7. `POST /admin/inventory/connect` con `host` + `alias` (obligatorio: el host no se muestra a los usuarios) + `environment`, o
@@ -183,7 +183,7 @@ entero con lo que la web tenga en memoria (pisa el cambio de otro administrador)
   `curation_answer`, se escribe la descripción (si viene), entra una confirmación de responsable al índice y se marca la duda.
 - **Votos**: `/discover/feedback` solo acepta un activo mostrado en esa respuesta al mismo usuario. Se audita `feedback` antes de
   guardar. La plantilla es la pregunta sin literales; si aún parece llevar PII, el voto cuenta pero no se aprende. Regla de votos en
-  `resolve_golden` (`src/converdata/curation.py:60`): un responsable decide al momento; usuarios, por confirmaciones netas (≥ 2 pesa
+  `resolve_golden` (`src/discovery_data_agent/curation.py:60`): un responsable decide al momento; usuarios, por confirmaciones netas (≥ 2 pesa
   en la confianza; ≤ 0 retira). El voto de un responsable recarga el índice antes de responder; el de un usuario, en segundo plano.
 - **Descripciones**: `PUT /curation/description` escribe en todas las copias físicas como `human`.
 - **Reglas**: solo las de `source` `steward:` se gestionan; las importadas con el catálogo no se pisan (409 genérico).
@@ -197,13 +197,13 @@ entero con lo que la web tenga en memoria (pisa el cambio de otro administrador)
   `trust_server_certificate`, `setup_token`.
 - Respuesta del login: `session_id`, `token`, `expires_at`, `servers [{alias, ok}]`, `databases`, `user`, `warnings`.
 - `DiscoverRequest`: `question` (2–2000), `history` (hasta 10 textos de 2000).
-- `/discover` devuelve el `AnswerEnvelope` (`src/converdata/models/discovery.py:113`).
-- Límites de entrada en los modelos Pydantic de `main.py:65-168` y `CONVERDATA_MAX_BODY_BYTES` (4 MB).
+- `/discover` devuelve el `AnswerEnvelope` (`src/discovery_data_agent/models/discovery.py:113`).
+- Límites de entrada en los modelos Pydantic de `main.py:65-168` y `DISCOVERY_DATA_AGENT_MAX_BODY_BYTES` (4 MB).
 
 ## Documentación interna
 
-`api/converdata_api/documentation.py` (`DocumentationLibrary`) sirve, solo a `data_admin`, una **lista fija** dentro de
-`CONVERDATA_DOCS`: `manual-desarrollo.md`, `wiki/**/*.md`, `architecture/README.md` y los diagramas `architecture/*.html`.
+`api/discovery_data_agent_api/documentation.py` (`DocumentationLibrary`) sirve, solo a `data_admin`, una **lista fija** dentro de
+`DISCOVERY_DATA_AGENT_DOCS`: `manual-desarrollo.md`, `wiki/**/*.md`, `architecture/README.md` y los diagramas `architecture/*.html`.
 Nada más de `docs/` (PRD, specs, backlog) ni de fuera.
 
 - **Quién.** `data_admin`, el mismo rol que ya tenía el manual: estas páginas describen los controles de seguridad, lo que
@@ -220,46 +220,46 @@ Nada más de `docs/` (PRD, specs, backlog) ni de fuera.
   ejecuta nada en el origen de la web (el CSP global de la web pisaría cualquier CSP propio de la respuesta). La web los
   pinta en un `iframe` con `srcdoc` y `sandbox="allow-scripts allow-downloads"` (ver [Web](web.md)).
 - **Instalación.** La carpeta por defecto es `docs/` de la raíz de la instalación (`INSTALL_ROOT` en
-  `api/converdata_api/settings.py`), no del directorio de trabajo: con la ruta relativa anterior, arrancar la API desde
+  `api/discovery_data_agent_api/settings.py`), no del directorio de trabajo: con la ruta relativa anterior, arrancar la API desde
   `api/` dejaba el manual en 404 y el modo demo sin sus servidores simulados. La imagen copia exactamente la lista
   (`.dockerignore`, `api/Dockerfile`).
 
 ## Configuración
-Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
+Variables leídas en `api/discovery_data_agent_api/settings.py:72` (salvo indicación).
 
 | Variable | Por defecto | Efecto |
 |---|---|---|
-| `CONVERDATA_ENV` | `dev` | `qa`/`prod` activan las comprobaciones de arranque y ocultan `/docs`; también fija el ambiente del gateway LLM |
-| `CONVERDATA_DB` | — | Cadena ODBC de la BD `ConverData`; obligatoria en qa/prod; sin contraseña ni `TrustServerCertificate` |
-| `CONVERDATA_DATA_ROOT` | `data/catalog` | Catálogo en archivos y `config/settings.yaml` |
-| `CONVERDATA_INVENTORY` | `data/inventory.yaml` | Inventario sin BD |
-| `CONVERDATA_AUDIT_DIR` | `data/audit` | Auditoría JSONL sin BD |
-| `CONVERDATA_CURATION_DIR` | `data/curation` | Curación sin BD |
-| `CONVERDATA_LOG_DIR` | `data/logs` | Logs JSON rotados |
-| `CONVERDATA_EVENT_LOG` | `1` | Errores al Visor de eventos de Windows |
-| `CONVERDATA_MODELS` | — | `config/models.yaml`; si no existe el archivo, modo determinista |
-| `CONVERDATA_ADMINS` | — | Logins con `data_admin` (separados por coma) |
-| `CONVERDATA_ADMINS_ONLY` | `0` | Solo la lista da `data_admin`; obligatorio en qa/prod |
-| `CONVERDATA_SETUP_TOKEN` | — | Código de instalación del primer arranque |
-| `CONVERDATA_ALLOW_WINDOWS_AUTH` | `0` | Login con la cuenta del proceso; prohibido en qa/prod |
-| `CONVERDATA_COOKIE_SECURE` | `0` | Cookie `Secure` y HSTS; obligatorio en qa/prod |
-| `CONVERDATA_CORS_ORIGINS` | `http://localhost:3000` | Orígenes CORS y de CSRF; en qa/prod solo `https://` explícitos |
-| `CONVERDATA_PUBLIC_URL` | — | Enlace del aviso y origen permitido |
-| `CONVERDATA_SESSION_TTL_S`, `CONVERDATA_SESSION_MAX_AGE_S` | 28800, 43200 | Inactividad y vida máxima; tope 8 h/12 h en qa/prod |
-| `CONVERDATA_MAX_SESSIONS` | 5 | Sesiones por usuario |
-| `CONVERDATA_VISIBILITY_TTL_S` | 900 | Relectura de permisos |
-| `CONVERDATA_LOGIN_MAX_FAILURES`, `CONVERDATA_LOGIN_IP_MAX_FAILURES` | 5, 30 | Fallos antes del bloqueo; >0 en qa/prod |
-| `CONVERDATA_LOGIN_WINDOW_S`, `CONVERDATA_LOGIN_LOCKOUT_S` | 600, 900 | Ventana y duración del bloqueo |
-| `CONVERDATA_TRUST_PROXY` | `0` | Toma el origen del último valor de `X-Forwarded-For`. Solo detrás de un proxy propio; la web debe tener a la vez `TRUST_FORWARDED_FOR=1`, o no reenvía esa cabecera (DT-02) |
-| `CONVERDATA_RATE_LIMIT` | 30 | Preguntas por minuto y usuario (herramientas MCP de detalle: ×4) |
-| `CONVERDATA_TOKEN_LIMIT`, `CONVERDATA_TOKEN_LIMIT_MODE` | 0, `reject` | Tope diario de tokens; `deterministic` responde sin LLM |
-| `CONVERDATA_MAX_BODY_BYTES` | 4194304 | Tope del cuerpo |
-| `CONVERDATA_NOTIFY_WEBHOOK` | — | Aviso de dudas; `https` en qa/prod |
-| `CONVERDATA_MCP`, `CONVERDATA_MCP_HOSTS`, `CONVERDATA_MCP_ORIGINS` | `1`, —, — | `/mcp`; hosts obligatorios en qa/prod (DNS rebinding) |
-| `CONVERDATA_DEMO`, `CONVERDATA_DEMO_FIXTURE`, `CONVERDATA_DEMO_PRELOAD`, `CONVERDATA_DEMO_HISTORY` | `0`, fixtures, `1`, `1` | Modo demo; prohibido en qa/prod |
-| `CONVERDATA_DOCS` | `docs/` de la instalación | Carpeta de la documentación de `/admin/docs*`. Una ruta relativa se toma desde la raíz de la instalación, no desde el directorio de trabajo |
+| `DISCOVERY_DATA_AGENT_ENV` | `dev` | `qa`/`prod` activan las comprobaciones de arranque y ocultan `/docs`; también fija el ambiente del gateway LLM |
+| `DISCOVERY_DATA_AGENT_DB` | — | Cadena ODBC de la BD `DiscoveryDataAgent`; obligatoria en qa/prod; sin contraseña ni `TrustServerCertificate` |
+| `DISCOVERY_DATA_AGENT_DATA_ROOT` | `data/catalog` | Catálogo en archivos y `config/settings.yaml` |
+| `DISCOVERY_DATA_AGENT_INVENTORY` | `data/inventory.yaml` | Inventario sin BD |
+| `DISCOVERY_DATA_AGENT_AUDIT_DIR` | `data/audit` | Auditoría JSONL sin BD |
+| `DISCOVERY_DATA_AGENT_CURATION_DIR` | `data/curation` | Curación sin BD |
+| `DISCOVERY_DATA_AGENT_LOG_DIR` | `data/logs` | Logs JSON rotados |
+| `DISCOVERY_DATA_AGENT_EVENT_LOG` | `1` | Errores al Visor de eventos de Windows |
+| `DISCOVERY_DATA_AGENT_MODELS` | — | `config/models.yaml`; si no existe el archivo, modo determinista |
+| `DISCOVERY_DATA_AGENT_ADMINS` | — | Logins con `data_admin` (separados por coma) |
+| `DISCOVERY_DATA_AGENT_ADMINS_ONLY` | `0` | Solo la lista da `data_admin`; obligatorio en qa/prod |
+| `DISCOVERY_DATA_AGENT_SETUP_TOKEN` | — | Código de instalación del primer arranque |
+| `DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH` | `0` | Login con la cuenta del proceso; prohibido en qa/prod |
+| `DISCOVERY_DATA_AGENT_COOKIE_SECURE` | `0` | Cookie `Secure` y HSTS; obligatorio en qa/prod |
+| `DISCOVERY_DATA_AGENT_CORS_ORIGINS` | `http://localhost:3000` | Orígenes CORS y de CSRF; en qa/prod solo `https://` explícitos |
+| `DISCOVERY_DATA_AGENT_PUBLIC_URL` | — | Enlace del aviso y origen permitido |
+| `DISCOVERY_DATA_AGENT_SESSION_TTL_S`, `DISCOVERY_DATA_AGENT_SESSION_MAX_AGE_S` | 28800, 43200 | Inactividad y vida máxima; tope 8 h/12 h en qa/prod |
+| `DISCOVERY_DATA_AGENT_MAX_SESSIONS` | 5 | Sesiones por usuario |
+| `DISCOVERY_DATA_AGENT_VISIBILITY_TTL_S` | 900 | Relectura de permisos |
+| `DISCOVERY_DATA_AGENT_LOGIN_MAX_FAILURES`, `DISCOVERY_DATA_AGENT_LOGIN_IP_MAX_FAILURES` | 5, 30 | Fallos antes del bloqueo; >0 en qa/prod |
+| `DISCOVERY_DATA_AGENT_LOGIN_WINDOW_S`, `DISCOVERY_DATA_AGENT_LOGIN_LOCKOUT_S` | 600, 900 | Ventana y duración del bloqueo |
+| `DISCOVERY_DATA_AGENT_TRUST_PROXY` | `0` | Toma el origen del último valor de `X-Forwarded-For`. Solo detrás de un proxy propio; la web debe tener a la vez `TRUST_FORWARDED_FOR=1`, o no reenvía esa cabecera (DT-02) |
+| `DISCOVERY_DATA_AGENT_RATE_LIMIT` | 30 | Preguntas por minuto y usuario (herramientas MCP de detalle: ×4) |
+| `DISCOVERY_DATA_AGENT_TOKEN_LIMIT`, `DISCOVERY_DATA_AGENT_TOKEN_LIMIT_MODE` | 0, `reject` | Tope diario de tokens; `deterministic` responde sin LLM |
+| `DISCOVERY_DATA_AGENT_MAX_BODY_BYTES` | 4194304 | Tope del cuerpo |
+| `DISCOVERY_DATA_AGENT_NOTIFY_WEBHOOK` | — | Aviso de dudas; `https` en qa/prod |
+| `DISCOVERY_DATA_AGENT_MCP`, `DISCOVERY_DATA_AGENT_MCP_HOSTS`, `DISCOVERY_DATA_AGENT_MCP_ORIGINS` | `1`, —, — | `/mcp`; hosts obligatorios en qa/prod (DNS rebinding) |
+| `DISCOVERY_DATA_AGENT_DEMO`, `DISCOVERY_DATA_AGENT_DEMO_FIXTURE`, `DISCOVERY_DATA_AGENT_DEMO_PRELOAD`, `DISCOVERY_DATA_AGENT_DEMO_HISTORY` | `0`, fixtures, `1`, `1` | Modo demo; prohibido en qa/prod |
+| `DISCOVERY_DATA_AGENT_DOCS` | `docs/` de la instalación | Carpeta de la documentación de `/admin/docs*`. Una ruta relativa se toma desde la raíz de la instalación, no desde el directorio de trabajo |
 
-`CONVERDATA_BUILDER_HOSTS` la usa la CLI del Builder (`src/converdata/cli.py:351`), no la API.
+`DISCOVERY_DATA_AGENT_BUILDER_HOSTS` la usa la CLI del Builder (`src/discovery_data_agent/cli.py:351`), no la API.
 
 ## Pruebas que lo cubren
 - `api/tests/test_api.py`: primer arranque, descubrimiento, voto y auditoría, explorador, herencia de permisos, stream, escalamiento,
@@ -271,32 +271,32 @@ Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
 - `api/tests/test_inventory_wizard.py`: sondeo y conexión del asistente (solo admin, auditado antes de conectar, sin guardar,
   bases sin acceso, BD propia excluida, certificado en producción, errores sin detalles, conectar y descubrir); una prueba
   contra SQL Server real.
-- `api/tests/test_catalog_db.py`, `api/tests/test_audit_db.py`: con SQL Server real (`CONVERDATA_TEST_DB`).
+- `api/tests/test_catalog_db.py`, `api/tests/test_audit_db.py`: con SQL Server real (`DISCOVERY_DATA_AGENT_TEST_DB`).
 - `api/tests/test_demo.py`, `api/tests/test_mcp.py`, `api/tests/test_marked_literals.py`.
 
 ## Límites conocidos y deuda
 Ver [deuda técnica](../deuda-tecnica.md).
 - Un solo proceso: sesiones, límites, tope de tokens, respuestas mostradas (500) y visibilidad se pierden al reiniciar.
 - `Session.groups` siempre es `[]`: no hay LDAP (HU-13). Los fragmentos con `allowed_groups` no los ve nadie.
-- Los roles `data_admin` se fijan al iniciar sesión; quitar a alguien de `CONVERDATA_ADMINS` exige revocar sus sesiones.
+- Los roles `data_admin` se fijan al iniciar sesión; quitar a alguien de `DISCOVERY_DATA_AGENT_ADMINS` exige revocar sus sesiones.
 - La cookie dura `min(ttl, vida máxima)` desde el login y no se renueva: en el navegador la sesión dura como mucho 8 h.
 - `PUT /admin/inventory`, `/admin/inventory/probe` y `/admin/inventory/connect` prueban los servidores nuevos con la contraseña
   del administrador: un host mal escrito (o cualquiera que el administrador escriba) la recibe. No hay lista de hosts permitidos.
-- Por `/mcp`, con el tope de tokens agotado, `discover` se rechaza aunque `CONVERDATA_TOKEN_LIMIT_MODE=deterministic`.
+- Por `/mcp`, con el tope de tokens agotado, `discover` se rechaza aunque `DISCOVERY_DATA_AGENT_TOKEN_LIMIT_MODE=deterministic`.
 - El build del catálogo con `enrich` usa otro gateway sin gancho de uso: sus tokens no se cuentan.
 - Ver los fallos encontrados en [seguridad y auditoría](seguridad-auditoria.md#fallos-encontrados-al-revisar-el-código).
 
 ## Dónde cambiar qué
 | Si quieres… | Toca… |
 |---|---|
-| Añadir una ruta | `create_app` en `api/converdata_api/main.py`, con `current_session`, `steward_session` o `admin_session` |
+| Añadir una ruta | `create_app` en `api/discovery_data_agent_api/main.py`, con `current_session`, `steward_session` o `admin_session` |
 | Cambiar quién es `steward` o `data_admin` | `domains_of`, `identity_trusted` y el bloque de roles del login en `main.py` |
-| Cambiar cómo se calcula la visibilidad | `AgentRuntime.visible_ids` y `src/converdata/identity/visibility.py` |
-| Cambiar el build | `AgentRuntime._run_build` y `src/converdata/application/catalog_refresh.py` |
-| Cambiar la regla de votos | `resolve_golden` en `src/converdata/curation.py` |
+| Cambiar cómo se calcula la visibilidad | `AgentRuntime.visible_ids` y `src/discovery_data_agent/identity/visibility.py` |
+| Cambiar el build | `AgentRuntime._run_build` y `src/discovery_data_agent/application/catalog_refresh.py` |
+| Cambiar la regla de votos | `resolve_golden` en `src/discovery_data_agent/curation.py` |
 | Añadir una variable de entorno | `ApiSettings` y `from_env` en `settings.py`; si es de seguridad, `production_violations` |
-| Cambiar el aviso a responsables | `CurationDesk._notify` en `api/converdata_api/curation.py` |
-| Añadir una herramienta MCP | `src/converdata/integration/mcp/server.py` y `DiscoveryTools` |
+| Cambiar el aviso a responsables | `CurationDesk._notify` en `api/discovery_data_agent_api/curation.py` |
+| Añadir una herramienta MCP | `src/discovery_data_agent/integration/mcp/server.py` y `DiscoveryTools` |
 
 ## Specs y contradicciones
 Specs: [OP-03](../../specs/on-premise/OP-03-identidad.md), [OP-04](../../specs/on-premise/OP-04-interfaces.md),

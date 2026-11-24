@@ -13,7 +13,7 @@ de negocio que hoy están dispersos, para que el agente los conecte con las tabl
 
 ## Fuentes y conectores
 Los conectores corren dentro del **Catalog Builder** (F1). Los que leen SQL Server (SSISDB, msdb, definiciones de SPs y vistas) usan las
-herramientas de `converdata-discovery` (F18); los de diccionarios y documentos leen directamente la carpeta compartida o SharePoint con una
+herramientas de `discovery-data-agent-discovery` (F18); los de diccionarios y documentos leen directamente la carpeta compartida o SharePoint con una
 cuenta técnica de solo lectura. Cada fuente implementa la interfaz `KnowledgeConnector`:
 ```python
 class KnowledgeConnector(Protocol):
@@ -33,10 +33,10 @@ class KnowledgeConnector(Protocol):
 | **Otras plataformas** (data warehouse o data lake fuera de SQL Server) | Interfaz `MetadataConnector` (listar objetos, describir, dependencias) | Mismo formato de catálogo que F1. Fase 1: SQL Server (incluye el DWH en SQL Server). Adaptadores posteriores: Fabric/Synapse, Databricks Unity Catalog, AWS Glue, Oracle |
 
 > **Estado al 2026-11-17 (Fuentes):**
-> - No existen `KnowledgeConnector`, `DictionaryConnector`, `DocumentConnector`, `SsisConnector`, `SqlAgentConnector` ni `config/knowledge.yaml`. El diccionario CSV entra por `POST /curation/dictionary` (`plan_dictionary` en `src/converdata/curation.py`, `api/converdata_api/main.py`), con `asset_key` o `database,schema,table[,column]`, `description` y `synonyms`; Excel falta (HU-25). Documentos, SSISDB y msdb no se leen (HU-26, HU-27).
+> - No existen `KnowledgeConnector`, `DictionaryConnector`, `DocumentConnector`, `SsisConnector`, `SqlAgentConnector` ni `config/knowledge.yaml`. El diccionario CSV entra por `POST /curation/dictionary` (`plan_dictionary` en `src/discovery_data_agent/curation.py`, `api/discovery_data_agent_api/main.py`), con `asset_key` o `database,schema,table[,column]`, `description` y `synonyms`; Excel falta (HU-25). Documentos, SSISDB y msdb no se leen (HU-26, HU-27).
 > - El único linaje que produce el build es el de vistas, desde `sys.sql_expression_dependencies` (`LineageVia.kind: view`).
 > - El Builder no sugiere reglas de negocio. Las reglas las escriben los responsables en Curación (`KnowledgeWriter.upsert_rule`).
-> - El linaje no usa `networkx`: se carga en `EstateGraph` (`src/converdata/graph/estate.py`) como aristas `etl` y `view`.
+> - El linaje no usa `networkx`: se carga en `EstateGraph` (`src/discovery_data_agent/graph/estate.py`) como aristas `etl` y `view`.
 >
 > Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
@@ -81,16 +81,16 @@ el nivel de tabla; el linaje completo de extremo a extremo es la visión futura 
   - Si más del 20 % de los tokens son PII, el fragmento se descarta y se registra en el reporte de ingesta.
 - El índice guarda fragmentos redactados (clase D3 de F17); el documento original no se copia y permanece en su repositorio de origen.
 - El SQL embebido en paquetes y SPs se guarda sin literales (sustituidos por placeholders tipados, como el golden SQL).
-- Los conectores de SSISDB, msdb y definiciones de SPs se implementan como herramientas adicionales de `converdata-discovery`
+- Los conectores de SSISDB, msdb y definiciones de SPs se implementan como herramientas adicionales de `discovery-data-agent-discovery`
   ([F18](F18-discovery-mcp.md)): consultas fijas y parametrizadas, con un login técnico de solo lectura, como el de metadatos de F1.
 - Cada fragmento conserva la ACL de su origen cuando el conector la conoce (`allowed_groups`) y la búsqueda la aplica como pre-filtro
   con los grupos del usuario (F14, §Grupos y roles).
 
 ## Comandos
-- `converdata knowledge ingest [--source <nombre>]`: procesa solo lo que cambió (por hash).
-- `converdata knowledge report`: fragmentos indexados, redactados y descartados; vínculos sin revisar; conflictos.
+- `discovery-data-agent knowledge ingest [--source <nombre>]`: procesa solo lo que cambió (por hash).
+- `discovery-data-agent knowledge report`: fragmentos indexados, redactados y descartados; vínculos sin revisar; conflictos.
 
-Estado: estos dos comandos están pendientes (HU-26). Hoy el conocimiento entra con `converdata catalog build` y con la carga del
+Estado: estos dos comandos están pendientes (HU-26). Hoy el conocimiento entra con `discovery-data-agent catalog build` y con la carga del
 diccionario desde Curación (`POST /curation/dictionary`).
 
 ## Conflictos
@@ -106,7 +106,7 @@ Si dos fuentes describen el mismo activo de forma contradictoria (por ejemplo, e
 5. Una segunda ingesta sin cambios no llama al LLM ni reindexa. (Diccionario CSV desde Curación: se cumple sin registro de archivos aplicados; la segunda vez no queda nada que escribir y la respuesta lleva `unchanged`. Un registro por hash del archivo habría bloqueado a otro responsable que aplicara las filas de su dominio.)
 
 ## Medición: cuánto aportan las fuentes de conocimiento (2026-11-17)
-`converdata eval discovery --knowledge <dir>` añade al catálogo de `--root` las fuentes de `<dir>` (misma estructura que
+`discovery-data-agent eval discovery --knowledge <dir>` añade al catálogo de `--root` las fuentes de `<dir>` (misma estructura que
 `knowledge/`: `items/`, `rules/`, `golden/`, `lineage/`) sin tocar el catálogo (`bootstrap.build_service_with_knowledge`; no se
 combina con `--db`). Así se mide el mismo set dos veces, con el catálogo solo y con conocimiento.
 

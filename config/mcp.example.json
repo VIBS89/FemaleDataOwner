@@ -1,15 +1,15 @@
 {
   "mcpServers": {
-    "converdata-local": {
+    "discovery-data-agent-local": {
       "command": "C:\\Users\\<usuario>\\Documents\\repos\\DataAgent\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "converdata.cli", "mcp", "serve", "--root", "tests/fixtures/bancos"],
+      "args": ["-m", "discovery_data_agent.cli", "mcp", "serve", "--root", "tests/fixtures/bancos"],
       "cwd": "C:\\Users\\<usuario>\\Documents\\repos\\DataAgent",
-      "env": { "CONVERDATA_ENV": "local" }
+      "env": { "DISCOVERY_DATA_AGENT_ENV": "local" }
     },
-    "converdata": {
+    "discovery-data-agent": {
       "type": "http",
       "url": "https://<servidor>/mcp",
-      "headers": { "Authorization": "Bearer ${CONVERDATA_TOKEN}" }
+      "headers": { "Authorization": "Bearer ${DISCOVERY_DATA_AGENT_TOKEN}" }
     }
   }
 }

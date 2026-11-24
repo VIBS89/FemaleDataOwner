@@ -115,7 +115,7 @@ resource "aws_vpc_endpoint" "s3" {
 # --- Grupo de seguridad de las tareas (web + API y Builder) ---
 resource "aws_security_group" "task" {
   name_prefix = "${local.name}-task-"
-  description = "Tareas de ConverData"
+  description = "Tareas de DiscoveryDataAgent"
   vpc_id      = aws_vpc.this.id
   tags        = { Name = "${local.name}-task" }
 

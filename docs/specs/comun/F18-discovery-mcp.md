@@ -1,9 +1,9 @@
-# F18 — `converdata-discovery`: MCP propio de descubrimiento (Apache-2.0) · común
+# F18 — `discovery-data-agent-discovery`: MCP propio de descubrimiento (Apache-2.0) · común
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16).
 >
 > Sustituye a sql-to-mcp / AnythingMCP (AGPL-3.0). Es código propio bajo **Apache-2.0**, sin dependencias copyleft.
-> Despliegue (igual en ambos entornos): **biblioteca dentro del Catalog Builder**, que es un comando que corre y termina (`converdata catalog build`): lo lanza el Programador de tareas de Windows en **on-premise** ([OP-02](../on-premise/OP-02-catalogo-memoria.md)) y EventBridge Scheduler en **cloud native** ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)). El transporte MCP es opcional (herramientas de administración en red privada).
+> Despliegue (igual en ambos entornos): **biblioteca dentro del Catalog Builder**, que es un comando que corre y termina (`discovery-data-agent catalog build`): lo lanza el Programador de tareas de Windows en **on-premise** ([OP-02](../on-premise/OP-02-catalogo-memoria.md)) y EventBridge Scheduler en **cloud native** ([CN-02](../cloud-native/CN-02-catalogo-memoria.md)). El transporte MCP es opcional (herramientas de administración en red privada).
 
 ## Por qué un MCP propio
 | Motivo | Detalle |
@@ -16,7 +16,7 @@
 
 ## Diseño
 - **Python + FastMCP + pyodbc** (ODBC Driver 18), en el mismo repositorio y con la misma licencia que el resto del proyecto.
-- **Separación de privilegios**: corre con el **login de metadatos** (nunca con logins de usuarios) y solo lo consumen el Catalog Builder (F1, F23) y el pipeline de descubrimiento (F19). No responde preguntas de usuarios; eso es `converdata-mcp`, que usa el login de cada usuario (F14).
+- **Separación de privilegios**: corre con el **login de metadatos** (nunca con logins de usuarios) y solo lo consumen el Catalog Builder (F1, F23) y el pipeline de descubrimiento (F19). No responde preguntas de usuarios; eso es `discovery-data-agent-mcp`, que usa el login de cada usuario (F14).
 - **Sin SQL libre**: cada herramienta ejecuta consultas predefinidas sobre vistas de catálogo y DMVs, parametrizadas. No existe una herramienta tipo `query`.
 - **Modo por defecto: biblioteca Python** que el Catalog Builder importa en su proceso, de modo que el login de metadatos solo existe ahí.
   Opcionalmente se publica por MCP *streamable HTTP* en una red privada (o `localhost`), con autenticación por token de servicio y sin
@@ -26,7 +26,7 @@
   servers:
     - id: SRV01
       host: sql01.corp.local
-      metadata_secret: converdata/metadata/SRV01   # Secrets Manager (CN) o DPAPI con ámbito de la cuenta de servicio (OP)
+      metadata_secret: discovery-data-agent/metadata/SRV01   # Secrets Manager (CN) o DPAPI con ámbito de la cuenta de servicio (OP)
       databases: [Ventas, Inventario, RRHH]
       read_replica: sql01-ro.corp.local            # opcional, para muestras y sketches
       query_store: true
@@ -56,10 +56,10 @@
 
 Todas las herramientas devuelven JSON con un `schema_version`, y paginan con `cursor` cuando hay más de 500 elementos.
 
-> **Estado al 2026-11-17:** `converdata-discovery` no es un servidor MCP: es una biblioteca con consultas fijas, `SqlServerMetadata` (`src/converdata/metadata/sqlserver.py`), que el Catalog Builder importa. No usa FastMCP ni tiene transporte HTTP, y no existen las 18 herramientas de la tabla.
+> **Estado al 2026-11-17:** `discovery-data-agent-discovery` no es un servidor MCP: es una biblioteca con consultas fijas, `SqlServerMetadata` (`src/discovery_data_agent/metadata/sqlserver.py`), que el Catalog Builder importa. No usa FastMCP ni tiene transporte HTTP, y no existen las 18 herramientas de la tabla.
 > - Lo que hace: `list_databases` (excluye las BDs del sistema y exige `HAS_DBACCESS`) y `extract_database`, que ejecuta nueve consultas (`Q_DATABASES`, `Q_OBJECTS`, `Q_COLUMNS`, `Q_PRIMARY_KEYS`, `Q_FOREIGN_KEYS`, `Q_ROW_COUNTS`, `Q_SENSITIVITY`, `Q_DEPENDENCIES`, `Q_PARAMETERS`) sobre `sys.objects`, `sys.columns`, `sys.indexes` (solo claves primarias), `sys.foreign_keys`, `sys.partitions`, `sys.sensitivity_classifications`, `sys.sql_expression_dependencies` y `sys.parameters`, con `SET LOCK_TIMEOUT 2000`, 30 s de timeout y conexión de solo lectura.
 > - No existen: Query Store, `get_column_profile`, `get_column_sketch` (MinHash), `get_linked_servers`, `get_sample_rows`, `get_object_definition`, `sys.dm_db_index_usage_stats`, ni la lectura de SSISDB y msdb (`list_ssis_packages`, `get_ssis_package`, `list_agent_jobs`). El código no lee valores de datos. El linaje entre vistas sale de `sys.sql_expression_dependencies`.
-> - `ServerConfig` (`src/converdata/config.py`) no tiene `metadata_secret`, `query_store` ni la lógica de `allow_primary_sampling`; el login de metadatos usa `auth: windows|sql` y variables de entorno (`metadata_user_env`, `metadata_password_env`). `read_replica` existe, pero nada lo usa.
+> - `ServerConfig` (`src/discovery_data_agent/config.py`) no tiene `metadata_secret`, `query_store` ni la lógica de `allow_primary_sampling`; el login de metadatos usa `auth: windows|sql` y variables de entorno (`metadata_user_env`, `metadata_password_env`). `read_replica` existe, pero nada lo usa.
 > - No hay límite de concurrencia por servidor.
 >
 > Ver [brechas funcionales](../../wiki/brechas-funcionales.md).

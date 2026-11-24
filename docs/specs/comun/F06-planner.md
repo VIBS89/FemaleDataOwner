@@ -3,7 +3,7 @@
 > Fase 1b; la infraestructura que cita se revisará contra PRD §13 decisiones 9–15 antes de implementarla.
 >
 > **Primer corte adelantado (2026-11-23, PRD §13, decisión 17).** No hay planner con LLM. Las cifras agregadas, apagadas por defecto, arman un
-> plan fijo (`FigurePlan`, `src/converdata/discovery/figures.py::plan_figure`): una operación (`COUNT`, `COUNT DISTINCT`, `SUM` o `AVG`), una tabla y,
+> plan fijo (`FigurePlan`, `src/discovery_data_agent/discovery/figures.py::plan_figure`): una operación (`COUNT`, `COUNT DISTINCT`, `SUM` o `AVG`), una tabla y,
 > si se pide, una columna de desglose con hasta 25 valores, todo tomado del catálogo que el usuario ve. Si la categoría pedida no está en la tabla principal, `figures._related_category` la busca en una tabla a la que apunta una llave foránea de una sola columna, visible para el usuario y de la misma base, servidor y ambiente, y el plan lleva **una** unión por esa llave, con las mismas reglas. El SQL sale de una plantilla fija con los
 > identificadores entre corchetes; nada de lo que escribe el usuario ni de lo que produce un modelo llega a él. No cubre las estrategias de esta
 > spec (métrica certificada, SP, golden SQL, T-SQL generado), ni parámetros `@pN`, ni exploración de columnas, ni condiciones que combinan tablas, cruces entre BDs o sistemas ni uniones de más de un salto:

@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from converdata.bootstrap import build_service, user_with_databases
-from converdata.discovery.deterministic import is_join_question
-from converdata.llm import nodes
+from discovery_data_agent.bootstrap import build_service, user_with_databases
+from discovery_data_agent.discovery.deterministic import is_join_question
+from discovery_data_agent.llm import nodes
 
 BANCOS = Path(__file__).parent / "fixtures" / "bancos"
 REPORTE = "¿Qué datos necesito para el reporte de cartera en mora mayor a 90 días que pide la Superintendencia?"

@@ -1,4 +1,4 @@
-// Contrato de ConverData-API. AnswerEnvelope y Discovery reflejan src/converdata/models/discovery.py (PRD §8.3, F22).
+// Contrato de DiscoveryDataAgent-API. AnswerEnvelope y Discovery reflejan src/discovery_data_agent/models/discovery.py (PRD §8.3, F22).
 
 export type DescriptionSource = "human" | "data_dictionary" | "ms_description" | "document" | "generated";
 
@@ -69,7 +69,7 @@ export interface FigureGroup {
   value: number;
 }
 
-// Cifra agregada calculada con los permisos del usuario (src/converdata/models/figures.py).
+// Cifra agregada calculada con los permisos del usuario (src/discovery_data_agent/models/figures.py).
 export interface Figure {
   asset_key: string;
   description: string;

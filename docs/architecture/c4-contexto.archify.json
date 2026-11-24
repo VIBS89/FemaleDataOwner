@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — C4 nivel 1: contexto del sistema",
+    "title": "DiscoveryDataAgent — C4 nivel 1: contexto del sistema",
     "output": "docs/architecture/c4-contexto.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -66,7 +66,7 @@
         170,
         64
       ],
-      "description": "Equipo del banco que crea la BD ConverData, aplica las migraciones, asigna los cuatro roles de mínimo privilegio, programa el refresco nocturno y la purga, y respalda la BD. No usa la aplicación: trabaja con la línea de comandos y SQL Server. (OP-07)"
+      "description": "Equipo del banco que crea la BD DiscoveryDataAgent, aplica las migraciones, asigna los cuatro roles de mínimo privilegio, programa el refresco nocturno y la purga, y respalda la BD. No usa la aplicación: trabaja con la línea de comandos y SQL Server. (OP-07)"
     },
     {
       "id": "mcpclient",
@@ -81,12 +81,12 @@
         170,
         64
       ],
-      "description": "Agentes y asistentes que usan ConverData como herramienta (discover, where_is, get_asset, get_lineage). Se identifican con el token de sesión del usuario, así que heredan sus mismos permisos. (F12, OP-04)"
+      "description": "Agentes y asistentes que usan DiscoveryDataAgent como herramienta (discover, where_is, get_asset, get_lineage). Se identifican con el token de sesión del usuario, así que heredan sus mismos permisos. (F12, OP-04)"
     },
     {
-      "id": "converdata",
+      "id": "discovery-data-agent",
       "type": "backend",
-      "label": "ConverData",
+      "label": "DiscoveryDataAgent",
       "sublabel": "agente de descubrimiento de datos",
       "pos": [
         560,
@@ -128,7 +128,7 @@
         170,
         64
       ],
-      "description": "Las bases de datos de negocio. Son la fuente de verdad de los permisos: ConverData les pregunta qué puede leer cada login y cuál es la estructura de sus objetos. En la fase 1a no se consulta ningún dato. (F8, F14, F18)"
+      "description": "Las bases de datos de negocio. Son la fuente de verdad de los permisos: DiscoveryDataAgent les pregunta qué puede leer cada login y cuál es la estructura de sus objetos. En la fase 1a no se consulta ningún dato. (F8, F14, F18)"
     },
     {
       "id": "sources",
@@ -166,7 +166,7 @@
     {
       "id": "a-s",
       "from": "analista",
-      "to": "converdata",
+      "to": "discovery-data-agent",
       "label": "pregunta",
       "variant": "emphasis"
     },
@@ -179,50 +179,50 @@
     {
       "id": "m-s",
       "from": "mcpclient",
-      "to": "converdata",
+      "to": "discovery-data-agent",
       "label": "herramientas MCP"
     },
     {
       "id": "r-s",
       "from": "responsable",
-      "to": "converdata",
+      "to": "discovery-data-agent",
       "label": "cura"
     },
     {
       "id": "ad-s",
       "from": "admin",
-      "to": "converdata",
+      "to": "discovery-data-agent",
       "label": "administra"
     },
     {
       "id": "d-s",
       "from": "dba",
-      "to": "converdata",
+      "to": "discovery-data-agent",
       "label": "instala · migra",
       "variant": "dashed"
     },
     {
       "id": "s-b",
-      "from": "converdata",
+      "from": "discovery-data-agent",
       "to": "bedrock",
       "label": "pregunta y metadatos visibles"
     },
     {
       "id": "s-q",
-      "from": "converdata",
+      "from": "discovery-data-agent",
       "to": "sqldata",
       "label": "permisos y metadatos",
       "variant": "security"
     },
     {
       "id": "s-f",
-      "from": "converdata",
+      "from": "discovery-data-agent",
       "to": "sources",
       "label": "ingesta"
     },
     {
       "id": "s-t",
-      "from": "converdata",
+      "from": "discovery-data-agent",
       "to": "teams",
       "label": "dominio y enlace",
       "variant": "dashed"
@@ -234,7 +234,7 @@
       "title": "Qué resuelve",
       "items": [
         "Encontrar un dato lleva hoy días de preguntas entre equipos",
-        "ConverData responde en segundos con tabla, columna, ambiente, significado y confianza",
+        "DiscoveryDataAgent responde en segundos con tabla, columna, ambiente, significado y confianza",
         "Lo que no sabe lo dice, y lo escala al responsable del dominio"
       ]
     },
@@ -253,7 +253,7 @@
       "items": [
         "Nivel 2, contenedores: onpremise-architecture.html y cloud-native-architecture.html",
         "Nivel 3, componentes de la API: c4-componentes-api.html",
-        "Detalle: flujo-descubrimiento.html, modelo-datos-converdata.html, permisos-heredados.html"
+        "Detalle: flujo-descubrimiento.html, modelo-datos-discovery-data-agent.html, permisos-heredados.html"
       ]
     }
   ]

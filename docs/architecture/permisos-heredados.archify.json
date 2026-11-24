@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "ConverData — Permisos de BD heredados del usuario",
+    "title": "DiscoveryDataAgent — Permisos de BD heredados del usuario",
     "output": "docs/architecture/permisos-heredados.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -13,21 +13,21 @@
       "type": "external",
       "label": "Usuario",
       "sublabel": "su propio login SQL",
-      "description": "Persona que usa ConverData. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. ConverData no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)"
+      "description": "Persona que usa DiscoveryDataAgent. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. DiscoveryDataAgent no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)"
     },
     {
       "id": "app",
       "type": "backend",
-      "label": "ConverData",
+      "label": "DiscoveryDataAgent",
       "sublabel": "API + DiscoverFlow + MCP",
-      "description": "ConverData-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)"
+      "description": "DiscoveryDataAgent-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)"
     },
     {
       "id": "vault",
       "type": "security",
       "label": "Credencial de sesión",
       "sublabel": "cifrada, solo en memoria",
-      "description": "Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de ConverData-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)"
+      "description": "Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de DiscoveryDataAgent-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)"
     },
     {
       "id": "catalog",
@@ -295,8 +295,8 @@
       "dot": "rose",
       "title": "Principio",
       "items": [
-        "ConverData nunca amplía permisos: cada consulta usa el login SQL del propio usuario",
-        "Lo que el usuario no ve en SSMS, tampoco lo ve en ConverData",
+        "DiscoveryDataAgent nunca amplía permisos: cada consulta usa el login SQL del propio usuario",
+        "Lo que el usuario no ve en SSMS, tampoco lo ve en DiscoveryDataAgent",
         "El descubrimiento hereda los mismos permisos: solo aparecen metadatos, reglas y documentos de objetos visibles"
       ]
     },

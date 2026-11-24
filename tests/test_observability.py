@@ -5,14 +5,14 @@ import logging
 
 import pytest
 
-from converdata.observability.logging import D5_FIELDS, JsonFormatter, configure_logging, log_event
-from converdata.observability.metrics import Metrics
+from discovery_data_agent.observability.logging import D5_FIELDS, JsonFormatter, configure_logging, log_event
+from discovery_data_agent.observability.metrics import Metrics
 
 SECRET_Q = "¿dónde está el DUI 01234567-8 de Juan?"
 
 
 def _format(**extra) -> dict:
-    record = logging.LogRecord("converdata.test", logging.INFO, __file__, 1, "discover.done", (), None)
+    record = logging.LogRecord("discovery_data_agent.test", logging.INFO, __file__, 1, "discover.done", (), None)
     for k, v in extra.items():
         setattr(record, k, v)
     return json.loads(JsonFormatter().format(record))
@@ -43,8 +43,8 @@ def test_los_argumentos_del_mensaje_no_se_interpolan():
 
 
 def test_log_event_descarta_campos_fuera_de_d5(caplog):
-    logger = logging.getLogger("converdata.test.events")
-    with caplog.at_level(logging.INFO, logger="converdata.test.events"):
+    logger = logging.getLogger("discovery_data_agent.test.events")
+    with caplog.at_level(logging.INFO, logger="discovery_data_agent.test.events"):
         log_event(logger, "discover.done", trace_id="t-2", question=SECRET_Q, status="ok")
     [rec] = caplog.records
     assert rec.trace_id == "t-2" and rec.status == "ok" and not hasattr(rec, "question")
@@ -55,11 +55,11 @@ def test_lista_blanca_no_incluye_contenido():
 
 
 def test_configure_logging_escribe_json_rotado(tmp_path):
-    root = configure_logging(tmp_path, event_log=False, logger_name="converdata.test.cfg")
+    root = configure_logging(tmp_path, event_log=False, logger_name="discovery_data_agent.test.cfg")
     log_event(root, "service.start", status="ok")
     for h in root.handlers:
         h.flush()
-    [line] = (tmp_path / "converdata.log").read_text(encoding="utf-8").splitlines()
+    [line] = (tmp_path / "discovery-data-agent.log").read_text(encoding="utf-8").splitlines()
     assert json.loads(line)["event"] == "service.start"
     assert any(type(h).__name__ == "RotatingFileHandler" for h in root.handlers)
 
@@ -75,11 +75,11 @@ def test_visor_de_eventos_solo_en_windows_y_para_errores(tmp_path, monkeypatch):
         def emit(self, record):
             pass
 
-    monkeypatch.setattr("converdata.observability.logging.NTEventLogHandler", FakeNT)
-    monkeypatch.setattr("converdata.observability.logging.sys.platform", "win32")
-    root = configure_logging(tmp_path, event_log=True, logger_name="converdata.test.nt")
+    monkeypatch.setattr("discovery_data_agent.observability.logging.NTEventLogHandler", FakeNT)
+    monkeypatch.setattr("discovery_data_agent.observability.logging.sys.platform", "win32")
+    root = configure_logging(tmp_path, event_log=True, logger_name="discovery_data_agent.test.nt")
     nt = [h for h in root.handlers if isinstance(h, FakeNT)]
-    assert created == ["ConverData"] and nt and nt[0].level == logging.ERROR
+    assert created == ["DiscoveryDataAgent"] and nt and nt[0].level == logging.ERROR
 
 
 # --- métricas ------------------------------------------------------------------------------------

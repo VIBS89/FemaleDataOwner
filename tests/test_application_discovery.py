@@ -5,7 +5,7 @@ La regla central: lo que el usuario no puede ver responde igual que lo que no ex
 
 import pytest
 
-from converdata.application.discovery import DiscoveryTools
+from discovery_data_agent.application.discovery import DiscoveryTools
 from conftest import ONBOARDING_Q
 
 CLIENT_CODE = "VBank_ING.dbo.Users.ClientCode"
@@ -54,7 +54,7 @@ def test_get_asset_no_revela_lo_que_el_usuario_no_ve(tools, rrhh_user):
 
 
 def test_get_asset_omite_copias_en_bds_no_visibles(tools, service):
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
 
     solo_ing = user_with_databases(service, "ing", ["VBank_ING"])
     card = tools.get_asset(solo_ing, USERS)

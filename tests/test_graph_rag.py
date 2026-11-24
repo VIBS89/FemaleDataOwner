@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from converdata.bootstrap import build_service, build_service_with_knowledge, user_with_databases
-from converdata.discovery import engine
-from converdata.discovery.deterministic import RuleBasedIntentClassifier
-from converdata.discovery.expansion import decompose, plan_query
-from converdata.evaluation.discovery_eval import evaluate, load_cases
-from converdata.models.identity import UserContext
+from discovery_data_agent.bootstrap import build_service, build_service_with_knowledge, user_with_databases
+from discovery_data_agent.discovery import engine
+from discovery_data_agent.discovery.deterministic import RuleBasedIntentClassifier
+from discovery_data_agent.discovery.expansion import decompose, plan_query
+from discovery_data_agent.evaluation.discovery_eval import evaluate, load_cases
+from discovery_data_agent.models.identity import UserContext
 
 BANCOS = Path(__file__).parent / "fixtures" / "bancos"
 
@@ -187,7 +187,7 @@ def test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte():
 
 
 def test_la_cli_mide_con_y_sin_conocimiento(capsys):
-    from converdata import cli
+    from discovery_data_agent import cli
 
     base = ["eval", "discovery", "--root", str(BANCOS), "--cases", str(BANCOS / "eval" / "reportes.yaml")]
     assert cli.main(base) == 0

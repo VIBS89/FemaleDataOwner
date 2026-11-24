@@ -1,4 +1,4 @@
-"""`converdata mcp serve` (stdio): Claude Desktop o Claude Code sobre un catálogo local con identidad de desarrollo.
+"""`discovery-data-agent mcp serve` (stdio): Claude Desktop o Claude Code sobre un catálogo local con identidad de desarrollo.
 
 La identidad fija no viene de un login SQL, así que solo se permite fuera de qa y prod (F14, F17).
 """
@@ -12,7 +12,7 @@ pytest.importorskip("mcp")
 
 from mcp import Client  # noqa: E402
 
-from converdata.integration.mcp.stdio import DevIdentityNotAllowed, build_stdio_server  # noqa: E402
+from discovery_data_agent.integration.mcp.stdio import DevIdentityNotAllowed, build_stdio_server  # noqa: E402
 from conftest import FIXTURE  # noqa: E402
 
 
@@ -23,14 +23,14 @@ def anyio_backend():
 
 @pytest.mark.parametrize("env", ["qa", "prod", "QA"])
 def test_identidad_de_desarrollo_bloqueada_en_qa_y_prod(monkeypatch, env):
-    monkeypatch.setenv("CONVERDATA_ENV", env)
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_ENV", env)
     with pytest.raises(DevIdentityNotAllowed, match="/mcp"):
         build_stdio_server(FIXTURE)
 
 
 @pytest.mark.anyio
 async def test_stdio_respeta_las_bds_indicadas(monkeypatch):
-    monkeypatch.setenv("CONVERDATA_ENV", "local")
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_ENV", "local")
     server = build_stdio_server(FIXTURE, databases=["RRHH"], user="dev")
     async with Client(server) as client:
         result = await client.call_tool("get_asset", {"asset_key": "VBank_ING.dbo.Users.ClientCode"})
@@ -41,7 +41,7 @@ async def test_stdio_respeta_las_bds_indicadas(monkeypatch):
 
 @pytest.mark.anyio
 async def test_stdio_sin_bds_ve_todo_el_catalogo_local(monkeypatch):
-    monkeypatch.delenv("CONVERDATA_ENV", raising=False)
+    monkeypatch.delenv("DISCOVERY_DATA_AGENT_ENV", raising=False)
     server = build_stdio_server(FIXTURE)
     async with Client(server) as client:
         overview = (await client.call_tool("estate_overview", {})).structured_content
@@ -50,12 +50,12 @@ async def test_stdio_sin_bds_ve_todo_el_catalogo_local(monkeypatch):
 
 @pytest.mark.anyio
 async def test_cli_mcp_serve_como_proceso_stdio(monkeypatch):
-    """Lo mismo que hace Claude Desktop o Claude Code: lanzar `converdata mcp serve` y hablar por stdin/stdout."""
+    """Lo mismo que hace Claude Desktop o Claude Code: lanzar `discovery-data-agent mcp serve` y hablar por stdin/stdout."""
     from mcp import StdioServerParameters
 
     params = StdioServerParameters(
-        command=sys.executable, args=["-m", "converdata.cli", "mcp", "serve", "--root", str(FIXTURE)],
-        env={**os.environ, "CONVERDATA_ENV": "local", "PYTHONPATH": str(FIXTURE.parents[2] / "src")},
+        command=sys.executable, args=["-m", "discovery_data_agent.cli", "mcp", "serve", "--root", str(FIXTURE)],
+        env={**os.environ, "DISCOVERY_DATA_AGENT_ENV": "local", "PYTHONPATH": str(FIXTURE.parents[2] / "src")},
     )
     async with Client(params) as client:
         names = {t.name for t in (await client.list_tools()).tools}

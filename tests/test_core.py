@@ -3,12 +3,12 @@
 import pytest
 import yaml
 
-from converdata.catalog.store import load_catalog
-from converdata.config import DiscoverySettings
-from converdata.discovery.deterministic import RuleBasedIntentClassifier
-from converdata.discovery.engine import Draft, compute_confidence
-from converdata.memory.memory_store import InMemoryVectorStore
-from converdata.models.catalog import CatalogObject
+from discovery_data_agent.catalog.store import load_catalog
+from discovery_data_agent.config import DiscoverySettings
+from discovery_data_agent.discovery.deterministic import RuleBasedIntentClassifier
+from discovery_data_agent.discovery.engine import Draft, compute_confidence
+from discovery_data_agent.memory.memory_store import InMemoryVectorStore
+from discovery_data_agent.models.catalog import CatalogObject
 from conftest import FIXTURE, ONBOARDING_Q
 
 # --- F1 catálogo ---------------------------------------------------------------------------------
@@ -134,7 +134,7 @@ def test_tope_si_solo_hay_descripcion_generada():
 
 
 def test_marcadores_de_pii_redactada_no_se_indexan():
-    from converdata.memory.text import tokenize
+    from discovery_data_agent.memory.text import tokenize
 
     assert tokenize("Ejemplo: cliente <DUI> con cuenta <CUENTA_BANCARIA>.") == tokenize("Ejemplo: cliente con cuenta.")
 

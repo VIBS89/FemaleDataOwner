@@ -1,4 +1,4 @@
-# Glosario y manual de reportes de prueba para BancosSQL. Solo lo carga `converdata eval discovery --knowledge`:
+# Glosario y manual de reportes de prueba para BancosSQL. Solo lo carga `discovery-data-agent eval discovery --knowledge`:
 # el catálogo de `tests/fixtures/bancos` sigue crudo, sin fuentes de conocimiento (es la línea base).
 # Sin valores de datos ni ejemplos reales: cada entrada define un término y lo vincula a su activo (F23).
 - id: glo-cartera-vencida

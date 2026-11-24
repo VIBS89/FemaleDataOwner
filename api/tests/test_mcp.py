@@ -1,4 +1,4 @@
-"""`/mcp` de ConverData-API (HU-16, OP-04 CA2/CA3, OP-03 CA5) de punta a punta con el servidor simulado.
+"""`/mcp` de DiscoveryDataAgent-API (HU-16, OP-04 CA2/CA3, OP-03 CA5) de punta a punta con el servidor simulado.
 
 El `Bearer` es el token de `/login`; la identidad de cada herramienta sale de él y hereda los permisos del login (F14).
 """

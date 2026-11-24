@@ -1,7 +1,7 @@
-# ConverData: frontend web (Next.js + shadcn) y ConverData-API (FastAPI + agente).
+# DiscoveryDataAgent: frontend web (Next.js + shadcn) y DiscoveryDataAgent-API (FastAPI + agente).
 #
 #   docker compose up --build                      → http://localhost:3000
-#   CONVERDATA_DEMO=1 docker compose up --build    → servidor simulado (usuarios demo/analista, contraseña demo)
+#   DISCOVERY_DATA_AGENT_DEMO=1 docker compose up --build    → servidor simulado (usuarios demo/analista, contraseña demo)
 #
 # El primer login (inventario vacío) registra el servidor SQL Server y el agente descubre sus esquemas desde Administración.
 # Desde el contenedor, un SQL Server del equipo anfitrión es `host.docker.internal,1433` (TCP habilitado; las instancias
@@ -13,31 +13,31 @@ services:
       dockerfile: api/Dockerfile
       args:
         # runtime.lock: API, MCP, SQL Server y Bedrock. Para NVIDIA NIM, OpenAI, Claude u Ollama (desarrollo): requirements/dev.lock
-        REQUIREMENTS: ${CONVERDATA_REQUIREMENTS:-requirements/runtime.lock}
+        REQUIREMENTS: ${DISCOVERY_DATA_AGENT_REQUIREMENTS:-requirements/runtime.lock}
     environment:
-      CONVERDATA_DATA_ROOT: /app/data/catalog
-      CONVERDATA_INVENTORY: /app/data/inventory.yaml
-      CONVERDATA_AUDIT_DIR: /app/data/audit
-      CONVERDATA_CURATION_DIR: /app/data/curation
-      # BD ConverData (OP-02): con ella, catálogo y auditoría van a SQL Server; obligatoria con CONVERDATA_ENV=qa|prod
-      CONVERDATA_DB: ${CONVERDATA_DB:-}
-      CONVERDATA_MODELS: ${CONVERDATA_MODELS:-}  # p. ej. /app/config/models.yaml (montar abajo)
-      CONVERDATA_ADMINS: ${CONVERDATA_ADMINS:-}
-      CONVERDATA_DEMO: ${CONVERDATA_DEMO:-0}
-      CONVERDATA_ALLOW_WINDOWS_AUTH: "0"
-      CONVERDATA_COOKIE_SECURE: ${CONVERDATA_COOKIE_SECURE:-0}  # 1 detrás de HTTPS
+      DISCOVERY_DATA_AGENT_DATA_ROOT: /app/data/catalog
+      DISCOVERY_DATA_AGENT_INVENTORY: /app/data/inventory.yaml
+      DISCOVERY_DATA_AGENT_AUDIT_DIR: /app/data/audit
+      DISCOVERY_DATA_AGENT_CURATION_DIR: /app/data/curation
+      # BD DiscoveryDataAgent (OP-02): con ella, catálogo y auditoría van a SQL Server; obligatoria con DISCOVERY_DATA_AGENT_ENV=qa|prod
+      DISCOVERY_DATA_AGENT_DB: ${DISCOVERY_DATA_AGENT_DB:-}
+      DISCOVERY_DATA_AGENT_MODELS: ${DISCOVERY_DATA_AGENT_MODELS:-}  # p. ej. /app/config/models.yaml (montar abajo)
+      DISCOVERY_DATA_AGENT_ADMINS: ${DISCOVERY_DATA_AGENT_ADMINS:-}
+      DISCOVERY_DATA_AGENT_DEMO: ${DISCOVERY_DATA_AGENT_DEMO:-0}
+      DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH: "0"
+      DISCOVERY_DATA_AGENT_COOKIE_SECURE: ${DISCOVERY_DATA_AGENT_COOKIE_SECURE:-0}  # 1 detrás de HTTPS
       # qa | prod: la API no arranca con ajustes inseguros (docs/calidad-bancaria.md §4)
-      CONVERDATA_ENV: ${CONVERDATA_ENV:-dev}
-      CONVERDATA_ADMINS_ONLY: ${CONVERDATA_ADMINS_ONLY:-0}
-      CONVERDATA_SETUP_TOKEN: ${CONVERDATA_SETUP_TOKEN:-}
-      CONVERDATA_CORS_ORIGINS: ${CONVERDATA_CORS_ORIGINS:-http://localhost:3000}
-      CONVERDATA_PUBLIC_URL: ${CONVERDATA_PUBLIC_URL:-}
-      CONVERDATA_MCP_HOSTS: ${CONVERDATA_MCP_HOSTS:-}
+      DISCOVERY_DATA_AGENT_ENV: ${DISCOVERY_DATA_AGENT_ENV:-dev}
+      DISCOVERY_DATA_AGENT_ADMINS_ONLY: ${DISCOVERY_DATA_AGENT_ADMINS_ONLY:-0}
+      DISCOVERY_DATA_AGENT_SETUP_TOKEN: ${DISCOVERY_DATA_AGENT_SETUP_TOKEN:-}
+      DISCOVERY_DATA_AGENT_CORS_ORIGINS: ${DISCOVERY_DATA_AGENT_CORS_ORIGINS:-http://localhost:3000}
+      DISCOVERY_DATA_AGENT_PUBLIC_URL: ${DISCOVERY_DATA_AGENT_PUBLIC_URL:-}
+      DISCOVERY_DATA_AGENT_MCP_HOSTS: ${DISCOVERY_DATA_AGENT_MCP_HOSTS:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
-      - converdata-data:/app/data
+      - discovery-data-agent-data:/app/data
       # - ./config/models.yaml:/app/config/models.yaml:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -49,14 +49,14 @@ services:
     environment:
       API_URL: http://api:8000
       # Solo detrás de un proxy inverso propio (IIS, ALB) que añade la dirección del cliente a X-Forwarded-For; entonces
-      # la API necesita además CONVERDATA_TRUST_PROXY=1. Sin ese proxy, apagado: la cabecera la escribiría el cliente.
+      # la API necesita además DISCOVERY_DATA_AGENT_TRUST_PROXY=1. Sin ese proxy, apagado: la cabecera la escribiría el cliente.
       TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-0}
     ports:
-      - "${CONVERDATA_PORT:-3000}:3000"
+      - "${DISCOVERY_DATA_AGENT_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  converdata-data:
+  discovery-data-agent-data:

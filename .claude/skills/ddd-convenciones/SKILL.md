@@ -1,9 +1,9 @@
 ---
 name: ddd-convenciones
-description: Convenciones de DDD y arquitectura por capas de ConverData (dominio, aplicación, infraestructura, integración), lenguaje ubicuo e invariantes de seguridad. Úsalo al diseñar o modificar cualquier módulo de src/converdata o api/converdata_api, al decidir en qué capa va una clase, o al introducir una dependencia nueva.
+description: Convenciones de DDD y arquitectura por capas de DiscoveryDataAgent (dominio, aplicación, infraestructura, integración), lenguaje ubicuo e invariantes de seguridad. Úsalo al diseñar o modificar cualquier módulo de src/discovery_data_agent o api/discovery_data_agent_api, al decidir en qué capa va una clase, o al introducir una dependencia nueva.
 ---
 
-# DDD en ConverData
+# DDD en DiscoveryDataAgent
 
 Fuente de verdad: `docs/architecture/capas-backend.md` y `tests/test_architecture.py` (`LAYERS`, `ALLOWED`, `ADAPTER_LIBS`).
 Si este skill y esos archivos discrepan, mandan ellos.

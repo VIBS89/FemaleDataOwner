@@ -1,4 +1,4 @@
-# Ajustes del DiscoverFlow (valores por defecto de converdata.config.Settings).
+# Ajustes del DiscoverFlow (valores por defecto de discovery_data_agent.config.Settings).
 features:
   ask_flow: false          # cifras con plantilla fija (decisión 17). false: las preguntas de cifras se responden
                            # como descubrimiento (también CONVERDATA_ASK_FLOW=1)

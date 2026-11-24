@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from converdata.catalog.store import load_catalog, load_knowledge
-from converdata.config import load_inventory
+from discovery_data_agent.catalog.store import load_catalog, load_knowledge
+from discovery_data_agent.config import load_inventory
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

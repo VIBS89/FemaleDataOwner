@@ -3,9 +3,9 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "converdata"
+name = "discovery-data-agent"
 version = "0.1.0"
-description = "Enterprise Data Discovery Agent (ConverData) — DiscoverFlow on-premise"
+description = "Enterprise Data Discovery Agent (DiscoveryDataAgent) — DiscoverFlow on-premise"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
 dependencies = [
@@ -24,16 +24,16 @@ ollama = ["langchain-ollama>=1.0"]  # solo environment: local
 bedrock = ["langchain-aws>=0.2"]
 openai = ["langchain-openai>=1.0"]  # API de OpenAI o cualquier servidor compatible (`base_url`)
 anthropic = ["anthropic>=1.0"]  # Claude por la API de Anthropic, con su SDK oficial
-# Permisos de cada login, migraciones, auditoría, catálogo y curación en la BD ConverData (OP-02, OP-03, OP-05).
+# Permisos de cada login, migraciones, auditoría, catálogo y curación en la BD DiscoveryDataAgent (OP-02, OP-03, OP-05).
 sqlserver = ["pyodbc>=5.1"]
-# ConverData-API para el frontend web (api/, web/).
+# DiscoveryDataAgent-API para el frontend web (api/, web/).
 api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "cryptography>=43", "pyodbc>=5.1", "mcp>=2.3,<3"]
-# converdata-mcp (F12): `converdata mcp serve` por stdio y `/mcp` en ConverData-API. FastMCP pasó a MCPServer en la 2.x.
+# discovery-data-agent-mcp (F12): `discovery-data-agent mcp serve` por stdio y `/mcp` en DiscoveryDataAgent-API. FastMCP pasó a MCPServer en la 2.x.
 mcp = ["mcp>=2.3,<3"]
 dev = ["pytest>=8", "httpx>=0.27"]
 
 [project.scripts]
-converdata = "converdata.cli:main"
+discovery-data-agent = "discovery_data_agent.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -44,7 +44,7 @@ pythonpath = ["src", "api"]
 addopts = "--strict-markers"
 markers = [
     "llm_local: SD-2, requiere Ollama (OLLAMA_HOST) o NVIDIA NIM (NVIDIA_API_KEY)",
-    "sqlserver: SD-3, requiere SQL Server 2025 (CONVERDATA_TEST_DB)",
+    "sqlserver: SD-3, requiere SQL Server 2025 (DISCOVERY_DATA_AGENT_TEST_DB)",
     "bedrock: SD-4, requiere credenciales de AWS y un models.yaml con proveedor bedrock",
-    "windows_server: SD-5, requiere Windows Server con IIS (CONVERDATA_IIS=1)",
+    "windows_server: SD-5, requiere Windows Server con IIS (DISCOVERY_DATA_AGENT_IIS=1)",
 ]

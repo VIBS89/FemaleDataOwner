@@ -57,8 +57,8 @@ El grafo completo es `intent → retrieve ⇄ grade → rerank → expand ⇄ re
    Una brecha puede llevar candidatos: se muestran con su confianza baja (§Qué tipo de activo se pide).
 
 > **Estado al 2026-11-17:**
-> - Las tarjetas no salen antes que la narrativa: `DiscoverFlow.stream` (`src/converdata/flows/discover.py`) emite un evento `step` por nodo y un único `answer` al final con el sobre completo (candidatos y texto juntos).
-> - `estate_overview` existe como herramienta (`DiscoveryTools`, `/mcp`), pero el flujo no la llama: en `exploration` usa la misma recuperación y deja solo tablas (`src/converdata/discovery/engine.py`).
+> - Las tarjetas no salen antes que la narrativa: `DiscoverFlow.stream` (`src/discovery_data_agent/flows/discover.py`) emite un evento `step` por nodo y un único `answer` al final con el sobre completo (candidatos y texto juntos).
+> - `estate_overview` existe como herramienta (`DiscoveryTools`, `/mcp`), pero el flujo no la llama: en `exploration` usa la misma recuperación y deja solo tablas (`src/discovery_data_agent/discovery/engine.py`).
 > - Las relaciones (`related`) son `fk`, `same_entity`, `etl` y `view`; no hay relaciones inferidas marcadas como tales.
 > - `search_knowledge` busca también en `data_dictionary`: la lista real es `glossary`, `business_rule`, `document`, `annotation`, `etl` y `data_dictionary`.
 >
@@ -91,7 +91,7 @@ modelo (F3) y no se ha medido (HU-35).
     `compute_confidence`): el catálogo no sabe si "tarjetas de regalo" es un valor de la tabla de tarjetas o un dato que el banco no
     tiene. Se muestra la tabla con confianza baja, `knowledge_gap = true` y la oferta de preguntar al responsable.
 - **Literales.** Los valores concretos que trae la pregunta no cuentan como conceptos que un activo deba cubrir: "el DUI del
-  cliente 01234567-8" pregunta por el DUI del cliente. Los quita `converdata.memory.text.strip_literals(question, known)`, la misma
+  cliente 01234567-8" pregunta por el DUI del cliente. Los quita `discovery_data_agent.memory.text.strip_literals(question, known)`, la misma
   función que usa la plantilla de las confirmaciones (F24, F17 clase D4): tras normalizar con NFKC, toda palabra con algún dígito
   o con arroba es un literal, salvo el vocabulario conocido. Para medir la cobertura, el vocabulario son los nombres con dígitos
   de lo que el usuario ve (`Catalog.names_with_digits(visible_ids)`, p. ej. `Ultimos4`): un nombre de un objeto oculto no cuenta.
@@ -112,7 +112,7 @@ ajustaron y midieron con preguntas escritas por el equipo; falta el set real (HU
 `test_lo_que_el_banco_no_tiene_nunca_sale_como_respuesta_segura`).
 
 Sin `config/models.yaml`, o con el tope diario de tokens agotado, los pasos 1, 4 y 8 corren en **modo determinista** (sin LLM) y el
-flow sigue respondiendo. Las guardas sobre el texto generado y la compuerta `converdata eval gate` están en [calidad bancaria](../../calidad-bancaria.md).
+flow sigue respondiendo. Las guardas sobre el texto generado y la compuerta `discovery-data-agent eval gate` están en [calidad bancaria](../../calidad-bancaria.md).
 
 ## Chat de negocio (2026-11-23)
 Reglas del DiscoverFlow para quien escribe como en un chat; aplican con y sin LLM salvo donde se dice.
@@ -151,9 +151,9 @@ Reglas del DiscoverFlow para quien escribe como en un chat; aplican con y sin LL
 
 ## Cifras agregadas (primer corte del AskFlow, 2026-11-23)
 **Apagadas por defecto.** Decisión 17 del PRD §13: se adelanta un subconjunto acotado de la fase 1b para que el chat responda "¿cuántos…?" y
-"¿cuál es el saldo total…?" con el número. Se activan con `features.ask_flow` o `CONVERDATA_ASK_FLOW=1`; sin ellas, una pregunta de cifras se
-responde con la tabla donde está la información (F3). En la CLI: `converdata discover "<pregunta>" --root <dir> --figures config/databases.local.yaml`.
-- **Qué calcula** (`src/converdata/discovery/figures.py`, `src/converdata/models/figures.py`): `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` sobre una tabla,
+"¿cuál es el saldo total…?" con el número. Se activan con `features.ask_flow` o `DISCOVERY_DATA_AGENT_ASK_FLOW=1`; sin ellas, una pregunta de cifras se
+responde con la tabla donde está la información (F3). En la CLI: `discovery-data-agent discover "<pregunta>" --root <dir> --figures config/databases.local.yaml`.
+- **Qué calcula** (`src/discovery_data_agent/discovery/figures.py`, `src/discovery_data_agent/models/figures.py`): `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` sobre una tabla,
   con desglose opcional por una columna de categoría de hasta 25 valores distintos, que se comprueba antes con otra consulta (`is_category`: nunca medidas ni nombres de persona). Si la categoría pedida ("por segmento", "por tipo de crédito", "por marca") no está en la tabla principal, `figures._related_category` la busca en una tabla a la que apunta una llave foránea de una sola columna, visible para el usuario y de la misma base, servidor y ambiente, y hace **una** unión por esa llave, con las mismas reglas.
 - **Cómo.** SQL de plantilla fija con identificadores del catálogo que el usuario ve, entre corchetes; nada de lo que escribe el usuario ni de lo que produce un
   modelo llega al SQL. Nunca se usan columnas `pii`. Se ejecuta con la credencial de la sesión (`AgentRuntime.figure_executor`), en una

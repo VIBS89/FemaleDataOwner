@@ -58,7 +58,7 @@ verified_queries:
 
 ## Construcción
 - **Arranque asistido**: el Catalog Builder propone métricas y dimensiones a partir de vistas existentes, SPs de reporting y joins frecuentes de Query Store (F19), marcadas `certified: false`.
-- **Certificación humana**: un propietario de datos revisa y certifica (`converdata semantic review`).
+- **Certificación humana**: un propietario de datos revisa y certifica (`discovery-data-agent semantic review`).
 - Las golden SQL (F2) muy usadas se pueden promover a `verified_queries`.
 
 ## Criterios de aceptación

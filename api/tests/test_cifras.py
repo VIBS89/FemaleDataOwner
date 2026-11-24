@@ -12,11 +12,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.discovery import figures
-from converdata_api import runtime as runtime_module
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
-from converdata_api.settings import ApiSettings
+from discovery_data_agent.discovery import figures
+from discovery_data_agent_api import runtime as runtime_module
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.settings import ApiSettings
 
 FIXTURE = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "bancos"
 TOTAL = 4321
@@ -145,9 +145,9 @@ def test_ask_flow_esta_apagado_por_defecto():
 
 
 def test_ask_flow_se_enciende_con_la_variable_de_entorno(monkeypatch):
-    monkeypatch.setenv("CONVERDATA_ASK_FLOW", "1")
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_ASK_FLOW", "1")
     assert ApiSettings.from_env().ask_flow is True
-    monkeypatch.delenv("CONVERDATA_ASK_FLOW")
+    monkeypatch.delenv("DISCOVERY_DATA_AGENT_ASK_FLOW")
     assert ApiSettings.from_env().ask_flow is False
 
 

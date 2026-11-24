@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.1.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>ConverData — Permisos de BD heredados del usuario · Diagrama</title>
+  <title>DiscoveryDataAgent — Permisos de BD heredados del usuario · Diagrama</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5161,7 +5161,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="PLANO / REV 01"
            data-preset-badge-editorial="EDITORIAL / NOTA DE CAMPO">
         <div class="pulse-dot"></div>
-        <h1>ConverData — Permisos de BD heredados del usuario</h1>
+        <h1>DiscoveryDataAgent — Permisos de BD heredados del usuario</h1>
       </div>
     </div>
 
@@ -5171,7 +5171,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
       <svg viewBox="0 0 1054 1168" data-sequence-column-fit="spread" data-reader-fit="width-first" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-motion-choreography="sequence">
-        <title id="archify-diagram-title">ConverData — Permisos de BD heredados del usuario</title>
+        <title id="archify-diagram-title">DiscoveryDataAgent — Permisos de BD heredados del usuario</title>
         <desc id="archify-diagram-description">Un diagrama de secuencia generado por Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5458,8 +5458,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
 
         <!-- Participants -->
-        <g id="node-user" data-node-id="user" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, su propio login SQL, Participante de secuencia" aria-pressed="false" data-node-kind="external" data-node-sublabel="su propio login SQL" data-node-description="Persona que usa ConverData. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. ConverData no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)" data-node-context="Participante de secuencia">
-          <title>Usuario · su propio login SQL · Participante de secuencia · Persona que usa ConverData. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. ConverData no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)</title>
+        <g id="node-user" data-node-id="user" data-node-label="Usuario" tabindex="0" role="button" aria-label="Enfocar Usuario, su propio login SQL, Participante de secuencia" aria-pressed="false" data-node-kind="external" data-node-sublabel="su propio login SQL" data-node-description="Persona que usa DiscoveryDataAgent. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. DiscoveryDataAgent no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)" data-node-context="Participante de secuencia">
+          <title>Usuario · su propio login SQL · Participante de secuencia · Persona que usa DiscoveryDataAgent. Se identifica con SU login de SQL Server, el mismo que ya tiene asignado por el DBA. DiscoveryDataAgent no crea permisos nuevos ni usa una cuenta con más privilegios: el usuario solo obtiene lo que ya podía consultar directamente en SQL Server. (F14)</title>
           <rect x="62" y="72" width="131" height="60" rx="6" class="c-mask"/>
           <rect x="62" y="72" width="131" height="60" rx="6" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(68 78) scale(0.6875)">
@@ -5470,19 +5470,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="127.5" y="122" class="t-muted" font-size="7" text-anchor="middle">su propio login SQL</text>
         </g>
 
-        <g id="node-app" data-node-id="app" data-node-label="ConverData" tabindex="0" role="button" aria-label="Enfocar ConverData, API + DiscoverFlow + MCP, Participante de secuencia" aria-pressed="false" data-node-kind="backend" data-node-sublabel="API + DiscoverFlow + MCP" data-node-description="ConverData-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)" data-node-context="Participante de secuencia">
-          <title>ConverData · API + DiscoverFlow + MCP · Participante de secuencia · ConverData-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)</title>
+        <g id="node-app" data-node-id="app" data-node-label="DiscoveryDataAgent" tabindex="0" role="button" aria-label="Enfocar DiscoveryDataAgent, API + DiscoverFlow + MCP, Participante de secuencia" aria-pressed="false" data-node-kind="backend" data-node-sublabel="API + DiscoverFlow + MCP" data-node-description="DiscoveryDataAgent-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)" data-node-context="Participante de secuencia">
+          <title>DiscoveryDataAgent · API + DiscoverFlow + MCP · Participante de secuencia · DiscoveryDataAgent-API: FastAPI con el DiscoverFlow de LangGraph y el servidor MCP en /mcp. Nunca decide qué puede ver un usuario: se lo pregunta a SQL Server al iniciar sesión y busca solo entre esos objetos; lo no visible responde igual que lo inexistente. El chat, la API y el MCP comparten el mismo camino, así que heredan los mismos permisos. En la fase 1b (consulta de datos, aún no construida) un validador rechazará además cualquier objeto fuera de su visibilidad. (F14, F7)</title>
           <rect x="226.2" y="72" width="131" height="60" rx="6" class="c-mask"/>
           <rect x="226.2" y="72" width="131" height="60" rx="6" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(232.2 78) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="291.7" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ConverData</text>
+          <text data-node-label="" data-detail-anchor="" x="291.7" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">DiscoveryDataAgent</text>
           <text data-detail="context" x="291.7" y="122" class="t-muted" font-size="7" text-anchor="middle">API + DiscoverFlow + MCP</text>
         </g>
 
-        <g id="node-vault" data-node-id="vault" data-node-label="Credencial de sesión" tabindex="0" role="button" aria-label="Enfocar Credencial de sesión, cifrada, solo en memoria, Participante de secuencia" aria-pressed="false" data-node-kind="security" data-node-sublabel="cifrada, solo en memoria" data-node-description="Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de ConverData-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)" data-node-context="Participante de secuencia">
-          <title>Credencial de sesión · cifrada, solo en memoria · Participante de secuencia · Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de ConverData-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)</title>
+        <g id="node-vault" data-node-id="vault" data-node-label="Credencial de sesión" tabindex="0" role="button" aria-label="Enfocar Credencial de sesión, cifrada, solo en memoria, Participante de secuencia" aria-pressed="false" data-node-kind="security" data-node-sublabel="cifrada, solo en memoria" data-node-description="Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de DiscoveryDataAgent-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)" data-node-context="Participante de secuencia">
+          <title>Credencial de sesión · cifrada, solo en memoria · Participante de secuencia · Dónde vive el login SQL del usuario mientras usa la aplicación: SessionVault, cifrado (Fernet) y solo en la memoria de DiscoveryDataAgent-API; se borra al cerrar la sesión o al reiniciar el proceso. Es igual on-premise y en AWS: no se guarda en disco, en la BD ni en Secrets Manager. El LLM nunca la ve y ninguna herramienta acepta la identidad como argumento. (OP-03, CN-03)</title>
           <rect x="390.4" y="72" width="131" height="60" rx="6" class="c-mask"/>
           <rect x="390.4" y="72" width="131" height="60" rx="6" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(396.4 78) scale(0.6875)">
@@ -5732,8 +5732,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Principio</h3>
         </div>
         <ul>
-          <li>ConverData nunca amplía permisos: cada consulta usa el login SQL del propio usuario</li>
-          <li>Lo que el usuario no ve en SSMS, tampoco lo ve en ConverData</li>
+          <li>DiscoveryDataAgent nunca amplía permisos: cada consulta usa el login SQL del propio usuario</li>
+          <li>Lo que el usuario no ve en SSMS, tampoco lo ve en DiscoveryDataAgent</li>
           <li>El descubrimiento hereda los mismos permisos: solo aparecen metadatos, reglas y documentos de objetos visibles</li>
         </ul>
       </div>
