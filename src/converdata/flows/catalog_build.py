@@ -106,13 +106,14 @@ def build_catalog_graph(
                             report.skipped_unsafe += 1
                             continue
                         obj = cb.to_catalog_object(raw, server)
-                        merged, needs = cb.merge_existing(obj, existing.get(obj.id))
+                        known = existing.get(obj.id)
+                        merged, needs = cb.merge_existing(obj, known)
                         raws[merged.id] = raw
                         objects.append(merged)
                         if needs and merged.kind in ("table", "view"):
                             pending.append(merged.id)
-                        elif not needs:
-                            report.reused += 1
+                        if known is not None and known.schema_hash == obj.schema_hash:
+                            report.reused += 1  # misma estructura: se conserva lo anterior (aunque falte describirlo)
                     report.databases.append(f"{server.id}/{db}")
                 report.servers_ok.append(server.id)
             except Exception as exc:  # F1-CA5: se sigue con los demás servidores

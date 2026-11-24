@@ -51,3 +51,20 @@ HttpPlatformHandler y los `web.config` de la web y de la API, el certificado TLS
 endurecimiento, la verificación (`10-verificar.ps1`) y el respaldo con su prueba de restauración (HU-37 a HU-39). Además, el script
 ejecuta las tres tareas con una sola cuenta; OP-07 pide separar la del Builder de la de mantenimiento (la purga), y no envía el
 aviso por webhook de Teams cuando una tarea falla.
+
+## Verificado y por verificar
+
+Verificado el 2026-11-23 en un equipo de desarrollo, contra una base `ConverData` temporal en SQL Server (creada y
+eliminada para la prueba): los tres comandos que lanzan las tareas corren de verdad.
+
+- `converdata catalog build --db` necesita que el inventario de servidores ya esté registrado en la BD (se registra
+  desde Administración → Servidores). Sin inventario termina con código de salida 1 y el mensaje "La BD ConverData no
+  tiene inventario de servidores", así que la tarea aparece como fallida en el Programador y no pasa inadvertida.
+- Un refresco sobre un catálogo ya publicado conserva los objetos sin cambio de estructura, les suma los sinónimos
+  por reglas que falten y deja pendientes de describir los que no tienen descripción: al configurar un modelo, el
+  siguiente refresco los describe con IA.
+- `converdata eval gate --db --root tests\fixtures\bancos` aprueba contra el catálogo refrescado.
+- `converdata audit purge` corre y respeta la retención de 180 días.
+
+Por verificar en el servidor del banco: el registro de las tareas con la cuenta de servicio (aquí solo con `-WhatIf`),
+su ejecución sin sesión iniciada y los permisos de esa cuenta.

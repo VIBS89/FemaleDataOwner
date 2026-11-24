@@ -70,7 +70,10 @@ def rule_synonyms(identifier: str) -> list[str]:
     spaced = " ".join(words)
     if spaced and spaced != identifier.lower():
         out.append(spaced)
-    translated = [(_EN_TO_ES.get(w) or [None])[0] for w in words]
+    # También el plural: `Tokens` se traduce igual que `ProveedoresToken`; si no, la tabla secundaria queda mejor
+    # descrita que la principal.
+    translated = [(_EN_TO_ES.get(w) or (_EN_TO_ES.get(w[:-1]) if w.endswith("s") else None) or [None])[0]
+                  for w in words]
     if any(translated):
         out.append(" ".join(t or w for t, w in zip(translated, words)))
     return list(dict.fromkeys(out))
@@ -127,11 +130,20 @@ def to_catalog_object(raw: RawObject, server: ServerConfig) -> CatalogObject:
 
 
 def merge_existing(new: CatalogObject, old: CatalogObject | None) -> tuple[CatalogObject, bool]:
-    """Devuelve (objeto, necesita_enriquecimiento). Sin cambios de estructura se reutiliza el anterior completo."""
+    """Devuelve (objeto, necesita_enriquecimiento). Sin cambios de estructura se reutiliza el anterior: conserva sus
+    descripciones y lo curado, suma los sinónimos por reglas que hoy salgan de más (el Builder mejora con el tiempo) y
+    queda pendiente de describir si a la tabla o a alguna columna le falta descripción. Así una instalación que
+    catalogó sin modelo recibe las descripciones de IA cuando se configura uno, sin esperar a que cambie el esquema."""
     if old is None:
         return new, True
     if old.schema_hash == new.schema_hash:
-        return old, False
+        merged = old.model_copy(deep=True)
+        merged.synonyms = list(dict.fromkeys([*old.synonyms, *new.synonyms]))
+        fresh = {c.name: c for c in new.columns}
+        for col in merged.columns:
+            if col.name in fresh:
+                col.synonyms = list(dict.fromkeys([*col.synonyms, *fresh[col.name].synonyms]))
+        return merged, merged.description is None or any(c.description is None for c in merged.columns)
     data = new.model_copy(deep=True)
     if old.description_source in _PROTECTED_SOURCES or (old.description and new.description_source == "generated"):
         data.description, data.description_source, data.reviewed = old.description, old.description_source, old.reviewed

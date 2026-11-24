@@ -568,6 +568,8 @@ def decisive(ranked: list[Draft], settings: DiscoverySettings) -> bool:
 
 
 # --- patrón B: revisión del resultado (evaluador-optimizador) -----------------------------------
+# En palabras de quien pregunta: el motivo se muestra en la respuesta.
+KIND_LABEL = {"table": "una tabla", "view": "una vista", "column": "un dato suelto", "procedure": "un procedimiento"}
 ROLE_LABEL = {"identifier": "identificador", "date": "fecha", "status": "estado", "amount": "monto"}
 
 
@@ -582,7 +584,8 @@ def review_checks(discovery: Discovery, ranked: list[Draft], intent: IntentResul
     checks: list[Check] = []
     hint = intent.asset_kind_hint
     if hint in ("column", "table") and kind_factor(d.kind, hint) < 1.0:
-        checks.append(Check(name="kind_mismatch", status="fail", detail=f"se pidió {hint} y el principal es {d.kind}"))
+        checks.append(Check(name="kind_mismatch", status="fail", detail=f"se pidió {KIND_LABEL.get(hint, hint)} y lo primero encontrado era "
+                                   f"{KIND_LABEL.get(d.kind, d.kind)}"))
     role = requested_role(intent)
     if role and (d.kind != "column" or column_role(short_name(d.asset_key), d.description) != role):
         checks.append(Check(name="role_mismatch", status="fail", detail=f"se pidió un dato de tipo {ROLE_LABEL[role]}"))
