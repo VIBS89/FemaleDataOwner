@@ -23,7 +23,8 @@ respuesta. Lee solo metadatos de SQL Server, y cada persona descubre únicamente
 |---|---|
 | C4 1 · Contexto | [c4-contexto.html](../architecture/c4-contexto.html) |
 | C4 2 · Contenedores on-premise | [onpremise-architecture.html](../architecture/onpremise-architecture.html) |
-| C4 2 · Contenedores en AWS | [cloud-native-architecture.html](../architecture/cloud-native-architecture.html) |
+| C4 2 · Contenedores en AWS (destino qa/prod) | [cloud-native-architecture.html](../architecture/cloud-native-architecture.html) |
+| C4 2 · Entorno demo en AWS (económico, efímero) | [aws-demo-architecture.html](../architecture/aws-demo-architecture.html) |
 | C4 3 · Componentes de la API | [c4-componentes-api.html](../architecture/c4-componentes-api.html) |
 | Detalle · Flujo de una pregunta | [flujo-descubrimiento.html](../architecture/flujo-descubrimiento.html) |
 | Detalle · Modelo de datos | [modelo-datos-discovery-data-agent.html](../architecture/modelo-datos-discovery-data-agent.html) |

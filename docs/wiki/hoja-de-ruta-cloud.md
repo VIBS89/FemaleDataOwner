@@ -2,9 +2,11 @@
 
 Actualizado el 2026-11-17.
 
-Hoy no hay nada desplegado en AWS. La infraestructura como código existe desde el 2026-11-22 en `deploy/aws/` (Terraform), sin aplicar en ninguna cuenta. Esta ruta es posterior al piloto on-premise y solo arranca si el informe de la semana 8 recomienda AWS (HU-41; PRD §10, fase 2). El destino es el despliegue mínimo de CN-01: las mismas dos imágenes que ya construye `docker compose` en una tarea de ECS Fargate detrás de un ALB interno, el Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y una VPN al SQL Server del banco. El banco conserva todo lo persistente: catálogo, conocimiento, curación y auditoría siguen en la BD `DiscoveryDataAgent` on-premise. AWS procesa y muestra.
+Hoy no hay nada desplegado en AWS. La infraestructura como código existe desde el 2026-11-22 en `deploy/aws/` (Terraform), sin aplicar en ninguna cuenta. Desde el 2026-11-23 incluye además un entorno demo para mostrar la solución completa con datos de prueba y destruirlo el mismo día (ver abajo). Esta ruta es posterior al piloto on-premise y solo arranca si el informe de la semana 8 recomienda AWS (HU-41; PRD §10, fase 2). El destino es el despliegue mínimo de CN-01: las mismas dos imágenes que ya construye `docker compose` en una tarea de ECS Fargate detrás de un ALB interno, el Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y una VPN al SQL Server del banco. El banco conserva todo lo persistente: catálogo, conocimiento, curación y auditoría siguen en la BD `DiscoveryDataAgent` on-premise. AWS procesa y muestra.
 
 Diagrama de referencia: [arquitectura cloud](../architecture/cloud-native-architecture.html). Camino previo: [hoja de ruta on-premise](hoja-de-ruta-on-premise.md).
+
+**Entorno demo** ([diagrama](../architecture/aws-demo-architecture.html), [guía](../../deploy/aws/README.md)). No es un paso de esta ruta: sirve para enseñar la solución en AWS antes de decidir. Va todo en una tarea de Fargate Spot con IP pública, sin NAT ni VPC endpoints: web, API y SQL Server 2022 Express con las cinco bases de BancosSQL y la BD `DiscoveryDataAgent`. El modelo es Claude Sonnet 5.5 en Bedrock (Mantle), y en pantalla también se puede elegir Haiku, NVIDIA NIM o la API de Anthropic. Cuesta unos 0,065 USD por hora más los tokens. Se crea con `despliegue.sh up demo` y se destruye con `teardown demo`. Terraform rechaza estos atajos en qa y prod y junto a la VPN o a un SQL Server del banco. Probado en local (contenedores y planes simulados); sin aplicar en ninguna cuenta.
 
 Esta hoja no fija fechas ni plazos: las specs CN no los dan. Solo hay orden y dependencias.
 
@@ -19,7 +21,7 @@ Esta hoja no fija fechas ni plazos: las specs CN no los dan. Solo hay orden y de
 | Recarga del catálogo cuando el Builder corre en otra tarea | Hecho: la API comprueba la versión como mucho cada 15 s | CN-01 §Dependencias, punto 3 |
 | Builder sin disco persistente | `catalog build --db` toma el inventario de la BD y trabaja en un directorio temporal; no probado en Fargate | CN-02 |
 | Gateway de LLM con Bedrock | Sin probar de punta a punta (HU-35); `ChatBedrockConverse` no recibe claves, así que usa la cadena de credenciales por defecto | `src/discovery_data_agent/llm/factory.py` |
-| Infraestructura como código | Terraform, una pila por entorno (`demo`, `qa`, `prod`) y el script `despliegue.sh`. Validado con `terraform validate` y planes de prueba; **sin aplicar en ninguna cuenta** | `deploy/aws/` ([guía](../../deploy/aws/README.md)) |
+| Infraestructura como código | Terraform, una pila por entorno (`demo`, `qa`, `prod`) y el script `despliegue.sh` (`up`/`teardown` para el demo). Validado con `terraform validate` y 12 planes de prueba; **sin aplicar en ninguna cuenta** | `deploy/aws/` ([guía](../../deploy/aws/README.md)) |
 | Carpeta `deploy/` | Existe `deploy/aws/`; `deploy/windows/` para on-premise sigue prevista | `deploy/aws/` |
 
 ## 2. Qué se reutiliza y qué es trabajo nuevo

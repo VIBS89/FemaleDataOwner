@@ -154,6 +154,7 @@ La lógica es la misma en los dos despliegues:
 |---|---|---|---|
 | **On-premise** (piloto) | Primero: piloto de descubrimiento de 8 semanas en el dominio clientes / onboarding digital | Windows Server + IIS con dos procesos (web y API), BD `DiscoveryDataAgent` en SQL Server 2016+, Programador de tareas; Bedrock como único servicio externo | [OP-01](docs/specs/on-premise/OP-01-despliegue-local.md) · [diagrama](docs/architecture/onpremise-architecture.html) |
 | **AWS (despliegue mínimo)** | Después del piloto, si se decide invertir en AWS | ALB interno, una tarea de ECS Fargate con las mismas dos imágenes, Bedrock por VPC endpoint; la BD `DiscoveryDataAgent` y los datos siguen en el banco | [CN-01](docs/specs/cloud-native/CN-01-despliegue-aws.md) · [diagrama](docs/architecture/cloud-native-architecture.html) |
+| **AWS (entorno demo)** | Para mostrar la solución completa con datos de prueba y destruirla el mismo día | Una tarea de Fargate Spot con web, API y SQL Server Express (bases de BancosSQL); Claude Sonnet en Bedrock, con NIM y Anthropic elegibles en pantalla; unos 0,065 USD por hora. `deploy/aws/despliegue.sh up demo` y `teardown demo` | [guía](deploy/aws/README.md) · [diagrama](docs/architecture/aws-demo-architecture.html) |
 
 Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredados.html). Controles de una petición y compuerta de calidad: [diagrama](docs/architecture/controles-calidad-bancaria.html).
 
@@ -171,6 +172,7 @@ Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredado
 | [docs/manual-desarrollo.md](docs/manual-desarrollo.md) | Manual de desarrollo: componentes, para qué sirve cada uno y mejoras que faltan. En la aplicación solo lo ven los administradores de datos (Administración → Manual de desarrollo) |
 | [docs/architecture/README.md](docs/architecture/README.md) | Enfoque y arquitectura con el modelo C4 (contexto, contenedores, componentes) y el índice de los diagramas interactivos (HTML, con sus fuentes `*.archify.json`) |
 | [docs/wiki/](docs/wiki/README.md) | Wiki interna: cada componente por dentro, deuda técnica, brechas funcionales y hojas de ruta on-premise y cloud |
+| [deploy/aws/](deploy/aws/README.md) | Despliegue en AWS con Terraform: pilas qa/prod y el entorno demo económico ([diagrama](docs/architecture/aws-demo-architecture.html)) |
 
 Los diagramas se regeneran con el fork de Archify incluido en `tools/archify` ([F13](docs/specs/comun/F13-architecture-docs.md)):
 ```bash
