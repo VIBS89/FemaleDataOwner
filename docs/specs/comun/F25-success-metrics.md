@@ -47,8 +47,26 @@ validados por un experto, más 5 preguntas sin respuesta en las fuentes (para me
 - `converdata eval gate` es la **compuerta de calidad** previa a cada despliegue: 7 suites (`calidad`, `permisos`, `inyeccion`, `guardas`,
   `robustez`, `determinismo`, `auditoria`) contra los umbrales de esta spec y la línea base `eval/baseline.yaml`
   ([calidad bancaria §2](../../calidad-bancaria.md)). Toda mejora se acepta solo si no baja ningún tipo de pregunta (A–G).
-- Hoy (2026-11-17) el set de evaluación son 89 preguntas escritas por el equipo sobre dos catálogos de prueba (58 de BancosSQL y 31 de VBank); el set de 50–80 preguntas reales del piloto está pendiente (HU-33). Resultado en modo determinista: Hit@1 y Hit@3 98,0 % en BancosSQL y 96,2 % en VBank, con una pregunta sin candidatos en cada uno ([plan de desarrollo §2](../../PLAN-desarrollo.md#2-resultados-medidos)).
-- **Con y sin fuentes de conocimiento.** `converdata eval discovery --knowledge <dir>` añade al catálogo de `--root` las fuentes de `<dir>` (`items/`, `rules/`, `golden/`, `lineage/`) sin tocarlo, para medir cuánto aportan (no se combina con `--db`). Medición del 2026-11-17 con 25 preguntas de reporte sobre BancosSQL (`tests/fixtures/bancos/eval/reportes.yaml`: 9 normativas, 8 de tablero, 8 de estudio) y un glosario y manual de indicadores de prueba de 20 entradas: Hit@1 16 % solo con catálogo → 60 % con conocimiento; Hit@3 16 % → 64 %; normativas 0 → 66,7 %, tablero 25 → 75 %, estudio 25 → 37,5 %. Las preguntas y el glosario los escribió el equipo (primero las preguntas, después el glosario): el resultado muestra el sentido del efecto, no predice el acierto con los documentos y las preguntas reales. Sustituye a la cifra "4 % → 40 %" que citaba el diagrama on-premise, cuyo set nunca estuvo en el repo.
+- Hoy (2026-11-23) el set de evaluación son 89 preguntas escritas por el equipo sobre dos catálogos de prueba (58 de BancosSQL y 31 de VBank), más 25 de reporte y 67 de chat; el set de 50–80 preguntas reales del piloto está pendiente (HU-33). Resultado en modo determinista (medido de nuevo el 2026-11-23, sin cambio): Hit@1 y Hit@3 98,0 % en BancosSQL y 96,2 % en VBank, con una pregunta sin candidatos en cada uno ([plan de desarrollo §2](../../PLAN-desarrollo.md#2-resultados-medidos)).
+- **Con y sin fuentes de conocimiento.** `converdata eval discovery --knowledge <dir>` añade al catálogo de `--root` las fuentes de `<dir>` (`items/`, `rules/`, `golden/`, `lineage/`) sin tocarlo, para medir cuánto aportan (no se combina con `--db`). Medición del 2026-11-23 con 25 preguntas de reporte sobre BancosSQL (`tests/fixtures/bancos/eval/reportes.yaml`: 9 normativas, 8 de tablero, 8 de estudio) y un glosario y manual de indicadores de prueba de 20 entradas: Hit@1 28 % solo con catálogo → 64 % con conocimiento; Hit@3 32 % → 64 %; normativas 22,2 → 66,7 %, tablero 50 → 87,5 %, estudio 12,5 → 37,5 % (el 2026-11-17 eran 16 % → 60 % de Hit@1; subió al entender mejor la redacción de chat). Las preguntas y el glosario los escribió el equipo (primero las preguntas, después el glosario): el resultado muestra el sentido del efecto, no predice el acierto con los documentos y las preguntas reales. Sustituye a la cifra "4 % → 40 %" que citaba el diagrama on-premise, cuyo set nunca estuvo en el repo.
+- **Preguntas de reporte con modelo y con catálogo descrito por IA** (2026-11-23, mismas 25 preguntas, sin glosario salvo donde se dice). Con modelo en el rol `fast`, la primera reformulación de `LlmQueryExpander` se mide contra el catálogo cuando la búsqueda cubre poco la pregunta (F22, F16); antes de ese cambio el modelo no movía la cifra (28 % con o sin él).
+
+| Configuración | Hit@1 | Hit@3 |
+|---|---|---|
+| Determinista, solo catálogo | 28 % | 32 % |
+| Determinista + glosario de prueba | 64 % | 64 % |
+| Catálogo descrito por IA, sin modelo en la consulta | 40 % | — |
+| Catálogo descrito por IA + glosario, sin modelo | 72 % | — |
+| `nvidia/nemotron-3.5-bolt-e4b` (perfil `nvidia`) | 52 % | 56 % |
+| `claude-sonnet-5-5` (perfil `claude`) | 68 % | 80 % |
+
+  Con el perfil `claude`, el set de chat sigue en 97,8 % y 100 %, y el set base en 98,0 % y 98,0 %, con brechas correctas al 100 % en ambos. Los dos modelos se probaron sin Bedrock (HU-35); los sets los escribió el equipo.
+- **Set de chat** (2026-11-23). `converdata eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/chat.yaml` mide 67 preguntas de usuarios de
+  negocio (frases largas, sin tildes, con erratas, términos de cálculo y de periodo, seguimientos). `EvalCase` admite `history` (preguntas anteriores),
+  `expect_assistant` (tema fijo esperado) y `expect_rejected` (petición de escritura). Resultado (2026-11-23, última corrida): Hit@1 97,8 %, Hit@3 100 %, brechas 100 %, 0 fugas, 0 inventados,
+  con un fallo abierto (L09; una corrida anterior del mismo día tenía cinco: F04, L09, X04, X05 y K03). Es un set del equipo, como los demás, y no entra a la compuerta `eval gate`: se corre aparte.
+  Una pregunta de cifras (tipo F) se evalúa por la información que permite calcularla, no por el número: las cifras agregadas se verificaron contra SQL Server con
+  datos ficticios (1 790 clientes con préstamo de 3 000; saldo de cartera 25 507 803,93; promedio desembolsado 14 566,69), no con este set.
 
 ## Plan del piloto (8 semanas)
 | Semana | Actividad | Entregable |

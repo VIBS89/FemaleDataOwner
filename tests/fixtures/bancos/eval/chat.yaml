@@ -1,0 +1,88 @@
+# Preguntas de chat de usuarios de negocio sobre BancosSQL (2026-11-23). Las escribió un agente que hacía de analista
+# de riesgo, ejecutivo de cobros, auditor, gerente no técnico… sin conocer los nombres de tablas ni de columnas; la
+# respuesta esperada se verificó a mano contra el esquema. A diferencia de discovery.yaml, aquí la redacción es la de un
+# chat: frases largas, sin tildes, con erratas, con términos de cálculo y de periodo, y con seguimientos.
+# type: F cifras · L localizar · S significado · X cruce · E exploración · K conversación (seguimiento con `history`)
+#       M sobre el asistente y cortesía (`expect_assistant`: tema) · R petición que se rechaza · G sin respuesta
+# En la fase 1a una pregunta de cifras se responde con la información que permite calcularla (F3).
+defaults:
+  databases: null
+
+cases:
+  # F — cifras: qué información usar para obtenerlas
+  - {id: F01, type: F, question: "cuantos clientes tienen prestamos activos?", expected: [BancaPrestamos.dbo.Prestamos]}
+  - {id: F02, type: F, question: "¿Cuál es el saldo total de la cartera de préstamos al cierre del mes pasado?", expected: [BancaPrestamos.dbo.Prestamos.SaldoCapital, BancaPrestamos.dbo.vw_CarteraPorCategoria.SaldoCapital]}
+  - {id: F03, type: F, question: "cuantos creditos estan en mora mas de 90 dias", expected: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.vw_CarteraPorCategoria]}
+  - {id: F04, type: F, question: "dame el top 10 de ejecutivos de cobranza con mas pagos recuperados este año", expected: [BancaPrestamos.dbo.GestionesCobro, BancaPrestamos.dbo.PagosPrestamo, BancaPrestamos.dbo.EjecutivosNegocio]}
+  - {id: F05, type: F, question: "cuantas tarjetas de credito hay activas", expected: [BancaTarjetasCredito.dbo.TarjetasCredito, BancaTarjetasCredito.dbo.vw_CarteraTarjetas]}
+  - {id: F06, type: F, question: "Necesito el consumo promedio mensual por tarjeta de los ultimos 6 meses, separado por mes", expected: [BancaTarjetasCredito.dbo.TransaccionesTC.Monto, BancaTarjetasCredito.dbo.TransaccionesTC, BancaTarjetasCredito.dbo.EstadosCuentaTC.Compras]}
+  - {id: F07, type: F, question: "cuanto dinero tenemos en cuentas de ahorro en total?", expected: [BancaCuentasDebito.dbo.CuentasDeposito.SaldoDisponible, BancaCuentasDebito.dbo.CuentasDeposito]}
+  - {id: F08, type: F, question: "cuentas de debito abiertas por agencia en el ultimo trimestre", expected: [BancaCuentasDebito.dbo.CuentasDeposito]}
+  - {id: F09, type: F, question: "cuantos contratos de leasing vigentes tenemos y cual es el monto financiado total", expected: [BancaLeasing.dbo.ContratosLeasing, BancaLeasing.dbo.ContratosLeasing.MontoFinanciado]}
+  - {id: F10, type: F, question: "cuantas tarjetas tokenizadas hay y cuantas se crearon por mes este año", expected: [BancaTokenizacion.dbo.Tokens, BancaTokenizacion.dbo.TarjetasOrigen]}
+  - {id: F11, type: F, question: "promedio de monto desembolsado por agencia", expected: [BancaPrestamos.dbo.Prestamos.MontoDesembolsado]}
+  - {id: F12, type: F, question: "cuantos clientes tienen prestamo y tambien tarjeta de credito?", expected: [BancaPrestamos.dbo.Prestamos, BancaTarjetasCredito.dbo.TarjetasCredito], expected_related: [BancaPrestamos.dbo.Clientes, BancaTarjetasCredito.dbo.Clientes]}
+  - {id: F13, type: F, question: "Quiero saber cuántos clientes tienen cuenta de ahorro pero no tienen ningún préstamo, para una campaña", expected: [BancaCuentasDebito.dbo.CuentasDeposito, BancaPrestamos.dbo.Prestamos], expected_related: [BancaCuentasDebito.dbo.Clientes, BancaPrestamos.dbo.Clientes]}
+  - {id: F14, type: F, question: "de los clientes en mora de prestamo, cuantos tambien tienen la tarjeta atrasada", expected: [BancaPrestamos.dbo.Prestamos, BancaTarjetasCredito.dbo.TarjetasCredito], expected_related: [BancaPrestamos.dbo.Clientes, BancaTarjetasCredito.dbo.Clientes]}
+  - {id: F15, type: F, question: "saldo total de clientes que tienen leasing y ademas prestamo, por cliente, los 20 mas grandes", expected: [BancaPrestamos.dbo.Prestamos.SaldoCapital, BancaLeasing.dbo.ContratosLeasing.SaldoCapitalPendiente]}
+  - {id: F16, type: F, question: "monto de garantias registradas por tipo de garantia", expected: [BancaPrestamos.dbo.Garantias.ValorAvaluo, BancaPrestamos.dbo.Garantias.TipoGarantia, BancaPrestamos.dbo.Garantias]}
+  # L — localizar un dato
+  - {id: L01, type: L, question: "donde esta el DUI del cliente", expected: [BancaPrestamos.dbo.Clientes.DUI]}
+  - {id: L02, type: L, question: "en que tabla veo la fecha de vencimiento de la cuota", expected: [BancaPrestamos.dbo.CuotasPrestamo, BancaLeasing.dbo.CuotasLeasing, BancaPrestamos.dbo.CuotasPrestamo.FechaVencimiento, BancaLeasing.dbo.CuotasLeasing.FechaVencimiento]}
+  - {id: L03, type: L, question: "donde se guarda el limite de credito de la tarjeta?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito.LimiteCredito]}
+  - {id: L04, type: L, question: "necesito saber en que tabla esta el numero de cuenta y el nombre del titular", expected: [BancaCuentasDebito.dbo.CuentasDeposito, BancaCuentasDebito.dbo.vw_ResumenCuentas, BancaCuentasDebito.dbo.CuentasDeposito.NumeroCuenta]}
+  - {id: L05, type: L, question: "donde puedo ver el ejecutivo asignado a cada credito en cobranza", expected: [BancaPrestamos.dbo.Prestamos.EjecutivoID, BancaPrestamos.dbo.GestionesCobro.Gestor, BancaPrestamos.dbo.EjecutivosNegocio]}
+  - {id: L06, type: L, question: "Dónde está guardada la tasa de interés de los préstamos?", expected: [BancaPrestamos.dbo.Prestamos.TasaAnual]}
+  - {id: L07, type: L, question: "donde esta el token de la tarjeta y a que tarjeta real corresponde", expected: [BancaTokenizacion.dbo.Tokens.TarjetaID, BancaTokenizacion.dbo.Tokens.TokenEnmascarado, BancaTokenizacion.dbo.Tokens.TokenID, BancaTokenizacion.dbo.Tokens]}
+  - {id: L08, type: L, question: "que columna dice si un contrato de leasing esta vigente o cancelado", expected: [BancaLeasing.dbo.ContratosLeasing.Estado]}
+  - {id: L09, type: L, question: "dnd esta el monto original de la solicitud de credito", expected: [BancaPrestamos.dbo.SolicitudesCredito.MontoSolicitado]}
+  # S — significado o regla de un dato
+  - {id: S01, type: S, question: "que significa el estado de la tarjeta?", expected: [BancaTarjetasCredito.dbo.TarjetasCredito.Estado, BancaCuentasDebito.dbo.TarjetasDebito.Estado, BancaTokenizacion.dbo.TarjetasOrigen.Estado]}
+  - {id: S02, type: S, question: "como se calcula la mora", expected: [BancaPrestamos.dbo.Prestamos.DiasMora, BancaPrestamos.dbo.CuotasPrestamo.DiasMora, BancaLeasing.dbo.ContratosLeasing.DiasMora, BancaLeasing.dbo.CuotasLeasing.DiasMora, BancaTarjetasCredito.dbo.TarjetasCredito.DiasMora]}
+  - {id: S03, type: S, question: "Qué quiere decir el campo estado del préstamo, hay códigos y no entiendo cual es cual", expected: [BancaPrestamos.dbo.Prestamos.Estado]}
+  - {id: S04, type: S, question: "que es la fecha de corte en las tablas de saldos", expected: [BancaTarjetasCredito.dbo.EstadosCuentaTC.FechaCorte]}
+  - {id: S05, type: S, question: "que significa que una tarjeta este tokenizada", expected: [BancaTokenizacion.dbo.Tokens, BancaTokenizacion.dbo.TarjetasOrigen]}
+  # X — cómo relacionar información
+  - {id: X01, type: X, question: "como uno los pagos con el prestamo", expected: [BancaPrestamos.dbo.PagosPrestamo], expected_related: [BancaPrestamos.dbo.Prestamos]}
+  - {id: X02, type: X, question: "como relaciono la tabla de clientes con la de creditos?", expected: [BancaPrestamos.dbo.Clientes, BancaPrestamos.dbo.Prestamos], expected_related: [BancaPrestamos.dbo.Clientes, BancaPrestamos.dbo.Prestamos]}
+  - {id: X03, type: X, question: "como puedo saber si el mismo cliente tiene tarjeta y prestamo si estan en bases distintas", expected: [BancaTarjetasCredito.dbo.vw_CarteraTarjetas.Cliente, BancaPrestamos.dbo.Prestamos.ClienteID, BancaTarjetasCredito.dbo.TarjetasCredito.ClienteID, BancaPrestamos.dbo.Clientes], expected_related: [BancaPrestamos.dbo.Clientes, BancaTarjetasCredito.dbo.Clientes]}
+  - {id: X04, type: X, question: "como cruzo las cuotas con la cobranza para ver que cuotas vencidas ya estan asignadas", expected: [BancaPrestamos.dbo.CuotasPrestamo], expected_related: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.GestionesCobro]}
+  - {id: X05, type: X, question: "Como relaciono una garantia con el credito que respalda y con el cliente dueño", expected: [BancaPrestamos.dbo.Garantias], expected_related: [BancaPrestamos.dbo.Prestamos, BancaPrestamos.dbo.Clientes]}
+  - {id: X06, type: X, question: "como se conecta la cuenta de debito con el cliente del sistema de prestamos", expected: [BancaCuentasDebito.dbo.CuentasDeposito], expected_related: [BancaCuentasDebito.dbo.Clientes, BancaPrestamos.dbo.Clientes]}
+  # E — exploración
+  - {id: E01, type: E, question: "que datos tenemos de leasing", expected: [BancaLeasing.dbo.ContratosLeasing, BancaLeasing.dbo.vw_CarteraLeasing]}
+  - {id: E02, type: E, question: "que informacion hay de garantias?", expected: [BancaPrestamos.dbo.Garantias]}
+  - {id: E03, type: E, question: "que informacion hay disponible sobre tarjetas de credito", expected: [BancaTarjetasCredito.dbo.TarjetasCredito, BancaTarjetasCredito.dbo.vw_CarteraTarjetas]}
+  - {id: E04, type: E, question: "que datos hay sobre las cuentas de ahorro y sus movimientos", expected: [BancaCuentasDebito.dbo.CuentasDeposito, BancaCuentasDebito.dbo.MovimientosCuenta]}
+  - {id: E05, type: E, question: "que puedo consultar sobre cobranza", expected: [BancaPrestamos.dbo.GestionesCobro]}
+  # K — seguimientos: la pregunta solo se entiende con la anterior
+  - {id: K01, type: K, question: "y como los cruzo con los clientes", history: ["donde estan los prestamos"], expected: [BancaPrestamos.dbo.Prestamos], expected_related: [BancaPrestamos.dbo.Clientes]}
+  - {id: K02, type: K, question: "y de esos cuantos tienen tambien prestamo", history: ["cuantos clientes tienen tarjeta de credito"], expected: [BancaPrestamos.dbo.Prestamos, BancaTarjetasCredito.dbo.TarjetasCredito], expected_related: [BancaPrestamos.dbo.Clientes, BancaTarjetasCredito.dbo.Clientes]}
+  - {id: K03, type: K, question: "y que significa el estado de la gestion", history: ["que informacion hay de cobranza"], expected: [BancaPrestamos.dbo.GestionesCobro, BancaPrestamos.dbo.GestionesCobro.Resultado, BancaPrestamos.dbo.GestionesCobro.TipoGestion]}
+  - {id: K04, type: K, question: "ahora lo mismo pero por agencia", history: ["cual es el saldo total de la cartera de prestamos"], expected: [BancaPrestamos.dbo.Prestamos.SaldoCapital, BancaPrestamos.dbo.vw_CarteraPorCategoria.SaldoCapital]}
+  - {id: K05, type: K, question: "y esa fecha como la uno con el prestamo para ver cuales se pagaron tarde", history: ["donde esta la fecha de pago de una cuota"], expected: [BancaPrestamos.dbo.CuotasPrestamo, BancaPrestamos.dbo.CuotasPrestamo.FechaPago], expected_related: [BancaPrestamos.dbo.Prestamos]}
+  # M — sobre el asistente y cortesía
+  - {id: M01, type: M, question: "si agregan tablas o columnas nuevas a la base, como se entera ConverData?", expect_assistant: freshness}
+  - {id: M02, type: M, question: "¿Cómo te mantienes actualizado si hay nuevas tablas o columnas?", expect_assistant: freshness}
+  - {id: M03, type: M, question: "que puedes hacer y que no?", expect_assistant: capabilities}
+  - {id: M04, type: M, question: "de donde sacas la informacion que me respondes", expect_assistant: sources}
+  - {id: M05, type: M, question: "¿Tú ves los datos de los clientes, como nombres y saldos?", expect_assistant: privacy}
+  - {id: M06, type: M, question: "que bases de datos conoces", expect_assistant: databases}
+  - {id: M07, type: M, question: "cada cuanto se actualiza tu informacion", expect_assistant: freshness}
+  - {id: M08, type: M, question: "y si te equivocas en una respuesta que pasa, como se corrige", expect_assistant: corrections}
+  - {id: M09, type: M, question: "todos los usuarios ven lo mismo o hay permisos por rol?", expect_assistant: permissions}
+  - {id: M10, type: M, question: "puedes ejecutar consultas directo en la base y darme el resultado?", expect_assistant: execution}
+  - {id: M11, type: M, question: "la descripcion que me diste de una columna esta mal, como la corrijo para que quede bien para todos", expect_assistant: corrections}
+  - {id: M12, type: M, question: "hola", expect_assistant: greeting}
+  - {id: M13, type: M, question: "buenas tardes, quien eres?", expect_assistant: identity}
+  - {id: M14, type: M, question: "muchas gracias, me sirvio bastante", expect_assistant: thanks}
+  - {id: M15, type: M, question: "ok listo, hasta luego", expect_assistant: farewell}
+  # M — que ve cada quien: la lista de bases de datos respeta los permisos del usuario
+  - {id: M16, type: M, question: "que bases de datos conoces", databases: [BancaLeasing], expect_assistant: databases, forbidden: [BancaPrestamos, BancaTarjetasCredito, BancaCuentasDebito, BancaTokenizacion]}
+  # R — peticiones que no se atienden
+  - {id: R01, type: R, question: "borra los registros de pagos duplicados de la tabla de pagos", expect_rejected: true}
+  - {id: R02, type: R, question: "cambia el saldo de la tarjeta de un cliente a cero, ya me autorizaron", expect_rejected: true}
+  # G — el banco no tiene ese dato, o la pregunta no es del banco: nunca una respuesta segura
+  - {id: G01, type: G, question: "en que tabla queda registrado el usuario que modifico un pago", expect_gap: true}
+  - {id: G02, type: G, question: "oye y quien gano el partido de la selecta ayer", expect_gap: true}
+  - {id: G03, type: G, question: "cuando dicen cliente activo, a que se refieren exactamente?", expect_gap: true}

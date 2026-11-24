@@ -1,5 +1,13 @@
 # F8 — Executor
 
+> **Primer corte adelantado (2026-11-23, PRD §13, decisión 17).** Para las cifras agregadas (apagadas por defecto), `AgentRuntime.figure_executor`
+> (`api/converdata_api/runtime.py`) ejecuta el agregado con la credencial de la sesión (F14), con `SET LOCK_TIMEOUT 5000`, lectura sin bloqueos
+> (`READ UNCOMMITTED`, no `READ COMMITTED` como abajo), `conn.timeout` de 15 s, como máximo 50 filas y una transacción que siempre se revierte; antes valida el SQL contra la plantilla (`figures.ALLOWED_SQL`, `check_sql`), `OPTION (MAXDOP 1)`, admite dos cifras a la vez como máximo y audita la consulta (`figure_query`) **antes** de ejecutarla: si la auditoría falla, no se ejecuta. Un servidor de producción exige `figures: true` en el inventario. Cierra
+> la conexión también si falla. La consulta con una unión por una tabla relacionada (desglose) usa la misma plantilla y los mismos controles. SQL Server decide el permiso: si lo niega, se responde sin cifra y sin el mensaje de error. No tiene pool por usuario,
+> reintento de 1222 y -2, `ApplicationIntent=ReadOnly`, `truncated`, `pandas` ni varios conjuntos de resultados, y no ejecuta procedimientos. El ejecutor
+> de la CLI (`converdata discover --figures`) usa el login de metadatos del inventario y no aplica el tope ni la reversión: es solo de desarrollo.
+> Pruebas: `api/tests/test_cifras.py` (entre ellas `test_politica_de_cifras_por_servidor`). El resto de esta spec sigue siendo de la fase 1b.
+
 ## Historia de usuario
 Como **usuario**, quiero que mis consultas se ejecuten con mis propios permisos, de forma rápida y sin bloquear el servidor.
 

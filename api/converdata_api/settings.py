@@ -43,6 +43,8 @@ class ApiSettings:
     session_ttl_s: int = 8 * 3600  # OP-03: 8 h con expiración deslizante
     cookie_secure: bool = False
     allow_windows_auth: bool = False  # solo fuera de contenedores: Trusted_Connection con la cuenta del proceso
+    figures_daily_limit: int = 300  # consultas de cifras por usuario y día (cada cifra son de 1 a 3); 0 = sin tope
+    ask_flow: bool = False  # cifras agregadas con los permisos del usuario (CONVERDATA_ASK_FLOW); apagado por defecto
     demo: bool = False  # servidores simulados con los metadatos de los fixtures; nunca en producción
     demo_fixtures: list[Path] = field(default_factory=lambda: list(DEFAULT_DEMO_FIXTURES))
     demo_preload_inventory: bool = True  # demo: el inventario arranca con los servidores de los fixtures
@@ -96,6 +98,8 @@ class ApiSettings:
             cookie_secure=_flag("CONVERDATA_COOKIE_SECURE"),
             # Apagado por defecto: usa la cuenta del proceso, no la de quien llama (solo para desarrollo local).
             allow_windows_auth=_flag("CONVERDATA_ALLOW_WINDOWS_AUTH"),
+            ask_flow=_flag("CONVERDATA_ASK_FLOW"),
+            figures_daily_limit=int(os.environ.get("CONVERDATA_FIGURES_DAILY_LIMIT", 300)),
             demo=_flag("CONVERDATA_DEMO"),
             demo_fixtures=[_installed(p.strip()) for p in os.environ.get("CONVERDATA_DEMO_FIXTURE", ",".join(
                 str(f) for f in DEFAULT_DEMO_FIXTURES)).split(",") if p.strip()],

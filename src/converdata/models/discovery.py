@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from converdata.models.catalog import DescriptionSource
+from converdata.models.figures import Figure
 from converdata.models.intent import Clarification
 
 
@@ -122,4 +123,5 @@ class AnswerEnvelope(BaseModel):
     validation: Validation | None = None
     confidence: float | None = None
     discovery: Discovery | None = None
+    figure: Figure | None = None  # cifra agregada (`features.ask_flow`); nunca filas de datos
     timings_ms: dict[str, int] = Field(default_factory=dict)

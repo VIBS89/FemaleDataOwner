@@ -1,7 +1,8 @@
 # F22 — Discovery Flow (descubrimiento de activos de datos) · común
 
 > Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Actualizado el 2026-11-17: preguntas por una entidad, de cruce,
-> calificativos desconocidos y literales (§Qué tipo de activo se pide).
+> calificativos desconocidos y literales (§Qué tipo de activo se pide). Actualizado el 2026-11-23: chat para usuarios de negocio, LLM en
+> tres pasos y cifras agregadas (§Chat de negocio, §Cifras agregadas; PRD §13, decisión 17).
 >
 > Origen: Propuesta "Enterprise Data Discovery Agent" (Banco Atlántida), secciones 3 y 5. Es el **caso de uso principal** de la propuesta;
 > el AskFlow de texto a SQL (F4–F10) corresponde a la visión futura "Recomendación y generación de SQL".
@@ -16,12 +17,14 @@ para no depender de expertos ni de documentación dispersa.
 | | DiscoverFlow (F22) | AskFlow (F3–F10) |
 |---|---|---|
 | Pregunta típica | "¿Dónde está el dato X?", "¿qué significa el campo Y?" | "¿Cuánto vendimos en Q3?" |
-| Ejecuta SQL contra datos | **No** (solo catálogo, conocimiento y, si aplica, permisos) | Sí, con el login del usuario |
-| Requiere login SQL del usuario | Sí, para calcular su visibilidad (F14); no consulta datos | Sí |
+| Ejecuta SQL contra datos | **No** (solo catálogo, conocimiento y, si aplica, permisos). Excepción: con las cifras agregadas activas (apagadas por defecto), solo `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` de plantilla fija, con el login del usuario (§Cifras agregadas) | Sí, con el login del usuario |
+| Requiere login SQL del usuario | Sí, para calcular su visibilidad (F14); no consulta datos, salvo las cifras agregadas | Sí |
 | Latencia objetivo | p50 < 5 s · p95 < 10 s | p50 < 12 s · p95 < 30 s (producción; el MVP admite p95 < 40 s, OP-01) |
-| Salida | `discovery` (candidatos) | `data` + `sql` |
+| Salida | `discovery` (candidatos); con cifras, además `figure` y `flow: "ask"` | `data` + `sql` |
 
 ## Pasos (grafo de LangGraph determinista)
+El grafo completo es `intent → retrieve ⇄ grade → rerank → expand ⇄ review → [compute] → respond → finalize`; `compute` (paso 7) solo corre con cifras activas.
+
 1. **Intent** (F3): `intent = discovery`. Extrae `entities`, `business_context` (p. ej. "onboarding digital"), `asset_kind_hint`
    (columna, tabla, indicador, regla) y `environment_hint` ("producción" por defecto). Si la intención no trae `asset_kind_hint`,
    el nodo lo completa con el catálogo (§Qué tipo de activo se pide).
@@ -45,10 +48,12 @@ para no depender de expertos ni de documentación dispersa.
    - indicadores certificados de la capa semántica que usan el activo ([F21](F21-semantic-layer.md), `list_metrics`; fase 1b);
    - **alternativas**: columnas con la misma semántica (sinónimos, mismo término de glosario o mismo nombre normalizado) en otras tablas.
 6. **Cálculo de confianza** (abajo).
-7. **Respuesta**: el nodo `respond` (rol `fast` de F16, que puede apuntar al mismo modelo; en streaming) redacta 1 a 4 frases que recomiendan el candidato principal y explican
-   por qué; **no puede mencionar objetos que no estén en `candidates`, `alternatives` o `related`** (validación por id). Las tarjetas se
+7. **Cifras** (solo con `features.ask_flow` y un ejecutor de la sesión; §Cifras agregadas): el nodo `compute` arma el plan y ejecuta el agregado.
+8. **Respuesta**: el nodo `respond` (rol `fast` de F16, que puede apuntar al mismo modelo; en streaming) redacta 1 a 4 frases que recomiendan el candidato principal y explican
+   por qué, con un prompt para una persona de negocio; **no puede mencionar objetos que no estén en `candidates`, `alternatives` o `related`** (validación por id,
+   `engine.narrative_mentions_ok`: compara contra todo el catálogo, no contra lo visible; DT-75). Si hay cifra, el texto lo arma el código y el modelo no interviene. Las tarjetas se
    envían antes que la narrativa, así que el usuario ve los candidatos sin esperar al texto.
-8. **Brecha de conocimiento**: si ningún candidato llega a 0.6, `knowledge_gap = true` y se ofrece "Preguntar al responsable del dominio" (F24).
+9. **Brecha de conocimiento**: si ningún candidato llega a 0.6, `knowledge_gap = true` y se ofrece "Preguntar al responsable del dominio" (F24).
    Una brecha puede llevar candidatos: se muestran con su confianza baja (§Qué tipo de activo se pide).
 
 > **Estado al 2026-11-17:**
@@ -106,8 +111,67 @@ ajustaron y midieron con preguntas escritas por el equipo; falta el set real (HU
 `test_una_entidad_con_calificativos_desconocidos_se_responde_con_confianza_baja`,
 `test_lo_que_el_banco_no_tiene_nunca_sale_como_respuesta_segura`).
 
-Sin `config/models.yaml`, o con el tope diario de tokens agotado, los pasos 1, 4 y 7 corren en **modo determinista** (sin LLM) y el
+Sin `config/models.yaml`, o con el tope diario de tokens agotado, los pasos 1, 4 y 8 corren en **modo determinista** (sin LLM) y el
 flow sigue respondiendo. Las guardas sobre el texto generado y la compuerta `converdata eval gate` están en [calidad bancaria](../../calidad-bancaria.md).
+
+## Chat de negocio (2026-11-23)
+Reglas del DiscoverFlow para quien escribe como en un chat; aplican con y sin LLM salvo donde se dice.
+- **Preguntas sobre el asistente y cortesía.** El nodo `intent` las detecta antes de buscar (`discovery/assistant.py::topic_of`, intención
+  `assistant`) y responde con un texto fijo. El sobre trae `status: ok` y `discovery: null`. El tema `databases`
+  lista solo las bases visibles para el usuario. La web no muestra "Cómo lo obtuve" cuando no hay `discovery`.
+- **Seguimientos.** `deterministic.contextualize` completa un mensaje corto o con anáfora con la pregunta anterior del historial (hasta tres
+  turnos). El paso `intent` lo anota como `seguimiento:<n>` en la traza.
+- **Lo que no es parte de lo pedido.** Palabras de relleno (`expansion.QUESTION_FILLER`) y términos de cálculo y de periodo
+  (`ANALYSIS_TERMS`, salvo los que forman parte de un nombre del catálogo: `engine.kept_analysis_terms`) no cuentan como conceptos sin
+  cubrir. `LEXICON` (`discovery/expansion.py`) trae sinónimos bancarios.
+- **Aclaración no bloqueante por áreas.** Si el mismo dato existe en varias áreas (`engine.area_options`, hasta cuatro opciones), se
+  responde con el candidato principal y además se ofrece precisar; la web muestra las opciones también cuando hay respuesta. Solo se
+  usan áreas de lo que el usuario ve; la guarda de las opciones no consulta el catálogo (F14).
+- **Escrituras.** La orden de modificar datos se rechaza mirando solo la pregunta actual (`deterministic.is_write_request`), no el historial.
+- **LLM, rol `fast`, además de la narrativa.** (a) `LlmQueryExpander`: reformula cuando la búsqueda cubre poco (patrón C de la medición).
+  **Reinterpretación de preguntas de reporte:** si hay modelo y la reformulación cambió algo, su primera variante pasa a ser lo que se
+  mide contra el catálogo (`flows/discover.py::grade_node`: sustituye los conceptos de la búsqueda) y el sobre añade el supuesto
+  "Entendí que necesitas: «…»". No aplica a preguntas compuestas, de cruce ni de cifras, que ya dicen qué datos quieren. El modelo solo
+  redacta la búsqueda; qué activos existen y cuáles ve el usuario lo sigue decidiendo el catálogo. Sin modelo, la reformulación es
+  la léxica (`lexicon_variant`) y no cambia los conceptos medidos.
+  (b) `LlmGuide`: solo corre sin candidatos; reconoce una pregunta sobre el asistente entre los temas fijos o propone una aclaración en
+  lenguaje de negocio, con las guardas `engine.looks_technical` y `engine.unsafe_generated_text`. **Respuesta sin candidatos con
+  aclaración:** ya no es solo una pregunta. El sobre sale con `status: ok`, `discovery` con la brecha (sin candidatos, confianza 0) y
+  `clarification` (hasta cuatro opciones), y el texto dice que no se encontró el dato y a continuación pregunta cómo precisarlo
+  (`finalize_node`, rama `state.get("clarification") and not candidates`): el dato puede no existir en el banco, así que la aclaración
+  acompaña a la respuesta en vez de sustituirla. Al modelo no le llegan los literales de la
+  pregunta ni del historial (`strip_literals`). El orden de los candidatos sigue siendo determinista; el rol `planner` (intención y
+  reordenamiento con LLM) sigue desaconsejado por la medición.
+- **Medición.** `tests/fixtures/bancos/eval/chat.yaml`, 67 casos de usuarios de negocio, con `history`, `expect_assistant` y `expect_rejected`
+  (`EvalCase`). Hit@1 97,8 % y Hit@3 100 % el 2026-11-23, con un fallo abierto (L09) ([plan §2](../../PLAN-desarrollo.md#2-resultados-medidos)).
+  Preguntas de reporte (25, sin glosario): determinista 28 % Hit@1 y 32 % Hit@3; con `nemotron-3.5-bolt-e4b` 52 % y 56 %; con Claude
+  Sonnet 5.5 68 % y 80 % ([F16](F16-llm-providers.md#perfiles-elegibles-en-pantalla-2026-11-23)). Con el perfil de Claude, el set de chat sigue en
+  97,8 % y 100 %, y el set base en 98,0 % y 98,0 %, con brechas correctas al 100 % en ambos.
+  Pruebas: `tests/test_chat_conversacional.py`.
+
+## Cifras agregadas (primer corte del AskFlow, 2026-11-23)
+**Apagadas por defecto.** Decisión 17 del PRD §13: se adelanta un subconjunto acotado de la fase 1b para que el chat responda "¿cuántos…?" y
+"¿cuál es el saldo total…?" con el número. Se activan con `features.ask_flow` o `CONVERDATA_ASK_FLOW=1`; sin ellas, una pregunta de cifras se
+responde con la tabla donde está la información (F3). En la CLI: `converdata discover "<pregunta>" --root <dir> --figures config/databases.local.yaml`.
+- **Qué calcula** (`src/converdata/discovery/figures.py`, `src/converdata/models/figures.py`): `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` sobre una tabla,
+  con desglose opcional por una columna de categoría de hasta 25 valores distintos, que se comprueba antes con otra consulta (`is_category`: nunca medidas ni nombres de persona). Si la categoría pedida ("por segmento", "por tipo de crédito", "por marca") no está en la tabla principal, `figures._related_category` la busca en una tabla a la que apunta una llave foránea de una sola columna, visible para el usuario y de la misma base, servidor y ambiente, y hace **una** unión por esa llave, con las mismas reglas.
+- **Cómo.** SQL de plantilla fija con identificadores del catálogo que el usuario ve, entre corchetes; nada de lo que escribe el usuario ni de lo que produce un
+  modelo llega al SQL. Nunca se usan columnas `pii`. Se ejecuta con la credencial de la sesión (`AgentRuntime.figure_executor`), en una
+  transacción que siempre se revierte, `SET LOCK_TIMEOUT 5000`, lectura sin bloqueos, `OPTION (MAXDOP 1)`, como máximo 50 filas, tope de 15 s y dos cifras a la vez. El ejecutor valida el SQL contra la plantilla (`figures.ALLOWED_SQL`, `check_sql`). SQL Server decide si el
+  usuario puede leer la tabla; si niega el permiso o falla, se responde sin cifra y sin el mensaje de error.
+- **El número no pasa por el LLM.** El texto (`figures.answer_text`) lo arma el código. El sobre lleva `flow: "ask"` y `figure` (el SQL que se ejecutó
+  y los grupos); la web lo muestra en una tarjeta (`web/src/components/chat/figure-card.tsx`).
+- **Supresión de grupos pequeños.** Un total o un grupo calculado sobre menos de 10 registros no se muestra (`figures.MIN_ROWS`, `_safe_groups`), con supresión complementaria: si se oculta un grupo, se oculta también el visible más pequeño para que no se deduzca por resta; la nota dice cuántos se ocultaron.
+- **No calcula, y lo dice** (en `assumptions`): con periodo, con filtro por valor, con una condición que combina tablas ("clientes con préstamo y también tarjeta"), con cruce entre bases o sistemas, con una unión de más de un salto, con una medida no numérica, con empate entre datos de
+  tablas distintas o si no identifica qué contar. Tampoco filtra por valor: un adjetivo de estado ("activos") desglosa por la columna de estado.
+- **Auditoría.** El paso `compute` queda en los pasos de la traza con la operación, el número de grupos y la duración, sin el SQL ni valores. Además, cada consulta se audita **antes** de ejecutarse con el evento `figure_query` (quién, dónde y qué consulta, sin valores); si la auditoría falla, no se ejecuta y se responde sin cifra. La fila de la pregunta guarda `flow: ask`. El ambiente se muestra con la cifra.
+- **Verificado** contra el SQL Server local con datos ficticios: 1 790 clientes con préstamo de 3 000; saldo de cartera 25 507 803,93; promedio
+  desembolsado 14 566,69; desglose por una tabla relacionada: saldo de cartera por segmento del cliente (Preferente 12 090 634,54; Emergente
+  9 847 477,15; Masivo 1 924 810,63; Premium 1 644 881,61), préstamos por tipo de crédito (Personal 1 438; Vehículo 376; Hipotecario 368; PYME 258;
+  Garantizado 217; Educativo 123) y tarjetas por marca (Visa 2 180; Mastercard 1 078), iguales a la consulta directa. Pruebas: `tests/test_cifras_agregadas.py`, `api/tests/test_cifras.py`.
+- **Revisión de seguridad (terminó el 2026-11-23).** No encontró inyección SQL ni fugas de permisos (F14); dio dos bloqueantes, la supresión de grupos pequeños y la auditoría previa, ambos corregidos el mismo día. Un servidor de producción exige `figures: true` en el inventario y `--figures` se niega con servidores de producción (`api/tests/test_cifras.py::test_politica_de_cifras_por_servidor`).
+- **Pendiente.** DT-78, DT-79 y DT-80; aceptarlo con Seguridad de la Información y revisar los criterios D1–D7
+  de OP-01 antes de activarlo en el piloto. No se midió con preguntas de usuarios reales ni con Bedrock. Sin periodo, filtros por valor, condiciones entre tablas ni cruces (DT-76, reducida: el desglose con una unión sí se calcula).
 
 ## Resumen de dominio (intent `exploration`)
 Para "¿qué datos tenemos de X?" (F3, RF-11) el flow usa el mismo grafo con otro paso 2: `estate_overview(domain)` (F19) y `search_tables`
@@ -186,8 +250,9 @@ confidence = 0.35*relevance_llm + 0.25*retrieval_score_norm + 0.15*evidence_stre
    de onboarding digital" devuelve `ClientCode`, `LegalClientId` y `UserId` entre los 3 primeros (candidatos + alternativas), con base de datos,
    tabla, ambiente, servidor, descripción y confianza.
 2. Cada candidato trae los 8 elementos de la propuesta: tabla, campo, base de datos, ambiente, servidor, descripción, confianza y relaciones.
-3. El DiscoverFlow no consulta tablas de datos: el login del usuario solo se usa para calcular `visible_ids` (test: ninguna consulta de datos
-   queda en la traza).
+3. Con las cifras apagadas (el valor por defecto), el DiscoverFlow no consulta tablas de datos: el login del usuario solo se usa para
+   calcular `visible_ids` (test: ninguna consulta de datos queda en la traza, `tests/test_cifras_agregadas.py::test_apagado_no_llama_al_ejecutor_y_avisa`).
+   Con las cifras activas solo se ejecutan agregados de plantilla fija, con el login del usuario, y no se guardan valores.
 4. Un usuario sin permiso sobre `VBank_ING` no recibe ningún candidato, ubicación, relación, regla ni evidencia de esa BD; recibe
    "no encontré datos disponibles para ti sobre …" sin mención a sus tablas (F14).
 5. Ningún objeto mencionado en la narrativa está fuera de `candidates`, `alternatives` o `related` (test sobre el set de evaluación).

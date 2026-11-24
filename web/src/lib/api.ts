@@ -22,6 +22,7 @@ import type {
   DocsIndex,
   DocsPage,
   Steward,
+  LlmSettings,
 } from "@/lib/types";
 
 /** Texto del error de la API: `detail` como cadena, o los mensajes de validación (422) sin el prefijo de Pydantic. */
@@ -37,7 +38,10 @@ async function errorMessage(res: Response): Promise<string> {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -156,7 +160,10 @@ export const api = {
   reviewQueue: (domain?: string) =>
     request<{ items: ReviewItem[] }>(`/curation/review?limit=100${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`),
   setDescription: (asset_key: string, description: string, synonyms?: string[]) =>
-    request<{ ok: boolean; copies: number }>("/curation/description", { method: "PUT", json: { asset_key, description, synonyms } }),
+    request<{ ok: boolean; copies: number }>("/curation/description", {
+      method: "PUT",
+      json: { asset_key, description, synonyms },
+    }),
   descriptionHistory: (asset_key: string) =>
     request<DescriptionHistory>(`/curation/history?asset_key=${encodeURIComponent(asset_key)}`),
   uploadDictionary: (csv: string) => request<DictionaryReport>("/curation/dictionary", { method: "POST", json: { csv } }),
@@ -178,6 +185,8 @@ export const api = {
   stewards: () => request<{ stewards: Steward[]; domains: string[] }>("/admin/stewards"),
   saveStewards: (stewards: Steward[]) =>
     request<{ ok: boolean; stewards: Steward[] }>("/admin/stewards", { method: "PUT", json: { stewards } }),
+  llmProfiles: () => request<LlmSettings>("/admin/llm"),
+  setLlmProfile: (profile: string) => request<LlmSettings>("/admin/llm", { method: "PUT", json: { profile } }),
   startBuild: (enrich: boolean) => request<BuildJob>("/admin/catalog/build", { method: "POST", json: { enrich } }),
   buildStatus: () => request<BuildJob>("/admin/catalog/build"),
   audit: (kind?: string) => request<{ items: AuditRow[] }>(`/admin/audit?limit=200${kind ? `&kind=${kind}` : ""}`),

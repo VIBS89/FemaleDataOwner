@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from converdata.catalog.ids import is_column_key, short_name, table_key
 from converdata.catalog.store import Catalog, KnowledgeBase
 from converdata.config import DiscoverySettings, OwnersDirectory
-from converdata.discovery.expansion import QueryPlan, concepts_of, decompose, plan_query
+from converdata.discovery.deterministic import is_figures_question
+from converdata.discovery.expansion import ANALYSIS_TERMS, QueryPlan, concepts_of, content_words, decompose, plan_query
 from converdata.discovery.ports import RerankItem, RerankScore
 from converdata.memory.base import VectorStore
 from converdata.memory.text import normalized_name, strip_accents, tokenize
@@ -61,11 +62,13 @@ class Draft:
     unknown_qualifiers: bool = False  # parte de la pregunta que nadie conoce se descontó: nunca es una respuesta segura
     retrieval_norm: float = 0.0
     coverage: float = 0.0  # fracción de los términos de la pregunta que cubre el activo
+    precision: float = 1.0  # fracción del nombre de su tabla que la pregunta nombra
     graph_coverage: float = 0.0  # cobertura contando tablas unidas por FK a 1–2 saltos (no ordena; ver _graph_coverage)
     context_text: list[str] = field(default_factory=list)  # textos de conocimiento vinculados (para la cobertura)
     relevance: float = 0.0
     why: str = ""
     confidence: float = 0.0
+    strength: float = 0.0  # la confianza antes de aplicar los topes: desempata a los que el tope deja iguales
     description: str | None = None
     description_source: str = "generated"
 
@@ -97,13 +100,16 @@ def entity_kind_hint(question: str, intent: IntentResult, catalog: Catalog, vis)
     # Una pregunta compuesta ("las transacciones rechazadas y su motivo") pide además un dato concreto: no se fuerza.
     if not match or len(decompose(question)) > 1:
         return None
-    subject = concepts_of(match.group(1), True, catalog.names_with_digits(vis))[:2]
+    known = catalog.names_with_digits(vis)
+    subject = concepts_of(match.group(1), True, known)[:2]
     if not subject:
         return None
     visible = [obj for obj in catalog.objects if obj.id in vis]
     # "Los pagos mínimos", "las cuotas mensuales": si una columna se llama así, se pide ese atributo y no la entidad.
-    if len(subject) == 2 and any(
-        subject[0] & tokens and subject[1] & tokens
+    # Se compara con las palabras tal como se escribieron: "los usuarios bloqueados" no pide la columna de estado.
+    literal = [set(tokenize(w)) for w in content_words(match.group(1), known)[:2]]
+    if len(literal) == 2 and all(literal) and any(
+        literal[0] & tokens and literal[1] & tokens
         for obj in visible for tokens in (set(tokenize(c.name)) for c in obj.columns)
     ):
         return None
@@ -229,10 +235,54 @@ def retrieve(
     for d in drafts.values():
         strong, weak = terms[d.asset_key]
         d.coverage = round(weighted_coverage(asked, strong, weak, weights), 4)
+        d.precision = name_precision(d.asset_key, asked)
+    # Relativa al mejor: si ningún activo se llama como lo pedido, la precisión no distingue y no descuenta a nadie.
+    best_precision = max((d.precision for d in drafts.values()), default=0.0)
+    for d in drafts.values():
+        d.precision = round(d.precision / best_precision, 4) if best_precision else 1.0
         d.unknown_qualifiers = bool(weights) and any(w < 1.0 for w in weights)
     if graph is not None:
         _graph_coverage(drafts.values(), concepts, graph, catalog, vis)
     return Retrieval(drafts, entity_tables, concepts, plan.secondary_parts, plan.secondary_texts)
+
+
+PRECISION_WEIGHT = 0.15
+
+
+def name_precision(asset_key: str, concepts: list[frozenset[str]]) -> float:
+    """Cuánto del nombre de la tabla del activo nombra la pregunta. "El estado del préstamo" lo cubren por igual `Prestamos.Estado` y
+    `CuotasPrestamo.Estado`, pero solo el primero se llama exactamente así: el segundo trae además "cuotas", que nadie
+    pidió. Sirve para elegir entre activos que cubren lo mismo; pesa poco (`PRECISION_WEIGHT`)."""
+    tokens = {t for t in tokenize(short_name(table_key(asset_key))) if len(t) > 2}
+    if not tokens or not concepts:
+        return 1.0
+    return round(sum(1 for t in tokens if any(t in c for c in concepts)) / len(tokens), 4)
+
+
+def precision_factor(d: "Draft") -> float:
+    """Solo entre activos sin describir: ahí el nombre es lo único que hay para elegir. Uno con descripción de una
+    persona o de un diccionario ya dice qué es, se llame como se llame (`Users` para "clientes")."""
+    if d.description_source != "generated":
+        return 1.0
+    return 1.0 - PRECISION_WEIGHT * (1.0 - d.precision)
+
+
+def kept_analysis_terms(question: str, catalog: Catalog, vis) -> frozenset[str]:
+    """Términos de cálculo de la pregunta que en realidad son parte del nombre de un dato: "monto total del pago" →
+    `MontoTotal`, "cuota anual" → `CuotaAnual`. Uno se conserva si, con otra palabra de la pregunta, forma el nombre de
+    una columna que el usuario ve."""
+    words = content_words(question, catalog.names_with_digits(vis))
+    stems = {w: set(tokenize(w)) for w in words}
+    terms = [w for w in words if w in ANALYSIS_TERMS and stems[w]]
+    if not terms:
+        return frozenset()
+    kept = set()
+    column_tokens = [set(tokenize(c.name)) for obj in catalog.objects if obj.id in vis for c in obj.columns]
+    for term in terms:
+        others = [stems[w] for w in words if w != term and w not in ANALYSIS_TERMS and stems[w]]
+        if any(stems[term] <= tokens and any(o & tokens for o in others) for tokens in column_tokens):
+            kept.add(term)
+    return frozenset(kept)
 
 
 GRAPH_HOP_WEIGHT = {1: 0.6, 2: 0.4}
@@ -393,13 +443,13 @@ _ROLE_QUERY = {
     "identifier": re.compile(r"\b(identificador\w*|identifica\w*|codigo|id|llave|clave)\b"),
     "date": re.compile(r"\b(fecha\w*|cuando|dia|mes|ano|semana|trimestre|periodo)\b"),
     "status": re.compile(r"\b(estado\w*|estatus|situacion)\b"),
-    "amount": re.compile(r"\b(monto\w*|importe\w*|saldo\w*|salario\w*|valor)\b"),
+    "amount": re.compile(r"\b(monto\w*|importe\w*|saldo\w*|salario\w*|valor|dinero|consumo\w*|deuda\w*)\b"),
 }
 _ROLE_NAME = {
     "identifier": re.compile(r"(id|code|key|codigo|numero)$|^(codigo|numero|id)[A-Z]", re.I),
     "date": re.compile(r"(date|fecha|at)$|^fecha", re.I),
     "status": re.compile(r"(status|estado)$", re.I),
-    "amount": re.compile(r"(amount|monto|importe|saldo|salario)$", re.I),
+    "amount": re.compile(r"(amount|monto|importe|saldo|salario|balance)$|^(monto|saldo|importe|valor)[A-Z]", re.I),
 }
 ROLE_MISMATCH = 0.85
 
@@ -408,6 +458,9 @@ def query_role(text: str) -> str | None:
     from converdata.memory.text import strip_accents
 
     q = strip_accents(text).lower()
+    # "El consumo promedio de los últimos 6 meses" pide un monto: ahí el periodo dice cuándo, no qué dato.
+    if is_figures_question(text) and _ROLE_QUERY["amount"].search(q):
+        return "amount"
     return next((role for role, rx in _ROLE_QUERY.items() if rx.search(q)), None)
 
 
@@ -453,7 +506,7 @@ def shortlist(retrieval: Retrieval, intent: IntentResult, settings: DiscoverySet
         # Puntaje de búsqueda y cobertura de la pregunta a partes iguales: solo con el primero, una columna que cubre
         # toda la pregunta puede quedar fuera de los 25 que se priorizan (pasaba con preguntas compuestas).
         base = 0.5 * d.retrieval_norm + 0.5 * max(d.coverage, d.graph_coverage * 0.8)
-        return base * kind_factor(d.kind, intent.asset_kind_hint) * role_factor(d, role)
+        return base * kind_factor(d.kind, intent.asset_kind_hint) * role_factor(d, role) * precision_factor(d)
 
     pool.sort(key=lambda d: (-score(d), d.asset_key))
     return pool[: settings.rerank_max]
@@ -479,7 +532,8 @@ def deterministic_relevance(drafts: list[Draft], intent: IntentResult) -> dict[s
     role = requested_role(intent)
     return {
         d.asset_key: round(
-            d.coverage**1.5 * kind_factor(d.kind, intent.asset_kind_hint) * role_factor(d, role), 4
+            d.coverage**1.5 * kind_factor(d.kind, intent.asset_kind_hint) * role_factor(d, role)
+            * precision_factor(d), 4
         )
         for d in drafts
     }
@@ -556,18 +610,28 @@ def fix_candidate(ranked: list[Draft], top_key: str, intent: IntentResult, setti
         if role and (d.kind != "column" or column_role(short_name(d.asset_key), d.description) != role):
             continue
         return d
+    if hint == "table" and is_column_key(top_key):
+        # Ninguna tabla responde por sí sola (la pregunta reparte lo pedido entre varias): la del mejor dato encontrado
+        # es mejor punto de partida que una columna suelta.
+        return next((d for d in ranked if d.asset_key == table_key(top_key)), None)
     return None
 
 
 def promote(ranked: list[Draft], winner: Draft, loser: Draft, reason: str, settings: DiscoverySettings) -> list[Draft]:
     """Corrige el orden según la revisión: el ganador toma la relevancia del perdedor y este baja."""
-    winner.relevance = max(winner.relevance, loser.relevance)
+    # El elegido por la revisión tiene que poder mostrarse: como mínimo, la relevancia con que se muestra un activo.
+    winner.relevance = max(winner.relevance, loser.relevance, settings.min_relevance)
     loser.relevance = round(loser.relevance * 0.7, 4)
     winner.why = reason
     out = rank(ranked, settings)
     if loser.confidence >= winner.confidence:  # la revisión manda sobre la evidencia acumulada del perdedor
         loser.confidence = round(max(winner.confidence - 0.01, 0.0), 4)
         out = sorted(out, key=lambda d: (-d.confidence, d.asset_key))
+    if out and out[0] is not winner:
+        # Otro activo sigue por delante (p. ej. otra columna de la misma tabla): el elegido por la revisión pasa
+        # primero con la confianza del que encabezaba, nunca con más.
+        winner.confidence = out[0].confidence
+        out = [winner] + [d for d in out if d is not winner]
     return out
 
 
@@ -590,6 +654,7 @@ def compute_confidence(d: Draft, settings: DiscoverySettings) -> float:
         + w.confirmation * d.golden_confirmation
         + w.agreement * agreement
     )
+    d.strength = round(value, 4)
     only_generated = d.description_source == "generated" and d.sources <= {"catalog", "estate"}
     if only_generated:
         value = min(value, settings.generated_only_cap)
@@ -603,7 +668,9 @@ def compute_confidence(d: Draft, settings: DiscoverySettings) -> float:
 def rank(drafts: list[Draft], settings: DiscoverySettings) -> list[Draft]:
     for d in drafts:
         d.confidence = compute_confidence(d, settings)
-    return sorted(drafts, key=lambda d: (-d.confidence, d.asset_key))
+    # Sin descripciones revisadas, el tope iguala la confianza de muchos candidatos: entre ellos gana el de la tabla
+    # que se llama como lo pedido y luego el más fuerte antes del tope, no el primero por orden alfabético.
+    return sorted(drafts, key=lambda d: (-d.confidence, -d.precision, -d.strength, d.asset_key))
 
 
 # --- pasos 3 y 5: agrupación por ambiente y expansión de contexto -------------------------------
@@ -859,11 +926,17 @@ def find_join_paths(top: Draft, pool: list[Draft], concepts, graph, catalog: Cat
     if parts:
         # Pregunta compuesta: la tabla destino es la que mejor cubre la sub-pregunta completa ("el nombre del cliente").
         for part in parts[:max_paths]:
+            # Solo lo que la sub-pregunta añade: lo que ya nombra el candidato principal no elige el destino.
+            asked = [c for c in part if not (c & top_terms)] or part
             scored = [
-                (concept_coverage(part, _asset_terms(d, catalog, vis)), d.retrieval_norm, d)
+                (concept_coverage(asked, set(tokenize(short_name(table_key(d.asset_key))))),
+                 concept_coverage(asked, _asset_terms(d, catalog, vis)), d.retrieval_norm, d)
                 for d in ordered if table_key(d.asset_key) not in used_tables
             ]
-            scored = sorted((s for s in scored if s[0] > 0), key=lambda s: (-s[0], -s[1], s[2].asset_key))
+            # Primero la tabla que se llama como lo pedido ("el cliente" → `Clientes`), no una que solo apunta a ella.
+            scored = sorted(((own, cov, ret, d) for own, cov, ret, d in scored if cov > 0),
+                            key=lambda s: (-s[0], -s[1], -s[2], s[3].asset_key))
+            scored = [(cov, ret, d) for _, cov, ret, d in scored]
             # La mejor tabla puede no ser unible (otra BD sin relación): se prueban las siguientes.
             for _, _, holder in scored[:8]:
                 best = None
@@ -1010,6 +1083,8 @@ def allowed_names(discovery: Discovery) -> set[str]:
     names: set[str] = set()
     for key in keys:
         names.update(key.split("."))
+    for r in discovery.related:  # la columna con que se cruzan dos tablas mostradas también es parte de la respuesta
+        names.update(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", r.on or ""))
     return {n.lower() for n in names}
 
 
@@ -1023,6 +1098,19 @@ def unsafe_generated_text(text: str | None) -> bool:
     las lee como datos, pero si las obedece el resultado lleva casi siempre un enlace o un contacto. Una respuesta de
     descubrimiento legítima solo nombra objetos del catálogo."""
     return bool(text) and bool(_UNSAFE_GENERATED.search(text))
+
+
+# Quien usa el chat es una persona de negocio: una aclaración no le habla de tablas ni de columnas.
+_JARGON = re.compile(r"\b(tablas?|columnas?|campos?|bases? de datos|esquemas?|sql|query|queries|llaves?|registros?)\b")
+
+
+def looks_technical(text: str) -> bool:
+    """¿El texto trae algo con aspecto de identificador (referencia con puntos, CamelCase, guion bajo o dígitos)? Es
+    la guarda del texto de aclaración que redacta el modelo. No consulta el catálogo a propósito: si dependiera de qué
+    objetos existen, que una opción aparezca o no delataría el nombre de una tabla que el usuario no puede ver (F14)."""
+    if re.search(r"[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_]", text) or _JARGON.search(strip_accents(text).lower()):
+        return True
+    return any(_TECHNICAL.search(word) for word in re.findall(r"[A-Za-z_][A-Za-z0-9_]*|\d+", text))
 
 
 def narrative_mentions_ok(text: str, discovery: Discovery, catalog: Catalog) -> bool:
@@ -1049,6 +1137,42 @@ def mentioned_objects(text: str, catalog: Catalog) -> set[str]:
         if word.lower() in names and (_TECHNICAL.search(word) or word in tables):
             found.add(word.lower())
     return found
+
+
+_CAMEL_WORDS = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|_+")
+MAX_AREA_OPTIONS = 4
+
+
+def humanize(name: str) -> str:
+    """`CuotasLeasing` → "Cuotas Leasing", `vw_CarteraTarjetas` → "Cartera Tarjetas": un nombre que se puede leer."""
+    words = [w for w in _CAMEL_WORDS.split(name) if w and w.lower() not in ("vw", "tbl", "dbo")]
+    return " ".join(words) or name
+
+
+def area_options(question: str, discovery: Discovery, settings: DiscoverySettings) -> list[str]:
+    """El mismo dato existe en varias áreas ("la fecha de vencimiento de la cuota": de préstamos y de leasing) y la
+    pregunta no dice cuál. Devuelve la pregunta reformulada para cada área, para ofrecerla como opción; vacío si el
+    candidato principal no compite con el mismo dato de otra tabla."""
+    if not discovery.candidates or discovery.candidates[0].kind != "column":
+        return []
+    top = discovery.candidates[0]
+    name = normalized_name(top.column or "")
+    seen = {table_key(top.asset_key)}
+    areas = [top.table]
+    rivals = [(c.asset_key, c.confidence) for c in discovery.candidates[1:]]
+    rivals += [(a.asset_key, a.confidence) for a in discovery.alternatives]
+    for key, confidence in rivals:
+        tkey = table_key(key)
+        if tkey in seen or normalized_name(short_name(key)) != name:
+            continue
+        if top.confidence - confidence > settings.ambiguous_margin:
+            continue
+        seen.add(tkey)
+        areas.append(short_name(tkey))
+    if len(areas) < 2:
+        return []
+    base = question.strip(" ¿?.!¡")
+    return [f"{base} ({humanize(area).lower()})" for area in areas[:MAX_AREA_OPTIONS]]
 
 
 def databases_of(discovery: Discovery) -> list[str]:

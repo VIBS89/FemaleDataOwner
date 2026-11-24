@@ -107,8 +107,12 @@ class FeedbackRequest(BaseModel):
     verdict: Literal["confirm", "reject"]
 
 
+class LlmProfileRequest(BaseModel):
+    profile: str = Field(min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
+
+
 class BuildRequest(BaseModel):
-    enrich: bool = False
+    enrich: bool | None = None  # None: con un modelo configurado, lo nuevo se describe con IA (sin revisar)
 
 
 class ServerIn(BaseModel):
@@ -147,7 +151,7 @@ class ConnectRequest(BaseModel):
     environment: Literal["produccion", "qa", "desarrollo", "dr"] = "desarrollo"
     trust_server_certificate: bool = False
     databases: list[DatabaseName] = Field(min_length=1, max_length=500)  # ["*"] = todas, también las futuras
-    enrich: bool = False
+    enrich: bool | None = None
 
     _host = field_validator("host")(_check_host)
     _databases = field_validator("databases")(_check_databases)
@@ -625,7 +629,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         run_service, degraded = pick_service(session, service)
         asked_at = time.time()
         with tokens.as_user(session.user_id):
-            envelope = run_service.run(body.question, runtime.user_context(session), history=body.history, client="web")
+            envelope = run_service.run(body.question, runtime.user_context(session), history=body.history, client="web",
+                                       executor=runtime.figure_executor(session))
         if degraded:
             envelope.assumptions.append(DEGRADED_NOTE)
         remember(envelope, body.question, session, service, asked_at)
@@ -642,7 +647,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         asked_at = time.time()
 
         def events():
-            steps = run_service.stream(body.question, user, history=body.history, client="web")
+            steps = run_service.stream(body.question, user, history=body.history, client="web",
+                                       executor=runtime.figure_executor(session))
             while True:
                 with tokens.as_user(session.user_id):  # cada paso corre en un hilo con su propio contexto
                     try:
@@ -1159,6 +1165,23 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         with applying("stewards_updated", session.user_id, previous=curation.stewards(),
                       stewards=[{"login": s["login"].strip().lower(), "domains": s["domains"]} for s in wanted]):
             return {"ok": True, "stewards": curation.save_stewards(wanted, by=session.user_id)}
+
+    @app.get("/admin/llm")
+    def get_llm(session: Session = Depends(admin_session)):
+        """Perfiles de modelos de IA (NVIDIA, Claude…), cuál está activo y cuáles se pueden usar (F16). Sin claves."""
+        return runtime.llm_profiles()
+
+    @app.put("/admin/llm")
+    def put_llm(body: LlmProfileRequest, session: Session = Depends(admin_session)):
+        """Elige el perfil de modelos, o `none` para responder sin modelo. Cambia a qué proveedor salen las preguntas:
+        queda en la auditoría antes de aplicarse, y las guardas de residencia del gateway siguen decidiendo."""
+        previous = runtime.llm_profiles().get("active")
+        try:
+            with applying("llm_profile_changed", session.user_id, previous=previous, profile=body.profile):
+                runtime.set_llm_profile(body.profile)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        return runtime.llm_profiles()
 
     @app.post("/admin/catalog/build", status_code=status.HTTP_202_ACCEPTED)
     def start_build(body: BuildRequest, session: Session = Depends(admin_session)):

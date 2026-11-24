@@ -44,6 +44,9 @@ from converdata_api.vault import Session, SessionVault
 
 log = logging.getLogger(__name__)
 MAX_TRACES = 500
+FIGURE_TIMEOUT_S = 15  # tope de una consulta de cifras; pasado ese tiempo se responde sin el número
+FIGURE_MAX_ROWS = 50  # un total, o los grupos de un desglose: nunca un volcado de filas
+FIGURE_CONCURRENCY = 2  # cifras calculándose a la vez en toda la API: no se carga la operación del banco
 
 
 @dataclass
@@ -87,6 +90,8 @@ class AgentRuntime:
         self.connector = connector
         self.vault = vault
         self.audit = audit
+        self._figure_slots = threading.BoundedSemaphore(FIGURE_CONCURRENCY)
+        self._figure_counts: dict[tuple[str, str], int] = {}  # (usuario, día) → consultas de cifras hechas
         stores = stores or open_api_stores(settings)
         self.repository = stores.repository  # BD `ConverData`; None = solo `data_root` (desarrollo)
         self.writer = stores.writer
@@ -224,9 +229,13 @@ class AgentRuntime:
 
     def _build_service(self, gateway) -> DiscoverService:
         if self.repository is not None:
-            return build_service_from_snapshot(self.snapshot, settings_path=self._settings_path, gateway=gateway,
-                                               audit=self.audit)
-        return build_service(self.settings.data_root, gateway=gateway, audit=self.audit)
+            service = build_service_from_snapshot(self.snapshot, settings_path=self._settings_path, gateway=gateway,
+                                                  audit=self.audit)
+        else:
+            service = build_service(self.settings.data_root, gateway=gateway, audit=self.audit)
+        if self.settings.ask_flow:  # CONVERDATA_ASK_FLOW=1 activa las cifras agregadas sin editar settings.yaml
+            service.deps.settings.features.ask_flow = True
+        return service
 
     def reload(self) -> None:
         """Carga (o recarga) el DiscoverFlow sobre el catálogo vigente; sin catálogo, la API queda en modo configuración."""
@@ -293,6 +302,138 @@ class AgentRuntime:
             for key in [k for k in self._visibility if k not in alive]:
                 del self._visibility[key]
         return result
+
+    # --- modelos de IA elegibles en pantalla (F16) ------------------------------------------------
+    _DEFAULT_KEY_ENV = {"nvidia_nim": "NVIDIA_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+
+    def _profile_problem(self, base, name: str) -> str | None:
+        """Por qué no se puede usar un perfil, en palabras para el administrador; None si se puede."""
+        import os
+
+        from converdata.llm.factory import apply_profile
+        from converdata.llm.gateway import GatewayConfigError, LLMGateway, ResidencyError
+
+        config = apply_profile(base, name)
+        try:
+            LLMGateway(config).validate()
+        except (GatewayConfigError, ResidencyError) as exc:  # el motivo lo redacta el gateway: no lleva claves
+            return str(exc)
+        except Exception as exc:  # una configuración que no se puede validar no se ofrece
+            return f"La configuración del perfil no es válida ({type(exc).__name__})"
+        for role in config.roles.values():
+            provider = config.provider(role.provider)
+            env = provider.api_key_env or self._DEFAULT_KEY_ENV.get(role.provider)
+            if env and provider.base_url is None and not os.environ.get(env):
+                return f"Falta la clave del proveedor en el servidor (variable de entorno {env})"
+        return None
+
+    def llm_profiles(self) -> dict:
+        """Qué perfiles de modelos hay, cuál está activo y cuáles se pueden usar. Nunca devuelve claves."""
+        path = self.settings.models_path
+        if path is None:
+            return {"configured": False, "selectable": False, "active": None, "data_mode": None, "profiles": []}
+        from converdata.llm.factory import NO_MODEL, load_models
+
+        base = load_models(path, apply_selection=False)
+        current = load_models(path)
+        profiles = []
+        for name, profile in base.profiles.items():
+            problem = self._profile_problem(base, name)
+            profiles.append({
+                "id": name, "label": profile.label, "description": profile.description,
+                "roles": {role: {"provider": cfg.provider, "model": cfg.model} for role, cfg in profile.roles.items()},
+                "usable": problem is None, "reason": problem,
+            })
+        return {
+            "configured": True, "selectable": bool(base.profiles), "none_id": NO_MODEL, "data_mode": base.data_mode,
+            "active": current.active_profile if base.profiles else None,
+            "roles": {role: {"provider": cfg.provider, "model": cfg.model} for role, cfg in current.roles.items()},
+            "profiles": profiles,
+        }
+
+    def set_llm_profile(self, name: str) -> None:
+        """Cambia el perfil activo y recarga el flujo. `ValueError` con el motivo si no se puede usar."""
+        path = self.settings.models_path
+        if path is None:
+            raise ValueError("No hay un archivo de modelos configurado (CONVERDATA_MODELS)")
+        from converdata.llm.factory import NO_MODEL, load_models, write_selection
+
+        base = load_models(path, apply_selection=False)
+        if not base.profiles:
+            raise ValueError("El archivo de modelos no define perfiles elegibles")
+        if name != NO_MODEL:
+            if name not in base.profiles:
+                raise ValueError("Ese perfil no existe")
+            problem = self._profile_problem(base, name)
+            if problem:
+                raise ValueError(problem)
+        write_selection(path, name)
+        self.reload()
+
+    def figure_executor(self, session: Session):
+        """Cómo ejecutar un agregado con la credencial de la sesión (`discovery.figures.FigureExecutor`), o None si
+        las cifras no están activas o el conector no abre conexiones de datos (modo demo). La conexión es de solo
+        lectura y con tiempo límite; SQL Server decide con el login del usuario si puede leer la tabla."""
+        if not self.settings.ask_flow or not hasattr(self.connector, "connect"):
+            return None
+
+        def run(server_id: str, database: str, sql: str):
+            from converdata.discovery.figures import check_sql
+
+            check_sql(sql)  # solo las consultas de la plantilla: el ejecutor no acepta SQL libre de ningún llamador
+            server = self.inventory.server(server_id)
+            cred = self.vault.credential(session, server_id)
+            if server is None or cred is None:
+                raise PermissionError("La sesión no tiene credencial para ese servidor")
+            allowed = server.figures if server.figures is not None else server.environment != "produccion"
+            if not allowed:  # el banco decide en el inventario qué servidores aceptan consultas de totales
+                raise PermissionError("Ese servidor no está autorizado para calcular cifras")
+            if not self._count_figure(session.user_id):
+                raise PermissionError("Se alcanzó el tope diario de cifras de este usuario")
+            if not self._figure_slots.acquire(blocking=False):
+                raise TimeoutError("Hay demasiadas cifras calculándose a la vez")
+            try:
+                # Antes de tocar datos queda registrado quién consulta qué y dónde (sin valores). Si la auditoría no
+                # se puede escribir, la consulta no se ejecuta (F11, fail-closed también para el acceso).
+                self.audit.event("figure_query", session.user_id, server=server_id, database=database, sql=sql)
+                # Si el inventario declara una réplica de lectura, el conector abre la conexión ahí.
+                return self._run_figure(server, cred, database, sql)
+            finally:
+                self._figure_slots.release()
+
+        return run
+
+    def _count_figure(self, user_id: str) -> bool:
+        """Cuenta una consulta de cifras del usuario hoy; False si ya llegó al tope (`figures_daily_limit`). El límite
+        de preguntas por minuto mide preguntas; este mide consultas a los servidores del banco."""
+        limit = self.settings.figures_daily_limit
+        if limit <= 0:
+            return True
+        today = _now()[:10]
+        key = (user_id.lower(), today)
+        with self._lock:
+            for old in [k for k in self._figure_counts if k[1] != today]:
+                del self._figure_counts[old]
+            if self._figure_counts.get(key, 0) >= limit:
+                return False
+            self._figure_counts[key] = self._figure_counts.get(key, 0) + 1
+            return True
+
+    def _run_figure(self, server, cred, database: str, sql: str):
+            conn = self.connector.connect(server, cred, database)
+            try:
+                conn.timeout = FIGURE_TIMEOUT_S
+                conn.autocommit = False  # nada de lo que corra aquí se confirma: al terminar siempre se revierte
+                cursor = conn.cursor()
+                # No esperar por bloqueos de la operación del banco ni dejarlos: lectura sin bloqueos y con tope.
+                cursor.execute("SET LOCK_TIMEOUT 5000; SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;")
+                cursor.execute(sql)
+                return [tuple(row) for row in cursor.fetchmany(FIGURE_MAX_ROWS)]
+            finally:
+                try:
+                    conn.rollback()
+                finally:
+                    conn.close()
 
     def user_context(self, session: Session) -> UserContext:
         return UserContext(user_id=session.user_id, groups=session.groups, visible_ids=self.visible_ids(session),
@@ -400,12 +541,14 @@ class AgentRuntime:
             log.error("catalog.reload_failed", extra={"error_type": type(exc).__name__})
 
     # --- CatalogBuildFlow -------------------------------------------------------------------------
-    def start_build(self, session: Session, enrich: bool) -> BuildJob:
+    def start_build(self, session: Session, enrich: bool | None) -> BuildJob:
+        """`enrich=None`: con un modelo configurado, las tablas y columnas nuevas reciben descripción y sinónimos
+        sugeridos por IA (marcados sin revisar); `False` lo desactiva para ese build."""
         with self._lock:
             if self.job.status == "running":
                 return self.job
             self.job = BuildJob(status="running", started_at=_now(), triggered_by=session.user_id,
-                                enrich=enrich and self.settings.models_path is not None)
+                                enrich=enrich is not False and self.settings.models_path is not None)
         threading.Thread(target=self._run_build, args=(session, self.job), daemon=True).start()
         return self.job
 
@@ -430,9 +573,11 @@ class AgentRuntime:
             enricher = None
             if job.enrich:
                 from converdata.llm.gateway import LLMGateway
-                from converdata.llm.nodes import LlmEnricher
+                from converdata.llm.nodes import build_enricher
 
-                enricher = LlmEnricher(LLMGateway.from_file(self.settings.models_path).chat("planner"))
+                gateway = LLMGateway.from_file(self.settings.models_path)
+                gateway.usage_hook = self._on_usage  # el enriquecimiento también cuenta en el consumo de tokens
+                enricher = build_enricher(gateway)
             demo = self.settings.demo
             result = refresh_catalog(
                 inventory, work, source_factory=source_factory, enricher=enricher, repository=self.repository,

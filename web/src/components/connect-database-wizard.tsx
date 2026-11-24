@@ -56,7 +56,9 @@ export function ConnectDatabaseWizard({
   const [databases, setDatabases] = useState<DatabaseProbe[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [future, setFuture] = useState(false);
-  const [enrich, setEnrich] = useState(false);
+  // Con un modelo configurado, lo nuevo se describe con IA salvo que el administrador lo apague.
+  const [enrichChoice, setEnrich] = useState<boolean | null>(null);
+  const enrich = enrichChoice ?? Boolean(status?.llm);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connected, setConnected] = useState<{ id: string; alias: string } | null>(null);

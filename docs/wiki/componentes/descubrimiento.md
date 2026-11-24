@@ -48,10 +48,13 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 
 ```
 START → intent ─┬─► retrieve → grade ─┬─► rerank → expand → review ─┬─► respond → finalize → END
-                │       ▲             │              ▲              │
+                │       ▲             │              ▲              ├─► compute ─► respond   (cifras activas)
                 │       └─ reintento ─┘ (máx. 1)     └─ corrección ─┘ (máx. 1)
-                └─► finalize   (aclaración o fuera de alcance)
+                └─► finalize   (aclaración, fuera de alcance o pregunta sobre el asistente)
 ```
+
+`compute` solo corre con `features.ask_flow` (o `CONVERDATA_ASK_FLOW=1`) y un ejecutor de la sesión; calcula cifras agregadas de plantilla fija
+(`discovery/figures.py`, apagadas por defecto; PRD §13, decisión 17).
 
 Cada nodo (salvo `finalize`) va envuelto en `_timed` (`flows/discover.py:102`), que crea un `StepRecord` con duración, modelo,
 error y detalle. El modelo solo se anota si el nodo lo usó de verdad (`_model_used`).
@@ -59,7 +62,8 @@ error y detalle. El modelo solo se anota si el nodo lo usó de verdad (`_model_u
 1. **intent** (rol `planner`). Entrada: pregunta e historial. Salida: `IntentResult` y `route`.
    - Clasifica con el puerto; si falla, usa las reglas (`error = fallback:<tipo>`).
    - `out_of_scope` → `finalize`. `ambiguous` o confianza < 0,6 → `clarify` → `finalize` (`flows/discover.py:148`).
-   - `data_query`/`procedure` con `features.ask_flow = false` se responde como descubrimiento, con una suposición explícita.
+   - `data_query`/`procedure` con `features.ask_flow = false` se responde como descubrimiento, con una suposición explícita. Con cifras activas el flujo descubre primero y el nodo `compute` calcula si puede.
+   - Pregunta sobre el asistente o cortesía (`discovery/assistant.py`) → intención `assistant` → `finalize` con texto fijo y `discovery: null`. Los seguimientos se completan con el historial (`deterministic.contextualize`). La orden de modificar datos se rechaza mirando solo la pregunta actual (`is_write_request`).
    - **Pista de tipo de entidad**: si la intención no trajo `asset_kind_hint`, `engine.entity_kind_hint`
      (`discovery/engine.py:90`) mira "¿dónde están/se guardan… los/las X?": si X nombra una tabla o vista **visible**, pide `table`.
      No lo hace si una columna visible se llama como las dos primeras palabras, ni si la pregunta es compuesta.
@@ -169,7 +173,7 @@ de consulta junta todas las traducciones. Plurales en `-s`/`-es` se resuelven an
 | `cascade_min_confidence`, `cascade_margin` | 0,85, 0,10 | Patrón E |
 | `review_judge_band`, `ambiguous_margin` | (0,5, 0,75), 0,05 | Patrón B |
 | `patterns.query_expansion/grade/review/cascade/graph` | todos `true` | Activan cada patrón |
-| `features.ask_flow` | `false` | Fase 1a: preguntas de datos como descubrimiento |
+| `features.ask_flow` | `false` | Fase 1a: preguntas de datos como descubrimiento. Con `true` (o `CONVERDATA_ASK_FLOW=1` en la API) se calculan cifras agregadas |
 | `audit.fail_open` | `false` | Solo desarrollo; qa/prod no arranca con `true` |
 
 ## Pruebas que lo cubren

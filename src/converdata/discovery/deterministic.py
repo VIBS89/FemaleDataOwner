@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from converdata.catalog.ids import short_name
+from converdata.discovery.expansion import content_words
 from converdata.discovery.ports import RerankItem, RerankScore
 from converdata.memory.text import STOPWORDS, strip_accents
 from converdata.models.discovery import Discovery
@@ -17,20 +18,89 @@ from converdata.models.intent import Clarification, IntentResult
 _WRITE = re.compile(
     r"\b(borra|borrar|elimina|eliminar|actualiza|actualizar|inserta|insertar|modifica|modificar|"
     r"drop|delete|update|truncate|insert)\b"
+    # Una orden al inicio ("cambia el saldo…", "ponle estado cancelado"): en medio de una pregunta el mismo verbo solo
+    # describe el dato ("¿dónde veo cuándo cambia el estado?").
+    r"|^\W*(?:por favor,? )?(?:cambia(?:me|le)?|pon(?:le|me)?|ajusta|anula|reversa|crea|agrega|quita|corrige|aprueba|"
+    r"desbloquea|bloquea|sube|baja)\b"
 )
 _GREETING = re.compile(r"^\s*(hola|buenos dias|buenas tardes|buenas noches|buenas|gracias|adios)\W*$")
-_EXPLORATION = re.compile(r"\bque (datos|informacion|tablas) (tenemos|hay|existen)\b")
+_EXPLORATION = re.compile(r"\bque (datos|informacion|tablas) (tenemos|hay|existen)\b"
+                          r"|\bque (puedo|podemos|se puede) (consultar|ver|preguntar|saber|encontrar) (sobre|de|acerca)\b")
 _DISCOVERY = re.compile(
     r"\b(donde|que significa|que campo|que columna|que tabla|identificador|identifica|encontrar|"
     r"ubicar|localizar|cual es el campo|en que (tabla|base)|que reglas)\b"
 )
-_DATA_QUERY = re.compile(r"\b(cuant[oa]s?|total de|suma de|promedio|top \d+|cuanto vendimos|monto total)\b")
+_DATA_QUERY = re.compile(
+    r"\b(cuant[oa]s?|total de|suma de|promedio|top \d+|cuanto vendimos|(?:monto|saldo|valor) total|cantidad de|"
+    r"ranking|l[oa]s \d+ (?:mas|mayores|mejores|principales)|"
+    r"por (?:mes|ano|dia|semana|trimestre|agencia|sucursal|ejecutivo)|"
+    r"(?:ultim[oa]s?|este|esta|pasad[oa]) (?:\d+ )?(?:mes|meses|ano|anos|trimestre|semana|semanas|dias))\b")
+# En una pregunta de cifras, nombrar una medida ("el saldo total", "el monto promedio") pide el dato que la guarda.
+_MEASURE = re.compile(r"\b(montos?|saldos?|importes?|valor(?:es)?|dinero|plata|deuda|consumos?|ingresos?)\b")
 _CONTEXT = re.compile(r"\b(?:procesos? de|flujo de|area de|proceso|en el (?:proceso|flujo) de)\s+([a-z0-9 ]+?)(?:[.?,;]|$)")
 _FILLER = {"dame", "muestrame", "ver", "todo", "toda", "todos", "informacion", "favor", "puedes", "podrias"}
 
 
 def _norm(text: str) -> str:
     return strip_accents(text).lower()
+
+
+# Una pregunta que sigue a la anterior: empieza con un conector ("y…", "ahora…", "pero…") o señala algo ya dicho
+# ("de esos", "esa fecha", "lo mismo", "cómo los cruzo").
+_CONNECTOR = re.compile(r"^\W*(?:y|pero|ahora|tambien|entonces|ademas|o sea)\b")
+_ANAPHORA = re.compile(
+    r"\b(?:es[oa]s?|ese|aquell[oa]s?|dich[oa]s?|lo mismo|l[oa]s mism[oa]s|de ell[oa]s)\b"
+    r"|\bcomo l[oa]s? (?:cruz\w+|un[oe]|relacion\w+|junt\w+|conect\w+)\b")
+MAX_CONTEXT_TURNS = 3
+_MEANING = re.compile(r"\bque (?:significa|quiere decir)\b")
+
+
+_FOLLOW_UP_LEAD = re.compile(r"^\W*(?:y|pero|ahora|tambien|entonces|ademas|o sea)\b[\s,]*")
+
+
+def is_write_request(question: str) -> bool:
+    """¿Pide modificar datos? Se mira la pregunta sola, sin el conector con que empieza un seguimiento ("y…")."""
+    return bool(_WRITE.search(_FOLLOW_UP_LEAD.sub("", _norm(question))))
+
+
+def is_join_question(question: str) -> bool:
+    """¿Pregunta cómo relacionar o cruzar información? Ahí lo pedido son las tablas y el camino entre ellas."""
+    return bool(_JOIN.search(_norm(question)))
+
+
+def is_figures_question(question: str) -> bool:
+    """¿Pide una cifra (cuántos, total, promedio, por mes…)? En la fase 1a se responde con qué información se obtiene."""
+    q = _norm(question)
+    return bool(_DATA_QUERY.search(q)) and not _DISCOVERY.search(q)
+
+
+def is_follow_up(question: str) -> bool:
+    """Señala algo ya dicho ("de esos", "lo mismo", "cómo los cruzo"), o empieza con un conector y casi no trae
+    contenido propio ("¿y en leasing?"). "Y dónde está el DUI del cliente" empieza con "y" pero nombra su propio
+    dato: es una pregunta nueva."""
+    q = _norm(question)
+    if _ANAPHORA.search(q):
+        return True
+    if not _CONNECTOR.search(q):
+        return False
+    # "¿Y qué significa el estado de la gestión?" pregunta por algo de lo que se venía hablando.
+    return len(content_words(q)) <= 1 or bool(_MEANING.search(q))
+
+
+def contextualize(question: str, history: list[str]) -> str:
+    """Una pregunta de seguimiento ("¿y cómo los cruzo con los clientes?") se entiende junto con la anterior. Se
+    antepone la última pregunta que no era a su vez un seguimiento (hasta `MAX_CONTEXT_TURNS` hacia atrás); una pregunta
+    nueva se deja como está."""
+    if not history or not is_follow_up(question):
+        return question
+    previous: list[str] = []
+    for past in reversed(history[-MAX_CONTEXT_TURNS:]):
+        if not past or not past.strip():
+            continue
+        previous.insert(0, past.strip(" ¿?.!¡"))
+        if not is_follow_up(past):
+            break
+    return " ".join([*previous, question.strip()]) if previous else question
 
 
 class RuleBasedIntentClassifier:
@@ -79,13 +149,20 @@ class RuleBasedIntentClassifier:
 _ETL = re.compile(r"\b(etl|ssis|linaje|llena|alimenta|carga|cargan|que proceso|que job)\b")
 # "¿Cómo relaciono A con B?": se piden las tablas y el camino para unirlas, no una columna suelta. El verbo va tras
 # "cómo" (o es inequívoco): "cada uno de los clientes" no es un cruce.
-_JOIN = re.compile(r"\bcomo (?:se |puedo |podemos )?(?:relacion\w+|cruz\w+|un[oe]|unir|unen|unimos|junt\w+)\b"
+_JOIN = re.compile(r"\bcomo (?:se |puedo |podemos |l[oa]s? |le )*(?:relacion\w+|cruz\w+|un[oe]|unir|unen|unimos|junt\w+|"
+                   r"conect\w+)\b"
                    r"|\b(?:relacion(?:o|ar|an|amos)|cruz(?:o|ar|an|amos)|unir|join)\b.*\bcon\b")
 _ASKS_FIELD = re.compile(r"\b(?:que|cual|cuales) (?:campos?|columnas?|llaves?)\b")
 
 
 def _kind_hint(q: str, intent: str):
-    # Exploración, cifras (en fase 1a se responde qué tabla consultar) y preguntas de ETL piden tablas.
+    # "¿Qué es la fecha de corte en las tablas de saldos?" pregunta por el significado de un dato, aunque diga "tablas".
+    if intent == "discovery" and re.search(r"\bque (?:es|significa|quiere decir) (?:el|la)\b", q):
+        return "column"
+    # Una cifra sobre una medida ("saldo total de la cartera") pide la columna que la guarda.
+    if intent == "data_query" and _MEASURE.search(q) and not re.search(r"\btablas?\b", q):
+        return "column"
+    # Exploración, conteos (en fase 1a se responde qué tabla consultar) y preguntas de ETL piden tablas.
     if intent in ("exploration", "data_query") or re.search(r"\btablas?\b", q) or _ETL.search(q):
         return "table"
     if _ASKS_FIELD.search(q):  # "¿con qué campo cruzo…?" pide la columna, aunque hable de cruzar
@@ -173,12 +250,18 @@ class TemplateNarrator:
         envs = sorted({loc.environment for loc in top.locations}, key=lambda e: (ENV_ORDER.get(e, 9), e))
         label = "ambientes" if len(envs) > 1 else "ambiente"
         shown = " y ".join(ENV_LABELS.get(e, e) for e in envs)
-        parts = [f"El candidato principal es {name} ({where}, {label}: {shown}) con {round(top.confidence * 100)} % de confianza."]
+        lead = ("Para obtener esa cifra, la información está en" if _DATA_QUERY.search(_norm(question))
+                else "Lo más cercano a lo que buscas es")
+        parts = [f"{lead} {name} ({where}, {label}: {shown}), con {round(top.confidence * 100)} % de confianza."]
         loading = _loading_sentence(question, where, discovery)
         if loading:  # "¿qué proceso llena…?": el proceso es la respuesta, va antes que el resto
             parts.append(loading)
-        if top.why:
+        if top.description and top.description_source != "generated":
+            parts.append(top.description.rstrip(".") + ".")
+        elif top.why:
             parts.append(top.why)
+        if discovery.join_paths:
+            parts.append("Se cruza así: " + "; ".join(join_sentence(p.steps) for p in discovery.join_paths[:2]) + ".")
         others = [_table_dot_column(c.asset_key) for c in discovery.candidates[1:]] + [
             _table_dot_column(a.asset_key) for a in discovery.alternatives
         ]
@@ -189,4 +272,19 @@ class TemplateNarrator:
             parts.append(f"No encontré datos disponibles para {missing}; puedes preguntar al responsable del dominio.")
         elif discovery.knowledge_gap:
             parts.append("La confianza es baja; puedes preguntar al responsable del dominio.")
-        return " ".join(parts[:4])
+        return " ".join(parts[:5])
+
+
+def join_sentence(steps: list[str]) -> str:
+    """"BD.dbo.A → BD.dbo.B (fk: ClienteID)" → "A → B (por ClienteID)": el camino de unión en una línea legible."""
+    out = []
+    for step in steps:
+        match = re.match(r"(\S+) → (\S+)(?: \((\w+)(?:: (.+))?\))?$", step)
+        if not match:
+            out.append(step)
+            continue
+        a, b, kind, detail = match.groups()
+        how = {"fk": f"por {detail}" if detail else "", "same_entity": "el mismo dato en otro sistema",
+               "view": "vista que lo resume"}.get(kind or "", detail or "")
+        out.append(f"{short_name(a)} → {short_name(b)}" + (f" ({how})" if how else ""))
+    return ", ".join(out)

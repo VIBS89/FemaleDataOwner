@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import type { AssetTab } from "@/components/asset-sheet";
 import { CandidateCard } from "@/components/chat/candidate-card";
+import { FigureCard } from "@/components/chat/figure-card";
 import type { Message, Verdict } from "@/components/chat/conversations";
 import { ConfidencePill } from "@/components/confidence";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -76,7 +77,8 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
             <AlertDescription>{env.answer_text}</AlertDescription>
           </Alert>
         ) : (
-          <p className="text-[15px] leading-relaxed whitespace-pre-line">{env.answer_text}</p>
+          // Con cifra, la tarjeta ya muestra el número, el desglose y los avisos: el texto sería repetirlos.
+          !env.figure && <p className="text-[15px] leading-relaxed whitespace-pre-line">{env.answer_text}</p>
         )}
 
         {env.assumptions.map((a) => (
@@ -85,8 +87,13 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
           </p>
         ))}
 
-        {env.status === "needs_clarification" && env.clarification?.options?.length ? (
-          <div className="flex flex-wrap gap-2">
+        {env.figure && <FigureCard figure={env.figure} />}
+
+        {env.clarification?.options?.length ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {env.status !== "needs_clarification" && (
+              <span className="text-muted-foreground w-full text-xs font-medium">{env.clarification.question}</span>
+            )}
             {env.clarification.options.map((o) => (
               <Button key={o} variant="outline" size="sm" className="h-auto py-1.5 whitespace-normal" onClick={() => onAsk(o)}>
                 <HelpCircle /> {o}
@@ -111,7 +118,7 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
           </div>
         )}
 
-        {disc?.knowledge_gap && (
+        {disc?.knowledge_gap && !env.figure && (
           <Alert className="border-conf-mid/30 bg-conf-mid-bg">
             <UserRoundSearch className="text-conf-mid!" />
             <AlertTitle className="line-clamp-none">
@@ -126,8 +133,9 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
                 </p>
               ) : (
                 <p className="mb-1">
-                  Prueba con otras palabras (por ejemplo, el nombre del proceso o del sistema). Si el dato está en una base a la que no tienes
-                  acceso, pídelo al responsable del dominio: el agente solo muestra lo que tu usuario de base de datos puede leer.
+                  Prueba con otras palabras (por ejemplo, el nombre del proceso o del sistema). Si el dato está en una base a la
+                  que no tienes acceso, pídelo al responsable del dominio: el agente solo muestra lo que tu usuario de base de
+                  datos puede leer.
                 </p>
               )}
               <EscalateButton escalated={message.escalated} onEscalate={onEscalate} />
@@ -162,7 +170,8 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
           <Collapsible defaultOpen={disc.join_paths.length > 0}>
             <CollapsibleTrigger className="text-muted-foreground hover:text-foreground group flex items-center gap-1.5 text-xs font-medium">
               <Link2 className="size-3.5" />
-              Relaciones{disc.join_paths.length > 0 ? " y cómo unir las tablas" : ""} ({disc.related.length + disc.join_paths.length})
+              Relaciones
+              {disc.join_paths.length > 0 ? " y cómo unir las tablas" : ""} ({disc.related.length + disc.join_paths.length})
               <ChevronDown className="size-3.5 transition group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 space-y-3">
@@ -204,7 +213,13 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
         {disc && disc.suggested_questions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {disc.suggested_questions.map((q) => (
-              <Button key={q} variant="secondary" size="sm" className="h-auto py-1.5 font-normal whitespace-normal" onClick={() => onAsk(q)}>
+              <Button
+                key={q}
+                variant="secondary"
+                size="sm"
+                className="h-auto py-1.5 font-normal whitespace-normal"
+                onClick={() => onAsk(q)}
+              >
                 <Search /> {q}
               </Button>
             ))}
@@ -267,50 +282,63 @@ function EscalateButton({
 function Footer({ message }: { message: Message }) {
   const env = message.envelope!;
   const checks = env.validation?.checks ?? [];
+  // Sin `discovery` (respuesta sobre el propio asistente) no hubo búsqueda que explicar.
+  const searched = env.discovery != null;
   return (
     <Collapsible>
       <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-        {env.confidence != null && env.status === "ok" && <span>Confianza {pct(env.confidence)}</span>}
+        {searched && env.confidence != null && env.status === "ok" && <span>Confianza {pct(env.confidence)}</span>}
         {env.timings_ms.total != null && (
           <span className="flex items-center gap-1">
             <Timer className="size-3" /> {(env.timings_ms.total / 1000).toFixed(1)} s
           </span>
         )}
         {env.databases.length > 0 && <span>{env.databases.join(" · ")}</span>}
-        <CollapsibleTrigger className="hover:text-foreground group flex items-center gap-1">
-          Cómo lo obtuve <ChevronDown className="size-3 transition group-data-[state=open]:rotate-180" />
-        </CollapsibleTrigger>
+        {searched && (
+          <CollapsibleTrigger className="hover:text-foreground group flex items-center gap-1">
+            Cómo lo obtuve <ChevronDown className="size-3 transition group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+        )}
         <button
           className="hover:text-foreground flex items-center gap-1"
           onClick={() => {
             navigator.clipboard.writeText(env.trace_id);
-            toast.success("Id de la traza copiado", { description: "Úsalo para buscar esta respuesta en la auditoría." });
+            toast.success("Id de la traza copiado", {
+              description: "Úsalo para buscar esta respuesta en la auditoría.",
+            });
           }}
         >
           <Copy className="size-3" /> Traza
         </button>
       </div>
-      <CollapsibleContent className="mt-2 rounded-lg border bg-muted/30 p-3 text-xs">
-        <p className="mb-2">
-          Busqué en el catálogo, diccionarios, documentos y ETL lo que tu login puede leer, prioricé los candidatos y revisé el
-          resultado ({env.validation?.attempts ?? 1} {env.validation?.attempts === 1 ? "revisión" : "revisiones"}).
-        </p>
-        {checks.length > 0 ? (
-          <ul className="space-y-1">
-            {checks.map((c, i) => (
-              <li key={i} className="flex items-start gap-1.5">
-                <Check className={cn("mt-0.5 size-3", c.status === "fail" ? "text-conf-low" : c.status === "warn" ? "text-conf-mid" : "text-conf-high")} />
-                <span>
-                  <span className="font-mono">{c.name}</span> · {c.status}
-                  {c.detail ? ` — ${c.detail}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground">Sin observaciones del revisor.</p>
-        )}
-      </CollapsibleContent>
+      {searched && (
+        <CollapsibleContent className="mt-2 rounded-lg border bg-muted/30 p-3 text-xs">
+          <p className="mb-2">
+            Busqué en el catálogo, diccionarios, documentos y ETL lo que tu login puede leer, prioricé los candidatos y revisé el
+            resultado ({env.validation?.attempts ?? 1} {env.validation?.attempts === 1 ? "revisión" : "revisiones"}).
+          </p>
+          {checks.length > 0 ? (
+            <ul className="space-y-1">
+              {checks.map((c, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <Check
+                    className={cn(
+                      "mt-0.5 size-3",
+                      c.status === "fail" ? "text-conf-low" : c.status === "warn" ? "text-conf-mid" : "text-conf-high",
+                    )}
+                  />
+                  <span>
+                    <span className="font-mono">{c.name}</span> · {c.status}
+                    {c.detail ? ` — ${c.detail}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">Sin observaciones del revisor.</p>
+          )}
+        </CollapsibleContent>
+      )}
     </Collapsible>
   );
 }

@@ -1,5 +1,6 @@
 """Agente de esquemas (CatalogBuildFlow): de SQL Server sin catálogo previo al DiscoverFlow funcionando."""
 
+import pytest
 import yaml
 
 from converdata.bootstrap import build_service, user_with_databases
@@ -149,3 +150,131 @@ def test_la_bd_de_trabajo_converdata_no_se_cataloga(tmp_path):
                            exclude_databases=frozenset({"converdata", "converdata_qa"}))
     assert report.databases == ["LOCAL/BancaPrestamos", "LOCAL/BancaTarjetasCredito"]
     assert not (tmp_path / "catalog" / "desarrollo" / "LOCAL" / "ConverData").exists()
+
+
+# --- Enriquecimiento: tablas que el modelo no describió y elección del rol ------------------------------------------
+
+
+class EnriquecedorParcial:
+    """Doble que imita una salida cortada por longitud: con un lote de varias tablas describe solo la primera; si se le
+    pide una sola, la describe. `nunca` son tablas que no describe en ningún caso."""
+
+    def __init__(self, nunca=()):
+        self.nunca = {n.lower() for n in nunca}
+        self.llamadas: list[list[str]] = []
+
+    def enrich(self, tables):
+        from converdata.llm.nodes import ColumnEnrichment, EnrichmentBatch, TableEnrichment
+
+        self.llamadas.append([t["table"] for t in tables])
+        pedidas = [t for t in tables if t["table"].split(".")[-1].lower() not in self.nunca]
+        if len(tables) > 1:
+            pedidas = pedidas[:1]
+        return EnrichmentBatch(tables=[
+            TableEnrichment(table=t["table"], description=f"Descripcion de {t['table']}", synonyms=["sinonimo"], columns=[
+                ColumnEnrichment(name=c["name"], description=f"Columna {c['name']}") for c in t["columns"]])
+            for t in pedidas
+        ])
+
+
+def _yaml(tmp_path, db, nombre):
+    ruta = tmp_path / f"catalog/desarrollo/LOCAL/{db}/dbo.{nombre}.yaml"
+    return yaml.safe_load(ruta.read_text(encoding="utf-8"))
+
+
+def test_las_tablas_que_el_modelo_no_describio_se_piden_de_nuevo_una_por_una(tmp_path):
+    enriquecedor = EnriquecedorParcial()
+    report = build_catalog(_inventory(), tmp_path, source_factory=FakeSource, enricher=enriquecedor)
+    assert len(enriquecedor.llamadas[0]) == 4, "primero se pide el lote completo"
+    reintentos = enriquecedor.llamadas[1:]
+    assert reintentos and all(len(r) == 1 for r in reintentos), "las que faltaron se piden una por una"
+    for db, nombre in [("BancaPrestamos", "Clientes"), ("BancaPrestamos", "Prestamos"), ("BancaPrestamos", "vw_Cartera"),
+                       ("BancaTarjetasCredito", "Clientes")]:
+        data = _yaml(tmp_path, db, nombre)
+        assert data["description"], f"{db}.{nombre} quedó sin descripción"
+        assert all(c.get("description") for c in data["columns"])
+    assert report.enriched == 4 and not report.enrich_errors
+
+
+def test_una_tabla_que_el_modelo_nunca_describe_se_reintenta_una_sola_vez_y_queda_sin_descripcion(tmp_path):
+    enriquecedor = EnriquecedorParcial(nunca=["vw_Cartera"])
+    report = build_catalog(_inventory(), tmp_path, source_factory=FakeSource, enricher=enriquecedor)
+    solas = [llamada for llamada in enriquecedor.llamadas if llamada == ["BancaPrestamos.dbo.vw_Cartera"]]
+    assert len(solas) == 1, "un solo reintento por tabla"
+    assert report.enriched == 3
+    assert not _yaml(tmp_path, "BancaPrestamos", "vw_Cartera").get("description")
+    assert _yaml(tmp_path, "BancaPrestamos", "Prestamos")["description"]
+
+
+def test_el_reintento_nunca_pisa_una_descripcion_que_no_es_generada(tmp_path):
+    build_catalog(_inventory(), tmp_path, source_factory=FakeSource)
+    ruta = tmp_path / "catalog/desarrollo/LOCAL/BancaPrestamos/dbo.Prestamos.yaml"
+    data = yaml.safe_load(ruta.read_text(encoding="utf-8"))
+    data["description"], data["description_source"] = "Préstamos desembolsados (revisado).", "human"
+    ruta.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    class ConColumnaNueva(FakeSource):
+        def extract_database(self, db):
+            objs = super().extract_database(db)
+            for o in objs:
+                if o.name == "Prestamos":  # cambia la estructura: la tabla se vuelve a enriquecer
+                    o.columns = [*o.columns, RawColumn("Canal", "varchar(20)", True)]
+            return objs
+
+    enriquecedor = EnriquecedorParcial()
+    build_catalog(_inventory(), tmp_path, source_factory=ConColumnaNueva, enricher=enriquecedor)
+    despues = yaml.safe_load(ruta.read_text(encoding="utf-8"))
+    assert despues["description"] == "Préstamos desembolsados (revisado)." and despues["description_source"] == "human"
+    assert any("Prestamos" in t for llamada in enriquecedor.llamadas for t in llamada), "sí se pidió para la tabla"
+    assert {c["name"] for c in despues["columns"]} >= {"Canal"}
+    assert all(c.get("description") for c in despues["columns"])  # las columnas sin descripción sí se completan
+
+
+def test_un_enriquecedor_que_falla_no_se_reintenta_en_bucle(tmp_path):
+    class Roto:
+        llamadas = 0
+
+        def enrich(self, tables):
+            Roto.llamadas += 1
+            raise TimeoutError("sin respuesta")
+
+    report = build_catalog(_inventory(), tmp_path, source_factory=FakeSource, enricher=Roto())
+    assert Roto.llamadas <= 1 + 4, "el lote y, a lo sumo, un reintento por tabla"
+    assert report.enriched == 0 and report.enrich_errors
+
+
+class _LlmFalso:
+    def __init__(self, rol):
+        self.rol = rol
+
+    def with_structured_output(self, schema):
+        return self
+
+
+class _GatewayFalso:
+    def __init__(self, *roles):
+        self.roles = set(roles)
+
+    def has_role(self, rol):
+        return rol in self.roles
+
+    def chat(self, rol):
+        return _LlmFalso(rol)
+
+
+@pytest.mark.parametrize(
+    ("roles", "esperado"),
+    [
+        (("enrich", "planner", "fast"), "enrich"),
+        (("planner", "fast"), "planner"),
+        (("fast",), "fast"),
+        (("enrich", "fast"), "enrich"),
+        ((), "fast"),  # sin ninguno declarado, `fast`: el gateway dirá que no está configurado
+    ],
+)
+def test_build_enricher_prefiere_enrich_luego_planner_y_luego_fast(roles, esperado):
+    from converdata.llm.nodes import LlmEnricher, build_enricher
+
+    enriquecedor = build_enricher(_GatewayFalso(*roles))
+    assert isinstance(enriquecedor, LlmEnricher)
+    assert enriquecedor._llm.rol == esperado

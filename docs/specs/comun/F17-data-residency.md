@@ -12,7 +12,7 @@ persistir y puede contener datos vive **on-premise**.
 ## Clasificación de la información
 | Clase | Ejemplos | Dónde puede persistir |
 |---|---|---|
-| **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición |
+| **D1: datos de clientes** | Filas de resultado, valores de columnas, muestras | En ningún sitio. Solo en memoria durante la petición. Con las cifras agregadas activas (apagadas por defecto), el servicio lee totales de las BDs de negocio con el login del usuario y los muestra; no los persiste ni se los pasa al LLM |
 | **D2: texto derivado del usuario** | Pregunta, pregunta reescrita, SQL con literales, narrativa, historial | Solo en la auditoría on-premise (F11) |
 | **D3: metadatos estructurales** | Nombres y descripciones de BDs, tablas y columnas, tipos, FKs, conteos, parámetros de SPs; reglas de negocio, linaje ETL y fragmentos de documentos **ya redactados** (F23) | Catálogo e índice (cloud u on-prem) |
 | **D4: plantillas anonimizadas** | Golden SQL con literales sustituidos por placeholders (fase 1b) y golden discovery como plantilla sin literales: la pregunta normalizada sin ninguna palabra que lleve un dígito o una arroba (tras normalizar con NFKC), salvo el vocabulario conocido del banco: nombres del catálogo con dígitos (`Ultimos4`) y códigos del conocimiento con letras y dígitos (`NCB-022`, `BR-ONB-004`) (F24; `converdata.memory.text.strip_literals`). Limitación: la plantilla no detecta nombres de personas, texto entre comillas ni los trozos solo de letras de un código partido por espacios | Índice (cloud u on-prem). El original queda en la auditoría on-prem y, solo si la pregunta no traía ningún literal ni parece llevar datos personales, en el esquema `golden` on-prem, con la misma retención |
@@ -21,6 +21,10 @@ persistir y puede contener datos vive **on-premise**.
 
 ## Reglas comunes
 - El catálogo nunca contiene valores (F1) y no existe índice de valores (F5).
+- **Cifras agregadas** (2026-11-23, PRD §13, decisión 17): solo `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` de plantilla fija, nunca filas ni columnas `pii`, con la credencial
+  de la sesión y en una transacción que se revierte. El número no pasa por el LLM (el texto lo arma el código) y no se guarda fuera de la respuesta; el sobre lleva el SQL ejecutado,
+  que usa solo nombres del catálogo. Es la excepción a "nunca lee valores" de las versiones anteriores de esta spec; antes de activarla en el piloto hay que aceptarla con Seguridad de la
+  Información (la revisión independiente terminó el 2026-11-23 sin fugas de permisos ni inyección SQL; sus dos bloqueantes, la supresión de totales y grupos de menos de 10 registros y la auditoría antes de ejecutar, están corregidos).
 - Una pregunta que, quitados los literales, aún parece llevar datos personales no se guarda como golden discovery: el voto cuenta y
   queda en la auditoría, pero no se aprende (F24).
 - Los sketches MinHash del descubrimiento (F18, F19) se calculan en memoria con hashes salados y se descartan; solo persisten las relaciones inferidas.

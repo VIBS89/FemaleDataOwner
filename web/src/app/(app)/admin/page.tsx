@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   BookOpen,
+  Bot,
   CheckCircle2,
+  Info,
   Database,
   DatabaseZap,
   Loader2,
@@ -41,9 +43,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { dateTime, ENV_LABEL, number, pct } from "@/lib/format";
-import type { AuditRow, ServerConfig, Steward } from "@/lib/types";
+import type { AuditRow, LlmRole, LlmSettings, ServerConfig, Steward } from "@/lib/types";
 
-const TABS = ["build", "servers", "stewards", "audit", "docs"];
+const TABS = ["build", "servers", "stewards", "models", "audit", "docs"];
 
 /** Pestaña de la URL (`?tab=docs&doc=…` abre la documentación en esa página). Solo en el navegador. */
 function tabFromUrl(): string {
@@ -92,6 +94,9 @@ export default function AdminPage() {
             <TabsTrigger value="stewards">
               <UserCheck /> Responsables
             </TabsTrigger>
+            <TabsTrigger value="models">
+              <Bot /> Modelos de IA
+            </TabsTrigger>
             <TabsTrigger value="audit">
               <Network /> Auditoría
             </TabsTrigger>
@@ -108,6 +113,9 @@ export default function AdminPage() {
           <TabsContent value="stewards" className="mt-5">
             <StewardsPanel />
           </TabsContent>
+          <TabsContent value="models" className="mt-5">
+            <ModelsPanel />
+          </TabsContent>
           <TabsContent value="audit" className="mt-5">
             <AuditPanel />
           </TabsContent>
@@ -123,7 +131,9 @@ export default function AdminPage() {
 // --- CatalogBuildFlow ------------------------------------------------------------------------------
 function BuildPanel() {
   const { status, refreshStatus } = useSession();
-  const [enrich, setEnrich] = useState(false);
+  // Con un modelo configurado, lo nuevo se describe con IA salvo que el administrador lo apague.
+  const [enrichChoice, setEnrich] = useState<boolean | null>(null);
+  const enrich = enrichChoice ?? Boolean(status?.llm);
   const { job, tick, poll, follow } = useBuildJob(async (j) => {
     await refreshStatus();
     if (j.status === "ok") toast.success("Catálogo listo", { description: "Ya puedes preguntar al agente." });
@@ -158,8 +168,8 @@ function BuildPanel() {
             {status?.has_catalog ? "Actualizar el catálogo" : "Descubrir los esquemas por primera vez"}
           </CardTitle>
           <CardDescription>
-            El agente se conecta con tu login a los servidores del inventario, lee solo la estructura (nunca valores de datos) y escribe el
-            catálogo. Al actualizar, respeta las descripciones editadas por personas y no reprocesa lo que no cambió.
+            El agente se conecta con tu login a los servidores del inventario, lee solo la estructura (nunca valores de datos) y
+            escribe el catálogo. Al actualizar, respeta las descripciones editadas por personas y no reprocesa lo que no cambió.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -171,7 +181,9 @@ function BuildPanel() {
                 <Sparkles className="size-3.5" /> Enriquecer con IA
               </span>
               <span className="text-muted-foreground text-xs">
-                {status?.llm ? "Sugiere descripciones y sinónimos (marcadas “sin revisar”)." : "Requiere configurar el gateway de LLM (CONVERDATA_MODELS)."}
+                {status?.llm
+                  ? "Sugiere descripciones y sinónimos (marcadas “sin revisar”)."
+                  : "Requiere configurar el gateway de LLM (CONVERDATA_MODELS)."}
               </span>
             </span>
             <Switch checked={enrich} onCheckedChange={setEnrich} disabled={!status?.llm || running} />
@@ -246,7 +258,9 @@ function BuildPanel() {
                         {k}: {v}
                       </div>
                     ))}
-                    {r.kept_from_failed > 0 && <div>Se conservaron {number(r.kept_from_failed)} objetos de su último catálogo.</div>}
+                    {r.kept_from_failed > 0 && (
+                      <div>Se conservaron {number(r.kept_from_failed)} objetos de su último catálogo.</div>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
@@ -314,7 +328,8 @@ function ServersPanel() {
     try {
       const res = await api.saveInventory(next.map((s) => ({ ...s, connected: undefined })));
       const issues = Object.entries(res.connections).filter(([, v]) => v !== "conectado");
-      if (issues.length) toast.warning(`Guardado. Sin conexión con tu credencial en: ${issues.map(([k, v]) => `${k} (${v})`).join(", ")}`);
+      if (issues.length)
+        toast.warning(`Guardado. Sin conexión con tu credencial en: ${issues.map(([k, v]) => `${k} (${v})`).join(", ")}`);
       else toast.success("Inventario guardado");
       await load();
       await refreshStatus();
@@ -328,7 +343,15 @@ function ServersPanel() {
   function submitEdit() {
     if (!editing || !servers) return;
     const v = editing.value;
-    const value = { ...v, id: v.id || v.alias.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "") };
+    const value = {
+      ...v,
+      id:
+        v.id ||
+        v.alias
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "_")
+          .replace(/^_|_$/g, ""),
+    };
     const next = editing.index === null ? [...servers, value] : servers.map((s, i) => (i === editing.index ? value : s));
     setEditing(null);
     save(next);
@@ -340,7 +363,8 @@ function ServersPanel() {
         <div className="space-y-1.5">
           <CardTitle>Servidores del inventario</CardTitle>
           <CardDescription>
-            Dónde busca el agente. “Todas” descubre todas las BDs que el login puede ver. Los servidores nuevos se prueban con tu misma credencial.
+            Dónde busca el agente. “Todas” descubre todas las BDs que el login puede ver. Los servidores nuevos se prueban con tu
+            misma credencial.
           </CardDescription>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -403,7 +427,12 @@ function ServersPanel() {
                       >
                         <DatabaseZap />
                       </Button>
-                      <Button variant="ghost" size="icon-sm" aria-label="Editar" onClick={() => setEditing({ index: i, value: { ...s } })}>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Editar"
+                        onClick={() => setEditing({ index: i, value: { ...s } })}
+                      >
                         <Pencil />
                       </Button>
                       <Button
@@ -440,14 +469,25 @@ function ServersPanel() {
               }}
             >
               <Field label="Nombre visible">
-                <Input required value={editing.value.alias} onChange={(e) => setEditing({ ...editing, value: { ...editing.value, alias: e.target.value } })} />
+                <Input
+                  required
+                  value={editing.value.alias}
+                  onChange={(e) => setEditing({ ...editing, value: { ...editing.value, alias: e.target.value } })}
+                />
               </Field>
               <Field label="Host (servidor,puerto o servidor\instancia)">
-                <Input required value={editing.value.host} onChange={(e) => setEditing({ ...editing, value: { ...editing.value, host: e.target.value } })} />
+                <Input
+                  required
+                  value={editing.value.host}
+                  onChange={(e) => setEditing({ ...editing, value: { ...editing.value, host: e.target.value } })}
+                />
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Ambiente">
-                  <Select value={editing.value.environment} onValueChange={(v) => setEditing({ ...editing, value: { ...editing.value, environment: v } })}>
+                  <Select
+                    value={editing.value.environment}
+                    onValueChange={(v) => setEditing({ ...editing, value: { ...editing.value, environment: v } })}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -466,7 +506,13 @@ function ServersPanel() {
                     onChange={(e) =>
                       setEditing({
                         ...editing,
-                        value: { ...editing.value, databases: e.target.value.split(",").map((d) => d.trim()).filter(Boolean) },
+                        value: {
+                          ...editing.value,
+                          databases: e.target.value
+                            .split(",")
+                            .map((d) => d.trim())
+                            .filter(Boolean),
+                        },
                       })
                     }
                   />
@@ -474,7 +520,10 @@ function ServersPanel() {
               </div>
               <label className="flex items-center justify-between text-sm">
                 Copia de referencia del ambiente
-                <Switch checked={editing.value.is_reference} onCheckedChange={(v) => setEditing({ ...editing, value: { ...editing.value, is_reference: v } })} />
+                <Switch
+                  checked={editing.value.is_reference}
+                  onCheckedChange={(v) => setEditing({ ...editing, value: { ...editing.value, is_reference: v } })}
+                />
               </label>
               <label className="flex items-center justify-between text-sm">
                 Confiar en certificado autofirmado
@@ -569,8 +618,8 @@ function StewardsPanel() {
         <CardHeader>
           <CardTitle>Responsables de datos</CardTitle>
           <CardDescription>
-            Quién puede revisar descripciones, reglas y dudas escaladas de cada dominio. Se asignan por usuario de base de datos; cada cambio
-            queda en la auditoría.
+            Quién puede revisar descripciones, reglas y dudas escaladas de cada dominio. Se asignan por usuario de base de datos;
+            cada cambio queda en la auditoría.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -658,7 +707,11 @@ function StewardsPanel() {
               <Input required value={login} onChange={(e) => setLogin(e.target.value)} placeholder="jperez" />
             </Field>
             <Field label="Dominios (coma; vacío = todos)">
-              <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder={domains.slice(0, 2).join(", ") || "prestamos"} />
+              <Input
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                placeholder={domains.slice(0, 2).join(", ") || "prestamos"}
+              />
             </Field>
             {domains.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -681,6 +734,238 @@ function StewardsPanel() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// --- Modelos de IA -----------------------------------------------------------------------------------
+const ROLE_LABEL: Record<string, string> = {
+  fast: "Redactar y orientar",
+  enrich: "Describir tablas nuevas",
+  planner: "Interpretar y ordenar",
+  judge: "Revisar",
+};
+
+const NO_MODEL = "none";
+
+function RoleList({ roles }: { roles: Record<string, LlmRole> }) {
+  const entries = Object.entries(roles);
+  if (entries.length === 0) return null;
+  return (
+    <dl className="text-muted-foreground mt-2 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-[auto_1fr]">
+      {entries.map(([role, r]) => (
+        <div key={role} className="contents">
+          <dt>{ROLE_LABEL[role] ?? role}</dt>
+          <dd className="text-foreground font-mono break-all">{r.model}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ModelsPanel() {
+  const { refreshStatus } = useSession();
+  const [data, setData] = useState<LlmSettings | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setFailed(false);
+    api
+      .llmProfiles()
+      .then((d) => {
+        setData(d);
+        setSelected(d.active);
+      })
+      .catch((e: Error) => {
+        setFailed(true);
+        toast.error(e.message);
+      });
+  }, []);
+  useEffect(load, [load]);
+
+  async function apply() {
+    if (!data || !selected) return;
+    const noneId = data.none_id ?? NO_MODEL;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.setLlmProfile(selected);
+      setData(res);
+      setSelected(res.active);
+      const name =
+        selected === noneId ? "responder sin modelo de IA" : (res.profiles.find((p) => p.id === selected)?.label ?? selected);
+      toast.success(selected === noneId ? `El asistente ahora va a ${name}` : `El asistente ahora usa ${name}`);
+      await refreshStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo aplicar el cambio");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (failed) {
+    return (
+      <Card>
+        <CardContent className="text-muted-foreground flex items-center justify-between gap-3 py-6 text-sm">
+          No se pudo leer la configuración de modelos.
+          <Button size="sm" variant="outline" onClick={load}>
+            <RefreshCw /> Reintentar
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+  if (data === null) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 py-6">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const noneId = data.none_id ?? NO_MODEL;
+  const header = (
+    <CardHeader>
+      <CardTitle>Modelos de IA</CardTitle>
+      <CardDescription>
+        Qué proveedor de IA usa el asistente para redactar respuestas. El cambio aplica de inmediato a todos los usuarios.
+      </CardDescription>
+    </CardHeader>
+  );
+
+  if (!data.configured) {
+    return (
+      <Card>
+        {header}
+        <CardContent>
+          <div className="text-muted-foreground rounded-lg border border-dashed py-8 text-center text-sm">
+            No hay un modelo de IA configurado en el servidor: el asistente responde con reglas fijas. Para activar uno, el
+            administrador del servidor debe instalar el archivo de modelos.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data.selectable) {
+    return (
+      <Card>
+        {header}
+        <CardContent className="space-y-4">
+          <Alert>
+            <Info />
+            <AlertTitle>Solo lectura</AlertTitle>
+            <AlertDescription>
+              Para poder elegir el proveedor desde esta pantalla, el archivo de modelos del servidor debe definir perfiles.
+            </AlertDescription>
+          </Alert>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm font-medium">Modelos en uso</p>
+            <RoleList roles={data.roles ?? {}} />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const options = [
+    ...data.profiles.map((p) => ({
+      id: p.id,
+      label: p.label,
+      description: p.description,
+      roles: p.roles,
+      disabled: !p.usable,
+      reason: p.usable ? null : p.reason,
+    })),
+    {
+      id: noneId,
+      label: "Sin modelo de IA",
+      description:
+        "El asistente busca y responde con reglas fijas: más rápido y sin enviar nada a un proveedor, pero con respuestas menos naturales y sin aclaraciones redactadas.",
+      roles: {} as Record<string, LlmRole>,
+      disabled: false,
+      reason: null,
+    },
+  ];
+
+  return (
+    <Card>
+      {header}
+      <CardContent className="space-y-4">
+        <Alert>
+          <Info />
+          <AlertDescription>
+            {data.data_mode === "test"
+              ? "Modo de datos de prueba: estos proveedores solo pueden recibir datos ficticios."
+              : data.data_mode === "real"
+                ? "Modo de datos reales: solo se pueden usar proveedores autorizados para datos del banco."
+                : "El modo de datos no está definido en el servidor."}{" "}
+            Las claves de los proveedores no se configuran aquí: las instala el administrador del servidor.
+          </AlertDescription>
+        </Alert>
+
+        <div role="radiogroup" aria-label="Proveedor de IA del asistente" className="space-y-3">
+          {options.map((o) => {
+            const checked = selected === o.id;
+            return (
+              <label
+                key={o.id}
+                className={`flex gap-3 rounded-lg border p-4 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 ${
+                  o.disabled ? "cursor-not-allowed opacity-60" : "hover:bg-muted/50 cursor-pointer"
+                } ${checked ? "border-primary bg-primary/5" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="llm-profile"
+                  className="accent-primary mt-1 size-4 shrink-0"
+                  checked={checked}
+                  disabled={o.disabled || saving}
+                  onChange={() => {
+                    setSelected(o.id);
+                    setError(null);
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{o.label}</span>
+                    {data.active === o.id && (
+                      <Badge>
+                        <CheckCircle2 /> En uso
+                      </Badge>
+                    )}
+                  </div>
+                  {o.description && <p className="text-muted-foreground mt-1 text-sm">{o.description}</p>}
+                  {o.reason && (
+                    <p className="text-destructive mt-1 flex items-start gap-1.5 text-sm">
+                      <AlertCircle className="mt-0.5 size-4 shrink-0" /> {o.reason}
+                    </p>
+                  )}
+                  <RoleList roles={o.roles} />
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>No se pudo aplicar</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button onClick={apply} disabled={saving || selected === null || selected === data.active}>
+          {saving ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Aplicar
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -729,7 +1014,9 @@ function AuditPanel() {
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div className="space-y-1.5">
           <CardTitle>Registro de auditoría</CardTitle>
-          <CardDescription>Cada pregunta con sus pasos y candidatos, inicios de sesión y cambios. Nunca contiene contraseñas.</CardDescription>
+          <CardDescription>
+            Cada pregunta con sus pasos y candidatos, inicios de sesión y cambios. Nunca contiene contraseñas.
+          </CardDescription>
         </div>
         <div className="flex gap-2">
           <Select value={kind} onValueChange={setKind}>

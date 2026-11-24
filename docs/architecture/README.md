@@ -31,16 +31,16 @@ con las tablas y columnas candidatas: base de datos, ambiente, servidor, descrip
 responsables, relaciones y un nivel de confianza. Si no encuentra nada fiable lo dice y ofrece escalar la duda al
 responsable del dominio. Lo que el responsable contesta queda guardado y mejora las respuestas siguientes.
 
-Esta es la fase 1a, descubrimiento. La fase 1b, que genera y ejecuta consultas sobre los datos, no está construida.
+Esta es la fase 1a, descubrimiento. La persona escribe como en un chat: ConverData también contesta preguntas sobre sí mismo, entiende seguimientos y ofrece precisar cuando el mismo dato existe en varias áreas. La fase 1b, que genera y ejecuta consultas sobre los datos, no está construida; solo hay un primer corte, apagado por defecto: cifras agregadas (cuántos, suma, promedio) sobre una tabla, con una consulta de plantilla fija y el login de la persona ([PRD §13](../PRD.md#13-decisiones-y-preguntas-abiertas), decisión 17).
 
 ### 1.3 Principios de diseño
 
 | Principio | Qué significa en la práctica |
 |---|---|
 | Permisos heredados | Cada persona entra con su login de SQL Server. ConverData pregunta a SQL Server qué puede leer ese login y busca solo ahí. Lo que no ve responde igual que lo que no existe |
-| Solo metadatos | Se leen estructura y descripciones con consultas fijas a `sys.*`. Nunca valores de datos de clientes |
+| Solo metadatos | Se leen estructura y descripciones con consultas fijas a `sys.*`. No se leen valores de datos de clientes, salvo en las cifras agregadas (apagadas por defecto): un total de plantilla fija, con el login de la persona, que no se guarda ni pasa por el modelo |
 | Auditoría antes de responder | Cada pregunta y cada cambio se registran antes de entregarse o aplicarse. Si no se puede registrar, no ocurre |
-| El grafo manda, no el modelo | El flujo tiene pasos fijos y dos ciclos acotados. El modelo de lenguaje ayuda en pasos concretos y su salida pasa por guardas |
+| El grafo manda, no el modelo | El flujo tiene pasos fijos y dos ciclos acotados. El modelo de lenguaje ayuda en pasos concretos (redactar, reformular la búsqueda, orientar sin resultados) y su salida pasa por guardas; el orden de los candidatos y el número de una cifra no los decide |
 | Funciona sin modelo | Cada paso con modelo tiene una versión determinista. Así se desarrolla, se prueba y se mide sin depender de un proveedor |
 | Lo más simple que cumple | Búsqueda léxica en memoria, tablas normales de SQL Server, dos procesos. Cada pieza retirada se retiró con una medición |
 | Medir antes de aceptar | Un cambio en la lógica entra solo si la compuerta de calidad no baja |
@@ -90,7 +90,7 @@ Diagrama: [c4-contexto.html](c4-contexto.html).
 | Cliente MCP | Agentes como Claude Code que usan ConverData como herramienta, con la sesión del usuario |
 | Microsoft Teams | Aviso opcional de una duda escalada: solo el dominio y un enlace |
 
-**Límites del sistema.** ConverData no concede permisos, no consulta datos y no guarda valores. Fuera de la red del
+**Límites del sistema.** ConverData no concede permisos y no guarda valores. No consulta datos, salvo los totales de las cifras agregadas cuando están activas (apagadas por defecto). Fuera de la red del
 banco solo sale el contexto que se envía al modelo: la pregunta y metadatos que el usuario ya puede ver.
 
 ## 3. C4 nivel 2: contenedores
@@ -197,9 +197,12 @@ Cada página de la wiki baja hasta archivos y funciones.
 ### 5.1 El camino de una pregunta, en corto
 1. La web envía la pregunta. La identidad sale del token de sesión.
 2. La API comprueba el ritmo y el tope de tokens, y lee de SQL Server qué objetos ve ese login.
-3. `intent` decide qué se pide. `retrieve` busca en el índice, solo entre lo visible. `grade` reformula una vez si lo encontrado es pobre.
+3. `intent` decide qué se pide; contesta con texto fijo las preguntas sobre el asistente y completa los seguimientos con el historial. `retrieve` busca en el índice, solo entre lo visible. `grade` reformula una vez si lo encontrado es pobre.
 4. `rerank` ordena. `expand` añade ubicaciones, reglas, responsables y relaciones. `review` corrige una vez si hace falta.
-5. `respond` redacta. `finalize` escribe la auditoría, y solo entonces se entrega la respuesta.
+5. `compute`, solo con las cifras activas y una pregunta de totales, ejecuta un agregado de plantilla fija con el login de la persona.
+6. `respond` redacta (el número de una cifra lo arma el código). `finalize` escribe la auditoría, y solo entonces se entrega la respuesta.
+
+El grafo completo es `intent → retrieve ⇄ grade → rerank → expand ⇄ review → [compute] → respond → finalize`. El diagrama [flujo-descubrimiento.html](flujo-descubrimiento.html) todavía no dibuja `compute` ni la respuesta del asistente: se regenera con Archify.
 
 ## 6. Aspectos transversales
 

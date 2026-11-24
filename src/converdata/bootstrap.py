@@ -100,7 +100,13 @@ def build_service_from_snapshot(
             llm_ports["intent_classifier"] = LlmIntentClassifier(gateway.chat("planner"))
             llm_ports["reranker"] = LlmReranker(gateway.chat("planner"))
         if gateway.has_role("fast"):
+            from converdata.llm.nodes import LlmGuide, LlmQueryExpander
+
+            # El modelo ayuda donde el camino determinista se queda corto: redacta la respuesta para una persona de
+            # negocio, reformula la búsqueda cuando cubre poco la pregunta y orienta cuando no se encontró nada.
             llm_ports["narrator"] = LlmNarrator(gateway.chat("fast"))
+            llm_ports["expander"] = LlmQueryExpander(gateway.chat("fast"))
+            llm_ports["guide"] = LlmGuide(gateway.chat("fast"))
         model_names = gateway.labels  # vista viva: proveedor:modelo que atendió cada rol (audit_step.model)
 
     store = InMemoryVectorStore()

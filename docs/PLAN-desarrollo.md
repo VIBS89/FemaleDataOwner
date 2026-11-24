@@ -1,6 +1,6 @@
 # Plan de desarrollo — estado y cómo retomar
 
-> Última actualización: 2026-11-17. Documento vivo: se actualiza al cerrar cada sesión de trabajo.
+> Última actualización: 2026-11-23. Documento vivo: se actualiza al cerrar cada sesión de trabajo.
 > Specs: [PRD](PRD.md) (decisiones vigentes en §13), [comun/](specs/comun/), [on-premise/](specs/on-premise/). Uso diario: [README](../README.md#desarrollo).
 > Backlog con el estado de cada historia: [backlog/on-premise.md](backlog/on-premise.md). Controles y pendientes de seguridad: [calidad-bancaria.md](calidad-bancaria.md).
 
@@ -9,6 +9,45 @@ Fase 1a on-premise (descubrimiento). El agente, la API, la web y el MCP están c
 catálogo, el conocimiento y la auditoría viven en la **BD `ConverData`** (SQL Server) cuando `CONVERDATA_DB` está definida. Desde el
 2026-11-17 (bloque C2) también el inventario de servidores, los responsables, las dudas escaladas y los votos: con la BD, `ConverData-API` ya no guarda estado en el disco del servidor. Lo que falta para el piloto es el LLM real, la
 instalación en Windows Server y el trabajo con el banco.
+**2026-11-23 — chat para usuarios de negocio y cifras agregadas (sin commit todavía).** El chat responde preguntas sobre el propio
+asistente y cortesía (`discovery/assistant.py`), entiende seguimientos con el historial, tolera la redacción de chat (relleno, términos de
+cálculo y periodo, sinónimos bancarios) y ofrece aclaraciones en lenguaje de negocio. El LLM (rol `fast`) redacta, reformula la búsqueda
+cuando cubre poco y orienta cuando no hay resultados; el orden sigue siendo determinista. Con modelo configurado, el build del catálogo
+enriquece con IA por defecto. Primer corte del AskFlow (PRD §13, decisión 17): cifras agregadas sobre una tabla con plantilla SQL fija,
+apagadas por defecto (`features.ask_flow` o `CONVERDATA_ASK_FLOW=1`), verificadas contra SQL Server local con datos ficticios. Medido:
+BancosSQL 98,0 %, VBank 96,2 % (sin cambio); reportes 16 → 28 % solo catálogo y 60 → 64 % con glosario (Hit@1); set nuevo
+`eval/chat.yaml` (§2); 845 pruebas y `eval gate` aprobado en ese primer corte (la batería vigente está más abajo). La documentación viva (wiki, specs F03/F06/F08/F16/F22/F25, `calidad-bancaria.md`,
+manual, arquitectura y README) se puso al día el mismo día. **Cierre de la entrega (mismo día).** Set de chat: Hit@1 97,8 % y Hit@3 100 % (solo falla L09, una pregunta con
+erratas cuya respuesta sale en segundo lugar). **La revisión de seguridad independiente de las cifras terminó el 2026-11-23**: no encontró
+inyección SQL ni fugas de permisos (F14) y dio dos bloqueantes, ambos corregidos el mismo día: (a) un total o un grupo
+calculado sobre menos de 10 registros no se muestra, con supresión complementaria (`figures.MIN_ROWS`, `_safe_groups`), y
+solo se desglosa por columnas de categoría (`is_category`), nunca por medidas ni por personas; (b) cada consulta se audita antes
+de ejecutarse con el evento `figure_query` y, si la auditoría falla, no se ejecuta; la fila de la pregunta guarda `flow: ask`.
+También se corrigió que el ejecutor valida el SQL contra la plantilla (`figures.ALLOWED_SQL`, `check_sql`), la sesión siempre
+revierte con `LOCK_TIMEOUT` de 5 s, `OPTION (MAXDOP 1)`, dos cifras a la vez como máximo, el ambiente se muestra con la cifra,
+`--figures` se niega con servidores de producción y un servidor de producción exige `figures: true` en el inventario. Quedan
+abiertas, antes del piloto, las partes descritas en DT-78, DT-79 y DT-80 (wiki); aceptarlas con Seguridad de la Información
+sigue pendiente. Lo fijan `tests/test_cifras_agregadas.py` y `api/tests/test_cifras.py`. El build describe con IA lo nuevo con el rol `enrich` (si no, `planner` o `fast`)
+y reintenta una por una las tablas que el modelo deja sin describir: 7 tablas y 72 columnas en una corrida real.
+Con el catálogo descrito por IA (`data/catalog_bancos_enriched`), el set base pasa de 84,3 % a 92,2 % de Hit@1
+respecto del código anterior, y las preguntas de reporte de 28 % a 40 % (de 64 % a 72 % con glosario).
+**Modelos elegibles en pantalla.** Administración → Modelos de IA permite elegir el perfil (NVIDIA, Claude Sonnet 5.5 o sin
+modelo) sin editar archivos ni reiniciar; las claves siguen en variables de entorno y la residencia la sigue decidiendo el
+gateway (F16, "Perfiles elegibles en pantalla", con las mediciones de ambos). Batería vigente (2026-11-23, con todos los cambios del día): 1 246 pruebas pasan y 86 se omiten sin
+`CONVERDATA_TEST_DB`; con ella pasan las 1 332. `eval gate` aprobado en los dos catálogos.
+**Preguntas de reporte con el modelo, cifras por servidor y tareas programadas (2026-11-23, después de lo anterior).**
+(1) Cuando la búsqueda cubre poco la pregunta y hay modelo (rol `fast`), la primera reformulación de `LlmQueryExpander`
+(`llm/nodes.py::EXPAND_SYSTEM`) pasa a ser lo que se mide contra el catálogo (`flows/discover.py::grade_node`) y el usuario ve
+"Entendí que necesitas: «…»"; no aplica a preguntas compuestas, de cruce ni de cifras, y el catálogo y los permisos siguen decidiendo
+qué se muestra. Sobre las 25 preguntas de reporte, sin glosario: sin modelo 28 % de Hit@1 y 32 % de Hit@3; con NVIDIA
+`nemotron-3.5-bolt-e4b` 52 % y 56 %; con Claude Sonnet 5.5 68 % y 80 % (antes de este cambio el modelo no movía la cifra). Con el perfil
+de Claude, el set de chat sigue en 97,8 % y 100 % y el set base en 98,0 % y 98,0 %, con brechas correctas al 100 % en ambos. Bedrock
+sigue sin activarse ni medirse: el equipo de desarrollo no tiene la CLI ni credenciales de AWS. (2) Sin candidatos y con aclaración del
+modelo, la respuesta dice que no encontró el dato y además ofrece opciones para precisar. (3) Un servidor de producción solo calcula
+cifras con `figures: true` en el inventario (`config.py:24`, `runtime.py:387`); `figures.check_sql` usa coincidencia completa; la web
+borra las conversaciones también al expirar la sesión. Cierra la parte de elegir servidores de DT-78 y la del navegador de DT-80.
+(4) `deploy/windows/registrar-tareas.ps1` registra el refresco nocturno del catálogo, la purga semanal y, opcional, la regresión
+semanal; está **escrito y sin probar en un servidor** (solo análisis de sintaxis y `-WhatIf` en un equipo de desarrollo).
 Arquitectura (modelo C4): [architecture/README.md](architecture/README.md). Wiki interna con la deuda técnica, las brechas funcionales y las hojas de ruta: [wiki/README.md](wiki/README.md).
 
 El mismo 2026-11-17, en una segunda tanda ("deudas técnicas", detalle en §3), se resolvieron los dos fallos de orden del
@@ -33,8 +72,11 @@ de `bootstrap.py`: la persistencia sigue siendo `converdata.storage` con `open_s
 
 | Pieza | Estado | Dónde |
 |---|---|---|
-| DiscoverFlow (F22) en LangGraph: `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize` | ✅ | `src/converdata/flows/discover.py` |
+| DiscoverFlow (F22) en LangGraph: `intent → retrieve ⇄ grade → rerank → expand ⇄ review → [compute] → respond → finalize`; `compute` solo corre con cifras activas | ✅ | `src/converdata/flows/discover.py` |
 | Lógica determinista (recuperación léxica, confianza F22, guardas, respaldos sin LLM) y patrones medidos | ✅ | `src/converdata/discovery/` |
+| Chat de negocio: respuestas fijas sobre el asistente y cortesía (`intent = assistant`), seguimientos con el historial, relleno y términos de cálculo, sinónimos bancarios, aclaración por áreas, rechazo de órdenes de escritura | ✅ 2026-11-23; medido con `eval/chat.yaml` | `discovery/assistant.py`, `deterministic.py`, `expansion.py`, `engine.py` |
+| LLM (rol `fast`) además de la narrativa: reformula la búsqueda cuando cubre poco (`LlmQueryExpander`) y orienta cuando no hay candidatos (`LlmGuide`); el orden sigue determinista | ✅ con modelos simulados en las pruebas; la reformulación se midió el 2026-11-23 con NVIDIA y Claude Sonnet 5.5 en las preguntas de reporte (§2); **sin medir con Bedrock** (HU-35) | `src/converdata/llm/nodes.py`, `discovery/ports.py` |
+| Cifras agregadas (primer corte del AskFlow, PRD §13 decisión 17): `COUNT`, `COUNT DISTINCT`, `SUM`, `AVG` sobre una tabla, plantilla SQL fija, con la credencial de la sesión; **apagadas por defecto** | ✅ 2026-11-23, verificado contra SQL Server local con datos ficticios; revisión de seguridad independiente terminada y sus bloqueantes corregidos (§1); quedan DT-78 a DT-80; desglose también por una tabla relacionada con una unión | `discovery/figures.py`, `models/figures.py`, `api/converdata_api/runtime.py::figure_executor`, `tests/test_cifras_agregadas.py`, `api/tests/test_cifras.py` |
 | Agente de esquemas: CatalogBuildFlow `extract → enrich → relate → write` (F1, F18, F19) | ✅ probado contra SQL Server real; escribe YAML | `flows/catalog_build.py`, `builder/`, `metadata/sqlserver.py` |
 | Grafo del patrimonio (entidades, copias canónicas, caminos de unión con permisos) | ✅ en memoria (así se queda) | `src/converdata/graph/estate.py` |
 | Gateway de LLM: Ollama (solo local), NVIDIA NIM, Bedrock; respaldo, circuit breaker, guarda de residencia | ✅ Ollama y NIM probados; **Bedrock sin probar** (HU-35) | `src/converdata/llm/` |
@@ -42,20 +84,20 @@ de `bootstrap.py`: la persistencia sigue siendo `converdata.storage` con `open_s
 | `ConverData-API`: login SQL por servidor, SessionVault, visibilidad, descubrimiento, feedback, curación, administración, métricas | ✅ con la BD `ConverData`; sobre archivos solo en desarrollo y modo demo | `api/converdata_api/` |
 | Endurecimiento bancario y compuerta `converdata eval gate` (7 suites, línea base, CI) | ✅ | `api/converdata_api/security.py`, `evaluation/gate.py`, `.github/workflows/calidad.yml` |
 | Cadena de suministro: dependencias de Python con versión y hash, imágenes base por digest, acciones por commit, `pip-audit`, `npm audit` y SBOM en la CI | ✅ 2026-11-17; la imagen no se construyó ese día y no hay firma ni escaneo de la imagen (§3) | `requirements/`, `api/Dockerfile`, `web/Dockerfile`, `.github/workflows/calidad.yml`, `.github/dependabot.yml`, `tests/test_supply_chain.py` |
-| Web Next.js: chat, ficha, Catálogo, Curación, Solicitudes, Métricas, Administración | ✅ compilada el 2026-11-17 (tipos, lint y build); Responsables e Historial probados en navegador | `web/` |
+| Web Next.js: chat, ficha, Catálogo, Curación, Solicitudes, Métricas, Administración | ✅ compilada el 2026-11-17 (tipos, lint y build); Responsables e Historial probados en navegador. 2026-11-23: opciones de aclaración también con respuesta, "Cómo lo obtuve" solo si hay `discovery`, tarjeta de cifra (`web/src/components/chat/figure-card.tsx`) e interruptor de enriquecer con IA activado si hay modelo | `web/` |
 | BD `ConverData`: migraciones (`converdata db migrate`), roles de mínimo privilegio y pruebas contra SQL Server real | ✅ bloque A | `db/converdata/`, `storage/migrations.py`, `conftest.py` |
 | Auditoría fail-closed en SQL Server (preguntas, pasos, candidatos, votos, eventos; purga con su propio rol) | ✅ bloque B | `audit/sqlserver.py`, `api/converdata_api/audit.py` |
 | Catálogo y conocimiento en la BD con historial y autor; la API arranca desde ella y carga lo que publica el Builder | ✅ bloque C1 | `storage/catalog_repository.py`, `catalog/store.py`, `api/converdata_api/runtime.py` |
 | Responsables, solicitudes escaladas, votos e inventario de la API en la BD; la curación escribe filas concretas; plantilla anónima y regla de votos | ✅ bloque C2 (2026-11-17) | `db/converdata/002_curacion.sql`, `src/converdata/curation.py`, `storage/curation_repository.py`, `api/converdata_api/curation.py` |
-| Instalación en Windows Server (IIS, tareas programadas) | ⏳ bloque F: hoy `docker compose` | — |
+| Instalación en Windows Server (IIS, tareas programadas) | ⏳ bloque F: hoy `docker compose`. Escrito el 2026-11-23 y sin probar en un servidor: las tareas programadas | `deploy/windows/registrar-tareas.ps1`, `deploy/windows/README.md` |
 
 ## 2. Resultados medidos
 `converdata eval discovery` — Hit@1 sobre preguntas con respuesta. Siempre 0 fugas de permisos y 0 objetos inventados.
 
 | Catálogo | Hit@1 | Hit@3 | A directa | B vocabulario | C varios saltos (caminos) | D entidad | E exploración | G brechas | p50 / p95 |
 |---|---|---|---|---|---|---|---|---|---|
-| **BancosSQL crudo, léxico (línea base vigente, 58 casos, 2026-11-17)** | **98,0 %** | **98,0 %** | 100 % | 95,7 % | 100 % (100 %) | 100 % | 100 % | 100 % | 19 / 27 ms |
-| **Fixture VBank (propuesta), línea base vigente, 31 casos, 2026-11-17** | **96,2 %** | **96,2 %** | — | — | — | — | — | 100 % | 6 / 8 ms |
+| **BancosSQL crudo, léxico (línea base vigente, 58 casos; medido de nuevo el 2026-11-23: igual)** | **98,0 %** | **98,0 %** | 100 % | 95,7 % | 100 % (100 %) | 100 % | 100 % | 100 % | 20 / 31 ms |
+| **Fixture VBank (propuesta), línea base vigente, 31 casos; medido de nuevo el 2026-11-23: igual** | **96,2 %** | **96,2 %** | — | — | — | — | — | 100 % | 5 / 7 ms |
 | *Histórico:* Fixture VBank, 25 casos (hasta el 2026-11-16) | 100 % | 100 % | — | — | — | — | — | 100 % | — |
 | *Histórico (HU-34, 2026-10-29, 31 casos):* BancosSQL crudo, léxico | 93,1 % | 93,1 % | 100 % | 87,5 % | 80 % (100 %) | 100 % | 100 % | 100 % | 41 / 73 ms |
 | *Histórico (HU-34):* BancosSQL crudo + embeddings `bge-m3` | 93,1 % | 93,1 % | 100 % | 87,5 % | 80 % (100 %) | 100 % | 100 % | 100 % | 524 / 4592 ms |
@@ -71,17 +113,56 @@ Historia de la línea base en BancosSQL crudo: 44,8 % / 69 % sin patrones ni gra
 tras las mejoras de descubrimiento del commit `9c700ec` (medición HU-34 del 2026-10-29, 31 casos) → 98,0 % / 98,0 % con el set de
 58 casos tras resolver los fallos de orden (2026-11-17).
 
-Preguntas de reporte (2026-11-17): 25 preguntas sobre BancosSQL (`tests/fixtures/bancos/eval/reportes.yaml`: 9 normativas, 8 de
+Preguntas de reporte (2026-11-17, repetidas el 2026-11-23): 25 preguntas sobre BancosSQL (`tests/fixtures/bancos/eval/reportes.yaml`: 9 normativas, 8 de
 tablero, 8 de estudio), medidas con el mismo catálogo crudo y con un glosario y manual de indicadores de prueba de 20 entradas
 (`tests/fixtures/bancos/eval/conocimiento/items/glosario.yaml`), que se añade con `eval discovery --knowledge` sin tocar el catálogo.
 
 | Preguntas de reporte (25) | Hit@1 | Hit@3 | N normativas (9) | T tablero (8) | S estudio (8) |
 |---|---|---|---|---|---|
-| Solo catálogo | 16 % | 16 % | 0 % | 25 % | 25 % |
-| Catálogo + glosario de prueba | 60 % | 64 % | 66,7 % | 75 % | 37,5 % |
+| Solo catálogo (2026-11-23) | 28 % | 32 % | 22,2 % | 50 % | 12,5 % |
+| Catálogo + glosario de prueba (2026-11-23) | 64 % | 64 % | 66,7 % | 87,5 % | 37,5 % |
+| Solo catálogo, con NVIDIA `nemotron-3.5-bolt-e4b` (2026-11-23) | 52 % | 56 % | — | — | — |
+| Solo catálogo, con NVIDIA `nemotron-3-ultra-550b-a55b` (2026-11-23) | 36 % | — | — | — | — |
+| Solo catálogo, con Claude Sonnet 5.5 (2026-11-23) | 68 % | 80 % | — | — | — |
+| Catálogo descrito por IA, sin modelo (2026-11-23) | 40 % | — | — | — | — |
+| Catálogo descrito por IA + glosario, sin modelo (2026-11-23) | 72 % | — | — | — | — |
+| *Histórico, solo catálogo (2026-11-17)* | 16 % | 16 % | 0 % | 25 % | 25 % |
+| *Histórico, catálogo + glosario (2026-11-17)* | 60 % | 64 % | 66,7 % | 75 % | 37,5 % |
 
-Lo fija `tests/test_graph_rag.py::test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte`. Sustituye a la cifra
-"4 % → 40 %" que citaba el diagrama on-premise, cuyo set nunca estuvo en el repo (el diagrama ya está corregido).
+Lo fija `tests/test_graph_rag.py::test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte` (el glosario sube el Hit@1 al
+menos 30 puntos). Sustituye a la cifra "4 % → 40 %" que citaba el diagrama on-premise, cuyo set nunca estuvo en el repo (el diagrama
+ya está corregido). Subió del 2026-11-17 al 2026-11-23 porque el descubrimiento entiende mejor la redacción de chat (relleno y
+términos de cálculo); la subida con solo catálogo es mayor que con glosario, así que el glosario aporta menos puntos que antes.
+Las filas con modelo (2026-11-23) salen de `eval discovery` con el perfil indicado, sin glosario; los casos de BancosSQL los escribió el equipo, así que muestran el sentido del efecto y no el acierto con preguntas reales. Bedrock no se midió.
+
+Modelo de NVIDIA elegido con medición (2026-11-23): se compararon los 13 modelos generativos de la API alojada de NVIDIA con las
+llamadas reales del chat. `nvidia/nemotron-3.5-bolt-e4b` acertó 6 de 6 llamadas, con 1,2 s de media y 52 % de Hit@1 en las preguntas
+de reporte (p50 de 2 s): es el elegido para `fast` y `enrich`. `nemotron-3-ultra-550b-a55b` acertó 5 de 6, con 5–8 s por llamada;
+reformula con más detalle, pero bajo carga agota el tiempo y el circuito del gateway lo desconecta (36 % de Hit@1).
+`nemotron-3.5-super-vl-120b-a12b` solo funciona pidiendo JSON en el mensaje (rechaza `guided_json`), con 5 s y timeouts. Los demás no
+sirven hoy (tabla completa en F16, "Perfiles elegibles en pantalla"). Referencia con Claude Sonnet 5.5: 68 % y 80 %. Todas las
+llamadas a modelos pasan por el gateway (`src/converdata/llm/gateway.py`) y no hay uso directo de un proveedor fuera de
+`src/converdata/llm/`: el chat, la reformulación y el refresco del catálogo usan el perfil que el administrador elige en pantalla.
+
+Set de chat (2026-11-23): `tests/fixtures/bancos/eval/chat.yaml`, 67 preguntas de usuarios de negocio sobre BancosSQL, escritas por un
+agente que hacía de analista, ejecutivo de cobros o auditor sin conocer los nombres del catálogo (frases largas, sin tildes, con
+erratas, con términos de cálculo y de periodo, y seguimientos con `history`). Tipos: F cifras (qué información las responde), L
+localizar, S significado, X cruce, E exploración, K seguimiento, M sobre el asistente y cortesía (`expect_assistant`), R petición de
+escritura que se rechaza (`expect_rejected`) y G sin respuesta. Se mide con
+`converdata eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/chat.yaml`. Resultado del 2026-11-23, al
+terminar esta documentación: Hit@1 97,8 % y Hit@3 100 %, brechas 100 %, 0 fugas, 0 inventados, p50 / p95 20 / 33 ms. Por tipo: todos al
+100 % salvo L (localizar, 88,9 %, n = 9), que falla L09. Una corrida anterior del mismo día daba Hit@1 93,5 % y Hit@3 95,7 % con cinco
+fallos (F04, L09, X04, X05 y K03: F 93,8 %, K 80 %, X 66,7 %); otra persona estaba corrigiéndolos mientras se escribía esta documentación y la
+cifra seguirá moviéndose: vale la de la última corrida, no la de este párrafo. `tests/test_chat_conversacional.py` fija mínimos sobre este set (Hit@3, tipos de conducta al 100 %,
+seguimientos ≥ 80 %, sin fugas ni inventados). Como los demás, es un set del equipo: no predice el uso real.
+
+Cifras agregadas (2026-11-23), contra el SQL Server local con datos ficticios (BancosSQL), con `converdata discover "<pregunta>" --root
+tests/fixtures/bancos --figures config/databases.local.yaml`: 1 790 clientes con préstamo de 3 000; saldo de cartera 25 507 803,93;
+promedio desembolsado 14 566,69. Los totales coinciden con la consulta directa. No se midió con preguntas de usuarios reales ni con
+Bedrock. Desglose por una tabla relacionada (`figures._related_category`, una unión por la llave foránea): saldo de cartera por segmento
+del cliente (Preferente 12 090 634,54; Emergente 9 847 477,15; Masivo 1 924 810,63; Premium 1 644 881,61), préstamos por tipo de crédito
+(Personal 1 438; Vehículo 376; Hipotecario 368; PYME 258; Garantizado 217; Educativo 123) y tarjetas por marca (Visa 2 180; Mastercard
+1 078), iguales a la consulta directa. La revisión de seguridad independiente ya terminó (§1).
 
 Compuerta `converdata eval gate` (2026-11-17, modo determinista): aprobada en `tests/fixtures/vbank` y `tests/fixtures/bancos`, con
 0 fugas en 1 065 preguntas × usuario (328 + 737) y 4 862 llamadas a herramientas (553 + 4 309). Con el catálogo de BancosSQL cargado
@@ -91,7 +172,10 @@ desde la BD `ConverData` (`eval gate --db --root tests/fixtures/bancos`) tambié
 Lo que estas cifras **no** dicen:
 - Los 89 casos de descubrimiento (58 de BancosSQL y 31 de VBank) y las 25 preguntas de reporte los escribió el equipo de desarrollo
   (sesgo de ajuste). Los cambios del 2026-11-17 se ajustaron y midieron con esas mismas preguntas. Faltan 50–80 preguntas reales (HU-33).
-- Todo se midió sin LLM. Falta repetir con Bedrock (HU-35), también las suites `inyeccion` y `guardas`.
+- Casi todo se midió sin LLM. Las preguntas de reporte se midieron también con NVIDIA y con Claude Sonnet 5.5 (2026-11-23), y con el
+  perfil de Claude se repitieron el set de chat y el base. Falta repetir con Bedrock (HU-35), también las suites `inyeccion` y
+  `guardas`. `LlmGuide` y el enriquecimiento por defecto siguen probados solo con modelos simulados o sin medir con un modelo real.
+- Los 67 casos de `chat.yaml` también los escribió el equipo (un agente): lo que se ajuste para corregir sus fallos tendrá el mismo sesgo de ajuste.
 - Los fallos de orden **B4** ("arrendamientos financieros de vehículos" devolvía una columna en vez de la tabla) y **C2**
   (transacciones TC ↔ DUI) quedaron resueltos el 2026-11-17. C2 acierta por la tabla `TransaccionesTC`; `Clientes.DUI` sigue sin
   entrar en el top 3: lo aporta el camino de unión.
@@ -115,8 +199,17 @@ Lecciones que guían lo que sigue:
 - Los embeddings no mejoran el acierto y multiplican la latencia: no se despliegan (PRD §13, decisión 9). El canal con el que se
   midieron se retiró del código el 2026-11-17: las filas "+ embeddings" de la tabla son la medición histórica de HU-34, que ya no se
   puede repetir con este código (solo desde el historial de git).
-- Lo que más mueve las preguntas de reporte es el conocimiento ingerido (diccionarios, documentos, reglas), no el modelo: 16 % → 60 %
-  de Hit@1 en el set de prueba de arriba, sin LLM en ninguno de los dos casos.
+- Las preguntas de reporte las mueve el conocimiento ingerido (diccionarios, documentos, reglas): 28 % → 64 % de Hit@1 en el set de
+  prueba de arriba (16 % → 60 % el 2026-11-17), sin LLM. El modelo ayuda desde el 2026-11-23, cuando su reformulación se mide contra el
+  catálogo en lugar de sumarse a la búsqueda: sin glosario, 28 % → 52 % (NVIDIA) y 68 % (Claude). Antes de ese cambio el modelo no
+  movía la cifra. Falta ver cuánto suma sobre el glosario real.
+- Las preguntas de chat traen relleno ("necesito saber", "por favor"), términos de cálculo ("total", "promedio") y de periodo ("el mes
+  pasado") que no son parte de lo que se busca: contarlos como conceptos sin cubrir bajaba la confianza y empujaba la tabla correcta
+  fuera del top 3. Se descuentan (`QUESTION_FILLER`, `ANALYSIS_TERMS`, `engine.kept_analysis_terms`), salvo que sean parte de un nombre
+  del catálogo ("monto total" → `MontoTotal`). Ese cambio explica la subida de las preguntas de reporte.
+- Un seguimiento ("¿y los de leasing?") solo se entiende con la pregunta anterior: `deterministic.contextualize` la completa con el
+  historial que manda el cliente, hasta tres turnos atrás. El rechazo de escrituras mira solo la pregunta actual, nunca el historial,
+  que lo manda el cliente (`deterministic.is_write_request`).
 
 ## 3. Próximos pasos (en orden)
 Bloques del [backlog §3](backlog/on-premise.md#3-plan-de-entregas). D y los scripts de F no dependen de nadie externo.
@@ -129,8 +222,8 @@ Bloques del [backlog §3](backlog/on-premise.md#3-plan-de-entregas). D y los scr
 | **C2** | Terminar HU-06 y HU-09. (1) Migración `002_curacion.sql`: `catalog.inventory_server`, `curation.steward`, `curation.request` y `curation.vote` (sin texto libre); la purga `audit.usp_purge` alcanza también las dudas escaladas y los originales de las confirmaciones. (2) La curación escribe filas concretas (`KnowledgeWriter`: `write_descriptions`, `upsert_rule`, `delete_rule`, `upsert_golden`) y el catálogo se carga de la BD en memoria, sin copia de trabajo en disco. (3) Plantilla anónima de las confirmaciones (`question_template`) y original en `golden.golden_discovery_original`. (4) Regla de votos (`resolve_golden`). (5) Historial de descripciones en Curación y en la ficha (`GET /curation/history`) y responsables administrables (`GET`/`PUT /admin/stewards`). (6) Caso de uso común del build (`application/catalog_refresh.py`), que usan la CLI y la API | HU-06, HU-09, HU-15, HU-25, HU-28 a HU-32 | ✅ 2026-11-17, con las salvedades de abajo |
 | **D** | `converdata metrics report` y vistas SQL del scorecard; reporte de brechas por dominio | HU-23, HU-32 | ⏳ **siguiente** |
 | **E** | Conocimiento del dominio piloto: diccionario en Excel, documentos con redacción de datos personales, linaje SSIS | HU-25, HU-26, HU-27 | ⏳ E necesita documentos y SSISDB (S6); el conector y la redacción se pueden hacer ya |
-| **F** | `deploy/windows/`: IIS con HttpPlatformHandler para web y API, tareas programadas (refresco, purga, evaluación), firewall, verificación; respaldo y restauración | HU-37, HU-38, HU-39, HU-18, HU-24 | ⏳ los scripts se pueden escribir ya; validarlos necesita un Windows Server |
-| **G** | Bedrock de punta a punta y set de preguntas reales | HU-35, HU-36, HU-33 | ⛔ cuenta AWS y steward |
+| **F** | `deploy/windows/`: IIS con HttpPlatformHandler para web y API, tareas programadas (refresco, purga, evaluación), firewall, verificación; respaldo y restauración | HU-37, HU-38, HU-39, HU-18, HU-24 | ⏳ **parcial:** `registrar-tareas.ps1` (refresco, purga y regresión) escrito el 2026-11-23 y sin probar en un servidor; faltan IIS, `web.config`, certificado, firewall, secretos, verificación y respaldo. Validarlos necesita un Windows Server |
+| **G** | Bedrock de punta a punta y set de preguntas reales; incluye medir `LlmQueryExpander`, `LlmGuide` y el enriquecimiento por defecto con el modelo real. `LlmQueryExpander` ya se midió con NVIDIA y Claude Sonnet 5.5 (§2); falta con Bedrock | HU-35, HU-36, HU-33 | ⛔ cuenta AWS y steward |
 | **H** | Línea base, piloto de 8 semanas e informe | HU-40, HU-41, HU-13 | ⛔ banco |
 
 Salvedades de A, B, C1 y C2, para no darlas por cerradas de más (detalle en los bloques **Estado** del backlog):
@@ -221,6 +314,46 @@ Deudas técnicas resueltas el 2026-11-17 (segunda tanda), con lo que cada una de
 - **Historial simulado del modo demo** (`api/converdata_api/demo_history.py`): ya no usa las preguntas `expect_gap` del set y simula
   votos también sobre respuestas de baja confianza. Solo afecta a la demo.
 
+Entrega del 2026-11-23 (chat para usuarios de negocio y primer corte de cifras; decisión 17 del PRD). Qué quedó, y lo que deja abierto:
+- **Chat.** Preguntas sobre el propio asistente y cortesía con textos fijos (`discovery/assistant.py`; intención `assistant`; sobre con
+  `status: ok` y `discovery: null`; el tema `databases` lista solo las bases visibles para el usuario), seguimientos con el historial,
+  relleno y términos de cálculo y periodo fuera de lo pedido, sinónimos bancarios en `LEXICON` (`discovery/expansion.py`), aclaración no
+  bloqueante por áreas (`engine.area_options`) y rechazo de órdenes de escritura. Medido con `chat.yaml` (§2). Abierto: el fallo L09 del
+  set (y lo que otra persona siga corrigiendo).
+- **LLM (rol `fast`).** `LlmQueryExpander` reformula cuando la búsqueda cubre poco; `LlmGuide` solo corre sin candidatos y reconoce una
+  pregunta sobre el asistente entre temas fijos o propone una aclaración en lenguaje de negocio (guardas `engine.looks_technical` y
+  `engine.unsafe_generated_text`); `LlmNarrator` tiene prompt para persona de negocio. Al modelo no llegan los literales
+  (`strip_literals`). El orden sigue determinista y el rol `planner` sigue desaconsejado por la medición. Esto cierra DT-59 en lo que
+  toca a `QueryExpander` (queda `Reviewer`). La aclaración del clasificador de intención con el rol `planner` sigue sin guarda (DT-60);
+  la de `LlmGuide` sí la tiene. **Reinterpretación de preguntas de reporte (después):** con modelo, la primera reformulación se mide contra el catálogo y se avisa con "Entendí que necesitas: «…»" (no en preguntas compuestas, de cruce ni de cifras); sin candidatos y con aclaración, la respuesta dice que no encontró el dato y ofrece opciones. Medido en §2. Abierto: medirlo con Bedrock y con preguntas reales.
+- **Enriquecer con IA por defecto** en el build cuando hay modelo (`api/converdata_api/runtime.py::start_build`, `BuildRequest.enrich:
+  bool | None`; rol `planner` o, si falta, `fast`: `llm/nodes.py::build_enricher`). Cuenta en el consumo de tokens. Abierto: DT-61.
+- **Cifras agregadas** (apagadas por defecto). Se activan con `features.ask_flow` o `CONVERDATA_ASK_FLOW=1`; la CLI las prueba con
+  `--figures <inventario>` (el ejecutor de la CLI usa el login de metadatos del inventario y no aplica el `LOCK_TIMEOUT` ni la
+  reversión de la API: es solo para desarrollo). Solo `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` sobre una tabla; desglose solo por
+  columnas con hasta 25 valores distintos (se comprueba antes con otra consulta), de la tabla o, si no está ahí, de una tabla relacionada
+  por una llave foránea de una sola columna, visible para el usuario y de la misma base, servidor y ambiente, con una sola unión
+  (`figures._related_category`); SQL de plantilla fija con identificadores del
+  catálogo, sin texto del usuario ni de un modelo; credencial de la sesión, transacción que siempre se revierte, `LOCK_TIMEOUT` de 5 s
+  y tope de 15 s (`figure_executor`); nunca columnas `pii`; el número no pasa por el LLM; sobre con `flow: "ask"` y `figure`. No
+  calcula, y lo dice, con periodo, filtro por valor, condición que combina tablas, cruce entre bases o sistemas, unión de más de un salto, medida no numérica, empate entre datos de tablas distintas o si no
+  identifica qué contar. Un servidor de producción solo calcula cifras con `figures: true` en el inventario (`ServerConfig.figures`,
+  `src/converdata/config.py:24`; `figure_executor` lo comprueba antes de auditar y conectar, `runtime.py:387`); los de desarrollo y
+  qa sí por defecto (`api/tests/test_cifras.py::test_politica_de_cifras_por_servidor`). La revisión de seguridad independiente terminó
+  el mismo día y sus dos bloqueantes están corregidos (§1). Abierto: aceptarlo con Seguridad
+  de la Información y revisar D1–D7 de OP-01 antes de activarlo en el piloto; DT-78 a DT-80; DT-76 (sin periodo, filtros por valor ni condiciones entre tablas: el desglose por una tabla relacionada sí se calcula); y que el valor de la
+  cifra sí pasa por los servidores de negocio, con la regla "nunca lee valores" matizada en F17, el manual y calidad bancaria.
+- **Web.** Opciones de aclaración también con respuesta, sin "Cómo lo obtuve" cuando no hay `discovery`, tarjeta de cifra e interruptor
+  de enriquecer con IA activado si hay modelo.
+- **Tareas programadas (después, mismo día).** `deploy/windows/registrar-tareas.ps1` ([README](../deploy/windows/README.md)) registra en el
+  Programador de tareas el refresco nocturno (`catalog build --db [--models …]`), la purga semanal (`audit purge`) y, con `-GateRoot`, la
+  regresión semanal (`eval gate --db --root …`), con la cuenta de servicio (gMSA); admite `-WhatIf` y `-Remove`. **Verificado solo con
+  análisis de sintaxis y `-WhatIf` en un equipo de desarrollo: no se registró ni ejecutó en un Windows Server.** Abierto: probarlo con la
+  gMSA, separar la cuenta de la purga (OP-07 pide la de mantenimiento) y el aviso por Teams.
+- **Deuda nueva:** DT-75 (oráculo de `narrative_mentions_ok`), DT-76 (cifras sin periodo, filtros por valor ni condiciones entre tablas) y DT-77 (el asistente menciona
+  tareas programadas: el script ya existe, falta instalarlo). DT-78 y DT-80 quedaron parcialmente cerradas (servidores de las cifras y
+  conversaciones al expirar la sesión); DT-33 y DT-44 bajan su alcance por el script. Detalle en [wiki/deuda-tecnica.md](wiki/deuda-tecnica.md).
+
 Limpieza del 2026-11-17: se retiraron del código el canal de embeddings (ya no existen `config/models.embed.yaml`, `--embeddings-only`,
 `CONVERDATA_EMBEDDINGS_ONLY` ni el rol `embed`; un `models.yaml` que lo declare se carga ignorándolo con un aviso, y en qa y prod la
 API se niega a arrancar), `VisibilityResolver` (duplicado sin uso: la visibilidad por sesión la calcula `AgentRuntime.visible_ids`) y
@@ -244,6 +377,9 @@ Pendientes que no son historias (de [calidad-bancaria §5](calidad-bancaria.md#5
 - Sigue abierto: decidir si el responsable ve en Curación activos que su login no puede leer (PRD §13, pregunta abierta 7). Quedó
   resuelto solo para el historial (`GET /curation/history` exige visibilidad); la cola de revisión y la edición de descripciones
   siguen sin filtrar por `visible_ids`.
+- Del 2026-11-23: `narrative_mentions_ok` (la guarda de la narrativa, y a la vez el detector de "inventados" de la evaluación y de la
+  compuerta) compara contra todo el catálogo, no contra lo visible: DT-75. La guarda de las opciones de aclaración sí se corrigió el
+  mismo día para no consultar el catálogo (F14).
 - Sin bloque asignado: que la fecha de un registro de auditoría (`ts`) no la fije quien lo inserta; llevar la orquestación de votos
   (`record_feedback`, `steward_golden`) de la API a un caso de uso de `converdata.application`; que la CLI use `open_stores`; que
   `tests/test_architecture.py` analice también `api/converdata_api` (lista completa en [capas-backend](architecture/capas-backend.md)
@@ -254,7 +390,9 @@ Pendientes que no son historias (de [calidad-bancaria §5](calidad-bancaria.md#5
   SQL Server del piloto (se probó en 2022). Las dependencias fijadas con hashes, las imágenes por digest y el SBOM ya están (arriba).
 
 Mejoras de calidad del agente, solo si la medición las pide (regla: se acepta lo que mejora el set sin bajar otros tipos ni crear fugas):
-- Los casos B14 y eng-06 (hoy los únicos fallos de los dos sets): una entidad con un calificativo que conoce otra tabla. Los fallos
+- El fallo de `chat.yaml` (§2): L09, y los cuatro que ya no fallan en la última corrida (F04, X04, X05 y K03) si vuelven; los corrige otra persona. Si la corrección ajusta pesos o
+  reglas, repetir los tres sets (BancosSQL, VBank y reportes) y la compuerta antes de aceptarla.
+- Los casos B14 y eng-06 (hoy los únicos fallos de los dos sets de la línea base): una entidad con un calificativo que conoce otra tabla. Los fallos
   de orden B4 y C2 (ese "C2" es un caso de tipo C, no el bloque) se resolvieron el 2026-11-17.
 - Explorador acotado sobre el grafo si el tipo E baja de 85 % con el set real.
 
@@ -264,15 +402,19 @@ cd converdata
 # Dependencias con versión y hash fijados (requirements/README.md); sin esto api/tests no carga
 .venv/Scripts/python -m pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/dev.lock
 .venv/Scripts/python -m pip install --no-deps --no-build-isolation --no-index -e .
-.venv/Scripts/python -m pytest -q                                          # 375 passed, 83 skipped: sin CONVERDATA_TEST_DB las pruebas de SQL Server se omiten
+.venv/Scripts/python -m pytest -q                                          # 1 246 passed, 86 skipped (2026-11-23): sin CONVERDATA_TEST_DB las pruebas de SQL Server se omiten
 export CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes'
-.venv/Scripts/python -m pytest -q                                          # 458 passed: incluye migraciones, roles, auditoría, catálogo, curación, la CLI y los literales marcados en una BD real y desechable
+.venv/Scripts/python -m pytest -q                                          # las 86 omitidas también corren (1 332 pasan en la última corrida verificada, anterior a esos cambios; hay que repetirla): incluye migraciones, roles, auditoría, catálogo, curación, la CLI y los literales marcados en una BD real y desechable
 .venv/Scripts/python -m converdata.cli eval gate --out reports             # compuerta: debe aprobar en vbank y bancos
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos   # 58 casos · Hit@1 98.0 % · Hit@3 98.0 % (falla B14)
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/vbank    # 31 casos · Hit@1 96.2 % · Hit@3 96.2 % (falla eng-06)
-# Preguntas de reporte, sin y con fuentes de conocimiento: Hit@1 16.0 % → 60.0 %
+# Preguntas de reporte, sin y con fuentes de conocimiento: Hit@1 28.0 % → 64.0 % (16.0 % → 60.0 % el 2026-11-17)
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml --knowledge tests/fixtures/bancos/eval/conocimiento
+# Chat de negocio (67 casos, 2026-11-23: Hit@1 97.8 % · Hit@3 100 %; falla L09)
+.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/chat.yaml
+# Cifras agregadas contra el SQL Server local (solo datos ficticios): 1 790 clientes con préstamo de 3 000
+.venv/Scripts/python -m converdata.cli discover "¿Cuántos clientes tienen préstamo?" --root tests/fixtures/bancos --figures config/databases.local.yaml
 sqlcmd -S "localhost\SQLEXPRESS" -E -C -Q "SELECT name FROM sys.databases WHERE database_id>4"   # 5 BDs Banca* y ConverData
 export CONVERDATA_DB='SERVER=localhost\SQLEXPRESS;DATABASE=ConverData;Trusted_Connection=yes;TrustServerCertificate=yes'
 .venv/Scripts/python -m converdata.cli db migrate --status                 # "ninguna (la BD está al día)"

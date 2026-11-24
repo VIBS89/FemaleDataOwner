@@ -119,6 +119,7 @@ def question_row(record: TraceRecord, when: dt.datetime | None = None) -> dict:
         "user_id": record.user_id,
         "client": record.client,
         "question": record.question,
+        "flow": env.flow,  # "ask" si se calculó una cifra sobre datos
         "intent": record.intent,
         "status": env.status,
         "confidence": env.confidence,

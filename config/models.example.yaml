@@ -51,6 +51,9 @@ providers:
 # `converdata eval discovery --root tests/fixtures/bancos --models config/models.yaml`.
 roles:
   fast:    {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
+  # enrich: describe las tablas y columnas nuevas al refrescar el catálogo (sugerencias marcadas "sin revisar"). Necesita
+  # una salida larga; medido el 2026-11-23: 7 tablas y 72 columnas en 26 s con este modelo.
+  enrich:  {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
   # planner: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 1024}
 
 # Respaldo ante throttling / indisponibilidad / timeout (nunca por errores de contenido). Puede ser cualquier otro
@@ -61,6 +64,37 @@ fallback: null
 #   models: {planner: claude-opus-5-5, fast: claude-haiku-5-5}
 
 circuit: {errors: 3, window_s: 60, open_s: 300}
+
+# --- Perfiles elegibles en pantalla (Administración → Modelos de IA) --------------------------------------------
+# Cada perfil es un juego completo de roles. El administrador elige uno sin editar este archivo; la elección se
+# guarda al lado, en `models.yaml.active`. Con perfiles, el activo sustituye a `roles` de arriba. Las claves nunca se
+# escriben aquí ni en pantalla: van en las variables de entorno de `api_key_env`.
+# Roles: fast = redacta la respuesta, reformula la búsqueda y orienta al usuario · enrich = describe tablas nuevas.
+active_profile: nvidia
+profiles:
+  nvidia:
+    label: "NVIDIA NIM"
+    description: "Nemotron en la API alojada de NVIDIA. Solo datos de prueba."
+    roles:
+      # Comparación del 2026-11-23 de los 13 modelos generativos de la API alojada de NVIDIA con las llamadas reales
+      # del chat (reformular una pregunta de reporte, orientar sin resultados, redactar):
+      #   nvidia/nemotron-3.5-bolt-e4b        6 de 6 correctas, 1,2 s de media; reportes 52 % Hit@1 a 2 s   ← elegido
+      #   nvidia/nemotron-3-ultra-550b-a55b   5 de 6, 5–8 s; reformula con más detalle, pero bajo carga agota el tiempo y
+      #                                       el circuito lo desconecta: reportes 36 % Hit@1
+      #   nvidia/nemotron-3.5-super-vl-120b   solo pidiendo JSON en el mensaje (rechaza `guided_json`), 5 s, con timeouts
+      # No sirven hoy: rechazan `guided_json` y no devuelven JSON por mensaje (nemotron-3.5-lightning, nano-omni), agotan
+      # el tiempo (mistral-large-4, kimi-k3.1-pro, muse-glimmer, step-5-preview, gemma-4-31b, glm-5.3-flash,
+      # minimax-m3.1-flash) o ya no están (gemma-3-12b). El catálogo cambia: repetir la medición antes de cambiar.
+      fast:   {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
+      # Medido el 2026-11-23 describiendo 7 tablas y 72 columnas: este modelo, 7 de 7 en 26 s; el grande
+      # (nemotron-3-ultra-550b-a55b), 6 de 7 en 101 s con un error intermitente; Claude Sonnet 5.5, 7 de 7 en 32 s.
+      enrich: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
+  claude:
+    label: "Claude (Anthropic)"
+    description: "Claude Sonnet 5.5 por la API de Anthropic. Solo datos de prueba."
+    roles:
+      fast:   {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 4000}
+      enrich: {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 16000}
 
 # --- Claude (API de Anthropic) como principal ---
 # providers: {anthropic: {enabled: true, api_key_env: ANTHROPIC_API_KEY, timeout_s: 60}}

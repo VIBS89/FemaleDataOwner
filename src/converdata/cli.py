@@ -97,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--groups", default="", help="Grupos de AD del usuario de desarrollo (coma)")
     d.add_argument("--models", help="config/models.yaml para usar el gateway de LLM; sin él, modo determinista")
     d.add_argument("--json", action="store_true", help="Imprime el AnswerEnvelope completo")
+    d.add_argument("--figures", metavar="INVENTARIO", help="Activa las cifras agregadas (solo totales) y las calcula en "
+                   "los servidores de este inventario, p. ej. config/databases.local.yaml")
     llm = sub.add_parser("llm", help="Gateway de LLM (F16)")
     llm_sub = llm.add_subparsers(dest="llm_command", required=True)
     smoke = llm_sub.add_parser("smoke", help="Prueba cada rol contra su proveedor (salida estructurada)")
@@ -189,7 +191,26 @@ def main(argv: list[str] | None = None) -> int:
         service = build_service(args.root, models_path=args.models)
     dbs = args.databases.split(",") if args.databases else None
     user = user_with_databases(service, "dev", dbs, [g for g in args.groups.split(",") if g])
-    envelope = service.run(args.question, user, client="cli")
+    executor = None
+    if args.figures:
+        # Cifras agregadas en desarrollo: con el login de metadatos del inventario (en la API, con el de cada usuario).
+        from converdata.config import load_inventory
+        from converdata.metadata.sqlserver import SqlServerMetadata
+
+        inventory = load_inventory(args.figures)
+        if any(server.environment == "produccion" for server in inventory.servers):
+            # Aquí se usa el login de metadatos y no hay auditoría durable: contra producción, solo por la API.
+            raise SystemExit("--figures es solo para desarrollo: el inventario tiene servidores de producción")
+        service.deps.settings.features.ask_flow = True
+
+        def executor(server_id: str, database: str, sql: str):
+            conn = SqlServerMetadata(inventory.server(server_id))._pyodbc_connect(database)
+            try:
+                return [tuple(row) for row in conn.cursor().execute(sql).fetchmany(50)]
+            finally:
+                conn.close()
+
+    envelope = service.run(args.question, user, client="cli", executor=executor)
     print(json.dumps(envelope.model_dump(by_alias=True), ensure_ascii=False, indent=2) if args.json else render(envelope))
     return 0
 
@@ -291,9 +312,9 @@ def catalog_build(args) -> int:
     enricher = None
     if args.models:
         from converdata.llm.gateway import LLMGateway
-        from converdata.llm.nodes import LlmEnricher
+        from converdata.llm.nodes import build_enricher
 
-        enricher = LlmEnricher(LLMGateway.from_file(args.models).chat("planner"))
+        enricher = build_enricher(LLMGateway.from_file(args.models))
     if not args.db:
         result = refresh_catalog(load_inventory(args.config or "config/databases.local.yaml"),
                                  Path(args.out or "data/catalog_local"), source_factory=SqlServerMetadata, enricher=enricher)

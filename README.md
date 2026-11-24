@@ -4,7 +4,7 @@ Asistente de IA para la **Gerencia de Datos de Banco Atlántida El Salvador** qu
 qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece la recomendación*. Su objetivo es reducir la dependencia
 del conocimiento tribal y convertir la experiencia de los expertos en conocimiento reutilizable por toda la organización.
 
-> **Estado:** fase 1a on-premise en desarrollo. Agente, API, web y MCP construidos y medidos; catálogo, conocimiento, curación, inventario y auditoría en la BD `ConverData` (SQL Server). Faltan Bedrock, la instalación en el servidor del piloto y el trabajo con el banco. Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
+> **Estado:** fase 1a on-premise en desarrollo. Agente, API, web y MCP construidos y medidos; catálogo, conocimiento, curación, inventario y auditoría en la BD `ConverData` (SQL Server). Desde el 2026-11-23 el chat entiende la redacción de un usuario de negocio (preguntas sobre el propio asistente, seguimientos, aclaraciones) y hay un primer corte de **cifras agregadas** (totales sobre una tabla), apagado por defecto. Faltan Bedrock, la instalación en el servidor del piloto y el trabajo con el banco. Estado y siguiente paso: **[plan de desarrollo](docs/PLAN-desarrollo.md)**.
 > Todo el detalle está en el **[PRD](docs/PRD.md)**.
 
 ## Desarrollo
@@ -29,6 +29,13 @@ python -m venv .venv
 #    cuánto aportan las fuentes de conocimiento: 25 preguntas de reporte, con el catálogo solo y con un glosario de prueba
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
 .venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml --knowledge tests/fixtures/bancos/eval/conocimiento
+
+#    chat de negocio: 67 preguntas de usuarios (redacción de chat, seguimientos, preguntas al asistente, escrituras que se rechazan)
+.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/chat.yaml
+
+# 4. Cifras agregadas (apagadas por defecto): COUNT, COUNT DISTINCT, SUM y AVG sobre una tabla (con desglose por una categoría de la tabla o de una tabla relacionada), calculadas en los servidores del inventario
+#    (solo desarrollo; en la API se activan con features.ask_flow o CONVERDATA_ASK_FLOW=1 y usan la credencial de la sesión del usuario)
+.venv/Scripts/python -m converdata.cli discover "¿Cuántos clientes tienen préstamo?" --root tests/fixtures/bancos --figures config/databases.local.yaml
 
 # Gateway de LLM
 cp config/models.local.example.yaml config/models.yaml  # Ollama local (o models.example.yaml para NVIDIA NIM)
@@ -78,17 +85,18 @@ control y qué falta para un banco.
 .venv/Scripts/python -m converdata.cli eval gate --out reports         # compuerta: calidad, permisos, inyección, guardas, robustez, determinismo, auditoría
 .venv/Scripts/python -m converdata.cli audit verify --db               # la cuenta de la API no puede modificar la auditoría (--dir data/audit sin BD)
 ```
+En Windows Server, `deploy/windows/registrar-tareas.ps1` registra las tareas programadas (refresco nocturno del catálogo, purga semanal de la auditoría y, opcional, regresión semanal; [README](deploy/windows/README.md)); está escrito pero aún no se ha probado en un servidor, y la instalación con IIS no existe todavía.
 En qa y prod (`CONVERDATA_ENV`) la API no arranca con ajustes inseguros. La autenticación de Windows viene apagada: en
 desarrollo local se activa con `CONVERDATA_ALLOW_WINDOWS_AUTH=1`.
 
 | Capa | Paquete | Contenido |
 |---|---|---|
-| Orquestación (única con LangGraph) | `converdata.flows` | **CatalogBuildFlow** `extract → enrich → relate → write` y **DiscoverFlow** `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize`, ciclos acotados, sin checkpointer persistente |
+| Orquestación (única con LangGraph) | `converdata.flows` | **CatalogBuildFlow** `extract → enrich → relate → write` y **DiscoverFlow** `intent → retrieve ⇄ grade → rerank → expand ⇄ review → [compute] → respond → finalize` (`compute` solo con las cifras activas), ciclos acotados, sin checkpointer persistente |
 | Metadatos | `converdata.metadata` | `converdata-discovery` (F18): consultas fijas de solo lectura sobre `sys.*` |
 | Catálogo | `converdata.builder`, `converdata.catalog` | Conversión a F1, PII, entidades entre BDs (F19), linaje de vistas, refresco incremental que respeta ediciones humanas |
 | Grafo del patrimonio | `converdata.graph` | Entidades y copias canónicas, caminos de unión entre tablas y BDs filtrados por permisos |
-| LLM (única con LangChain) | `converdata.llm` | Gateway: Ollama (solo local), NVIDIA NIM, Bedrock por configuración; respaldo, circuit breaker y guarda de residencia |
-| Lógica determinista | `converdata.discovery` | Expansión y descomposición de la consulta, calificación, revisor, cascada, confianza de F22, guardas |
+| LLM (única con LangChain) | `converdata.llm` | Gateway: Ollama (solo local), NVIDIA NIM, Bedrock por configuración; respaldo, circuit breaker y guarda de residencia. El rol `fast` redacta, reformula la búsqueda y orienta sin resultados; el enriquecimiento del build usa IA por defecto si hay modelo |
+| Lógica determinista | `converdata.discovery` | Expansión y descomposición de la consulta, calificación, revisor, cascada, confianza de F22, guardas; respuestas fijas del asistente (`assistant.py`); cifras agregadas de plantilla fija (`figures.py`) |
 | Memoria | `converdata.memory` | Puerto `VectorStore` e `InMemoryVectorStore`: índice léxico BM25 en memoria |
 | Evaluación | `converdata.evaluation` | Hit@k por tipo (A–G), calibración, caminos, duplicados, fugas, inventados, latencia; compuerta de calidad `eval gate` con siete suites y línea base |
 | Identidad y auditoría | `converdata.identity`, `converdata.audit` | `visible_ids` con el login del usuario (F14); auditoría fail-closed (F11) en SQL Server o, en desarrollo, en archivos con cadena de hashes |
@@ -113,8 +121,8 @@ Alternativas: LegalClientId (71 %) · UserId (64 %)
 ## Qué hace
 | Flujo | Para qué | Specs |
 |---|---|---|
-| **DiscoverFlow** (caso principal) | Devuelve campos y tablas candidatas con base de datos, ambiente, servidor, descripción, reglas de negocio, relaciones, responsables y confianza. No ejecuta SQL sobre datos | [F22](docs/specs/comun/F22-discovery-flow.md) |
-| **AskFlow** (fase 1b) | Genera, valida y ejecuta T-SQL de solo lectura con los permisos del usuario; métricas certificadas y análisis | F3–F10, [F20](docs/specs/comun/F20-analysis-engine.md), [F21](docs/specs/comun/F21-semantic-layer.md) |
+| **DiscoverFlow** (caso principal) | Devuelve campos y tablas candidatas con base de datos, ambiente, servidor, descripción, reglas de negocio, relaciones, responsables y confianza. También contesta preguntas sobre el propio asistente y entiende seguimientos. No ejecuta SQL sobre datos, salvo las cifras agregadas (apagadas por defecto, abajo) | [F22](docs/specs/comun/F22-discovery-flow.md) |
+| **AskFlow** (fase 1b) | Genera, valida y ejecuta T-SQL de solo lectura con los permisos del usuario; métricas certificadas y análisis. **Primer corte adelantado, apagado por defecto** (PRD §13, decisión 17): cifras agregadas (cuántos, suma, promedio) sobre una tabla, con SQL de plantilla fija y la credencial del usuario; el número no pasa por el modelo. Desglose por una categoría de la tabla o de una tabla relacionada (una unión); sin periodo, filtros por valor, condiciones entre tablas ni cruces; revisión de seguridad independiente terminada el 2026-11-23, con sus bloqueantes corregidos | F3–F10, [F20](docs/specs/comun/F20-analysis-engine.md), [F21](docs/specs/comun/F21-semantic-layer.md) |
 
 Fuentes de conocimiento:
 - **Metadatos de SQL Server** de todos los servidores y ambientes ([F1](docs/specs/comun/F01-catalog-builder.md), [F18](docs/specs/comun/F18-discovery-mcp.md), [F19](docs/specs/comun/F19-multi-db-discovery.md)).
@@ -123,7 +131,7 @@ Fuentes de conocimiento:
 
 ## Principios clave
 - **Nadie ve más de lo que ya puede ver**: cada usuario descubre y consulta solo lo que su login SQL puede leer, incluidos los metadatos ([F14](docs/specs/comun/F14-identity.md)).
-- **Los datos de clientes no salen del banco**: el catálogo no guarda valores y la nube solo procesa ([F17](docs/specs/comun/F17-data-residency.md)).
+- **Los datos de clientes no salen del banco**: el catálogo no guarda valores y la nube solo procesa ([F17](docs/specs/comun/F17-data-residency.md)). Con las cifras agregadas activas, el servicio lee totales con el login del usuario y no los guarda ni los manda al modelo.
 - **Cada recomendación muestra su evidencia**: fuente de la descripción y por qué se recomienda.
 - **El éxito se mide contra una línea base** ([F25](docs/specs/comun/F25-success-metrics.md)).
 
