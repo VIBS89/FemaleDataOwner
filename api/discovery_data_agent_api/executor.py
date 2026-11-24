@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from converdata.ask.ports import QueryRejected, QueryResult
-from converdata.config import Inventory
+from discovery_data_agent.ask.ports import QueryRejected, QueryResult
+from discovery_data_agent.config import Inventory
 
 # (servidor, base, sql, filas máximas, ¿sondeo?) → (columnas, filas). Lo implementa `AgentRuntime._run_ask`.
 GuardedRun = Callable[[str, str, str, int, bool], tuple[list[str], list[list]]]

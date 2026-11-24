@@ -237,7 +237,7 @@ class AgentRuntime:
             service = build_service(self.settings.data_root, gateway=gateway, audit=self.audit)
         if self.settings.ask_flow:  # DISCOVERY_DATA_AGENT_ASK_FLOW=1 activa las cifras agregadas sin editar settings.yaml
             service.deps.settings.features.ask_flow = True
-        if self.settings.ask_llm_sql:  # CONVERDATA_ASK_LLM_SQL=1: fase 1b, SQL de un LLM cuando la plantilla no basta
+        if self.settings.ask_llm_sql:  # DISCOVERY_DATA_AGENT_ASK_LLM_SQL=1: fase 1b, SQL de un LLM cuando la plantilla no basta
             service.deps.settings.features.ask_llm_sql = True
         return service
 
@@ -414,7 +414,7 @@ class AgentRuntime:
         enabled = self.settings.ask_llm_sql or (service is not None and service.deps.settings.features.ask_llm_sql)
         if not enabled or not hasattr(self.connector, "connect"):
             return None
-        from converdata_api.executor import SessionQueryExecutor
+        from discovery_data_agent_api.executor import SessionQueryExecutor
 
         return SessionQueryExecutor(
             self.inventory,
@@ -422,7 +422,7 @@ class AgentRuntime:
                                                                              max_rows, probe))
 
     def _run_ask(self, session: Session, server_id: str, database: str, sql: str, max_rows: int, probe: bool):
-        """Como `figure_executor`, pero para SQL ya validado por `converdata.ask.validator`. Los sondeos (valores de
+        """Como `figure_executor`, pero para SQL ya validado por `discovery_data_agent.ask.validator`. Los sondeos (valores de
         categorías y rangos de fechas para el planner) se auditan pero no cuentan para el tope diario."""
         server = self.inventory.server(server_id)
         cred = self.vault.credential(session, server_id)

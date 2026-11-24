@@ -108,8 +108,8 @@ def build_service_from_snapshot(
             llm_ports["expander"] = LlmQueryExpander(gateway.chat("fast"))
             llm_ports["guide"] = LlmGuide(gateway.chat("fast"))
         if gateway.has_role("coder"):
-            from converdata.ask.engine import AskEngine
-            from converdata.ask.planner import LlmInterpreter, LlmSqlPlanner
+            from discovery_data_agent.ask.engine import AskEngine
+            from discovery_data_agent.ask.planner import LlmInterpreter, LlmSqlPlanner
 
             # Fase 1b (`features.ask_llm_sql`, apagado por defecto): el rol `coder` escribe el T-SQL cuando las
             # plantillas de cifras (`features.ask_flow`, decisión 17) no pueden responder. El intérprete (rol

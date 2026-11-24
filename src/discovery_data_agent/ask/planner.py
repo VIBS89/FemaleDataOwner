@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from converdata.ask.ports import SqlPlan
-from converdata.llm.nodes import UNTRUSTED, _data
+from discovery_data_agent.ask.ports import SqlPlan
+from discovery_data_agent.llm.nodes import UNTRUSTED, _data
 
-PLANNER_SYSTEM = """Eres el analista de datos de ConverData, el asistente de datos de un banco. Conviertes la pregunta de
+PLANNER_SYSTEM = """Eres el analista de datos de DiscoveryDataAgent, el asistente de datos de un banco. Conviertes la pregunta de
 una persona de negocio (no técnica) en UNA consulta T-SQL de solo lectura para SQL Server y redactas la frase de respuesta.
 
 Reglas del SQL:
@@ -35,7 +35,7 @@ Reglas de las frases (escribe siempre las dos; se usa la que corresponda al resu
 Si recibes errores de un intento anterior, corrige la consulta."""
 
 
-INTERPRET_SYSTEM = """Eres el intérprete de preguntas de ConverData, el asistente de datos de un banco. Las personas
+INTERPRET_SYSTEM = """Eres el intérprete de preguntas de DiscoveryDataAgent, el asistente de datos de un banco. Las personas
 escriben como hablan: con errores, sin tildes, con jerga de negocio o haciendo referencia a preguntas anteriores.
 Tu trabajo es entender qué quieren, sin depender de palabras exactas:
 1. `kind`: "dato" si quieren una cifra, conteo, suma, promedio, porcentaje, ranking, comparación, evolución o un
@@ -52,7 +52,7 @@ Tu trabajo es entender qué quieren, sin depender de palabras exactas:
 
 class LlmInterpreter:
     def __init__(self, llm):
-        from converdata.ask.ports import QuestionInterpretation
+        from discovery_data_agent.ask.ports import QuestionInterpretation
 
         self._llm = llm.with_structured_output(QuestionInterpretation)
 

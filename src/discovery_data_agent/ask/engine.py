@@ -22,14 +22,14 @@ import re
 import time
 from dataclasses import dataclass, field
 
-from converdata.ask.ports import (QueryExecutor, QueryRejected, QueryResult, QuestionInterpretation,
+from discovery_data_agent.ask.ports import (QueryExecutor, QueryRejected, QueryResult, QuestionInterpretation,
                                   QuestionInterpreter, SqlPlan, SqlPlanner)
-from converdata.ask.validator import ValidationError, validate
-from converdata.catalog.ids import table_key
-from converdata.catalog.store import Catalog
-from converdata.models.catalog import CatalogObject, Column
-from converdata.models.discovery import DataAnswer, Discovery
-from converdata.models.identity import UserContext
+from discovery_data_agent.ask.validator import ValidationError, validate
+from discovery_data_agent.catalog.ids import table_key
+from discovery_data_agent.catalog.store import Catalog
+from discovery_data_agent.models.catalog import CatalogObject, Column
+from discovery_data_agent.models.discovery import DataAnswer, Discovery
+from discovery_data_agent.models.identity import UserContext
 
 MAX_ATTEMPTS = 3
 MAX_TABLES = 15

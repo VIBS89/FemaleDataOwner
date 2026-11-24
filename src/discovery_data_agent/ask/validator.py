@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
-from converdata.catalog.store import Catalog
+from discovery_data_agent.catalog.store import Catalog
 
 BLOCKED = re.compile(
     r"\b(insert|update|delete|merge|truncate|drop|alter|create|grant|revoke|deny|exec|execute|openrowset|openquery|"

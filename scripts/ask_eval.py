@@ -1,6 +1,6 @@
 """Verifica el AskFlow contra los casos de uso de `scripts/ask_casos.yaml`.
 
-Para cada caso: hace la pregunta a ConverData-API (como lo haría la web) y compara las cifras de la respuesta con las
+Para cada caso: hace la pregunta a DiscoveryDataAgent-API (como lo haría la web) y compara las cifras de la respuesta con las
 de la consulta de verificación, que se ejecuta directamente en SQL Server con el mismo login.
 
     .venv/Scripts/python scripts/ask_eval.py --login demo            # pide la contraseña
@@ -102,7 +102,7 @@ def main() -> int:
     parser.add_argument("--solo", help="ids separados por coma")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
-    password = os.environ.get("CONVERDATA_EVAL_PASSWORD") or getpass.getpass(f"Contraseña de {args.login}: ")
+    password = os.environ.get("DISCOVERY_DATA_AGENT_EVAL_PASSWORD") or getpass.getpass(f"Contraseña de {args.login}: ")
 
     spec = yaml.safe_load(Path(args.casos).read_text(encoding="utf-8"))
     cases = spec["casos"]

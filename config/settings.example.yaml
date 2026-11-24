@@ -1,9 +1,9 @@
 # Ajustes del DiscoverFlow (valores por defecto de discovery_data_agent.config.Settings).
 features:
   ask_flow: false          # cifras con plantilla fija (decisión 17). false: las preguntas de cifras se responden
-                           # como descubrimiento (también CONVERDATA_ASK_FLOW=1)
+                           # como descubrimiento (también DISCOVERY_DATA_AGENT_ASK_FLOW=1)
   ask_llm_sql: false       # fase 1b: si la plantilla no puede (fechas, varias uniones, listados), un LLM (rol `coder`)
-                           # escribe el T-SQL, validado y con los permisos del usuario (también CONVERDATA_ASK_LLM_SQL=1)
+                           # escribe el T-SQL, validado y con los permisos del usuario (también DISCOVERY_DATA_AGENT_ASK_LLM_SQL=1)
   ask_max_rows: 1000       # fase 1b: filas máximas por respuesta
 audit:
   fail_open: false         # F11: fail-closed; true solo en desarrollo

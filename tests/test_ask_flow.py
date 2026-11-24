@@ -5,11 +5,11 @@ import decimal
 
 import pytest
 
-from converdata.ask.engine import AskEngine, fill_answer, format_value
-from converdata.ask.ports import QueryRejected, QueryResult, SqlPlan
-from converdata.ask.validator import ValidationError, validate
-from converdata.config import Features, Settings
-from converdata.models.discovery import Discovery
+from discovery_data_agent.ask.engine import AskEngine, fill_answer, format_value
+from discovery_data_agent.ask.ports import QueryRejected, QueryResult, SqlPlan
+from discovery_data_agent.ask.validator import ValidationError, validate
+from discovery_data_agent.config import Features, Settings
+from discovery_data_agent.models.discovery import Discovery
 
 Q = "¿cuántos clientes completaron el onboarding?"
 COUNT_SQL = ("SELECT COUNT(DISTINCT u.UserId) AS total_clientes FROM [VBank_ING].[dbo].[Users] u "
@@ -192,7 +192,7 @@ class FakeInterpreter:
 
 def test_el_interprete_reconoce_un_pedido_de_datos_sin_palabras_clave(service, analyst):
     """"Dame…" no está en las reglas de `data_query`: lo decide el LLM y elige las tablas, con solo metadatos."""
-    from converdata.ask.ports import QuestionInterpretation
+    from discovery_data_agent.ask.ports import QuestionInterpretation
 
     interp = FakeInterpreter(QuestionInterpretation(
         kind="dato", refined_question="Número de clientes con el onboarding completo",
@@ -235,7 +235,7 @@ class SchemaPlanner:
 
 
 def coexist_service(planner):
-    from converdata.bootstrap import build_service
+    from discovery_data_agent.bootstrap import build_service
     from pathlib import Path
 
     svc = build_service(Path(__file__).parent / "fixtures" / "bancos")
@@ -246,7 +246,7 @@ def coexist_service(planner):
 
 
 def test_con_la_fase_1b_activa_responde_primero_el_llm():
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
     from test_cifras_agregadas import Ejecutor
 
     planner, plantilla = SchemaPlanner(), Ejecutor()
@@ -264,7 +264,7 @@ class FailingPlanner:
 
 
 def test_si_la_fase_1b_falla_responde_la_plantilla_sin_avisos_del_llm():
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
     from test_cifras_agregadas import Ejecutor
 
     svc = coexist_service(FailingPlanner())
@@ -278,7 +278,7 @@ def test_si_la_fase_1b_falla_responde_la_plantilla_sin_avisos_del_llm():
 
 def test_un_periodo_lo_responde_la_fase_1b():
     """Un periodo ("el mes pasado") queda fuera de la plantilla: el SQL de un LLM lo responde."""
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
     from test_cifras_agregadas import Ejecutor
 
     planner = SchemaPlanner()
@@ -293,7 +293,7 @@ def test_un_periodo_lo_responde_la_fase_1b():
 
 
 def test_sin_fase_1b_la_plantilla_sigue_diciendo_por_que_no_calcula():
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
     from test_cifras_agregadas import Ejecutor
 
     svc = coexist_service(SchemaPlanner())
