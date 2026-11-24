@@ -25,6 +25,12 @@ aunque nadie haga push:
 - `backend`: instala con versiones y hashes fijados (`requirements/build.lock` y `dev.lock`), corre los dos primeros comandos y
   guarda la evidencia de la compuerta como artefacto.
 - `web` (desde el 2026-11-17): `npm ci`, tipos (`tsc --noEmit`), lint (`eslint --max-warnings=0`) y build.
+
+> **Corrección del 2026-11-22.** Estos trabajos no se ejecutaron en GitHub hasta esa fecha: `calidad.yml` tenía un error
+> de sintaxis YAML y cada ejecución fallaba sin crear trabajos. Todo lo que este documento atribuye a la CI antes del
+> 2026-11-22 se comprobó solo en local. El archivo está corregido y una prueba (`tests/test_supply_chain.py`) impide que
+> vuelva a quedar inválido. `main` aún admite fusiones sin CI: `docs/wiki/deuda-tecnica.md`, DT-74.
+
 - `cadena-de-suministro` (desde el 2026-11-17): instala sus herramientas de `requirements/tools.lock`, con hashes, y corre `pip-audit` sobre `requirements/runtime.lock`, `npm audit --omit=dev
   --audit-level=high` y el inventario de componentes (SBOM CycloneDX) de la API y de la web, publicado como artefacto.
 

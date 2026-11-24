@@ -317,7 +317,7 @@ El registro completo está en [PRD §13](PRD.md#13-decisiones-y-preguntas-abiert
 | `data/` (ignorado) | `bancos_sql/` (scripts extraídos), `catalog_bancos/` (catálogo crudo), `catalog_bancos_enriched/` (enriquecido por Qwen), `logs/` |
 | `config/models.yaml` (ignorado) | Ollama `qwen3.6:35b-a3b` para planner y fast |
 | Ollama | `qwen3.6:35b-a3b` y `bge-m3` instalados (`bge-m3` ya no lo usa el código: el canal de embeddings se retiró el 2026-11-17) |
-| `web/node_modules` | Instalado (Next.js 15.5.29 tras la actualización del 2026-11-17); en un clon nuevo, `npm --prefix web ci` |
+| `web/node_modules` | Instalado (Next.js 16.4.6 desde el 2026-11-22; TypeScript 5.9 y ESLint 9); en un clon nuevo, `npm --prefix web ci` |
 | `BancosSQL.zip` (13 MB) | Versionado en git; conviene sacarlo del repo o usar Git LFS |
 
 ## 7. Qué necesita al banco o a terceros

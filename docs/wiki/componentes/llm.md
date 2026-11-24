@@ -55,7 +55,7 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 | `judge` | Nadie: el nodo `review` lo anota como rol, pero no hay implementación conectada | Chequeos deterministas |
 | `embed` | Retirado: se ignora con un aviso; en qa/prod la API no arranca si aparece | — |
 
-`config/models.example.yaml` usa `planner` y `fast` (NIM alojado, `nvidia/nemotron-3.5-bolt-e4b`) y trae comentados los
+`config/models.example.yaml` usa solo `fast` (NIM alojado, `nvidia/nemotron-3.5-bolt-e4b`) y trae comentados los
 bloques para Claude, OpenAI y Bedrock; `config/models.local.example.yaml` y el
 `config/models.yaml` local usan Ollama y declaran también `judge`.
 
@@ -152,6 +152,11 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
   | `minimaxai/minimax-m3.1-flash` | Correcto; 5–12 s por llamada |
   | `mistralai/mistral-large-4-1t-a52b`, `moonshotai/kimi-k3.1-pro`, `nvidia/nemotron-3.5-lightning-30b-a3b`, `meta/muse-glimmer-30b` | No sirven: rechazan `guided_json` (400), que es como NIM pide la salida estructurada |
   | `google/gemma-4-31b-it`, `z-ai/glm-5.3-flash` | No sirven: agotan el tiempo |
+
+  Que un modelo devuelva salida válida no basta. En la evaluación de descubrimiento (58 casos, BancosSQL), usar estos modelos
+  para intención y orden **baja el acierto**: Hit@1 62,7 % con `nemotron-3.5-bolt-e4b` (p50 6,2 s) y 64,7 % con
+  `nemotron-3-ultra-550b-a55b` (p50 39 s), frente a 98,0 % sin modelo. Con el modelo solo en la narrativa (rol `fast`, sin
+  `planner`) se mantiene 98,0 % con p50 de 0,9 s: es lo que trae el ejemplo.
 
   `openai/gpt-oss-20b`, el modelo anterior del ejemplo, ya no está en el catálogo de la cuenta. El catálogo cambia: listar con
   `GET /v1/models` y probar con `converdata llm smoke` antes de cambiar un modelo.

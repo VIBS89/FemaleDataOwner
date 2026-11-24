@@ -25,7 +25,7 @@ Diagramas: [componentes de la API (C4)](../../architecture/c4-componentes-api.ht
 - DiscoverFlow por HTTP y SSE, con límite de ritmo y tope diario de tokens.
 - Explorador del catálogo y ficha de activo.
 - Curación: dudas escaladas, votos, descripciones, reglas, diccionario e historial.
-- Administración: inventario, responsables, build del catálogo, auditoría, sesiones, métricas y manual.
+- Administración: inventario, responsables, build del catálogo, auditoría, sesiones, métricas y documentación interna.
 - Montaje del servidor MCP con las mismas sesiones y topes.
 
 ## Piezas internas
@@ -86,11 +86,16 @@ Sacadas de `api/converdata_api/main.py`. La web las llama con el prefijo `/api`.
 | GET | `/health/metrics` | Contadores, p50/p95 por ruta, tokens |
 | GET | `/admin/metrics?days=` | Scorecard de F25 desde la auditoría |
 | GET, PUT | `/admin/inventory` | Inventario; los servidores nuevos se prueban con la credencial de la sesión |
+| POST | `/admin/inventory/probe` | Asistente: con `{host, trust_server_certificate}` o `{server_id}`, prueba la conexión y lista las bases de usuario (acceso, tablas y vistas). No guarda nada |
+| POST | `/admin/inventory/connect` | Asistente: añade un servidor o cambia las bases de uno, sin reenviar el inventario, y lanza el build (202) |
 | GET, PUT | `/admin/stewards` | Responsables por login y dominio |
 | POST, GET | `/admin/catalog/build` | Lanza y consulta el build del catálogo |
 | GET | `/admin/audit?limit=&kind=` | Lectura de la auditoría (se audita) |
 | GET | `/admin/audit/verify` | Integridad: cadena de hashes o permisos en SQL Server |
-| GET | `/admin/manual` | Manual de desarrollo (se audita antes de entregarlo) |
+| GET | `/admin/docs` | Índice de la documentación interna: páginas (`path`, `title`, `section`) y diagramas (`path`, `title`). Sin auditar: solo títulos |
+| GET | `/admin/docs/page?path=` | Una página Markdown del índice (`markdown`, `updated_at`). Se audita (`doc_read`) antes de entregarla; lo demás, 404 |
+| GET | `/admin/docs/diagram?path=` | Un diagrama `architecture/*.html` como texto dentro de JSON (`html`), nunca como `text/html`. Se audita (`doc_read`) |
+| GET | `/admin/manual` | Solo el manual de desarrollo (ruta anterior al visor; se audita como `manual_read`) |
 | GET | `/admin/sessions` | Sesiones activas, sin tokens |
 | DELETE | `/admin/sessions/{user_id}` | Revoca todas las sesiones de un usuario |
 
@@ -150,6 +155,27 @@ El catálogo aún no existe: `/discover` y el explorador responden 409 hasta el 
 7. Evento `catalog_build_finished` con estado, objetos e ids de servidores fallidos, sin el texto del error.
 Además, `runtime.refresh` (como mucho cada 15 s) carga lo que publique otro proceso, como el Builder programado.
 
+### Conectar un servidor con el asistente
+El asistente "Conectar base de datos" de Administración usa dos rutas (`main.py`, `probe_inventory` y `connect_inventory`):
+1. `POST /admin/inventory/probe` con un host nuevo o el `server_id` de uno del inventario (con su propia configuración). Un host
+   que ya está en el inventario responde 409. En qa/prod, `trust_server_certificate: true` responde 400.
+2. La credencial es la de la sesión en ese servidor o, si no la tiene, la misma plantilla que usa `PUT /admin/inventory`
+   (`session_credential`). Hasta 30 sondeos por minuto y administrador.
+3. Evento `inventory_probe` (host, sin contraseña) **antes** de conectar; si no se registra, no se conecta.
+4. `connector.probe` lee `sys.databases` y `HAS_DBACCESS` desde `master`; solo abre las bases con acceso para contar tablas y
+   vistas en `sys.objects` (lo que el login ve). Un conteo que falla sale `null` y sigue; a partir de 100 bases no se cuenta.
+5. Se quitan las bases de sistema y la propia (`ConverData` o la de `CONVERDATA_DB`), como en el build.
+6. Un fallo de login o de red responde 200 con `connected: false` y el mensaje de `LoginFailed` (sin host, login ni texto del
+   driver); cualquier otro error, un mensaje genérico. No se guarda nada.
+7. `POST /admin/inventory/connect` con `host` + `alias` (obligatorio: el host no se muestra a los usuarios) + `environment`, o
+   con `server_id`; y `databases` (`["*"]` = todas, también las futuras). Con un build en curso, 409.
+8. `replacing_inventory` (el mismo bloque que el PUT) audita `inventory_updated` con `servers` y `previous` (hosts) y
+   `via: "connect"` antes de aplicar; prueba la credencial (`connector.identify`); si no entra, 400 y evento
+   `inventory_updated_failed`, sin guardar. Si entra, guarda el inventario y lanza el build con la sesión.
+
+Se eligió una ruta propia en lugar de que la web encadene `PUT /admin/inventory` y el build: el PUT reemplaza el inventario
+entero con lo que la web tenga en memoria (pisa el cambio de otro administrador) y guarda aunque el servidor nuevo no conecte.
+
 ### Curación
 - **Dudas**: `POST /curation/requests` exige que el `trace_id` sea una respuesta reciente del mismo usuario (últimas 500 en memoria).
   El dominio es el del candidato principal. Una duda repetida no se duplica. El webhook solo lleva dominio y enlace.
@@ -173,6 +199,30 @@ Además, `runtime.refresh` (como mucho cada 15 s) carga lo que publique otro pro
 - `DiscoverRequest`: `question` (2–2000), `history` (hasta 10 textos de 2000).
 - `/discover` devuelve el `AnswerEnvelope` (`src/converdata/models/discovery.py:113`).
 - Límites de entrada en los modelos Pydantic de `main.py:65-168` y `CONVERDATA_MAX_BODY_BYTES` (4 MB).
+
+## Documentación interna
+
+`api/converdata_api/documentation.py` (`DocumentationLibrary`) sirve, solo a `data_admin`, una **lista fija** dentro de
+`CONVERDATA_DOCS`: `manual-desarrollo.md`, `wiki/**/*.md`, `architecture/README.md` y los diagramas `architecture/*.html`.
+Nada más de `docs/` (PRD, specs, backlog) ni de fuera.
+
+- **Quién.** `data_admin`, el mismo rol que ya tenía el manual: estas páginas describen los controles de seguridad, lo que
+  no cubren y la deuda. La API no tiene otro rol para quien mantiene la solución (`consumer` y `steward` son de negocio).
+  Un consumidor o un responsable recibe 403 y queda `access_denied`.
+- **Sin recorrido de directorios.** La ruta pedida se busca tal cual entre las del índice, que se calcula recorriendo la
+  carpeta sin seguir enlaces simbólicos ni uniones de NTFS. No se arma ninguna ruta con lo que manda quien llama: `..`,
+  rutas absolutas, UNC, `%2e%2e`, mayúsculas, barras invertidas, `README.md.` o flujos alternos de NTFS no están en el
+  índice y dan 404. Antes de leer se comprueba otra vez que el archivo real sigue dentro de la carpeta. Tope: 1 MB por
+  página, 4 MB por diagrama.
+- **Auditoría.** Cada página o diagrama entregado deja `doc_read` con `path` y `doc` (`page` o `diagram`) antes de
+  responder; si no se puede registrar, 500 sin contenido (F11). Un 404 no cuenta como lectura. El índice no se audita.
+- **Diagramas.** Son HTML de Archify con scripts en línea. Van como texto dentro de JSON: abierta directamente, la ruta no
+  ejecuta nada en el origen de la web (el CSP global de la web pisaría cualquier CSP propio de la respuesta). La web los
+  pinta en un `iframe` con `srcdoc` y `sandbox="allow-scripts allow-downloads"` (ver [Web](web.md)).
+- **Instalación.** La carpeta por defecto es `docs/` de la raíz de la instalación (`INSTALL_ROOT` en
+  `api/converdata_api/settings.py`), no del directorio de trabajo: con la ruta relativa anterior, arrancar la API desde
+  `api/` dejaba el manual en 404 y el modo demo sin sus servidores simulados. La imagen copia exactamente la lista
+  (`.dockerignore`, `api/Dockerfile`).
 
 ## Configuración
 Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
@@ -207,15 +257,20 @@ Variables leídas en `api/converdata_api/settings.py:72` (salvo indicación).
 | `CONVERDATA_NOTIFY_WEBHOOK` | — | Aviso de dudas; `https` en qa/prod |
 | `CONVERDATA_MCP`, `CONVERDATA_MCP_HOSTS`, `CONVERDATA_MCP_ORIGINS` | `1`, —, — | `/mcp`; hosts obligatorios en qa/prod (DNS rebinding) |
 | `CONVERDATA_DEMO`, `CONVERDATA_DEMO_FIXTURE`, `CONVERDATA_DEMO_PRELOAD`, `CONVERDATA_DEMO_HISTORY` | `0`, fixtures, `1`, `1` | Modo demo; prohibido en qa/prod |
-| `CONVERDATA_MANUAL` | `docs/manual-desarrollo.md` | Manual de `/admin/manual` |
+| `CONVERDATA_DOCS` | `docs/` de la instalación | Carpeta de la documentación de `/admin/docs*`. Una ruta relativa se toma desde la raíz de la instalación, no desde el directorio de trabajo |
 
 `CONVERDATA_BUILDER_HOSTS` la usa la CLI del Builder (`src/converdata/cli.py:351`), no la API.
 
 ## Pruebas que lo cubren
 - `api/tests/test_api.py`: primer arranque, descubrimiento, voto y auditoría, explorador, herencia de permisos, stream, escalamiento,
   reglas, tope de tokens, diccionario, responsables, manual.
+- `api/tests/test_docs.py`: documentación interna (solo `data_admin`, auditada, fail-closed, 404 limpio, recorrido de directorios,
+  enlaces simbólicos y uniones, índice exacto, enlaces de la wiki, arranque desde otra carpeta, imagen de Docker y proxy de la web).
 - `api/tests/test_security.py`: sesión obligatoria, roles, bloqueo de logins, caducidad, cabeceras, CSRF, validaciones, arranque en
   qa/prod, barrido sin fugas, curación sin fugas.
+- `api/tests/test_inventory_wizard.py`: sondeo y conexión del asistente (solo admin, auditado antes de conectar, sin guardar,
+  bases sin acceso, BD propia excluida, certificado en producción, errores sin detalles, conectar y descubrir); una prueba
+  contra SQL Server real.
 - `api/tests/test_catalog_db.py`, `api/tests/test_audit_db.py`: con SQL Server real (`CONVERDATA_TEST_DB`).
 - `api/tests/test_demo.py`, `api/tests/test_mcp.py`, `api/tests/test_marked_literals.py`.
 
@@ -225,7 +280,8 @@ Ver [deuda técnica](../deuda-tecnica.md).
 - `Session.groups` siempre es `[]`: no hay LDAP (HU-13). Los fragmentos con `allowed_groups` no los ve nadie.
 - Los roles `data_admin` se fijan al iniciar sesión; quitar a alguien de `CONVERDATA_ADMINS` exige revocar sus sesiones.
 - La cookie dura `min(ttl, vida máxima)` desde el login y no se renueva: en el navegador la sesión dura como mucho 8 h.
-- `PUT /admin/inventory` prueba los servidores nuevos con la contraseña del administrador: un host mal escrito la recibe.
+- `PUT /admin/inventory`, `/admin/inventory/probe` y `/admin/inventory/connect` prueban los servidores nuevos con la contraseña
+  del administrador: un host mal escrito (o cualquiera que el administrador escriba) la recibe. No hay lista de hosts permitidos.
 - Por `/mcp`, con el tope de tokens agotado, `discover` se rechaza aunque `CONVERDATA_TOKEN_LIMIT_MODE=deterministic`.
 - El build del catálogo con `enrich` usa otro gateway sin gancho de uso: sus tokens no se cuentan.
 - Ver los fallos encontrados en [seguridad y auditoría](seguridad-auditoria.md#fallos-encontrados-al-revisar-el-código).

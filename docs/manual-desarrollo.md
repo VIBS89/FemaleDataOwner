@@ -37,6 +37,11 @@ diagramas: `c4-contexto.html`, `onpremise-architecture.html`, `cloud-native-arch
 `flujo-descubrimiento.html`, `modelo-datos-converdata.html`, `permisos-heredados.html` y `controles-calidad-bancaria.html`.
 El detalle interno de cada componente está en la wiki del repositorio, `docs/wiki/README.md`.
 
+En la aplicación, *Administración → Documentación* muestra este manual, la wiki, `docs/architecture/README.md` y los
+diagramas, solo a los administradores de datos y con cada lectura auditada (`api/converdata_api/documentation.py`,
+`web/src/components/docs-viewer.tsx`). Los documentos de fuera de esa lista se ven como ruta, sin enlace. Si un
+compañero no ve la pestaña, su login no tiene el rol `data_admin`: en desarrollo se añade a `CONVERDATA_ADMINS`.
+
 ### 2.2 El núcleo (`src/converdata/`)
 El código se ordena en cuatro capas y las dependencias apuntan hacia adentro: integración → aplicación → dominio ←
 infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/architecture/capas-backend.md`.

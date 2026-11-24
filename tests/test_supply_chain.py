@@ -10,6 +10,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_EXTRAS = ("api", "mcp", "sqlserver", "bedrock")
@@ -90,6 +91,8 @@ def test_las_acciones_de_la_ci_van_por_commit_y_la_ci_analiza_las_dependencias()
     # Todo `pip install` de la CI, también el de las herramientas que emiten el veredicto y el SBOM.
     installs = [line for line in workflow.splitlines() if "pip install" in line]
     assert len(installs) >= 4 and all(verified_install(line) for line in installs), installs
+    # Un YAML inválido no falla ninguna comprobación: GitHub no llega a crear los trabajos y nada se ejecuta.
+    assert {"backend", "web", "cadena-de-suministro"} <= set(yaml.safe_load(workflow)["jobs"])
     assert "schedule:" in workflow and "permissions:\n  contents: read" in workflow
     assert "pull_request_target" not in workflow and "secrets." not in workflow
     for step in ("pip-audit -r requirements/runtime.lock --require-hashes", "npm audit --omit=dev --audit-level=high",
@@ -101,7 +104,8 @@ def test_la_web_fija_versiones_exactas_y_su_bloqueo_trae_integridad():
     package = json.loads((ROOT / "web" / "package.json").read_text(encoding="utf-8"))
     lock = json.loads((ROOT / "web" / "package-lock.json").read_text(encoding="utf-8"))
     assert lock["lockfileVersion"] >= 3
-    remote = {path: p for path, p in lock["packages"].items() if path and not p.get("link")}
+    # Un paquete `inBundle` viaja dentro del tarball de su padre, y es la integridad del padre la que lo cubre.
+    remote = {path: p for path, p in lock["packages"].items() if path and not p.get("link") and not p.get("inBundle")}
     assert remote and all(p.get("integrity", "").startswith("sha") for p in remote.values())
     # Lo que se despliega va con versión exacta: una actualización es un cambio visible en el repositorio.
     assert re.fullmatch(r"\d+\.\d+\.\d+", package["dependencies"]["next"])
