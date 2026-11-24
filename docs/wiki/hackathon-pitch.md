@@ -182,10 +182,10 @@ completan con datos reales del equipo antes del pitch.
 - **−30 %**
 - **Dependencia de expertos**
 - Menos consultas a quienes guardan el conocimiento histórico.
-- KPI de riesgo
-- **[__] %**
-- **Conocimiento crítico protegido**
-- Activos clave con responsable y descripción revisada.
+- Meta piloto
+- **−50 %**
+- **Tiempo para localizar una fuente**
+- De buscar entre bases y personas a una pregunta en el chat.
 - Meta piloto
 - **−20 %**
 - **Reprocesos por fuente errónea**
@@ -194,9 +194,9 @@ completan con datos reales del equipo antes del pitch.
 
 **Notas del orador**
 
-> RELOJ 3:50–4:25 (35 s, ~90 palabras) · [Integrante 6]. Para el banco son tres cosas: velocidad, dinero y riesgo. Velocidad: entre 20 y 40 % menos tiempo hasta decidir con datos, y las preguntas de reportes normativos que se resuelven a la primera pasan de 22 a 67 % al cargar el glosario del banco. Dinero: con [N] analistas que dedican [x] horas por semana a buscar datos, la mitad de ese tiempo vale US$ [__] al año. Riesgo: 30 % menos dependencia de las pocas personas con el conocimiento histórico, y 20 % menos reprocesos por usar la fuente equivocada. Cada meta se compara con la línea base que registra el propio agente desde el día uno.
+> RELOJ 3:50–4:25 (35 s, ~90 palabras) · [Integrante 6]. Para el banco son tres cosas: velocidad, dinero y riesgo. Velocidad: entre 20 y 40 % menos tiempo hasta decidir con datos, y las preguntas de reportes normativos que se resuelven a la primera pasan de 22 a 67 % al cargar el glosario del banco. Dinero: con [N] analistas que dedican [x] horas por semana a buscar datos, la mitad de ese tiempo vale US$ [__] al año. Riesgo: 30 % menos dependencia de las pocas personas con el conocimiento histórico, y 20 % menos reprocesos por usar la fuente equivocada. Y la meta central: la mitad del tiempo para localizar una fuente. Cada meta se compara con la línea base que registra el propio agente desde el día uno.
 >
-> ANTES DEL PITCH: completar US$ [__] con N × x × 0,5 × costo por hora × 48 (los mismos N y x del slide del problema) y el KPI de riesgo [__] % (si no hay dato, decir “lo medimos desde el día uno”).
+> ANTES DEL PITCH: completar US$ [__] con N × x × 0,5 × costo por hora × 48 (los mismos N y x del slide del problema).
 > QUÉ ES QUÉ: “Medido” = 9 preguntas normativas del set de reportes, catálogo solo (22 %) frente a catálogo con glosario de prueba (67 %) (docs/PLAN-desarrollo.md §2). “Meta piloto” = objetivos del PRD (§3), por validar con la línea base. No presentar las metas como resultados.
 
 ## 7. Que ninguna pregunta sobre datos dependa de una sola persona
