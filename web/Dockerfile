@@ -1,4 +1,4 @@
-# ConverData-Web: Next.js (salida standalone). La URL de la API se lee en tiempo de ejecución (API_URL).
+# DiscoveryDataAgent-Web: Next.js (salida standalone). La URL de la API se lee en tiempo de ejecución (API_URL).
 # Imagen base fijada por digest; `npm ci` instala exactamente lo de package-lock.json, con sus hashes.
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS deps
 WORKDIR /app

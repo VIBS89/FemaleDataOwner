@@ -8,11 +8,11 @@ variable "environment" {
   }
 }
 
-variable "converdata_env" {
-  description = "CONVERDATA_ENV de la API. Con qa o prod la API no arranca con ajustes inseguros (docs/calidad-bancaria.md §4)."
+variable "discovery_data_agent_env" {
+  description = "DISCOVERY_DATA_AGENT_ENV de la API. Con qa o prod la API no arranca con ajustes inseguros (docs/calidad-bancaria.md §4)."
   type        = string
   validation {
-    condition     = contains(["dev", "qa", "prod"], var.converdata_env)
+    condition     = contains(["dev", "qa", "prod"], var.discovery_data_agent_env)
     error_message = "dev, qa o prod."
   }
 }
@@ -23,7 +23,7 @@ variable "region" {
 }
 
 variable "demo" {
-  description = "CONVERDATA_DEMO=1: servidores simulados con metadatos de prueba (usuarios demo/analista). Nunca con qa ni prod."
+  description = "DISCOVERY_DATA_AGENT_DEMO=1: servidores simulados con metadatos de prueba (usuarios demo/analista). Nunca con qa ni prod."
   type        = bool
   default     = false
 }
@@ -51,7 +51,7 @@ variable "alb_ingress_cidrs" {
 }
 
 variable "sql_server_cidrs" {
-  description = "Redes on-premise de los SQL Server (datos y BD ConverData). La tarea solo puede salir al 1433 de estas redes."
+  description = "Redes on-premise de los SQL Server (datos y BD DiscoveryDataAgent). La tarea solo puede salir al 1433 de estas redes."
   type        = list(string)
   default     = []
 }
@@ -119,13 +119,13 @@ variable "task_memory" {
 }
 
 variable "admins" {
-  description = "Logins con rol data_admin (CONVERDATA_ADMINS). Obligatorio en qa y prod."
+  description = "Logins con rol data_admin (DISCOVERY_DATA_AGENT_ADMINS). Obligatorio en qa y prod."
   type        = list(string)
   default     = []
 }
 
 variable "db_secret_enabled" {
-  description = "Crea el secreto de CONVERDATA_DB (cadena ODBC de la BD ConverData) y lo inyecta en la API y el Builder. Su valor se carga con `despliegue.sh secret`."
+  description = "Crea el secreto de DISCOVERY_DATA_AGENT_DB (cadena ODBC de la BD DiscoveryDataAgent) y lo inyecta en la API y el Builder. Su valor se carga con `despliegue.sh secret`."
   type        = bool
   default     = false
 }
@@ -137,7 +137,7 @@ variable "image_tag" {
 }
 
 variable "extra_api_env" {
-  description = "Variables de entorno adicionales de la API que no sean secretas (p. ej. CONVERDATA_TOKEN_LIMIT)."
+  description = "Variables de entorno adicionales de la API que no sean secretas (p. ej. DISCOVERY_DATA_AGENT_TOKEN_LIMIT)."
   type        = map(string)
   default     = {}
 }
@@ -169,14 +169,14 @@ variable "bedrock_model_id" {
 
 # --- Builder programado ---
 variable "builder" {
-  description = "Refresco del catálogo: `converdata catalog build --db` lanzado por EventBridge Scheduler. Necesita db_secret_enabled."
+  description = "Refresco del catálogo: `discovery-data-agent catalog build --db` lanzado por EventBridge Scheduler. Necesita db_secret_enabled."
   type = object({
     enabled               = optional(bool, false)
     schedule              = optional(string, "cron(0 2 * * ? *)")
     timezone              = optional(string, "America/El_Salvador")
-    hosts                 = optional(list(string), [])                   # CONVERDATA_BUILDER_HOSTS: hosts o sufijos (.banco.local)
-    metadata_user_env     = optional(string, "CONVERDATA_METADATA_USER") # nombres que usa el inventario (metadata_user_env)
-    metadata_password_env = optional(string, "CONVERDATA_METADATA_PASSWORD")
+    hosts                 = optional(list(string), [])                             # DISCOVERY_DATA_AGENT_BUILDER_HOSTS: hosts o sufijos (.banco.local)
+    metadata_user_env     = optional(string, "DISCOVERY_DATA_AGENT_METADATA_USER") # nombres que usa el inventario (metadata_user_env)
+    metadata_password_env = optional(string, "DISCOVERY_DATA_AGENT_METADATA_PASSWORD")
     use_llm               = optional(bool, false) # enriquecer descripciones con el rol planner
     cpu                   = optional(number, 1024)
     memory                = optional(number, 4096)

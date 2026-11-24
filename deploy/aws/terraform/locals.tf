@@ -1,6 +1,6 @@
 locals {
-  name       = "converdata-${var.environment}"
-  production = contains(["qa", "prod"], var.converdata_env)
+  name       = "discovery-data-agent-${var.environment}"
+  production = contains(["qa", "prod"], var.discovery_data_agent_env)
   account_id = data.aws_caller_identity.current.account_id
   partition  = data.aws_partition.current.partition
   azs        = slice(data.aws_availability_zones.available.names, 0, 2)
@@ -19,9 +19,9 @@ locals {
   bedrock_enabled = length(var.bedrock_resource_arns) > 0
   builder_enabled = var.builder.enabled && local.deployed
 
-  uvicorn = "exec uvicorn converdata_api.main:app --app-dir api --host 0.0.0.0 --port 8000 --workers 1"
+  uvicorn = "exec uvicorn discovery_data_agent_api.main:app --app-dir api --host 0.0.0.0 --port 8000 --workers 1"
   # El models.yaml no va en la imagen: llega como variable y el arranque lo escribe en /tmp.
-  write_models = "printf '%s' \"$CONVERDATA_MODELS_YAML\" > /tmp/models.yaml"
+  write_models = "printf '%s' \"$DISCOVERY_DATA_AGENT_MODELS_YAML\" > /tmp/models.yaml"
 }
 
 # Etiqueta de las imágenes en uso. Terraform solo la crea; su valor lo mueve cada despliegue.
@@ -45,11 +45,11 @@ resource "terraform_data" "validaciones" {
     }
     precondition {
       condition     = !local.production || (local.https && var.alb_internal && !var.demo)
-      error_message = "Con converdata_env qa o prod: HTTPS (certificate_arn), ALB interno y sin modo demo (CN-01)."
+      error_message = "Con discovery_data_agent_env qa o prod: HTTPS (certificate_arn), ALB interno y sin modo demo (CN-01)."
     }
     precondition {
       condition     = !local.production || (var.db_secret_enabled && length(var.admins) > 0)
-      error_message = "Con converdata_env qa o prod: db_secret_enabled = true y admins con al menos un login."
+      error_message = "Con discovery_data_agent_env qa o prod: db_secret_enabled = true y admins con al menos un login."
     }
     precondition {
       condition     = !local.https || var.domain_name != null
@@ -57,7 +57,7 @@ resource "terraform_data" "validaciones" {
     }
     precondition {
       condition     = !var.builder.enabled || (var.db_secret_enabled && length(var.builder.hosts) > 0)
-      error_message = "El Builder necesita db_secret_enabled = true y builder.hosts (CONVERDATA_BUILDER_HOSTS)."
+      error_message = "El Builder necesita db_secret_enabled = true y builder.hosts (DISCOVERY_DATA_AGENT_BUILDER_HOSTS)."
     }
     precondition {
       condition     = !local.bedrock_enabled || var.models_yaml_file != null

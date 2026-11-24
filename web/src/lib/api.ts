@@ -58,7 +58,7 @@ async function request<T>(path: string, init?: RequestInit & { json?: unknown })
   if (!res.ok) {
     const message = await errorMessage(res);
     if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/auth/")) {
-      window.dispatchEvent(new Event("converdata:unauthorized"));
+      window.dispatchEvent(new Event("discovery-data-agent:unauthorized"));
     }
     throw new ApiError(res.status, message);
   }
@@ -124,7 +124,7 @@ export const api = {
     });
     if (!res.ok || !res.body) {
       const message = await errorMessage(res);
-      if (res.status === 401) window.dispatchEvent(new Event("converdata:unauthorized"));
+      if (res.status === 401) window.dispatchEvent(new Event("discovery-data-agent:unauthorized"));
       throw new ApiError(res.status, message);
     }
     const reader = res.body.getReader();

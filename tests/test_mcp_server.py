@@ -1,4 +1,4 @@
-"""Capa de integración: `converdata-mcp` (F12, OP-03, OP-04) probado con el cliente MCP oficial.
+"""Capa de integración: `discovery-data-agent-mcp` (F12, OP-03, OP-04) probado con el cliente MCP oficial.
 
 Por HTTP, contra la app ASGI en memoria (sin puertos): sin `Bearer` válido → 401; la identidad sale del token, nunca de
 los argumentos; no se publican herramientas internas. En proceso (como stdio), con la identidad fija de desarrollo.
@@ -14,8 +14,8 @@ import httpx2  # noqa: E402  (cliente HTTP del SDK de MCP)
 from mcp import Client  # noqa: E402
 from mcp.client.streamable_http import streamable_http_client  # noqa: E402
 
-from converdata.application.discovery import DiscoveryTools  # noqa: E402
-from converdata.integration.mcp.server import bearer_token, build_mcp_server, require_bearer  # noqa: E402
+from discovery_data_agent.application.discovery import DiscoveryTools  # noqa: E402
+from discovery_data_agent.integration.mcp.server import bearer_token, build_mcp_server, require_bearer  # noqa: E402
 from conftest import ONBOARDING_Q  # noqa: E402
 
 CLIENT_CODE = "VBank_ING.dbo.Users.ClientCode"

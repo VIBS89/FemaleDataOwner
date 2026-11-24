@@ -1,6 +1,6 @@
 # Gateway de LLM para la máquina del desarrollador: modelos de Ollama.
 # Copiar a config/models.yaml. Ollama solo se permite con environment: local (regla de código);
-# en un servidor, CONVERDATA_ENV=dev|qa|prod sobrescribe este valor y el gateway se niega a arrancar.
+# en un servidor, DISCOVERY_DATA_AGENT_ENV=dev|qa|prod sobrescribe este valor y el gateway se niega a arrancar.
 environment: local
 data_mode: test
 

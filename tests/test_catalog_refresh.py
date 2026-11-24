@@ -1,16 +1,16 @@
-"""Caso de uso `refresh_catalog` (el mismo para la tarea programada y para la API) y la CLI sobre la BD `ConverData`.
+"""Caso de uso `refresh_catalog` (el mismo para la tarea programada y para la API) y la CLI sobre la BD `DiscoveryDataAgent`.
 
-Las pruebas marcadas `sqlserver` necesitan `CONVERDATA_TEST_DB` (ver `conftest.py` de la raíz).
+Las pruebas marcadas `sqlserver` necesitan `DISCOVERY_DATA_AGENT_TEST_DB` (ver `conftest.py` de la raíz).
 """
 
 import pytest
 
-from converdata import cli
-from converdata.application.catalog_refresh import refresh_catalog
-from converdata.catalog.store import CatalogSnapshot, KnowledgeBase, PublishResult, load_snapshot
-from converdata.config import Inventory, OwnersDirectory, ServerConfig
-from converdata.curation import DescriptionEdit
-from converdata.storage.catalog_repository import SqlServerCatalogRepository
+from discovery_data_agent import cli
+from discovery_data_agent.application.catalog_refresh import refresh_catalog
+from discovery_data_agent.catalog.store import CatalogSnapshot, KnowledgeBase, PublishResult, load_snapshot
+from discovery_data_agent.config import Inventory, OwnersDirectory, ServerConfig
+from discovery_data_agent.curation import DescriptionEdit
+from discovery_data_agent.storage.catalog_repository import SqlServerCatalogRepository
 from conftest import FIXTURE
 from test_catalog_build import FakeSource, _inventory
 
@@ -68,17 +68,17 @@ def test_si_ningun_servidor_responde_no_se_publica_nada(tmp_path):
 def test_la_bd_de_trabajo_no_se_cataloga_a_si_misma(tmp_path):
     class WithOwnDatabase(FakeSource):
         def list_databases(self):
-            return [*super().list_databases(), "ConverData", "MiConverData"]
+            return [*super().list_databases(), "DiscoveryDataAgent", "MiDiscoveryDataAgent"]
 
-    result = refresh_catalog(_inventory(), tmp_path, source_factory=WithOwnDatabase, own_databases={"MiConverData"})
-    assert {"ConverData", "MiConverData"}.isdisjoint(result.report.databases)
+    result = refresh_catalog(_inventory(), tmp_path, source_factory=WithOwnDatabase, own_databases={"MiDiscoveryDataAgent"})
+    assert {"DiscoveryDataAgent", "MiDiscoveryDataAgent"}.isdisjoint(result.report.databases)
 
 
 # --- la CLI sobre la BD real ---------------------------------------------------------------------------
 @pytest.fixture
-def db_cli(converdata_db, db_connect, monkeypatch, capsys):
-    """`converdata <args>` contra la BD desechable, que arranca sin catálogo ni inventario."""
-    monkeypatch.setenv("CONVERDATA_DB", converdata_db)
+def db_cli(discovery_data_agent_db, db_connect, monkeypatch, capsys):
+    """`discovery-data-agent <args>` contra la BD desechable, que arranca sin catálogo ni inventario."""
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_DB", discovery_data_agent_db)
     monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: None)
     SqlServerCatalogRepository(db_connect).publish(
         CatalogSnapshot(Inventory(servers=[]), [], KnowledgeBase(), OwnersDirectory()),
@@ -121,14 +121,14 @@ def test_cli_migraciones_publicar_exportar_y_descubrir(db_cli, db_connect, tmp_p
 
 @pytest.mark.sqlserver
 def test_cli_build_usa_el_inventario_de_la_bd_y_no_pisa_lo_curado(db_cli, db_connect, tmp_path, monkeypatch):
-    monkeypatch.setattr("converdata.metadata.sqlserver.SqlServerMetadata", FakeSource)
+    monkeypatch.setattr("discovery_data_agent.metadata.sqlserver.SqlServerMetadata", FakeSource)
     repo = SqlServerCatalogRepository(db_connect)
     code, out = db_cli("catalog", "build", "--db")
     assert code == 1 and "no tiene inventario" in out
     repo.save_inventory([s.model_copy(update={"auth": "sql"}) for s in _inventory().servers], by="admin")
     finished = _events(db_connect, "catalog_build_finished")
     code, out = db_cli("catalog", "build", "--db")
-    assert code == 0 and "BD ConverData: versión" in out and "fallidos" in out  # un servidor caído no detiene el resto
+    assert code == 0 and "BD DiscoveryDataAgent: versión" in out and "fallidos" in out  # un servidor caído no detiene el resto
     assert _events(db_connect, "catalog_build_finished") == finished + 1
     loaded, version = repo.load()
     target = next(o for o in loaded.objects if o.asset_key == CLIENTES)
@@ -148,12 +148,12 @@ def test_el_builder_solo_va_a_los_hosts_permitidos(monkeypatch):
     servers = [ServerConfig(id="S1", host="sql01.banco.local,1433", alias="a", environment="produccion"),
                ServerConfig(id="S2", host=r"SQL02\\INST", alias="b", environment="qa"),
                ServerConfig(id="S3", host="atacante.example.com", alias="c", environment="desarrollo")]
-    monkeypatch.delenv("CONVERDATA_BUILDER_HOSTS", raising=False)
-    monkeypatch.setenv("CONVERDATA_ENV", "dev")
+    monkeypatch.delenv("DISCOVERY_DATA_AGENT_BUILDER_HOSTS", raising=False)
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_ENV", "dev")
     assert cli.builder_hosts_refused(servers) is None  # en desarrollo la lista es opcional
-    monkeypatch.setenv("CONVERDATA_ENV", "prod")
-    assert "CONVERDATA_BUILDER_HOSTS" in cli.builder_hosts_refused(servers)  # en qa y prod es obligatoria
-    monkeypatch.setenv("CONVERDATA_BUILDER_HOSTS", ".banco.local, sql02")
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_ENV", "prod")
+    assert "DISCOVERY_DATA_AGENT_BUILDER_HOSTS" in cli.builder_hosts_refused(servers)  # en qa y prod es obligatoria
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_BUILDER_HOSTS", ".banco.local, sql02")
     refused = cli.builder_hosts_refused(servers)
     assert "S3" in refused and "S1" not in refused and "S2" not in refused and "atacante" not in refused
     assert cli.builder_hosts_refused(servers[:2]) is None

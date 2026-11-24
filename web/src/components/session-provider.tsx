@@ -22,7 +22,7 @@ const SessionContext = createContext<SessionValue | null>(null);
 function clearConversations() {
   try {
     for (const key of Object.keys(localStorage)) {
-      if (key.startsWith("converdata:conversations:")) localStorage.removeItem(key);
+      if (key.startsWith("discovery-data-agent:conversations:")) localStorage.removeItem(key);
     }
   } catch {}
 }
@@ -70,8 +70,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       router.replace("/login");
     };
-    window.addEventListener("converdata:unauthorized", onUnauthorized);
-    return () => window.removeEventListener("converdata:unauthorized", onUnauthorized);
+    window.addEventListener("discovery-data-agent:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("discovery-data-agent:unauthorized", onUnauthorized);
   }, [router]);
 
   useEffect(() => {

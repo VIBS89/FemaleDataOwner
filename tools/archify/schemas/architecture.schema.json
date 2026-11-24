@@ -221,7 +221,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 600,
-            "description": "ConverData fork: reader-facing explanation of the component's role, shown in the Semantic Passport card on focus."
+            "description": "DiscoveryDataAgent fork: reader-facing explanation of the component's role, shown in the Semantic Passport card on focus."
           }
         }
       }

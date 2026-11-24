@@ -5,8 +5,8 @@ from types import SimpleNamespace as NS
 import pytest
 from pydantic import BaseModel
 
-from converdata.llm.factory import ModelsConfig
-from converdata.llm.gateway import LLMGateway, ResidencyError, classify_error
+from discovery_data_agent.llm.factory import ModelsConfig
+from discovery_data_agent.llm.gateway import LLMGateway, ResidencyError, classify_error
 
 
 class Out(BaseModel):
@@ -57,7 +57,7 @@ def test_un_proveedor_desconocido_no_carga():
 def test_el_constructor_de_openai_recibe_modelo_clave_y_limites(monkeypatch):
     import langchain_openai
 
-    from converdata.llm.factory import MissingCredential, ProviderConfig, RoleConfig, build_openai_chat
+    from discovery_data_agent.llm.factory import MissingCredential, ProviderConfig, RoleConfig, build_openai_chat
 
     seen = {}
     monkeypatch.setattr(langchain_openai, "ChatOpenAI", lambda **kw: seen.update(kw))
@@ -79,7 +79,7 @@ def test_el_constructor_de_openai_recibe_modelo_clave_y_limites(monkeypatch):
 
 
 def test_el_cliente_real_de_openai_acepta_los_parametros_del_constructor(monkeypatch):
-    from converdata.llm.factory import ProviderConfig, RoleConfig, build_openai_chat
+    from discovery_data_agent.llm.factory import ProviderConfig, RoleConfig, build_openai_chat
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-prueba")
     chat = build_openai_chat(RoleConfig(provider="openai", model="m", temperature=0.0, max_tokens=500, effort="low"),
@@ -119,7 +119,7 @@ def claude_response(text="hola", parsed=None, stop_reason="end_turn", category=N
 def test_claude_texto_separa_el_system_y_devuelve_el_uso_real():
     from langchain_core.messages import HumanMessage, SystemMessage
 
-    from converdata.llm.anthropic_chat import ClaudeChat
+    from discovery_data_agent.llm.anthropic_chat import ClaudeChat
 
     client = FakeAnthropic(claude_response("El DUI está en Solicitudes."))
     msg = ClaudeChat(client, "claude-opus-5-5", max_tokens=4000, effort="low").invoke(
@@ -134,7 +134,7 @@ def test_claude_texto_separa_el_system_y_devuelve_el_uso_real():
 
 
 def test_claude_salida_estructurada_y_respaldo_ante_rechazo():
-    from converdata.llm.anthropic_chat import DEFAULT_MAX_TOKENS, ClaudeChat
+    from discovery_data_agent.llm.anthropic_chat import DEFAULT_MAX_TOKENS, ClaudeChat
 
     client = FakeAnthropic(claude_response(parsed=Out(ok=True)))
     assert ClaudeChat(client, "claude-opus-5-5").with_structured_output(Out).invoke("ping").ok
@@ -150,7 +150,7 @@ def test_claude_salida_estructurada_y_respaldo_ante_rechazo():
 
 def test_claude_un_rechazo_o_una_salida_cortada_son_errores_de_contenido():
     """No son transitorios: el gateway no salta a otro proveedor y el flujo cae al modo determinista."""
-    from converdata.llm.anthropic_chat import ClaudeChat, LLMRefused
+    from discovery_data_agent.llm.anthropic_chat import ClaudeChat, LLMRefused
 
     refused = ClaudeChat(FakeAnthropic(claude_response(stop_reason="refusal", category="cyber")), "claude-opus-5-5")
     with pytest.raises(LLMRefused, match="cyber") as err:
@@ -209,9 +209,9 @@ def test_el_sdk_real_de_anthropic_acepta_la_peticion_que_arma_el_adaptador(monke
     import anthropic
     import httpx2
 
-    from converdata.discovery.ports import RerankResult
-    from converdata.llm.anthropic_chat import ClaudeChat
-    from converdata.models.intent import IntentResult
+    from discovery_data_agent.discovery.ports import RerankResult
+    from discovery_data_agent.llm.anthropic_chat import ClaudeChat
+    from discovery_data_agent.models.intent import IntentResult
 
     sent: list[dict] = []
     answers = {"IntentResult": {"intent": "discovery", "rewritten_question": "¿dónde está el DUI?", "confidence": 0.9},
@@ -245,8 +245,8 @@ def test_el_sdk_real_de_anthropic_acepta_la_peticion_que_arma_el_adaptador(monke
 def test_el_constructor_de_claude_usa_el_sdk_oficial(monkeypatch):
     import anthropic
 
-    from converdata.llm.anthropic_chat import ClaudeChat
-    from converdata.llm.factory import MissingCredential, ProviderConfig, RoleConfig, build_anthropic_chat
+    from discovery_data_agent.llm.anthropic_chat import ClaudeChat
+    from discovery_data_agent.llm.factory import MissingCredential, ProviderConfig, RoleConfig, build_anthropic_chat
 
     seen = {}
     monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: seen.update(kw) or "cliente")

@@ -1,7 +1,7 @@
 # Entorno qa según CN-01. Copiar a qa.tfvars (y a prod.tfvars para producción) y rellenar con los datos del banco.
 # Todo lo marcado con <...> lo entregan Redes, Seguridad o el DBA. Ningún valor de este archivo es secreto.
 environment    = "qa"
-converdata_env = "qa"
+discovery_data_agent_env = "qa"
 region         = "us-east-1"
 
 # --- Red ---
@@ -22,7 +22,7 @@ onprem_dns = {
 }
 
 # --- Entrada ---
-domain_name     = "converdata-qa.banco.local"
+domain_name     = "discovery-data-agent-qa.banco.local"
 certificate_arn = "arn:aws:acm:us-east-1:<cuenta>:certificate/<id>" # importado de la PKI del banco
 
 # --- Aplicación ---
@@ -31,7 +31,7 @@ db_secret_enabled = true
 task_cpu          = 2048
 task_memory       = 8192
 extra_api_env = {
-  CONVERDATA_TOKEN_LIMIT = "200000"
+  DISCOVERY_DATA_AGENT_TOKEN_LIMIT = "200000"
 }
 
 # --- LLM ---

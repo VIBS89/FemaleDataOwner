@@ -7,8 +7,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.llm import factory
-from converdata.llm.factory import selection_path
+from discovery_data_agent.llm import factory
+from discovery_data_agent.llm.factory import selection_path
 
 from test_api import build, login, make_client, settings  # noqa: F401  (fixtures de la API)
 
@@ -66,7 +66,7 @@ roles:
 def entorno(monkeypatch):
     monkeypatch.setenv("NVIDIA_API_KEY", CLAVE_NVIDIA)
     monkeypatch.setenv("ANTHROPIC_API_KEY", CLAVE_CLAUDE)
-    monkeypatch.delenv("CONVERDATA_ENV", raising=False)
+    monkeypatch.delenv("DISCOVERY_DATA_AGENT_ENV", raising=False)
 
     def prohibido(*args, **kwargs):  # validar un perfil no debe construir ni llamar a ningún modelo
         raise AssertionError("se intentó construir un modelo: no debe haber llamadas al proveedor")
@@ -262,7 +262,7 @@ def test_un_cambio_rechazado_deja_constancia_de_que_no_se_aplico(settings, tmp_p
 
 def test_sin_auditoria_no_se_cambia_el_proveedor(settings, tmp_path, monkeypatch):
     """F11 fail-closed: si el registro falla, el cambio de proveedor no se aplica."""
-    from converdata_api.audit import FileAuditSink
+    from discovery_data_agent_api.audit import FileAuditSink
 
     admin, path = api(settings, tmp_path)
     cliente = TestClient(admin.app, raise_server_exceptions=False)

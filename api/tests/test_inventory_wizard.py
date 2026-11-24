@@ -15,11 +15,11 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.config import ServerConfig
-from converdata_api.audit import FileAuditSink
-from converdata_api.connector import DatabaseProbe, DemoConnector, DemoUser, LoginFailed, SqlConnector
-from converdata_api.main import create_app
-from converdata_api.vault import Credential
+from discovery_data_agent.config import ServerConfig
+from discovery_data_agent_api.audit import FileAuditSink
+from discovery_data_agent_api.connector import DatabaseProbe, DemoConnector, DemoUser, LoginFailed, SqlConnector
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.vault import Credential
 
 from test_api import FIXTURE, build, login, make_client, ready, settings  # noqa: F401  (fixtures de la API)
 
@@ -133,19 +133,19 @@ def test_las_bases_sin_acceso_se_marcan_y_no_se_cuentan(settings):
 
 
 def test_el_sondeo_excluye_las_bases_de_sistema_y_la_propia(settings, monkeypatch, tmp_path):
-    """La BD de trabajo no se cataloga a sí misma (como en el build), se llame `ConverData` o como diga CONVERDATA_DB."""
-    from converdata.bootstrap import open_stores
+    """La BD de trabajo no se cataloga a sí misma (como en el build), se llame `DiscoveryDataAgent` o como diga DISCOVERY_DATA_AGENT_DB."""
+    from discovery_data_agent.bootstrap import open_stores
 
     class WithSystem(DemoConnector):
         def probe(self, server, cred):
-            extra = [DatabaseProbe(n, True, 1, 0) for n in ("master", "msdb", "ConverData", "ConverData_Piloto")]
+            extra = [DatabaseProbe(n, True, 1, 0) for n in ("master", "msdb", "DiscoveryDataAgent", "DiscoveryDataAgent_Piloto")]
             return extra + super().probe(server, cred)
 
-    monkeypatch.setattr("converdata_api.main.open_audit", lambda s: FileAuditSink(s.audit_dir))
-    monkeypatch.setattr("converdata_api.runtime.open_api_stores",
+    monkeypatch.setattr("discovery_data_agent_api.main.open_audit", lambda s: FileAuditSink(s.audit_dir))
+    monkeypatch.setattr("discovery_data_agent_api.runtime.open_api_stores",
                         lambda s: open_stores(None, data_root=s.data_root, curation_dir=s.curation_dir,
                                               inventory_path=s.inventory_path))
-    settings.db = "SERVER=sql-converdata;DATABASE=ConverData_Piloto;Trusted_Connection=yes"
+    settings.db = "SERVER=sql-discovery-data-agent;DATABASE=DiscoveryDataAgent_Piloto;Trusted_Connection=yes"
     client = TestClient(create_app(settings, WithSystem(FIXTURE)))
     login(client, host="demo-sql")
     names = [d["name"] for d in client.post("/admin/inventory/probe", json={"host": "otro-sql"}).json()["databases"]]
@@ -186,7 +186,7 @@ def test_el_conector_sql_traduce_los_errores_del_driver(monkeypatch):
     def refuse(*args, **kwargs):
         raise pyodbc.OperationalError("08001", "[Microsoft][ODBC Driver 18] TCP Provider: sqlprd01.corp.local no responde")
 
-    monkeypatch.setattr("converdata_api.connector.best_driver", lambda: "ODBC Driver 18 for SQL Server")
+    monkeypatch.setattr("discovery_data_agent_api.connector.best_driver", lambda: "ODBC Driver 18 for SQL Server")
     monkeypatch.setattr(pyodbc, "connect", refuse)
     server = ServerConfig(id="S1", host="sqlprd01.corp.local", alias="SQL", environment="produccion")
     with pytest.raises(LoginFailed) as caught:
@@ -354,9 +354,9 @@ def test_el_put_del_inventario_sigue_auditando_antes_y_despues(ready):
 
 # --- SQL Server real --------------------------------------------------------------------------------
 @pytest.mark.sqlserver
-def test_el_sondeo_real_ve_la_bd_de_pruebas_con_sus_tablas(converdata_db):
-    """Con `CONVERDATA_TEST_DB`: la BD desechable (migrada, con tablas) aparece con acceso y con su conteo."""
-    server_string = os.environ["CONVERDATA_TEST_DB"]
+def test_el_sondeo_real_ve_la_bd_de_pruebas_con_sus_tablas(discovery_data_agent_db):
+    """Con `DISCOVERY_DATA_AGENT_TEST_DB`: la BD desechable (migrada, con tablas) aparece con acceso y con su conteo."""
+    server_string = os.environ["DISCOVERY_DATA_AGENT_TEST_DB"]
     host = re.search(r"SERVER=([^;]+)", server_string, re.I).group(1)
     trust = bool(re.search(r"TrustServerCertificate=yes", server_string, re.I))
     login_ = re.search(r"UID=([^;]+)", server_string, re.I)
@@ -364,7 +364,7 @@ def test_el_sondeo_real_ve_la_bd_de_pruebas_con_sus_tablas(converdata_db):
     server = ServerConfig(id="TEST", host=host, alias="Pruebas", environment="desarrollo",
                           trust_server_certificate=trust)
     cred = Credential("TEST", login_.group(1) if login_ else None, password.group(1) if password else None)
-    name = re.search(r"DATABASE=([^;]+)", converdata_db, re.I).group(1)
+    name = re.search(r"DATABASE=([^;]+)", discovery_data_agent_db, re.I).group(1)
     found = {d.name: d for d in SqlConnector().probe(server, cred)}
     assert "master" not in found and "tempdb" not in found
     assert found[name].accessible is True and found[name].tables and found[name].tables > 5
@@ -372,7 +372,7 @@ def test_el_sondeo_real_ve_la_bd_de_pruebas_con_sus_tablas(converdata_db):
 
 # --- revisión de seguridad ---------------------------------------------------------------------------
 def test_conectar_no_cataloga_bases_de_sistema_ni_la_propia_aunque_lleguen_a_mano(ready):
-    for name in ("master", "MSDB", "ConverData"):
+    for name in ("master", "MSDB", "DiscoveryDataAgent"):
         r = ready.post("/admin/inventory/connect", json={"server_id": "DEMO_SQL", "databases": ["BancaLeasing", name]})
         assert r.status_code == 400 and name in r.json()["detail"], r.text
     assert ready.get("/admin/inventory").json()["servers"][0]["databases"] == ["*"]
@@ -388,7 +388,7 @@ def test_conectar_comparte_el_limite_de_ritmo_del_sondeo(ready):
 
 
 def test_si_no_se_puede_guardar_la_sesion_no_conserva_la_credencial_del_servidor(ready, monkeypatch):
-    from converdata_api import runtime as runtime_module
+    from discovery_data_agent_api import runtime as runtime_module
 
     def boom(self, servers, *, by):
         raise RuntimeError("BD caída")

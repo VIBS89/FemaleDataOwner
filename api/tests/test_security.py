@@ -1,4 +1,4 @@
-"""Controles de seguridad de ConverData-API para un despliegue bancario (OP-03, OP-04, OP-05, OP-06, F11, F14).
+"""Controles de seguridad de DiscoveryDataAgent-API para un despliegue bancario (OP-03, OP-04, OP-05, OP-06, F11, F14).
 
 Cada test fija un control: si alguien lo quita o lo debilita, falla aquí. La matriz de rutas se genera de `app.routes`,
 así que una ruta nueva sin autenticación o sin control de rol también falla sin tocar este archivo.
@@ -10,17 +10,17 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.bootstrap import open_stores
-from converdata.evaluation.gate import LeakScanner
-from converdata_api.audit import FileAuditSink
-from converdata_api.connector import DemoConnector, LoginFailed, SqlConnector, _FixtureLister
-from converdata_api.main import create_app
-from converdata_api.pii import find_pii
-from converdata_api.security import (InsecureConfiguration, LoginThrottle, inventory_violations, production_violations, valid_host,
+from discovery_data_agent.bootstrap import open_stores
+from discovery_data_agent.evaluation.gate import LeakScanner
+from discovery_data_agent_api.audit import FileAuditSink
+from discovery_data_agent_api.connector import DemoConnector, LoginFailed, SqlConnector, _FixtureLister
+from discovery_data_agent_api.main import create_app
+from discovery_data_agent_api.pii import find_pii
+from discovery_data_agent_api.security import (InsecureConfiguration, LoginThrottle, inventory_violations, production_violations, valid_host,
                                      valid_identifier, valid_login)
-from converdata_api.settings import ApiSettings
-from converdata_api.vault import Credential, SessionVault
-from converdata.config import ServerConfig
+from discovery_data_agent_api.settings import ApiSettings
+from discovery_data_agent_api.vault import Credential, SessionVault
+from discovery_data_agent.config import ServerConfig
 
 from test_api import FIXTURE, build, login, make_client, ready, settings  # noqa: F401  (fixtures de la API)
 
@@ -212,9 +212,9 @@ def test_el_origen_del_sitio_que_reenvia_la_web_se_acepta(ready):
     """La web reenvía `Origin` y el `Host` que ve el navegador (`X-Forwarded-Host`): con otro nombre público sigue
     siendo el mismo sitio, y un origen distinto se sigue rechazando."""
     analyst = analyst_client(ready.app)
-    site = {"Origin": "https://converdata.banco.example", "X-Forwarded-Host": "converdata.banco.example"}
+    site = {"Origin": "https://discovery_data_agent.banco.example", "X-Forwarded-Host": "discovery_data_agent.banco.example"}
     assert analyst.post("/discover", json={"question": "¿Dónde está el saldo?"}, headers=site).status_code == 200
-    other = {"Origin": "https://sitio-ajeno.example", "X-Forwarded-Host": "converdata.banco.example"}
+    other = {"Origin": "https://sitio-ajeno.example", "X-Forwarded-Host": "discovery_data_agent.banco.example"}
     assert analyst.post("/discover", json={"question": "¿Dónde está el saldo?"}, headers=other).status_code == 403
 
 
@@ -239,7 +239,7 @@ def test_el_proxy_de_la_web_no_debilita_los_controles_de_la_api():
         assert header in config, header
     assert "frame-ancestors 'none'" in config and "async headers()" in config
     session = (web / "src" / "components" / "session-provider.tsx").read_text(encoding="utf-8")
-    assert "converdata:conversations:" in session and "removeItem" in session  # al salir no quedan preguntas
+    assert "discovery-data-agent:conversations:" in session and "removeItem" in session  # al salir no quedan preguntas
 
 
 def test_cuerpo_demasiado_grande_se_rechaza(ready, settings):
@@ -267,7 +267,7 @@ def test_un_login_con_caracteres_de_cadena_odbc_se_rechaza(ready, login_name):
 
 def test_la_cadena_de_conexion_escapa_usuario_y_contrasena(monkeypatch):
     connector = SqlConnector()
-    monkeypatch.setattr("converdata_api.connector.best_driver", lambda: "ODBC Driver 18 for SQL Server")
+    monkeypatch.setattr("discovery_data_agent_api.connector.best_driver", lambda: "ODBC Driver 18 for SQL Server")
     server = ServerConfig(id="S1", host="sql01.banco.local,1433", alias="SQL", environment="produccion")
     text = connector.connection_string(server, Credential("S1", "dominio\\ana", "p;w}d=1"))
     assert "UID={dominio\\ana}" in text and "PWD={p;w}}d=1}" in text and "Encrypt=yes" in text
@@ -299,7 +299,7 @@ def test_el_inventario_rechaza_hosts_y_bases_no_validos(ready):
 
 
 def test_autenticacion_de_windows_apagada_por_defecto(monkeypatch, ready):
-    monkeypatch.delenv("CONVERDATA_ALLOW_WINDOWS_AUTH", raising=False)
+    monkeypatch.delenv("DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH", raising=False)
     assert ApiSettings.from_env().allow_windows_auth is False
     r = TestClient(ready.app).post("/auth/login", json={"auth": "windows"})
     assert r.status_code == 400  # nadie obtiene una sesión con la cuenta del servicio
@@ -335,18 +335,18 @@ def test_con_admins_only_ser_sysadmin_de_un_servidor_no_da_el_rol(settings):
 # --- guarda de producción ------------------------------------------------------------------------------
 @pytest.fixture
 def prod(tmp_path, monkeypatch):
-    # La BD `ConverData` es obligatoria en producción; aquí la auditoría se queda en archivos para no exigir un
+    # La BD `DiscoveryDataAgent` es obligatoria en producción; aquí la auditoría se queda en archivos para no exigir un
     # SQL Server (api/tests/test_audit_db.py la prueba contra uno real).
-    monkeypatch.setattr("converdata_api.main.open_audit", lambda s: FileAuditSink(s.audit_dir))
-    monkeypatch.setattr("converdata_api.runtime.open_api_stores",
+    monkeypatch.setattr("discovery_data_agent_api.main.open_audit", lambda s: FileAuditSink(s.audit_dir))
+    monkeypatch.setattr("discovery_data_agent_api.runtime.open_api_stores",
                         lambda s: open_stores(None, data_root=s.data_root, curation_dir=s.curation_dir,
                                               inventory_path=s.inventory_path))
     return ApiSettings(
-        db="SERVER=sql-converdata;DATABASE=ConverData;Trusted_Connection=yes",
+        db="SERVER=sql-discovery-data-agent;DATABASE=DiscoveryDataAgent;Trusted_Connection=yes",
         data_root=tmp_path / "catalog", inventory_path=tmp_path / "inventory.yaml", audit_dir=tmp_path / "audit",
         curation_dir=tmp_path / "curation", log_dir=tmp_path / "logs", event_log=False, environment="prod",
-        cookie_secure=True, cors_origins=["https://converdata.banco.local"], public_url="https://converdata.banco.local",
-        mcp_allowed_hosts=["converdata.banco.local"], admins_only=True, admins=frozenset({"dba_datos"}),
+        cookie_secure=True, cors_origins=["https://discovery_data_agent.banco.local"], public_url="https://discovery_data_agent.banco.local",
+        mcp_allowed_hosts=["discovery_data_agent.banco.local"], admins_only=True, admins=frozenset({"dba_datos"}),
         setup_token="codigo-del-instalador", allow_windows_auth=False,
     )
 
@@ -362,20 +362,20 @@ def test_la_configuracion_de_produccion_valida_arranca(prod):
 
 
 @pytest.mark.parametrize("change, expected", [
-    ({"demo": True}, "CONVERDATA_DEMO"),
-    ({"cookie_secure": False}, "CONVERDATA_COOKIE_SECURE"),
-    ({"cors_origins": ["*"]}, "CONVERDATA_CORS_ORIGINS"),
-    ({"cors_origins": ["http://converdata.banco.local"]}, "CONVERDATA_CORS_ORIGINS"),
-    ({"mcp_allowed_hosts": []}, "CONVERDATA_MCP_HOSTS"),
-    ({"allow_windows_auth": True}, "CONVERDATA_ALLOW_WINDOWS_AUTH"),
-    ({"admins_only": False}, "CONVERDATA_ADMINS"),
-    ({"admins": frozenset()}, "CONVERDATA_ADMINS"),
-    ({"setup_token": None}, "CONVERDATA_SETUP_TOKEN"),
-    ({"login_max_failures": 0}, "CONVERDATA_LOGIN_MAX_FAILURES"),
-    ({"log_dir": None}, "CONVERDATA_LOG_DIR"),
-    ({"db": None}, "CONVERDATA_DB"),
+    ({"demo": True}, "DISCOVERY_DATA_AGENT_DEMO"),
+    ({"cookie_secure": False}, "DISCOVERY_DATA_AGENT_COOKIE_SECURE"),
+    ({"cors_origins": ["*"]}, "DISCOVERY_DATA_AGENT_CORS_ORIGINS"),
+    ({"cors_origins": ["http://discovery_data_agent.banco.local"]}, "DISCOVERY_DATA_AGENT_CORS_ORIGINS"),
+    ({"mcp_allowed_hosts": []}, "DISCOVERY_DATA_AGENT_MCP_HOSTS"),
+    ({"allow_windows_auth": True}, "DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH"),
+    ({"admins_only": False}, "DISCOVERY_DATA_AGENT_ADMINS"),
+    ({"admins": frozenset()}, "DISCOVERY_DATA_AGENT_ADMINS"),
+    ({"setup_token": None}, "DISCOVERY_DATA_AGENT_SETUP_TOKEN"),
+    ({"login_max_failures": 0}, "DISCOVERY_DATA_AGENT_LOGIN_MAX_FAILURES"),
+    ({"log_dir": None}, "DISCOVERY_DATA_AGENT_LOG_DIR"),
+    ({"db": None}, "DISCOVERY_DATA_AGENT_DB"),
     ({"session_ttl_s": 24 * 3600}, "sesión"),
-    ({"notify_webhook": "http://teams.example/hook"}, "CONVERDATA_NOTIFY_WEBHOOK"),
+    ({"notify_webhook": "http://teams.example/hook"}, "DISCOVERY_DATA_AGENT_NOTIFY_WEBHOOK"),
 ])
 def test_la_api_no_arranca_en_produccion_con_ajustes_inseguros(prod, change, expected):
     for key, value in change.items():
@@ -406,14 +406,14 @@ def test_produccion_revisa_inventario_modelos_y_auditoria_del_catalogo(prod, tmp
 
 
 def test_produccion_no_arranca_si_la_cuenta_puede_modificar_la_auditoria(prod, monkeypatch):
-    """Con la auditoría en SQL Server, la cuenta del servicio solo inserta y lee (rol converdata_app)."""
-    from converdata.audit.chain import ChainReport, FileCheck
+    """Con la auditoría en SQL Server, la cuenta del servicio solo inserta y lee (rol discovery_data_agent_app)."""
+    from discovery_data_agent.audit.chain import ChainReport, FileCheck
 
     class Writable(FileAuditSink):
         def verify(self):
             return ChainReport([FileCheck("audit (SQL Server)", errors=["la cuenta del servicio puede borrar la auditoría"])])
 
-    monkeypatch.setattr("converdata_api.main.open_audit", lambda s: Writable(s.audit_dir))
+    monkeypatch.setattr("discovery_data_agent_api.main.open_audit", lambda s: Writable(s.audit_dir))
     with pytest.raises(InsecureConfiguration, match="borrar la auditoría"):
         create_app(prod, DemoConnector(FIXTURE))
 

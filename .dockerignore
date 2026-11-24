@@ -7,7 +7,7 @@
 data
 BancosSQL.zip
 docs/*
-# Solo lo que el visor de documentación sirve (api/converdata_api/documentation.py); PRD, specs y backlog no
+# Solo lo que el visor de documentación sirve (api/discovery_data_agent_api/documentation.py); PRD, specs y backlog no
 !docs/manual-desarrollo.md
 !docs/wiki
 !docs/architecture/README.md

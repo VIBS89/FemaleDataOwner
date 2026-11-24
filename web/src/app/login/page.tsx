@@ -77,7 +77,7 @@ export default function LoginPage() {
           <div className="flex size-9 items-center justify-center rounded-lg bg-white/15 backdrop-blur">
             <Sparkles className="size-4" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">ConverData</span>
+          <span className="text-lg font-semibold tracking-tight">DiscoveryDataAgent</span>
         </div>
         <div className="max-w-md space-y-6">
           <h1 className="text-3xl leading-tight font-semibold tracking-tight">
@@ -183,7 +183,7 @@ export default function LoginPage() {
                             type="password"
                             autoComplete="off"
                             className="bg-background"
-                            placeholder="Lo entrega quien instaló ConverData"
+                            placeholder="Lo entrega quien instaló DiscoveryDataAgent"
                             value={setupToken}
                             onChange={(e) => setSetupToken(e.target.value)}
                             required

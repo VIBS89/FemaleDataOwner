@@ -1,20 +1,20 @@
-"""Bloque C2 · Reglas de la curación (F24) y sus dos almacenamientos: archivos (desarrollo) y la BD `ConverData`.
+"""Bloque C2 · Reglas de la curación (F24) y sus dos almacenamientos: archivos (desarrollo) y la BD `DiscoveryDataAgent`.
 
-Las pruebas marcadas `sqlserver` necesitan `CONVERDATA_TEST_DB` (ver `conftest.py` de la raíz).
+Las pruebas marcadas `sqlserver` necesitan `DISCOVERY_DATA_AGENT_TEST_DB` (ver `conftest.py` de la raíz).
 """
 
 import uuid
 
 import pytest
 
-from converdata.catalog.store import KnowledgeBase, load_snapshot
-from converdata.curation import (DescriptionEdit, golden_id, has_literals, human_edits, plan_dictionary,
+from discovery_data_agent.catalog.store import KnowledgeBase, load_snapshot
+from discovery_data_agent.curation import (DescriptionEdit, golden_id, has_literals, human_edits, plan_dictionary,
                                  question_template, resolve_golden, steward_rules)
-from converdata.config import ServerConfig
-from converdata.models.knowledge import BusinessRule, GoldenDiscovery, KnowledgeItem
-from converdata.storage.curation_repository import SqlServerCurationRepository
-from converdata.storage.files import FileCurationRepository, FileInventoryStore, FileKnowledgeWriter
-from converdata.builder.catalog_builder import write_snapshot
+from discovery_data_agent.config import ServerConfig
+from discovery_data_agent.models.knowledge import BusinessRule, GoldenDiscovery, KnowledgeItem
+from discovery_data_agent.storage.curation_repository import SqlServerCurationRepository
+from discovery_data_agent.storage.files import FileCurationRepository, FileInventoryStore, FileKnowledgeWriter
+from discovery_data_agent.builder.catalog_builder import write_snapshot
 from conftest import FIXTURE
 
 USERS = "VBank_ING.dbo.Users"
@@ -247,7 +247,7 @@ def test_quitar_literales_no_se_cuelga_con_una_palabra_enorme():
     import re
     import time
 
-    from converdata.memory.text import strip_literals
+    from discovery_data_agent.memory.text import strip_literals
 
     old = re.compile(r"\S+\s+@\s+\S+")
     for text in ("escribe a juan.perez @ banco.com hoy", "a @ b", "@ solo", "sin arroba", "x @", "uno dos @ tres cuatro"):
@@ -260,7 +260,7 @@ def test_quitar_literales_no_se_cuelga_con_una_palabra_enorme():
 
 def test_figures_del_servidor_se_conserva_al_guardar_y_leer_el_inventario(tmp_path):
     """`ServerConfig.figures` (None / True / False) sobrevive al ciclo del inventario en archivos."""
-    from converdata.config import ServerConfig
+    from discovery_data_agent.config import ServerConfig
 
     servers = [ServerConfig(id=f"S{i}", alias=f"s{i}", environment="produccion", figures=f)
                for i, f in enumerate([None, True, False])]

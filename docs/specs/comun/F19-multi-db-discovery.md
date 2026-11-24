@@ -11,7 +11,7 @@ cómo se cruzan las BDs** antes de escribir SQL.
 
 ## Salida: grafo del patrimonio de datos (`knowledge/estate/`)
 Un grafo revisable por humanos que se **construye en memoria** al cargar el catálogo. Sus nodos y aristas se guardan como filas de
-tablas normales del esquema `knowledge` de la BD `ConverData` (`knowledge.business_entity` y `knowledge.lineage_edge`, `db/converdata/001_esquemas.sql`; en el área de trabajo, `knowledge/estate/entities.yaml` y `knowledge/lineage/views.yaml`); no se usan tablas de grafo de SQL Server (PRD §13, decisión 10):
+tablas normales del esquema `knowledge` de la BD `DiscoveryDataAgent` (`knowledge.business_entity` y `knowledge.lineage_edge`, `db/discovery_data_agent/001_esquemas.sql`; en el área de trabajo, `knowledge/estate/entities.yaml` y `knowledge/lineage/views.yaml`); no se usan tablas de grafo de SQL Server (PRD §13, decisión 10):
 
 | Nodo | Atributos |
 |---|---|
@@ -40,12 +40,12 @@ Cada arista guarda `evidence[]` y `reviewed`. Las inferidas (`confidence < 0.8`)
 5. **Tipos semánticos de columna**: reglas (RFC, CURP, email, teléfono, código postal, ISO de moneda o país) + LLM sobre nombre, descripción y estadísticas (sin valores de texto). Sirven para encontrar joins y para marcar PII.
 6. **Entidades de negocio**: el LLM agrupa tablas equivalentes en `entity` y propone la **tabla canónica**, priorizando: declarada por un humano → con más FKs entrantes → más usada en Query Store → más fresca (`last_user_update`).
 7. **Dominios y popularidad**: clustering por grafo (comunidades) para dominios; puntuación de popularidad (Query Store + `index_usage_stats`) para el ranking del schema linking.
-8. **Revisión humana**: `converdata estate review` muestra entidades, tablas canónicas y aristas inferidas pendientes (comando pendiente).
+8. **Revisión humana**: `discovery-data-agent estate review` muestra entidades, tablas canónicas y aristas inferidas pendientes (comando pendiente).
 
 Estado: el build ya produce entidades entre BDs y aristas de linaje de vistas, y `where_is`, `estate_overview` y `find_join_path` están
 publicadas en `/mcp` (F12). Query Store, sketches MinHash y el plan federado (fase 1b) están pendientes.
 
-> **Estado al 2026-11-17:** las entidades las agrupa una regla de solapamiento de columnas (`detect_entities` en `src/converdata/builder/catalog_builder.py`), no un LLM. El grafo en memoria (`EstateGraph`, `src/converdata/graph/estate.py`) solo tiene aristas `fk`, `same_entity`, `etl` y `view`; no existen `view_join`, `proc_join`, `query_store_join` ni `inferred_inclusion`, y las dependencias de vistas salen de `sys.sql_expression_dependencies`, sin sqlglot. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
+> **Estado al 2026-11-17:** las entidades las agrupa una regla de solapamiento de columnas (`detect_entities` en `src/discovery_data_agent/builder/catalog_builder.py`), no un LLM. El grafo en memoria (`EstateGraph`, `src/discovery_data_agent/graph/estate.py`) solo tiene aristas `fk`, `same_entity`, `etl` y `view`; no existen `view_join`, `proc_join`, `query_store_join` ni `inferred_inclusion`, y las dependencias de vistas salen de `sys.sql_expression_dependencies`, sin sqlglot. Ver [brechas funcionales](../../wiki/brechas-funcionales.md).
 
 ## Uso en tiempo de pregunta
 - **Router (F3)**: decide BD(s) a partir de las entidades mencionadas, no solo por similitud de texto.
@@ -60,7 +60,7 @@ publicadas en `/mcp` (F12). Query Store, sketches MinHash y el plan federado (fa
 
 - **Desambiguación**: si un concepto vive en varias BDs sin canónica definida, F3 pregunta "¿Clientes de Ventas o de CRM?" en lugar de elegir en silencio.
 
-## Herramientas nuevas en `converdata-mcp` (para agentes y clientes MCP)
+## Herramientas nuevas en `discovery-data-agent-mcp` (para agentes y clientes MCP)
 | Herramienta | Qué hace |
 |---|---|
 | `where_is(concept)` | Devuelve las entidades, BDs y tablas donde vive un concepto, con la canónica marcada, filtrado por la visibilidad del usuario |

@@ -1,8 +1,8 @@
 # Gateway de LLM (F16). Copiar a config/models.yaml (ignorado por git).
-# Sin este archivo, `converdata discover` corre en modo determinista.
+# Sin este archivo, `discovery-data-agent discover` corre en modo determinista.
 #
 # Cada rol elige proveedor y modelo. Cambiar de NVIDIA NIM a OpenAI, Claude o Bedrock es cambiar este archivo, sin
-# tocar código. Tras cada cambio: `converdata llm smoke` (cada rol debe devolver salida estructurada).
+# tocar código. Tras cada cambio: `discovery-data-agent llm smoke` (cada rol debe devolver salida estructurada).
 
 # test = solo datos ficticios. Con datos reales poner "real": el gateway se niega a arrancar si algún rol
 # (o el respaldo) apunta a un proveedor con allowed_data: test (F17, OP-06).
@@ -48,7 +48,7 @@ providers:
 #   planner + fast = nemotron-3.5-bolt-e4b         Hit@1 62,7 %  Hit@3 74,5 %  p50 6,2 s
 #   planner + fast = nemotron-3-ultra-550b-a55b    Hit@1 64,7 %  Hit@3 66,7 %  p50 39 s
 # Un rol que falta usa su camino determinista. Antes de activar `planner` con otro modelo o proveedor, medir con
-# `converdata eval discovery --root tests/fixtures/bancos --models config/models.yaml`.
+# `discovery-data-agent eval discovery --root tests/fixtures/bancos --models config/models.yaml`.
 roles:
   fast:    {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
   # enrich: describe las tablas y columnas nuevas al refrescar el catálogo (sugerencias marcadas "sin revisar"). Necesita

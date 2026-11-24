@@ -183,7 +183,7 @@ function BuildPanel() {
               <span className="text-muted-foreground text-xs">
                 {status?.llm
                   ? "Sugiere descripciones y sinónimos (marcadas “sin revisar”)."
-                  : "Requiere configurar el gateway de LLM (CONVERDATA_MODELS)."}
+                  : "Requiere configurar el gateway de LLM (DISCOVERY_DATA_AGENT_MODELS)."}
               </span>
             </span>
             <Switch checked={enrich} onCheckedChange={setEnrich} disabled={!status?.llm || running} />

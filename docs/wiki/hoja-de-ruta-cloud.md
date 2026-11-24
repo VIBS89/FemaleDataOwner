@@ -2,7 +2,7 @@
 
 Actualizado el 2026-11-17.
 
-Hoy no hay nada desplegado en AWS. La infraestructura como código existe desde el 2026-11-22 en `deploy/aws/` (Terraform), sin aplicar en ninguna cuenta. Esta ruta es posterior al piloto on-premise y solo arranca si el informe de la semana 8 recomienda AWS (HU-41; PRD §10, fase 2). El destino es el despliegue mínimo de CN-01: las mismas dos imágenes que ya construye `docker compose` en una tarea de ECS Fargate detrás de un ALB interno, el Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y una VPN al SQL Server del banco. El banco conserva todo lo persistente: catálogo, conocimiento, curación y auditoría siguen en la BD `ConverData` on-premise. AWS procesa y muestra.
+Hoy no hay nada desplegado en AWS. La infraestructura como código existe desde el 2026-11-22 en `deploy/aws/` (Terraform), sin aplicar en ninguna cuenta. Esta ruta es posterior al piloto on-premise y solo arranca si el informe de la semana 8 recomienda AWS (HU-41; PRD §10, fase 2). El destino es el despliegue mínimo de CN-01: las mismas dos imágenes que ya construye `docker compose` en una tarea de ECS Fargate detrás de un ALB interno, el Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y una VPN al SQL Server del banco. El banco conserva todo lo persistente: catálogo, conocimiento, curación y auditoría siguen en la BD `DiscoveryDataAgent` on-premise. AWS procesa y muestra.
 
 Diagrama de referencia: [arquitectura cloud](../architecture/cloud-native-architecture.html). Camino previo: [hoja de ruta on-premise](hoja-de-ruta-on-premise.md).
 
@@ -15,10 +15,10 @@ Esta hoja no fija fechas ni plazos: las specs CN no los dan. Solo hay orden y de
 | Specs CN-01 a CN-06 | Escritas y revisadas el 2026-11-16; nada de ellas está comprobado en AWS | `docs/specs/cloud-native/` |
 | Imágenes `api/Dockerfile` y `web/Dockerfile` | Existen, con bloqueos con hash e imágenes base por digest; **la de la API no se ha construido con los bloqueos** y la CI no construye imágenes | `api/Dockerfile`, `web/Dockerfile` |
 | `docker-compose.yml` con web y API | Existe; es lo que CN-01 toma como base | `docker-compose.yml` |
-| Estado fuera del disco del servidor | Hecho: con `CONVERDATA_DB` la API no guarda nada en disco (HU-04, HU-06, HU-09, HU-20). Falta probarlo en una tarea real | [plan](../PLAN-desarrollo.md) bloques A–C2 |
+| Estado fuera del disco del servidor | Hecho: con `DISCOVERY_DATA_AGENT_DB` la API no guarda nada en disco (HU-04, HU-06, HU-09, HU-20). Falta probarlo en una tarea real | [plan](../PLAN-desarrollo.md) bloques A–C2 |
 | Recarga del catálogo cuando el Builder corre en otra tarea | Hecho: la API comprueba la versión como mucho cada 15 s | CN-01 §Dependencias, punto 3 |
 | Builder sin disco persistente | `catalog build --db` toma el inventario de la BD y trabaja en un directorio temporal; no probado en Fargate | CN-02 |
-| Gateway de LLM con Bedrock | Sin probar de punta a punta (HU-35); `ChatBedrockConverse` no recibe claves, así que usa la cadena de credenciales por defecto | `src/converdata/llm/factory.py` |
+| Gateway de LLM con Bedrock | Sin probar de punta a punta (HU-35); `ChatBedrockConverse` no recibe claves, así que usa la cadena de credenciales por defecto | `src/discovery_data_agent/llm/factory.py` |
 | Infraestructura como código | Terraform, una pila por entorno (`demo`, `qa`, `prod`) y el script `despliegue.sh`. Validado con `terraform validate` y planes de prueba; **sin aplicar en ninguna cuenta** | `deploy/aws/` ([guía](../../deploy/aws/README.md)) |
 | Carpeta `deploy/` | Existe `deploy/aws/`; `deploy/windows/` para on-premise sigue prevista | `deploy/aws/` |
 
@@ -28,11 +28,11 @@ Esta hoja no fija fechas ni plazos: las specs CN no los dan. Solo hay orden y de
 |---|---|---|
 | Imagen de la API (FastAPI, DiscoverFlow, MCP, SessionVault, índice léxico) | Sí, la misma imagen y los mismos bloqueos | Construirla, subirla a ECR y escanearla; logs a salida estándar (hoy van a archivo) |
 | Imagen de la web (Next.js) | Sí; reenvía `/api/*` a la API con `API_URL` | Cambiar `API_URL` a `http://localhost:8000` (en compose es `http://api:8000`) |
-| BD `ConverData`, migraciones `001`, `002` y las que haya, roles, auditoría | Sí, sin moverla ni copiarla | Alcanzarla por la VPN; resolver con qué cuenta entra la tarea (§5) |
+| BD `DiscoveryDataAgent`, migraciones `001`, `002` y las que haya, roles, auditoría | Sí, sin moverla ni copiarla | Alcanzarla por la VPN; resolver con qué cuenta entra la tarea (§5) |
 | Lógica, prompts, guardas, compuerta `eval gate`, set de evaluación | Sí | Correr la compuerta contra qa en AWS |
-| Configuración obligatoria de qa y prod ([calidad bancaria §4](../calidad-bancaria.md#4-configuración-obligatoria-en-qa-y-prod)) | Sí, como variables de la tarea | Valores propios: URL del ALB, `CONVERDATA_MCP_HOSTS` con el nombre del ALB |
+| Configuración obligatoria de qa y prod ([calidad bancaria §4](../calidad-bancaria.md#4-configuración-obligatoria-en-qa-y-prod)) | Sí, como variables de la tarea | Valores propios: URL del ALB, `DISCOVERY_DATA_AGENT_MCP_HOSTS` con el nombre del ALB |
 | Entrada | — | ALB interno con certificado de ACM, en lugar de IIS con la PKI |
-| Programación del Builder | El mismo comando `converdata catalog build --db` | EventBridge Scheduler con `RunTask`, en lugar del Programador de tareas |
+| Programación del Builder | El mismo comando `discovery-data-agent catalog build --db` | EventBridge Scheduler con `RunTask`, en lugar del Programador de tareas |
 | Secretos | — | Secrets Manager, en lugar de DPAPI |
 | Cuentas | — | Roles IAM de tarea, en lugar de gMSA |
 | Bedrock | Mismo modelo y misma política mínima | VPC endpoint con el rol de la tarea, en lugar del proxy con IAM Roles Anywhere |
@@ -53,7 +53,7 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 | Diseño de la VPC (subredes privadas, sin ruta a internet) y de la VPN al banco; reglas del firewall on-premise que abren 1433 solo a las subredes de la tarea | CN-01 §Topología, CN-06 |
 | Decisión de Seguridad: ¿la VPN puede llevar también tráfico de usuarios hacia el ALB? | CN-01 §Por confirmar |
 | Decisión de Seguridad: Guardrails de Bedrock | PRD §13, pregunta 6 |
-| Decisión: con qué cuenta entra la tarea a la BD `ConverData` y con qué identidad entra el Builder a los SQL Server (§5) | CN-01 punto 3, CN-03 |
+| Decisión: con qué cuenta entra la tarea a la BD `DiscoveryDataAgent` y con qué identidad entra el Builder a los SQL Server (§5) | CN-01 punto 3, CN-03 |
 | ~~Decisión: Terraform o CDK, un stack por entorno~~ Terraform (`deploy/aws/`, 2026-11-22) | CN-01 §IaC |
 | Decisión: tamaño de la tarea (referencia on-premise: 4 vCPU y 16 GB) | CN-01 §RNF |
 
@@ -74,7 +74,7 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 | Secretos de servicio y su KMS: login de metadatos del Builder, código de instalación, credencial de la BD si se decide así, webhook de Teams | CN-03 §Secretos |
 | Roles IAM: tarea de la API (`bedrock:InvokeModel` sobre el modelo, lectura de sus secretos, sus logs), tarea del Builder (lectura del secreto de metadatos), EventBridge (`ecs:RunTask`) | CN-03 §Roles IAM |
 | Grupos de logs con KMS y alarmas | CN-05 |
-| Etiquetas `app=converdata` y `env` | CN-01 §RNF |
+| Etiquetas `app=discovery-data-agent` y `env` | CN-01 §RNF |
 
 **Terminado cuando.** CN-01 CA1 y CA2: el stack de qa se crea sin pasos manuales salvo la VPN y el firewall, y ningún recurso tiene IP pública ni ruta a internet. El rol de la tarea de la API recibe `AccessDenied` al leer el secreto del login de metadatos (CN-03 CA3).
 
@@ -88,9 +88,9 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 | Construir `api/Dockerfile` con `requirements/runtime.lock` y arrancarla (no se ha hecho) | [calidad bancaria §5](../calidad-bancaria.md#5-lo-que-todavía-no-está-resuelto) |
 | Añadir el build de las imágenes a la CI | idem |
 | Fijar la versión de `msodbcsql18` y `unixodbc`; firma y escaneo de la imagen; publicar en ECR por digest | idem |
-| Logs JSON a la salida estándar (hoy a archivo con `CONVERDATA_LOG_DIR`, que qa y prod exigen) | CN-01 §Dependencias, punto 2; CN-05 |
+| Logs JSON a la salida estándar (hoy a archivo con `DISCOVERY_DATA_AGENT_LOG_DIR`, que qa y prod exigen) | CN-01 §Dependencias, punto 2; CN-05 |
 
-**Terminado cuando.** Las dos imágenes están en ECR por digest, escaneadas, y el contenedor de la API arranca con `CONVERDATA_ENV=qa` y falla con un mensaje claro si falta una variable obligatoria (CN-01 CA4).
+**Terminado cuando.** Las dos imágenes están en ECR por digest, escaneadas, y el contenedor de la API arranca con `DISCOVERY_DATA_AGENT_ENV=qa` y falla con un mensaje claro si falta una variable obligatoria (CN-01 CA4).
 
 **Dependencias.** Fase 2 (ECR). Del equipo: un cambio de código para los logs. **Riesgos.** La imagen lleva metadatos de prueba para el modo demo (CN-06): no arranca en qa ni prod, pero hay que decidir si se quitan. El contenedor de la API escucha en `0.0.0.0` (on-premise, en `127.0.0.1`); en Fargate está bien porque el puerto 8000 no se publica, pero debe comprobarse el grupo de seguridad (CN-04 CA6).
 
@@ -101,23 +101,23 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 |---|---|
 | Definición de tarea Fargate con dos contenedores (web en 3000, API en 8000 con un worker) y servicio con una sola tarea | CN-01 |
 | ALB interno, HTTPS 443 con certificado de ACM: `/` a la web, `/mcp` a la API; `/health` como comprobación | CN-04 |
-| Variables de qa: `CONVERDATA_COOKIE_SECURE=1`, `CONVERDATA_CORS_ORIGINS` y `CONVERDATA_PUBLIC_URL` con la URL del ALB, `CONVERDATA_MCP_HOSTS`, `CONVERDATA_ADMINS_ONLY=1` con `CONVERDATA_ADMINS`, `CONVERDATA_SETUP_TOKEN`, `CONVERDATA_LOG_DIR`, `CONVERDATA_ALLOW_WINDOWS_AUTH` sin definir | CN-01 §Entornos, CN-04 |
+| Variables de qa: `DISCOVERY_DATA_AGENT_COOKIE_SECURE=1`, `DISCOVERY_DATA_AGENT_CORS_ORIGINS` y `DISCOVERY_DATA_AGENT_PUBLIC_URL` con la URL del ALB, `DISCOVERY_DATA_AGENT_MCP_HOSTS`, `DISCOVERY_DATA_AGENT_ADMINS_ONLY=1` con `DISCOVERY_DATA_AGENT_ADMINS`, `DISCOVERY_DATA_AGENT_SETUP_TOKEN`, `DISCOVERY_DATA_AGENT_LOG_DIR`, `DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH` sin definir | CN-01 §Entornos, CN-04 |
 | `config/models.yaml` con `data_mode: real`, un modelo de Bedrock y su región por VPC endpoint | F16 |
-| Migraciones al día antes de desplegar (`converdata db migrate`) | OP-07 §Migraciones |
+| Migraciones al día antes de desplegar (`discovery-data-agent db migrate`) | OP-07 §Migraciones |
 
-**Terminado cuando.** CN-01 CA3 y CA6, CN-04 CA1–CA6 y CN-03 CA1, CA4–CA6: login real, 401 sin sesión y 403 para un `consumer` en `/curation` y `/admin`; dos usuarios con permisos distintos ven cada uno solo lo suyo; la pregunta 31 en un minuto da 429; Bearer en `/mcp`; al reiniciar la tarea las sesiones anteriores devuelven 401; el ALB no responde desde fuera de la red corporativa; y `converdata eval gate` da en qa los mismos resultados que on-premise.
+**Terminado cuando.** CN-01 CA3 y CA6, CN-04 CA1–CA6 y CN-03 CA1, CA4–CA6: login real, 401 sin sesión y 403 para un `consumer` en `/curation` y `/admin`; dos usuarios con permisos distintos ven cada uno solo lo suyo; la pregunta 31 en un minuto da 429; Bearer en `/mcp`; al reiniciar la tarea las sesiones anteriores devuelven 401; el ALB no responde desde fuera de la red corporativa; y `discovery-data-agent eval gate` da en qa los mismos resultados que on-premise.
 
-**Dependencias.** Fases 2 y 3, y Bedrock operativo (HU-35 hecha en on-premise). **Riesgos.** Faltan por confirmar `CONVERDATA_TRUST_PROXY` detrás del ALB (el bloqueo por origen necesita la IP real) y el tiempo de inactividad del ALB para `/mcp` y el streaming de `/api/discover/stream`. Un despliegue continuo de ECS puede levantar una segunda tarea mientras la primera sigue: dos procesos con dos SessionVault, que es lo que OP-07 evita en IIS con el reciclaje superpuesto desactivado. Las fuentes no definen la configuración del despliegue de ECS; hay que fijarla para que nunca haya dos tareas (deducción de CN-01 "una sola tarea").
+**Dependencias.** Fases 2 y 3, y Bedrock operativo (HU-35 hecha en on-premise). **Riesgos.** Faltan por confirmar `DISCOVERY_DATA_AGENT_TRUST_PROXY` detrás del ALB (el bloqueo por origen necesita la IP real) y el tiempo de inactividad del ALB para `/mcp` y el streaming de `/api/discover/stream`. Un despliegue continuo de ECS puede levantar una segunda tarea mientras la primera sigue: dos procesos con dos SessionVault, que es lo que OP-07 evita en IIS con el reciclaje superpuesto desactivado. Las fuentes no definen la configuración del despliegue de ECS; hay que fijarla para que nunca haya dos tareas (deducción de CN-01 "una sola tarea").
 
 ### Fase 5 · Builder programado (EventBridge + RunTask)
 **Objetivo.** El refresco nocturno corre en AWS sin nada encendido entre ejecuciones.
 
 | Entregable | Fuente |
 |---|---|
-| Definición de tarea del Builder con la imagen de la API y el comando `converdata catalog build --db` | CN-02 |
+| Definición de tarea del Builder con la imagen de la API y el comando `discovery-data-agent catalog build --db` | CN-02 |
 | EventBridge Scheduler con `RunTask`, cada noche | CN-02 |
 | Login de metadatos en Secrets Manager, inyectado con las variables que nombra el inventario (`metadata_user_env`, `metadata_password_env`), solo en esta tarea | CN-02, CN-03 |
-| `CONVERDATA_BUILDER_HOSTS` con los hosts permitidos (obligatoria en qa y prod) | OP-07, PRD §13 notas |
+| `DISCOVERY_DATA_AGENT_BUILDER_HOSTS` con los hosts permitidos (obligatoria en qa y prod) | OP-07, PRD §13 notas |
 | Evaluación de regresión tras el build | OP-07, F25 |
 | Fuentes de conocimiento: acceso del Builder a diccionarios y documentos por la VPN | CN-02 |
 
@@ -130,7 +130,7 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 
 | Entregable | Fuente |
 |---|---|
-| CloudWatch Logs de la tarea y del Builder, JSON sin contenido, cifrados con KMS; `CONVERDATA_EVENT_LOG=0` | CN-05 |
+| CloudWatch Logs de la tarea y del Builder, JSON sin contenido, cifrados con KMS; `DISCOVERY_DATA_AGENT_EVENT_LOG=0` | CN-05 |
 | Contadores de `/health/metrics` llevados a métricas (filtros de métricas sobre los logs: por confirmar) | CN-05 |
 | Alarmas: fallo de escritura de auditoría (crítica), VPN caída (crítica), destino del ALB no saludable o tarea reiniciada (crítica), 5xx > 5 % en 5 min, p95 > 10 s en 15 min, throttling o errores de Bedrock > 5 % en 5 min, Builder con error o sin correr, certificado a menos de 30 días | CN-05 |
 
@@ -148,7 +148,7 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 | Tras detener la tarea, no queda catálogo, pregunta ni registro de auditoría en AWS | CN-01 CA5, CN-05 CA5 |
 | *Model invocation logging* de Bedrock desactivado, con comprobación automática que avise si se activa (mecanismo por confirmar) | CN-06 CA3 |
 | Subredes de la tarea sin ruta a internet | CN-06 CA4 |
-| `converdata eval gate` (`permisos`, `inyeccion`, `guardas`) con 0 fugas en qa, con el modelo de Bedrock | CN-06 CA5 |
+| `discovery-data-agent eval gate` (`permisos`, `inyeccion`, `guardas`) con 0 fugas en qa, con el modelo de Bedrock | CN-06 CA5 |
 | Un documento con un DUI y una cuenta de prueba no deja esos literales en la BD ni en los logs | CN-02 CA4 |
 | Ningún secreto contiene un login de usuario | CN-03 CA2 |
 
@@ -157,7 +157,7 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 ### Fase 8 · Migración y convivencia con el on-premise
 **Objetivo.** Pasar a los usuarios del servidor Windows a la tarea de Fargate sin perder nada y con vuelta atrás.
 
-La BD `ConverData` no se mueve: es la misma. Por eso lo que cambia es dónde corren los procesos (PRD §8.1, principio 7). Las fuentes no describen la migración; lo que sigue es el orden que se deduce de ellas.
+La BD `DiscoveryDataAgent` no se mueve: es la misma. Por eso lo que cambia es dónde corren los procesos (PRD §8.1, principio 7). Las fuentes no describen la migración; lo que sigue es el orden que se deduce de ellas.
 
 | Paso | Detalle |
 |---|---|
@@ -190,7 +190,7 @@ Restricción: los logins de usuario no pueden pasar a Secrets Manager, disco ni 
 | Decisión sobre la cuenta de BD y la identidad del Builder (§5) | Seguridad y DBA | 1, 4, 5 | Escribir el IaC con ambas variantes |
 | Decisión sobre Guardrails y sobre tráfico de usuarios por la VPN | Seguridad | 1 | Dejarlos detrás de configuración |
 | Login de metadatos (`VIEW DEFINITION`, `VIEW DATABASE STATE`, `SSISDB`, `msdb`) | DBA | 5 | Construir la tarea con un login de prueba |
-| Cuenta de BD de la API en el rol `converdata_app` | DBA | 4 | — |
+| Cuenta de BD de la API en el rol `discovery_data_agent_app` | DBA | 4 | — |
 | Acceso a diccionarios y documentos desde la tarea del Builder (SMB, SharePoint) | Gerencia de Datos y Redes | 5 | Fuentes en CSV (ya implementado) |
 | Certificado y nombre DNS interno para el ALB | Redes | 4 | Certificado de prueba en qa |
 | Umbrales, canal de aviso y retención de logs | Seguridad y Operaciones | 6 | Alarmas con valores por defecto de CN-05 |
@@ -199,7 +199,7 @@ Restricción: los logins de usuario no pueden pasar a Secrets Manager, disco ni 
 
 ## 5. Bloqueos que las fuentes dejan abiertos
 
-1. **La cuenta con la que la tarea entra a la BD `ConverData`.** Qa y prod obligan a que `CONVERDATA_DB` no lleve contraseña (`Trusted_Connection=yes` con la gMSA; `api/converdata_api/security.py`, [calidad bancaria §4](../calidad-bancaria.md#4-configuración-obligatoria-en-qa-y-prod)). En un contenedor Linux no hay gMSA ni autenticación de Windows (CN-03). CN-03 lista como secreto "el login con el que la API escribe en la BD", por confirmar. Las dos cosas chocan: hay que cambiar la regla de arranque (decisión de Seguridad y cambio de código) o habilitar otro mecanismo sin contraseña; las fuentes no eligen.
+1. **La cuenta con la que la tarea entra a la BD `DiscoveryDataAgent`.** Qa y prod obligan a que `DISCOVERY_DATA_AGENT_DB` no lleve contraseña (`Trusted_Connection=yes` con la gMSA; `api/discovery_data_agent_api/security.py`, [calidad bancaria §4](../calidad-bancaria.md#4-configuración-obligatoria-en-qa-y-prod)). En un contenedor Linux no hay gMSA ni autenticación de Windows (CN-03). CN-03 lista como secreto "el login con el que la API escribe en la BD", por confirmar. Las dos cosas chocan: hay que cambiar la regla de arranque (decisión de Seguridad y cambio de código) o habilitar otro mecanismo sin contraseña; las fuentes no eligen.
 2. **La identidad del Builder.** Por defecto entra con la cuenta del proceso (autenticación de Windows); en AWS tiene que usar `metadata_user_env` y `metadata_password_env`, con el login en Secrets Manager (CN-01 punto 3, CN-02).
 3. **Confianza TLS hacia el SQL Server.** `TrustServerCertificate` impide arrancar en qa y prod, así que el contenedor debe confiar en la CA que firma el certificado del SQL Server del banco. Las fuentes no lo tratan.
 4. **Logs a la salida estándar** (código pendiente, fase 3).
@@ -242,7 +242,7 @@ La observabilidad completa (fase 6) y la prueba de residencia (fase 7) entran an
 | OpenSearch Serverless, S3, Lambda indexador | Búsqueda léxica en memoria; el catálogo va a la BD (decisiones 9 y 10) |
 | Cognito, WAF, Transit Gateway, Step Functions | El login es el SQL; el ALB es interno; una sola VPC; el Builder es un `RunTask` |
 | BD de auditoría separada o copia en AWS | La auditoría es el esquema `audit` de la BD on-premise (decisión 10) |
-| Migrar la BD `ConverData` a AWS | Contradice la residencia: AWS no persiste nada |
+| Migrar la BD `DiscoveryDataAgent` a AWS | Contradice la residencia: AWS no persiste nada |
 | Fase 1b en AWS (consulta de datos, sandbox F20, capa semántica F21) | Sus controles se definen con la fase 1b (decisión 16, CN-06) |
 | Más de una tarea | Fase 9; no se hace sin rediseñar el estado |
 | Embeddings, juez, NIM de respaldo | Retirados en la fase 1a (decisiones 9 y 13) |
@@ -254,7 +254,7 @@ El registro completo está en [deuda técnica](deuda-tecnica.md).
 |---|---|---|
 | 1 · Prerrequisitos | DT-46 (estado en memoria) | Obliga a una sola tarea y a un despliegue que nunca deje dos a la vez |
 | 3 · Imágenes | DT-45, DT-47 y DT-50 | La imagen no se construye ni se analiza en la CI, lleva paquetes del sistema sin fijar y arrastra fixtures de prueba |
-| 4 · Tarea web + API | DT-02 | El proxy de la web ya reenvía la dirección del cliente, pero solo con `TRUST_FORWARDED_FOR=1` (web) y `CONVERDATA_TRUST_PROXY=1` (API). Detrás del ALB hay que activarlas y probarlas; el origen público va en `CONVERDATA_CORS_ORIGINS` |
+| 4 · Tarea web + API | DT-02 | El proxy de la web ya reenvía la dirección del cliente, pero solo con `TRUST_FORWARDED_FOR=1` (web) y `DISCOVERY_DATA_AGENT_TRUST_PROXY=1` (API). Detrás del ALB hay que activarlas y probarlas; el origen público va en `DISCOVERY_DATA_AGENT_CORS_ORIGINS` |
 | 6 · Observabilidad | DT-58 y DT-37 | Los avisos de la API no llegan al log y no hay alerta si falla la auditoría: CloudWatch no los vería |
 | 9 · Más de una tarea | DT-46 y DT-21 | Sesiones, topes y corte por fallos tendrían que compartirse entre tareas |
 

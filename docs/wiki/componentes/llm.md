@@ -2,13 +2,13 @@
 
 Actualizado el 2026-11-22.
 
-**Para qué sirve.** Es el único punto por el que ConverData llama a un modelo de lenguaje. Resuelve cada rol (`planner`, `fast`,
+**Para qué sirve.** Es el único punto por el que DiscoveryDataAgent llama a un modelo de lenguaje. Resuelve cada rol (`planner`, `fast`,
 `judge`) al proveedor y modelo de `config/models.yaml`, aplica la guarda de residencia de datos, cambia a un proveedor de respaldo
 ante errores transitorios, abre un circuito ante fallos repetidos e informa el consumo de tokens. Los nodos del DiscoverFlow y el
 enriquecimiento del Catalog Builder lo usan sin saber qué proveedor hay detrás.
 
 **Lo esencial**
-- Sin `config/models.yaml` (o sin `CONVERDATA_MODELS` en la API) todo es determinista y el flujo responde igual.
+- Sin `config/models.yaml` (o sin `DISCOVERY_DATA_AGENT_MODELS` en la API) todo es determinista y el flujo responde igual.
 - Proveedores: `nvidia_nim`, `openai`, `anthropic` (Claude), `bedrock` y `ollama` (este solo con `environment: local`, regla
   de código). Cada rol elige proveedor y modelo en `models.yaml`; el respaldo puede ser cualquier otro proveedor activo.
 - **Probado en vivo solo NVIDIA NIM** (2026-11-22, API alojada). OpenAI y Claude están probados sin red, con el SDK real y un
@@ -33,19 +33,19 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 ## Piezas internas
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| `ModelsConfig`, `ProviderConfig`, `RoleConfig`, `FallbackConfig`, `CircuitConfig` | `src/converdata/llm/factory.py` | Esquema de `models.yaml` |
-| `load_models` | `src/converdata/llm/factory.py:91` | Lee el YAML; `CONVERDATA_ENV` sobrescribe `environment` |
-| `build_nim_chat`, `build_bedrock_chat`, `build_openai_chat`, `build_ollama_chat` | `src/converdata/llm/factory.py` | Constructores LangChain por proveedor |
-| `build_anthropic_chat`, `ClaudeChat` | `src/converdata/llm/factory.py`, `src/converdata/llm/anthropic_chat.py` | Claude con el SDK oficial de Anthropic: `messages.parse` para la salida estructurada, `effort`, rechazo como `LLMRefused` |
-| `LLMGateway` | `src/converdata/llm/gateway.py:151` | Validación, rutas, invocación, respaldo, etiquetas, uso |
-| `RoutedChat` | `src/converdata/llm/gateway.py:117` | Imita `invoke` y `with_structured_output` de LangChain |
-| `CircuitBreaker` | `src/converdata/llm/gateway.py:66` | Circuito por proveedor |
-| `classify_error` | `src/converdata/llm/gateway.py:48` | Decide si un error es transitorio |
-| `estimate_usage` | `src/converdata/llm/gateway.py:103` | Tokens del proveedor o ~4 caracteres por token |
-| `LlmIntentClassifier`, `LlmReranker`, `LlmNarrator` | `src/converdata/llm/nodes.py` | Puertos del DiscoverFlow con LLM |
-| `LlmEnricher` | `src/converdata/llm/nodes.py:116` | Descripciones sugeridas en el build |
-| Ensamblado | `src/converdata/bootstrap.py:96` | Conecta los nodos según los roles declarados |
-| `converdata llm smoke` | `src/converdata/cli.py:458` | Prueba cada rol contra su proveedor |
+| `ModelsConfig`, `ProviderConfig`, `RoleConfig`, `FallbackConfig`, `CircuitConfig` | `src/discovery_data_agent/llm/factory.py` | Esquema de `models.yaml` |
+| `load_models` | `src/discovery_data_agent/llm/factory.py:91` | Lee el YAML; `DISCOVERY_DATA_AGENT_ENV` sobrescribe `environment` |
+| `build_nim_chat`, `build_bedrock_chat`, `build_openai_chat`, `build_ollama_chat` | `src/discovery_data_agent/llm/factory.py` | Constructores LangChain por proveedor |
+| `build_anthropic_chat`, `ClaudeChat` | `src/discovery_data_agent/llm/factory.py`, `src/discovery_data_agent/llm/anthropic_chat.py` | Claude con el SDK oficial de Anthropic: `messages.parse` para la salida estructurada, `effort`, rechazo como `LLMRefused` |
+| `LLMGateway` | `src/discovery_data_agent/llm/gateway.py:151` | Validación, rutas, invocación, respaldo, etiquetas, uso |
+| `RoutedChat` | `src/discovery_data_agent/llm/gateway.py:117` | Imita `invoke` y `with_structured_output` de LangChain |
+| `CircuitBreaker` | `src/discovery_data_agent/llm/gateway.py:66` | Circuito por proveedor |
+| `classify_error` | `src/discovery_data_agent/llm/gateway.py:48` | Decide si un error es transitorio |
+| `estimate_usage` | `src/discovery_data_agent/llm/gateway.py:103` | Tokens del proveedor o ~4 caracteres por token |
+| `LlmIntentClassifier`, `LlmReranker`, `LlmNarrator` | `src/discovery_data_agent/llm/nodes.py` | Puertos del DiscoverFlow con LLM |
+| `LlmEnricher` | `src/discovery_data_agent/llm/nodes.py:116` | Descripciones sugeridas en el build |
+| Ensamblado | `src/discovery_data_agent/bootstrap.py:96` | Conecta los nodos según los roles declarados |
+| `discovery-data-agent llm smoke` | `src/discovery_data_agent/cli.py:458` | Prueba cada rol contra su proveedor |
 
 ## Roles de modelo
 | Rol | Lo usa | Si falta en `models.yaml` |
@@ -60,7 +60,7 @@ bloques para Claude, OpenAI y Bedrock; `config/models.local.example.yaml` y el
 `config/models.yaml` local usan Ollama y declaran también `judge`.
 
 ## Cómo funciona
-1. **Carga** (`load_models`): YAML → `ModelsConfig`. `CONVERDATA_ENV` gana a `environment`. Roles retirados se descartan.
+1. **Carga** (`load_models`): YAML → `ModelsConfig`. `DISCOVERY_DATA_AGENT_ENV` gana a `environment`. Roles retirados se descartan.
 2. **Validación** al crear el gateway (`gateway.py:169`), para cada rol y su respaldo:
    - el proveedor debe estar `enabled`;
    - `ollama` solo con `environment: local`;
@@ -75,7 +75,7 @@ bloques para Claude, OpenAI y Bedrock; `config/models.local.example.yaml` y el
 5. **En el DiscoverFlow**, cada nodo captura cualquier excepción y usa su respaldo determinista, con `error = fallback:<tipo>` en el
    paso auditado. Ver [descubrimiento](descubrimiento.md#modo-determinista-frente-a-modo-con-llm).
 6. **Tope diario** (API): el gancho `usage_hook` suma tokens al usuario del contexto (`TokenLedger`) y a `/health/metrics`. Agotado,
-   la API rechaza (429) o, con `CONVERDATA_TOKEN_LIMIT_MODE=deterministic`, usa el mismo catálogo sin LLM.
+   la API rechaza (429) o, con `DISCOVERY_DATA_AGENT_TOKEN_LIMIT_MODE=deterministic`, usa el mismo catálogo sin LLM.
 
 ### Qué se envía al modelo y qué no
 | Nodo | Se envía | No se envía |
@@ -86,13 +86,13 @@ bloques para Claude, OpenAI y Bedrock; `config/models.local.example.yaml` y el
 | enrich (build) | Por tabla: nombre completo, tipo, PK, FKs, columnas con nombre y tipo | Valores de datos, filas, descripciones existentes |
 
 Nunca viajan credenciales, hosts ni valores de datos (el catálogo no los tiene: `FORBIDDEN_KEYS` en
-`src/converdata/models/catalog.py:13`). La pregunta del usuario sí viaja: por eso la guarda de residencia.
+`src/discovery_data_agent/models/catalog.py:13`). La pregunta del usuario sí viaja: por eso la guarda de residencia.
 
 ### Tope de tokens
 - **Por llamada**: `max_tokens` del rol (`max_completion_tokens` en NIM, `max_tokens` en Bedrock, `num_predict` en Ollama). En los
   ejemplos, `fast` = 400 y `planner` = 1024 (NIM) o sin tope (Ollama local).
 - **Por entrada**: la API limita la pregunta a 2000 caracteres y el historial a 10 textos; el nodo `intent` usa los 5 últimos.
-- **Por día y usuario**: `CONVERDATA_TOKEN_LIMIT` (0 = sin tope). Con salida estructurada el proveedor no informa el uso y se estima.
+- **Por día y usuario**: `DISCOVERY_DATA_AGENT_TOKEN_LIMIT` (0 = sin tope). Con salida estructurada el proveedor no informa el uso y se estima.
 
 ### Guardas sobre la salida
 - **Prompts**: el contenido del catálogo y el texto del usuario van entre `<datos>` y `</datos>`, y se quitan esos delimitadores si
@@ -116,7 +116,7 @@ Nunca viajan credenciales, hosts ni valores de datos (el catálogo no los tiene:
 
 | Clave | Efecto |
 |---|---|
-| `environment` | `local` permite Ollama; `CONVERDATA_ENV` la sobrescribe |
+| `environment` | `local` permite Ollama; `DISCOVERY_DATA_AGENT_ENV` la sobrescribe |
 | `data_mode` | `real` activa la guarda de residencia; obligatorio en qa/prod (`production_violations`) |
 | `providers.<p>.enabled`, `allowed_data` | Activación y qué datos puede recibir |
 | `providers.nvidia_nim.base_url`, `api_key_env`, `timeout_s` | `null` = API alojada de NVIDIA; clave en `NVIDIA_API_KEY` por defecto |
@@ -127,8 +127,8 @@ Nunca viajan credenciales, hosts ni valores de datos (el catálogo no los tiene:
 | `fallback` | `provider`, `models` por rol, `on` (tipos de error) |
 | `circuit` | `errors`, `window_s`, `open_s` |
 
-En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinista), `CONVERDATA_TOKEN_LIMIT`,
-`CONVERDATA_TOKEN_LIMIT_MODE`, `CONVERDATA_ENV`.
+En la API: `DISCOVERY_DATA_AGENT_MODELS` (ruta del archivo; si no existe, modo determinista), `DISCOVERY_DATA_AGENT_TOKEN_LIMIT`,
+`DISCOVERY_DATA_AGENT_TOKEN_LIMIT_MODE`, `DISCOVERY_DATA_AGENT_ENV`.
 
 ## Pruebas que lo cubren
 - `tests/test_llm_providers.py` (15 pruebas): OpenAI y Claude por configuración y como terceros para la residencia; parámetros
@@ -136,10 +136,10 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
   `effort`, respaldo ante rechazo, sin `temperature`); rechazo y salida cortada como errores de contenido; clasificación de
   las excepciones reales de los dos SDK.
 - `tests/test_llm_gateway.py` (21 pruebas): enrutado a NIM, cambio a Bedrock por configuración, residencia, respaldo solo ante
-  transitorios, circuito, clasificación de errores, caída total → determinista, timeout de NIM, Ollama solo en local, `CONVERDATA_ENV`,
+  transitorios, circuito, clasificación de errores, caída total → determinista, timeout de NIM, Ollama solo en local, `DISCOVERY_DATA_AGENT_ENV`,
   gancho de uso.
 - `tests/test_llm_guards.py`: el reranker no añade candidatos; narrativa con objetos ajenos reemplazada; fallo del modelo → respaldo.
-- `tests/test_prompt_injection.py` y suites `inyeccion` y `guardas` de `converdata eval gate` (`tests/test_gate.py`).
+- `tests/test_prompt_injection.py` y suites `inyeccion` y `guardas` de `discovery-data-agent eval gate` (`tests/test_gate.py`).
 - `api/tests/test_api.py`: tope diario, uso atribuido al usuario, modo determinista con el tope agotado.
 
 ## Modelos por proveedor
@@ -156,7 +156,7 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
   | `gemma-3-12b-it` | No sirve: 404 | — |
 
   Referencia con Claude Sonnet 5.5: 68 % de Hit@1 en reportes. Todas las llamadas pasan por el gateway y no hay uso directo de un
-  proveedor fuera de `src/converdata/llm/`: el chat, la reformulación y el refresco del catálogo usan el perfil que elige el
+  proveedor fuera de `src/discovery_data_agent/llm/`: el chat, la reformulación y el refresco del catálogo usan el perfil que elige el
   administrador en pantalla.
 
   Que un modelo devuelva salida válida no basta. En la evaluación de descubrimiento (58 casos, BancosSQL), usar estos modelos
@@ -165,7 +165,7 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
   `planner`) se mantiene 98,0 % con p50 de 0,9 s: es lo que trae el ejemplo.
 
   `openai/gpt-oss-20b`, el modelo anterior del ejemplo, ya no está en el catálogo de la cuenta. El catálogo cambia: listar con
-  `GET /v1/models` y probar con `converdata llm smoke` antes de cambiar un modelo.
+  `GET /v1/models` y probar con `discovery-data-agent llm smoke` antes de cambiar un modelo.
 - **Claude (`anthropic`)**: el modelo se escribe tal cual en el rol (`claude-opus-5-5`, `claude-haiku-5-5`…). Los modelos
   actuales rechazan `temperature` (el adaptador no la envía) y piensan siempre: la profundidad se regula con `effort`, y el
   pensamiento cuenta dentro de `max_tokens` (sin valor en el rol, 16 000). Con `refusal_fallback: true`, ante un rechazo por
@@ -191,7 +191,7 @@ Ver [deuda técnica](../deuda-tecnica.md).
 - `reasoning` solo se aplica a Ollama; `effort` solo a OpenAI y Claude. Los demás proveedores los ignoran.
 - OpenAI y Claude no se han llamado con una clave real. `timeout_s` sí se aplica a los dos.
 - Una clave que falta no se detecta al arrancar: los clientes se crean en la primera llamada, el paso queda como
-  `fallback:MissingCredential` y la respuesta sale en modo determinista. `converdata llm smoke` lo detecta.
+  `fallback:MissingCredential` y la respuesta sale en modo determinista. `discovery-data-agent llm smoke` lo detecta.
 - El respaldo conserva `temperature` y `max_tokens` del rol, pero no `effort` ni `refusal_fallback`.
 - El uso de tokens se estima con salida estructurada.
 - El gateway del enriquecimiento del build se crea aparte, sin gancho de uso: sus tokens no se cuentan.
@@ -207,10 +207,10 @@ Ver [deuda técnica](../deuda-tecnica.md).
 | Añadir un proveedor | `Provider` y un constructor en `BUILDERS` (`factory.py`); si es solo local, `LOCAL_ONLY_PROVIDERS` |
 | Cambiar qué error es transitorio | `classify_error` y `_TRANSIENT_*` en `gateway.py` |
 | Cambiar el circuito | `circuit` en `models.yaml` |
-| Cambiar un prompt | Constantes `*_SYSTEM` y `UNTRUSTED` en `src/converdata/llm/nodes.py` |
+| Cambiar un prompt | Constantes `*_SYSTEM` y `UNTRUSTED` en `src/discovery_data_agent/llm/nodes.py` |
 | Conectar un nodo nuevo | Implementar el puerto en `nodes.py` y pasarlo en `bootstrap.build_service_from_snapshot` |
 | Pasar el timeout a Bedrock | `build_bedrock_chat` en `factory.py` |
-| Cambiar la guarda de texto | `unsafe_generated_text` y `narrative_mentions_ok` en `src/converdata/discovery/engine.py` |
+| Cambiar la guarda de texto | `unsafe_generated_text` y `narrative_mentions_ok` en `src/discovery_data_agent/discovery/engine.py` |
 
 ## Specs y contradicciones
 Specs: [F16](../../specs/comun/F16-llm-providers.md), [F17](../../specs/comun/F17-data-residency.md),
@@ -219,6 +219,6 @@ Specs: [F16](../../specs/comun/F16-llm-providers.md), [F17](../../specs/comun/F1
 La spec contradice al código en:
 - F16 §Integración: "Credenciales: IAM Roles Anywhere on-premise". El código no las configura: usa la cadena por defecto de AWS.
 - F16: `timeout_s` se presenta como tope por petición del proveedor; solo NIM lo recibe.
-- El docstring de `src/converdata/flows/discover.py` y `DiscoverDeps` describen un juez (`judge`) y un expansor (`fast`) con LLM; F16
+- El docstring de `src/discovery_data_agent/flows/discover.py` y `DiscoverDeps` describen un juez (`judge`) y un expansor (`fast`) con LLM; F16
   dice que no hay juez en la fase 1a. Manda F16: en el código no están conectados.
-- `src/converdata/discovery/ports.py` habla de "tres nodos que razonan con LLM", pero declara cinco puertos.
+- `src/discovery_data_agent/discovery/ports.py` habla de "tres nodos que razonan con LLM", pero declara cinco puertos.

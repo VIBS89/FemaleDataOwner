@@ -8,7 +8,7 @@ disable-model-invocation: true
 # Nuevo puerto + adaptador: $ARGUMENTS
 
 Si falta el nombre o la tecnología, pregunta. Antes de empezar, confirma que no existe ya un puerto equivalente
-(`grep -rn "Protocol" src/converdata`): ampliar uno existente suele ser mejor que crear otro.
+(`grep -rn "Protocol" src/discovery_data_agent`): ampliar uno existente suele ser mejor que crear otro.
 
 ## Pasos (en este orden)
 

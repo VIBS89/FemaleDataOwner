@@ -16,12 +16,12 @@ from typing import NamedTuple
 import pytest
 import yaml
 
-from converdata.bootstrap import build_service, user_with_databases
-from converdata.discovery import figures
-from converdata.flows.discover import FIGURE_FAILED_NOTE, NO_FIGURES_NOTE
-from converdata.audit.recorder import question_row
-from converdata.models.catalog import Column
-from converdata.models.figures import Figure, FigureGroup, FigurePlan, FigureQuery
+from discovery_data_agent.bootstrap import build_service, user_with_databases
+from discovery_data_agent.discovery import figures
+from discovery_data_agent.flows.discover import FIGURE_FAILED_NOTE, NO_FIGURES_NOTE
+from discovery_data_agent.audit.recorder import question_row
+from discovery_data_agent.models.catalog import Column
+from discovery_data_agent.models.figures import Figure, FigureGroup, FigurePlan, FigureQuery
 
 BANCOS = Path(__file__).parent / "fixtures" / "bancos"
 
@@ -694,7 +694,7 @@ def test_q_no_deja_escapar_un_nombre_con_corchete():
 
 
 def test_run_plan_propaga_la_excepcion_del_ejecutor():
-    from converdata.models.figures import FigurePlan, FigureQuery
+    from discovery_data_agent.models.figures import FigurePlan, FigureQuery
 
     plan = FigurePlan(asset_key="a.b.c", server="s", database="d", operation="COUNT", description="x",
                       queries=[FigureQuery(purpose="total", sql=TOTAL_SQL)])
@@ -1099,8 +1099,8 @@ class _ConexionCli:
 
 @pytest.mark.parametrize("ambientes", [("produccion",), ("desarrollo", "produccion"), ("qa", "produccion", "desarrollo")])
 def test_cli_figures_con_un_servidor_de_produccion_termina_con_systemexit(tmp_path, monkeypatch, ambientes):
-    from converdata import cli
-    from converdata.metadata.sqlserver import SqlServerMetadata
+    from discovery_data_agent import cli
+    from discovery_data_agent.metadata.sqlserver import SqlServerMetadata
 
     conexiones: list[str] = []
     monkeypatch.setattr(SqlServerMetadata, "_pyodbc_connect", lambda self, db: _ConexionCli(conexiones))
@@ -1111,8 +1111,8 @@ def test_cli_figures_con_un_servidor_de_produccion_termina_con_systemexit(tmp_pa
 
 
 def test_cli_figures_en_desarrollo_calcula_la_cifra_con_el_ejecutor_del_inventario(tmp_path, monkeypatch, capsys):
-    from converdata import cli
-    from converdata.metadata.sqlserver import SqlServerMetadata
+    from discovery_data_agent import cli
+    from discovery_data_agent.metadata.sqlserver import SqlServerMetadata
 
     conexiones: list[str] = []
     monkeypatch.setattr(SqlServerMetadata, "_pyodbc_connect", lambda self, db: _ConexionCli(conexiones))
@@ -1125,8 +1125,8 @@ def test_cli_figures_en_desarrollo_calcula_la_cifra_con_el_ejecutor_del_inventar
 
 
 def test_cli_sin_figures_no_calcula_cifras(monkeypatch, capsys):
-    from converdata import cli
-    from converdata.metadata.sqlserver import SqlServerMetadata
+    from discovery_data_agent import cli
+    from discovery_data_agent.metadata.sqlserver import SqlServerMetadata
 
     def no_debe_conectar(self, db):
         raise AssertionError("sin --figures no se abre ninguna conexión de datos")

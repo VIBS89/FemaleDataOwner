@@ -1,5 +1,5 @@
-# Línea base de `converdata eval gate`: resultado aceptado de la última medición. La compuerta falla si un
-# indicador baja de aquí. Se regenera con `converdata eval gate --root <dir> --write-baseline` tras revisar la mejora.
+# Línea base de `discovery-data-agent eval gate`: resultado aceptado de la última medición. La compuerta falla si un
+# indicador baja de aquí. Se regenera con `discovery-data-agent eval gate --root <dir> --write-baseline` tras revisar la mejora.
 measured_at: '2026-11-17'
 cases: 31
 hit1: 96.2

@@ -1,13 +1,13 @@
 """Lectura de permisos por base de datos (F14): `PyodbcObjectLister`.
 
-La prueba marcada `sqlserver` necesita `CONVERDATA_TEST_DB` (ver `conftest.py` de la raíz).
+La prueba marcada `sqlserver` necesita `DISCOVERY_DATA_AGENT_TEST_DB` (ver `conftest.py` de la raíz).
 """
 
 import secrets
 
 import pytest
 
-from converdata.identity.visibility import PyodbcObjectLister, VisibleObject
+from discovery_data_agent.identity.visibility import PyodbcObjectLister, VisibleObject
 
 
 class _Cursor:
@@ -73,7 +73,7 @@ def test_contra_sql_server_una_base_inaccesible_no_oculta_la_siguiente(sqlserver
     server = sqlserver_database.rsplit(";DATABASE=", 1)[0]
     admin = pyodbc.connect(f"{server};DATABASE=master", autocommit=True, timeout=10)
     suffix = secrets.token_hex(4)
-    closed_db, open_db = f"ConverData_vis_a_{suffix}", f"ConverData_vis_b_{suffix}"
+    closed_db, open_db = f"DiscoveryDataAgent_vis_a_{suffix}", f"DiscoveryDataAgent_vis_b_{suffix}"
     try:
         for name in (closed_db, open_db):
             admin.execute(f"CREATE DATABASE [{name}]")

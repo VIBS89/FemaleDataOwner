@@ -1,4 +1,4 @@
-# ConverData en AWS
+# DiscoveryDataAgent en AWS
 
 Infraestructura como código del despliegue de [CN-01](../../docs/specs/cloud-native/CN-01-despliegue-aws.md): las dos
 imágenes de `docker compose` en **una tarea de ECS Fargate** detrás de un ALB, el Builder del catálogo lanzado por
@@ -31,8 +31,8 @@ variables de la tarea, que salen del `.tfvars`, y los secretos de Secrets Manage
 | VPN y DNS | Lado AWS de la Site-to-Site VPN y reenvío de DNS a los servidores del banco (opcionales: `vpn`, `onprem_dns`) |
 | Entrada | ALB interno con HTTPS; `/` va a la web y `/mcp` a la API. El resto de la API no se publica |
 | Cómputo | Una tarea con `web` (3000), `api` (8000, un worker) y `api-eventos`, que lleva el log JSON de la API a CloudWatch |
-| Builder | La imagen de la API con `converdata catalog build --db`, cada noche; corre y termina |
-| Secretos | Código de instalación (lo genera Terraform), cadena de la BD `ConverData` y login de metadatos del Builder |
+| Builder | La imagen de la API con `discovery-data-agent catalog build --db`, cada noche; corre y termina |
+| Secretos | Código de instalación (lo genera Terraform), cadena de la BD `DiscoveryDataAgent` y login de metadatos del Builder |
 | Roles | Uno de ejecución y uno de tarea por cada tarea: la de la API no puede leer el login de metadatos (CN-03 CA3) |
 | Observabilidad | Grupos de logs cifrados con KMS y las alarmas de CN-05 hacia un tema SNS |
 | Imágenes | Dos repositorios ECR con etiquetas inmutables y análisis al subir |
@@ -81,18 +81,18 @@ para probar el camino completo. Su ALB es público pero solo acepta las IP que s
 Cada uno en su cuenta de AWS, con el mismo código y distinto `.tfvars`.
 
 1. Copiar `terraform/envs/qa.tfvars.example` a `qa.tfvars` y rellenarlo con los datos de Redes, Seguridad y el DBA. No lleva secretos.
-2. Copiar `terraform/config/models.bedrock.example.yaml` a `models.qa.yaml` con el modelo elegido, y medirlo antes de aceptarlo (`converdata eval discovery`).
+2. Copiar `terraform/config/models.bedrock.example.yaml` a `models.qa.yaml` con el modelo elegido, y medirlo antes de aceptarlo (`discovery-data-agent eval discovery`).
 3. `bootstrap <región>` y `apply qa`.
 4. Entregar a Redes la salida `vpn` (`despliegue.sh output qa`) y las subredes de `task_subnets`: el firewall del banco abre el 1433 solo a esos rangos. Esto y la configuración del equipo VPN on-premise no se automatizan (CN-01 CA1).
 5. Crear en el DNS interno el registro de `domain_name` hacia `alb_dns_name`.
 6. Cargar los secretos (el valor se pide sin mostrarlo y no pasa por el repositorio ni por el estado):
    ```bash
-   bash deploy/aws/despliegue.sh secret qa db                 # cadena ODBC de la BD ConverData
+   bash deploy/aws/despliegue.sh secret qa db                 # cadena ODBC de la BD DiscoveryDataAgent
    bash deploy/aws/despliegue.sh secret qa metadata-user      # login de metadatos del Builder
    bash deploy/aws/despliegue.sh secret qa metadata-password
    ```
-   Los servidores del inventario deben nombrar esas variables: `metadata_user_env: CONVERDATA_METADATA_USER` y `metadata_password_env: CONVERDATA_METADATA_PASSWORD`.
-7. Migraciones de la BD al día (`converdata db migrate`, las aplica el DBA como en on-premise: la BD es la misma).
+   Los servidores del inventario deben nombrar esas variables: `metadata_user_env: DISCOVERY_DATA_AGENT_METADATA_USER` y `metadata_password_env: DISCOVERY_DATA_AGENT_METADATA_PASSWORD`.
+7. Migraciones de la BD al día (`discovery-data-agent db migrate`, las aplica el DBA como en on-premise: la BD es la misma).
 8. `deploy qa`. El primer servidor del inventario se registra desde la web con el código de `despliegue.sh setup-token qa`.
 
 A qa y prod solo se sube un commit limpio: la etiqueta de la imagen es el hash del commit.
@@ -104,7 +104,7 @@ de la [hoja de ruta cloud §5](../../docs/wiki/hoja-de-ruta-cloud.md). Ninguno s
 
 | Bloqueo | Efecto | Quién decide |
 |---|---|---|
-| Con `CONVERDATA_ENV=qa\|prod` la API rechaza una `CONVERDATA_DB` con contraseña (exige la gMSA), y un contenedor Linux no tiene gMSA | La tarea se detiene al arrancar con el mensaje de `production_violations` | Seguridad y cambio de código |
+| Con `DISCOVERY_DATA_AGENT_ENV=qa\|prod` la API rechaza una `DISCOVERY_DATA_AGENT_DB` con contraseña (exige la gMSA), y un contenedor Linux no tiene gMSA | La tarea se detiene al arrancar con el mensaje de `production_violations` | Seguridad y cambio de código |
 | El contenedor no confía en la CA que firma el certificado de los SQL Server del banco, y `TrustServerCertificate` está prohibido | Falla la conexión TLS | Seguridad; la CA debe entrar en la imagen |
 | La cuenta de AWS, Bedrock habilitado sin *invocation logging*, la VPN y el firewall | Sin red no hay SQL Server | Nube, Redes |
 | El webhook de Teams no tiene salida: la tarea no llega a internet | Notificaciones apagadas | Redes |

@@ -195,7 +195,7 @@ export default function ChatPage() {
             placeholder={noCatalog ? "Disponible cuando el catálogo esté listo" : undefined}
           />
           <p className="text-muted-foreground mt-2 text-center text-[11px]">
-            ConverData solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
+            DiscoveryDataAgent solo usa metadatos y lo que tu login puede leer. Verifica la recomendación antes de usarla en un proceso.
           </p>
         </div>
       </div>

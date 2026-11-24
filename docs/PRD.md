@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Producto** | Enterprise Data Discovery Agent (nombre técnico: ConverData) |
+| **Producto** | Enterprise Data Discovery Agent (nombre técnico: DiscoveryDataAgent) |
 | **Cliente** | Gerencia de Datos, Banco Atlántida El Salvador |
 | **Origen** | *Propuesta 1 — Agente de descubrimiento y conocimiento de datos corporativos* |
 | **Estado** | Revisado el 2026-11-23: primer corte de cifras agregadas del AskFlow, apagado por defecto (§13, decisión 17). Antes, el 2026-11-16: arquitectura simplificada (§13, decisiones 9–16) |
-| **Fase** | Fase 1a on-premise en desarrollo: descubrimiento (con chat para usuarios de negocio), API, web y MCP construidos y medidos; la BD `ConverData` ya existe (`db/converdata/`); faltan Bedrock y la instalación en el servidor del piloto ([plan](PLAN-desarrollo.md), [backlog](backlog/on-premise.md)). De la fase 1b existe solo el primer corte de totales (§6.4, decisión 17); el resto sigue sin construir |
+| **Fase** | Fase 1a on-premise en desarrollo: descubrimiento (con chat para usuarios de negocio), API, web y MCP construidos y medidos; la BD `DiscoveryDataAgent` ya existe (`db/discovery_data_agent/`); faltan Bedrock y la instalación en el servidor del piloto ([plan](PLAN-desarrollo.md), [backlog](backlog/on-premise.md)). De la fase 1b existe solo el primer corte de totales (§6.4, decisión 17); el resto sigue sin construir |
 | **Alcance de este documento** | Producto, requisitos, principios, contrato de respuesta, trazabilidad con la propuesta y catálogo de specs (sustituye a `features.md` y `propuesta-trazabilidad.md`) |
 | **Documentos relacionados** | [specs](specs/) (catálogo en el anexo A) · [arquitectura on-premise](architecture/onpremise-architecture.html) · [arquitectura cloud native](architecture/cloud-native-architecture.html) · [capas del backend](architecture/capas-backend.md) · [calidad bancaria](calidad-bancaria.md) · [plan de desarrollo](PLAN-desarrollo.md) · [backlog on-premise](backlog/on-premise.md) |
 
@@ -154,9 +154,9 @@ Prioridad: **P0** imprescindible para el piloto · **P1** necesario para producc
 | RF-42 | Análisis comparativo, de causa raíz y exploratorio | P2 | F20 |
 
 **Primer corte de cifras agregadas (decisión 17, 2026-11-23).** Se activa con `features.ask_flow: true` en `config/settings.yaml` del
-catálogo o con `CONVERDATA_ASK_FLOW=1` en la API; sin eso, una pregunta de cifras se responde como descubrimiento (qué información
-usar). En la CLI, `converdata discover "<pregunta>" --root <dir> --figures config/databases.local.yaml` lo activa solo para desarrollo.
-Reglas, todas verificadas en el código (`src/converdata/discovery/figures.py`, nodo `compute` del DiscoverFlow):
+catálogo o con `DISCOVERY_DATA_AGENT_ASK_FLOW=1` en la API; sin eso, una pregunta de cifras se responde como descubrimiento (qué información
+usar). En la CLI, `discovery-data-agent discover "<pregunta>" --root <dir> --figures config/databases.local.yaml` lo activa solo para desarrollo.
+Reglas, todas verificadas en el código (`src/discovery_data_agent/discovery/figures.py`, nodo `compute` del DiscoverFlow):
 - Solo `COUNT`, `COUNT DISTINCT`, `SUM` y `AVG` sobre **una** tabla, con desglose opcional por una columna de categoría (se comprueba antes que
   tenga como máximo 25 valores distintos). Si la categoría pedida ("por segmento", "por tipo de crédito", "por marca") no está en esa tabla, se
   busca en una tabla a la que apunta una llave foránea de una sola columna, visible para el usuario y de la misma base, servidor y ambiente
@@ -164,7 +164,7 @@ Reglas, todas verificadas en el código (`src/converdata/discovery/figures.py`, 
 - Un total o un grupo calculado sobre menos de 10 registros no se muestra, con supresión complementaria; cada consulta se audita antes de ejecutarse
   (`figure_query`) y, si la auditoría falla, no se ejecuta.
 - El SQL sale de una plantilla fija con identificadores del catálogo entre corchetes: ningún texto del usuario ni de un modelo llega al SQL.
-- Se ejecuta con la credencial de la sesión del usuario, en solo lectura y con un tope de 15 s (`api/converdata_api/runtime.py::figure_executor`).
+- Se ejecuta con la credencial de la sesión del usuario, en solo lectura y con un tope de 15 s (`api/discovery_data_agent_api/runtime.py::figure_executor`).
   SQL Server decide si puede leer la tabla.
 - Nunca usa columnas marcadas `pii`. El número no pasa por el LLM: el texto es determinista. El sobre lleva `flow: "ask"` y `figure`.
 - Es conservador y lo dice: no calcula si la pregunta pide un periodo, combina varias tablas o sistemas, la medida no es numérica, hay un filtro por valor, una condición que combina tablas, un cruce entre bases o sistemas, una unión de más de un salto, hay empate
@@ -182,7 +182,7 @@ análisis (F20), la ruta `/ask` y `sqlglot`.
 | RF-52 | Servidor MCP para otros agentes (`discover`, `get_asset`, `get_lineage`…) | P1 | F12 |
 | RF-53 | Auditoría completa de preguntas, candidatos y confirmaciones | P0 | F11 |
 | RF-54 | Reporte de métricas de negocio, adopción y calidad | P0 | F25 |
-| RF-55 | Set de evaluación automatizado con alerta de regresión y compuerta de calidad (`converdata eval gate`) | P0 | F25, [calidad bancaria](calidad-bancaria.md) |
+| RF-55 | Set de evaluación automatizado con alerta de regresión y compuerta de calidad (`discovery-data-agent eval gate`) | P0 | F25, [calidad bancaria](calidad-bancaria.md) |
 
 ## 7. Requisitos no funcionales
 | Área | Requisito | Spec |
@@ -191,7 +191,7 @@ análisis (F20), la ruta `/ask` y `sqlglot`.
 | **Residencia de datos** | Ningún dato de cliente se persiste fuera de la red del banco; el catálogo no contiene valores; los documentos se indexan con PII redactada | F17, F23 |
 | **Seguridad** | Credenciales cifradas fuera del alcance del LLM; TLS en todas las conexiones; login de metadatos de solo lectura; sin SQL libre en las herramientas de metadatos; en qa y prod la API no arranca con ajustes inseguros | F14, F18, [calidad bancaria](calidad-bancaria.md) |
 | **Rendimiento** | Descubrimiento p50 < 5 s, p95 < 10 s. Consulta de datos (fase 1b) p50 < 12 s, p95 < 30 s en producción (el MVP admite p95 < 40 s) | F22, OP-01 |
-| **Calidad** | Hit@3 ≥ 85 %, Hit@1 ≥ 65 %; candidatos con confianza ≥ 0.8 correctos ≥ 85 %; 0 fugas de permisos y 0 objetos inventados. Ningún cambio se acepta si la compuerta `converdata eval gate` baja de su línea base | F25, [calidad bancaria](calidad-bancaria.md) |
+| **Calidad** | Hit@3 ≥ 85 %, Hit@1 ≥ 65 %; candidatos con confianza ≥ 0.8 correctos ≥ 85 %; 0 fugas de permisos y 0 objetos inventados. Ningún cambio se acepta si la compuerta `discovery-data-agent eval gate` baja de su línea base | F25, [calidad bancaria](calidad-bancaria.md) |
 | **Trazabilidad** | Toda respuesta auditada; logs sin contenido | F11 |
 | **Operación** | Despliegue on-premise en el stack Microsoft (Windows Server, IIS, SQL Server 2016 o posterior, Programador de tareas); camino a un despliegue mínimo en AWS sin cambiar la lógica | OP-01, CN-01 |
 | **IA** | Amazon Bedrock, un modelo en el piloto, sin logging de invocaciones; modelos configurables por rol sin cambios de código. Con el rol `fast` el modelo redacta la respuesta para una persona de negocio, reformula la búsqueda cuando cubre poco y orienta cuando no hay candidatos; con `planner` entiende la intención y ordena. Al reformular y orientar no recibe los literales de la pregunta ni del historial. El ranking sigue siendo determinista. El número de una cifra nunca pasa por el modelo. El descubrimiento funciona también sin LLM (modo determinista) | F16 |
@@ -203,12 +203,12 @@ Arquitectura simplificada el 2026-11-16 (§13, decisiones 9–16). Lo construido
 
 - **Orquestación**: el DiscoverFlow (descubrimiento) es un grafo de **LangGraph** con pasos fijos, servido por **FastAPI**: `intent → retrieve ⇄ grade → rerank → expand ⇄ review → [compute] → respond → finalize`. El nodo `compute` (cifras agregadas, decisión 17) solo corre con `features.ask_flow` activo y una pregunta de cifras. El resto del AskFlow (consulta) es de la fase 1b.
 - **LLM**: Amazon Bedrock con un solo modelo, declarado como rol `planner` (intención y orden) o `fast` (narrativa, reformulación de la búsqueda y orientación cuando no hay candidatos). Sin embeddings ni juez en la fase 1a. Sin LLM, el flujo responde en modo determinista. En el build del catálogo, cuando hay modelo configurado, el enriquecimiento con IA viene activado por defecto (rol `planner` o, si no está, `fast`; marcado "sugerido por IA, sin revisar").
-- **Búsqueda**: índice léxico (BM25) en la memoria de `ConverData-API`, cargado al arrancar y filtrado por los permisos del usuario antes de ordenar. El grafo del patrimonio (FKs, misma entidad, linaje) también vive en memoria.
-- **Persistencia**: BD `ConverData` en SQL Server 2016 o posterior, con tablas normales y tablas temporales para el historial (esquemas `catalog`, `knowledge`, `golden`, `curation` y `audit`). Sin tipo `VECTOR`, Full-Text ni tablas de grafo.
-- **Metadatos**: `converdata-discovery`, biblioteca de solo lectura con consultas fijas a `sys.*` que usa el Builder (el login de metadatos solo existe ahí).
-- **Ingesta**: el Builder es un comando (`converdata catalog build`) que corre y termina; lo lanza cada noche el Programador de tareas de Windows y, bajo demanda, un `data_admin` desde Administración.
-- **Interfaces**: web **Next.js** (chat, Curación, Catálogo, Métricas, Administración) y `ConverData-API` detrás de IIS; MCP en `/mcp`.
-- **Despliegue del piloto**: un Windows Server con dos procesos detrás de IIS (web y API) y la BD `ConverData`; Bedrock es el único servicio externo.
+- **Búsqueda**: índice léxico (BM25) en la memoria de `DiscoveryDataAgent-API`, cargado al arrancar y filtrado por los permisos del usuario antes de ordenar. El grafo del patrimonio (FKs, misma entidad, linaje) también vive en memoria.
+- **Persistencia**: BD `DiscoveryDataAgent` en SQL Server 2016 o posterior, con tablas normales y tablas temporales para el historial (esquemas `catalog`, `knowledge`, `golden`, `curation` y `audit`). Sin tipo `VECTOR`, Full-Text ni tablas de grafo.
+- **Metadatos**: `discovery-data-agent-discovery`, biblioteca de solo lectura con consultas fijas a `sys.*` que usa el Builder (el login de metadatos solo existe ahí).
+- **Ingesta**: el Builder es un comando (`discovery-data-agent catalog build`) que corre y termina; lo lanza cada noche el Programador de tareas de Windows y, bajo demanda, un `data_admin` desde Administración.
+- **Interfaces**: web **Next.js** (chat, Curación, Catálogo, Métricas, Administración) y `DiscoveryDataAgent-API` detrás de IIS; MCP en `/mcp`.
+- **Despliegue del piloto**: un Windows Server con dos procesos detrás de IIS (web y API) y la BD `DiscoveryDataAgent`; Bedrock es el único servicio externo.
 
 Detalle en los diagramas de `docs/architecture/`, en [capas del backend](architecture/capas-backend.md) y en las specs OP-01 a OP-09 / CN-01 a CN-06.
 
@@ -219,16 +219,16 @@ Detalle en los diagramas de `docs/architecture/`, en [capas del backend](archite
 | Web | **Next.js** (`web/`) | Chat con tarjetas de candidatos y botones ✔/✖, pasos en vivo, Curación, Catálogo, Métricas y Administración; reenvía `/api/*` a la API |
 | Orquestación | **LangGraph** | DiscoverFlow como grafo con pasos fijos, ciclos acotados y aristas condicionales (incluye el nodo `compute` de las cifras agregadas, apagado por defecto); el resto del AskFlow, en la fase 1b |
 | LLM | **Amazon Bedrock** vía **`langchain-aws`** (`ChatBedrockConverse`) | Un modelo por rol (`planner`, `fast`) para intención, orden, narrativa, reformulación y orientación; salida estructurada con modelos Pydantic. En desarrollo: Ollama (solo local) o NVIDIA NIM con datos de prueba |
-| Herramientas | SDK oficial de **MCP** (`converdata-mcp`) | Las mismas herramientas de descubrimiento para la API, la web y los clientes MCP externos |
+| Herramientas | SDK oficial de **MCP** (`discovery-data-agent-mcp`) | Las mismas herramientas de descubrimiento para la API, la web y los clientes MCP externos |
 | Acceso a SQL Server | **pyodbc** + ODBC Driver 18 | Visibilidad con el login de cada usuario; metadatos con el login del Builder |
 | Búsqueda | Índice léxico BM25 en memoria | Recuperación de tablas, columnas y conocimiento; el puerto `VectorStore` (F2) permite cambiarlo |
 | Datos personales | Patrones locales (DUI, NIT, correo, teléfono, tarjeta) hoy; **Microsoft Presidio** para documentos (HU-26) | Rechazo de ediciones de curación con datos personales; redacción de documentos antes de indexar |
-| Almacén de trabajo | BD `ConverData` en **SQL Server 2016+** | Catálogo, conocimiento, curación y auditoría, on-premise en ambos despliegues |
+| Almacén de trabajo | BD `DiscoveryDataAgent` en **SQL Server 2016+** | Catálogo, conocimiento, curación y auditoría, on-premise en ambos despliegues |
 | Alojamiento | IIS con HttpPlatformHandler on-premise · una tarea de **ECS Fargate** en AWS | El mismo código en ambos |
 | Fase 1b | **sqlglot** (dialecto `tsql`) | Validación de SQL: AST, lista negra, inyección de `TOP` |
 
 Reglas de uso de LangGraph:
-- **El framework vive en una sola capa** (`converdata/flows/`). Herramientas, `VectorStore`, prompts y modelos Pydantic son
+- **El framework vive en una sola capa** (`discovery-data-agent/flows/`). Herramientas, `VectorStore`, prompts y modelos Pydantic son
   Python puro y no importan LangGraph, de modo que cambiar de orquestador no obliga a reescribir la lógica
   (`tests/test_architecture.py` lo comprueba).
 - **Nodos con llamadas directas y salida estructurada**, no agentes autónomos: el orden de los pasos lo define el grafo, nunca el modelo.
@@ -254,7 +254,7 @@ Reglas de uso de LangGraph:
 | Despliegue | Spec principal | Diagrama | Cuándo |
 |---|---|---|---|
 | **On-premise** | [OP-01](specs/on-premise/OP-01-despliegue-local.md) | `docs/architecture/onpremise-architecture.html` | Primero: piloto para validar la solución sin infraestructura cloud nueva (solo Bedrock) |
-| **AWS (despliegue mínimo)** | [CN-01](specs/cloud-native/CN-01-despliegue-aws.md) | `docs/architecture/cloud-native-architecture.html` | Después del piloto, si se decide invertir en AWS: las mismas dos imágenes en una tarea de ECS Fargate, con la BD `ConverData` todavía en el banco |
+| **AWS (despliegue mínimo)** | [CN-01](specs/cloud-native/CN-01-despliegue-aws.md) | `docs/architecture/cloud-native-architecture.html` | Después del piloto, si se decide invertir en AWS: las mismas dos imágenes en una tarea de ECS Fargate, con la BD `DiscoveryDataAgent` todavía en el banco |
 
 Los permisos heredados se explican en `docs/architecture/permisos-heredados.html` (F14) y aplican igual a los dos despliegues.
 
@@ -309,7 +309,7 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 ## 10. Alcance y fases
 | Fase | Contenido | Criterio de salida |
 |---|---|---|
-| **0. Preparación** (semanas 0–1) | Línea base; acceso a fuentes; responsables del dominio piloto; servidor y BD `ConverData` | Línea base firmada; compuerta `converdata eval gate` aprobada con el catálogo del dominio piloto |
+| **0. Preparación** (semanas 0–1) | Línea base; acceso a fuentes; responsables del dominio piloto; servidor y BD `DiscoveryDataAgent` | Línea base firmada; compuerta `discovery-data-agent eval gate` aprobada con el catálogo del dominio piloto |
 | **1a. Piloto de descubrimiento** (semanas 1–8) | RF P0 de §6.1–6.3 y 6.5 sobre el dominio **clientes / onboarding digital**, producción y QA; 10–15 usuarios | D1–D7 de OP-01 |
 | **1b. Consulta de datos** | AskFlow, métricas certificadas y análisis (RF-40 a RF-42). **Adelantado (decisión 17, 2026-11-23)**: cifras agregadas sobre una tabla, apagadas por defecto. Pendiente: SQL generado por LLM, filtros de fecha y de valor, condiciones entre tablas, cruces, capa semántica, análisis y `/ask` | Criterios 1–7 de OP-01 |
 | **2. Escalamiento** | Más dominios, RF P1, despliegue en AWS o alta disponibilidad on-premise | Decisión de la Gerencia de Datos |
@@ -321,7 +321,7 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
 - Login técnico de metadatos con `VIEW DEFINITION` y lectura de SSISDB y msdb.
 - Acceso de solo lectura, con una cuenta técnica, a los diccionarios y a la documentación del dominio piloto (carpeta compartida o SharePoint).
 - Cuenta de AWS con Bedrock habilitado (un modelo Claude para intención y orden) e IAM Roles Anywhere.
-- Windows Server para la aplicación y una instancia SQL Server 2016 o posterior para la BD `ConverData`.
+- Windows Server para la aplicación y una instancia SQL Server 2016 o posterior para la BD `DiscoveryDataAgent`.
 - Un steward funcional y uno técnico asignados al dominio piloto con tiempo para curación (semanas 2–3).
 - Aprobación de Seguridad de la Información para enviar metadatos y preguntas a Bedrock (sin almacenamiento).
 
@@ -349,17 +349,17 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
    responsable sin revelar nombres. Esto limita en parte la "democratización" de la propuesta a favor de la seguridad.
 3. **Autenticación (decidido, 2026-10-14)**: logins SQL por usuario, que también calculan la visibilidad del descubrimiento (OP-03).
    Windows/AD con SSO y delegación restringida de Kerberos queda como evolución, sujeta a una prueba de concepto (OP-03).
-4. **Nombre**: la propuesta usa "Enterprise Data Discovery Agent"; ConverData es el nombre técnico del proyecto.
+4. **Nombre**: la propuesta usa "Enterprise Data Discovery Agent"; DiscoveryDataAgent es el nombre técnico del proyecto.
 5. **Prioridad del planner (decidido, 2026-10-15)**: métrica certificada / consulta verificada → SP de la lista blanca → golden SQL → SQL nuevo
    (F6, F21). La capa semántica es revisable y se compila de forma determinista; una métrica puede delegar en un SP oficial.
 6. **Catalog Builder separado (decidido, 2026-10-15; sustituida por la decisión 12)**: la ingesta corre fuera del camino interactivo y
-   `converdata-discovery` es una biblioteca dentro del Builder en ambos despliegues (F18). Lo que cambia con la decisión 12 es la forma:
+   `discovery-data-agent-discovery` es una biblioteca dentro del Builder en ambos despliegues (F18). Lo que cambia con la decisión 12 es la forma:
    un comando programado en vez de un servicio de Windows.
 7. **Credenciales por servidor y grupos (decidido, 2026-10-15)**: los logins SQL son por instancia, así que la sesión guarda una credencial por
    servidor. En el piloto los roles de curación se asignan por login SQL; los grupos de AD por LDAP (ACL de documentos, roles por grupo)
    llegan con HU-13 (F14).
 8. **Un solo camino de escritura del conocimiento curado (decidido, 2026-10-15)**: feedback, curación y golden se escriben solo por
-   `ConverData-API` (`/discover/feedback`, `/curation/*`), con sesión, rol y auditoría previa; el MCP publicado a clientes externos solo
+   `DiscoveryDataAgent-API` (`/discover/feedback`, `/curation/*`), con sesión, rol y auditoría previa; el MCP publicado a clientes externos solo
    tiene herramientas de lectura (F12).
 
 9. **Búsqueda léxica en memoria, sin embeddings (decidido, 2026-11-16)**: la medición del 2026-10-29 (HU-34) dio Hit@1 93,1 % y
@@ -367,25 +367,25 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
    4,6 s. Se conserva el puerto `VectorStore` (F2). Se retiran `SqlServerVectorStore`, el tipo `VECTOR`, Full-Text y OpenSearch.
    Nota (2026-11-17): el canal semántico, que había quedado como experimento de desarrollo, se retiró del código; la medición de
    HU-34 queda como historia y ya no se puede repetir con este código.
-10. **BD `ConverData` en tablas normales (decidido, 2026-11-16)**: SQL Server 2016 o posterior, con tablas temporales para el historial.
+10. **BD `DiscoveryDataAgent` en tablas normales (decidido, 2026-11-16)**: SQL Server 2016 o posterior, con tablas temporales para el historial.
     Sin tablas de grafo: entidades, FKs y linaje se guardan en tablas normales y el grafo del patrimonio (F19) se arma en memoria. El
     esquema `semantic` (F21) llega con la fase 1b. Ya no hace falta una instancia SQL Server 2025.
 11. **Web en Next.js en lugar de Chainlit (decidido, 2026-11-16)**: la web cubre chat, Curación, Catálogo, Métricas y Administración, y
-    reenvía `/api/*` a `ConverData-API`, que no se publica directamente. IIS publica dos procesos: web y API (`/mcp`).
-12. **Builder como comando programado (decidido, 2026-11-16)**: `converdata catalog build` corre y termina, lanzado por el Programador
-    de tareas de Windows o por un `data_admin` desde Administración. Sustituye a la decisión 6: no hay servicio `ConverData-Builder`,
+    reenvía `/api/*` a `DiscoveryDataAgent-API`, que no se publica directamente. IIS publica dos procesos: web y API (`/mcp`).
+12. **Builder como comando programado (decidido, 2026-11-16)**: `discovery-data-agent catalog build` corre y termina, lanzado por el Programador
+    de tareas de Windows o por un `data_admin` desde Administración. Sustituye a la decisión 6: no hay servicio `DiscoveryDataAgent-Builder`,
     job de SQL Server Agent ni API de administración en un proceso aparte.
 13. **Un solo modelo de Bedrock en el piloto (decidido, 2026-11-16)**: para intención y orden de candidatos; sin embeddings ni juez en
     la fase 1a. Bedrock Guardrails deja de ser requisito de la fase 1a y pasa a ser una decisión de Seguridad de la Información; las
     guardas actuales están en el código ([calidad bancaria](calidad-bancaria.md) §3).
 14. **AWS como despliegue mínimo posterior al piloto (decidido, 2026-11-16)**: ALB interno, una tarea de ECS Fargate con las imágenes de
-    web y API, Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y la BD `ConverData` todavía en el banco. Sin
+    web y API, Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y la BD `DiscoveryDataAgent` todavía en el banco. Sin
     AgentCore, OpenSearch, Cognito, WAF, S3 ni Transit Gateway (CN-01).
 15. **Rutas de la API (decidido, 2026-11-16)**: valen las del código (`/auth/login` con alias `/login`, `/discover`, `/discover/feedback`,
     `/assets/{asset_key}`, `/curation/*`, `/admin/*`); el navegador las ve bajo `/api/` porque la web las reenvía (F12, OP-04).
     Nota (2026-11-17): se añaden `GET /curation/history` (historial de una descripción, RF-34) y `GET`/`PUT /admin/stewards`
     (responsables de curación por login y dominio).
-16. **Compuerta de calidad (decidido, 2026-11-15)**: `converdata eval gate` (calidad, permisos, inyección, guardas, robustez,
+16. **Compuerta de calidad (decidido, 2026-11-15)**: `discovery-data-agent eval gate` (calidad, permisos, inyección, guardas, robustez,
     determinismo y auditoría) debe aprobar antes de aceptar un cambio y corre en la CI; los controles y lo que falta para operar en un
     banco están en [calidad bancaria](calidad-bancaria.md).
 17. **Cifras agregadas: primer corte del AskFlow, adelantado de la fase 1b (decidido por el dueño del producto, 2026-11-23)**: se adelanta
@@ -395,7 +395,7 @@ Los porcentajes son metas iniciales sujetas a validación en el piloto. Detalle 
       valores distintos, de la tabla o de una tabla relacionada por una llave foránea de una sola columna, con una sola unión (§6.4). Verificado
       contra SQL Server local con datos ficticios: saldo de cartera por segmento del cliente, préstamos por tipo de crédito y tarjetas por marca
       coinciden con la consulta directa.
-    - *Condiciones*: apagado por defecto (`features.ask_flow` o `CONVERDATA_ASK_FLOW=1`); SQL de plantilla fija con identificadores del
+    - *Condiciones*: apagado por defecto (`features.ask_flow` o `DISCOVERY_DATA_AGENT_ASK_FLOW=1`); SQL de plantilla fija con identificadores del
       catálogo, sin texto del usuario ni de un modelo; con la credencial de la sesión del usuario, en solo lectura y con tope de 15 s; nunca
       columnas `pii`; totales y grupos de menos de 10 registros no se muestran; cada consulta se audita antes de ejecutarse y, si la auditoría falla, no se ejecuta; un servidor de producción exige `figures: true` en el inventario; el número no pasa por el LLM; el sobre lleva `flow: "ask"` y `figure`; ante la duda no calcula y lo dice.
     - *Sigue en la fase 1b*: SQL generado por un LLM, filtros de fecha y de valor, condiciones que combinan tablas ("clientes con préstamo y también tarjeta"), cruces entre bases o sistemas, uniones de más de un salto, capa semántica (F21), motor de
@@ -418,7 +418,7 @@ aplazados a HU-13).
 Notas del 2026-11-17 (precisan las decisiones anteriores; no añaden numeración):
 - **Decisión 12, Builder**: la tarea programada entra a los servidores con autenticación de Windows (la cuenta del proceso) aunque el
   inventario diga login SQL, salvo que el servidor declare `metadata_user_env`. El inventario describe cómo entran los usuarios. La
-  tarea solo va a los hosts de `CONVERDATA_BUILDER_HOSTS`, obligatoria en qa y prod (OP-07).
+  tarea solo va a los hosts de `DISCOVERY_DATA_AGENT_BUILDER_HOSTS`, obligatoria en qa y prod (OP-07).
 - **Decisión 8, plantilla de las confirmaciones**: se quita toda palabra con algún dígito o con arroba, también los umbrales de
   negocio ("mora mayor a 90 días" y "a 30 días" son la misma confirmación), salvo el vocabulario conocido del banco: nombres del
   catálogo con dígitos y códigos del conocimiento con letras y dígitos ("NCB-022" se conserva solo si el glosario lo nombra). La
@@ -433,7 +433,7 @@ Notas del 2026-11-17 (precisan las decisiones anteriores; no añaden numeración
 - **Decisión 10, versión del catálogo**: cada edición de curación y cada voto aprendido suben `catalog.catalog_version`. La versión
   significa "algo cambió", no "publicación".
 - **Un solo proceso de API**: sesiones, trazas de respuestas, inventario y confirmaciones recientes viven en la memoria de
-  `ConverData-API`; el inventario se lee al arrancar. Más de un proceso exige rediseñar ese estado (OP-03, OP-07).
+  `DiscoveryDataAgent-API`; el inventario se lee al arrancar. Más de un proceso exige rediseñar ese estado (OP-03, OP-07).
 
 Notas del 2026-11-23 (precisan decisiones anteriores; la única decisión nueva es la 17):
 - **Decisión 13, modelo único**: un solo modelo puede declararse como `planner` o como `fast`, o en ambos roles. Además de la narrativa,
@@ -546,7 +546,7 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 | Criterios de salida del MVP | ⚠️ medían precisión de SQL, no descubrimiento | ✅ fase 1a de descubrimiento con Hit@k, calibración y KPIs | OP-01, F25 |
 
 ### 14.6 Visión futura de la propuesta
-| Capacidad futura | Estado en ConverData |
+| Capacidad futura | Estado en DiscoveryDataAgent |
 |---|---|
 | Descubrimiento automatizado de linaje | Base en F23 (un salto, nivel de tabla) y F19 (relaciones entre BDs) |
 | Recomendación y generación de SQL | Ya especificado: AskFlow F4–F10, capa semántica F21, motor de análisis F20 (fase 1b). Existe un primer corte de totales con plantilla fija, sin SQL generado por un modelo (decisión 17) |
@@ -561,14 +561,14 @@ Leyenda: ✅ cubierto · ⚠️ parcial · ❌ no cubierto
 |---|---|---|---|
 | Flujo de descubrimiento y respuesta con candidatos | F3, F22 | OP-01 (fase 1a), OP-04 | CN-01, CN-04 |
 | Ambientes y servidores | F1 | OP-02 (`catalog`) | CN-02 |
-| Diccionarios, documentos, ETL y reglas | F23 | OP-02 (`knowledge`, Presidio, tarea programada) | CN-02 (tarea ECS programada; escribe en la BD `ConverData` on-premise) |
-| Responsables, escalamiento y curación | F24 | OP-02 (`curation`), OP-04 (webhook de Teams) | Igual: BD `ConverData` on-premise, CN-04 |
+| Diccionarios, documentos, ETL y reglas | F23 | OP-02 (`knowledge`, Presidio, tarea programada) | CN-02 (tarea ECS programada; escribe en la BD `DiscoveryDataAgent` on-premise) |
+| Responsables, escalamiento y curación | F24 | OP-02 (`curation`), OP-04 (webhook de Teams) | Igual: BD `DiscoveryDataAgent` on-premise, CN-04 |
 | Auditoría y métricas | F11, F25 | OP-05 (esquema `audit`, evaluación programada) | CN-05 (el mismo esquema `audit` on-premise) |
 | Residencia de documentos y preguntas escaladas | F17, F23 | OP-06 | CN-06 |
 | Permisos heredados también en el descubrimiento | F14 | OP-03 | CN-03 |
 
 Los diagramas de `docs/architecture/` reflejan el descubrimiento con la arquitectura simplificada del 2026-11-16: DiscoverFlow, fuentes
-de conocimiento, BD `ConverData`, permisos heredados también al descubrir y los controles de calidad bancaria.
+de conocimiento, BD `DiscoveryDataAgent`, permisos heredados también al descubrir y los controles de calidad bancaria.
 
 ## Anexo A. Catálogo de specs
 ```
@@ -592,13 +592,13 @@ Fase: **1a** piloto de descubrimiento · **1b** consulta de datos (sin implement
 | F8 | Executor (solo agregados con la credencial de la sesión, decisión 17) | 1b | [F08](specs/comun/F08-executor.md) | = | = |
 | F9 | Result Verifier | 1b | [F09](specs/comun/F09-result-verifier.md) | = | = |
 | F10 | Analyst | 1b | [F10](specs/comun/F10-analyst.md) | = | = |
-| F11 | Auditoría | 1a | [F11](specs/comun/F11-audit.md) | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) esquema `audit` de la BD `ConverData` | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) el mismo esquema, on-premise |
+| F11 | Auditoría | 1a | [F11](specs/comun/F11-audit.md) | [OP-05](specs/on-premise/OP-05-auditoria-observabilidad.md) esquema `audit` de la BD `DiscoveryDataAgent` | [CN-05](specs/cloud-native/CN-05-auditoria-observabilidad.md) el mismo esquema, on-premise |
 | F12 | Interfaces (API, web, MCP) | 1a | [F12](specs/comun/F12-interfaces.md) | [OP-04](specs/on-premise/OP-04-interfaces.md) IIS | [CN-04](specs/cloud-native/CN-04-interfaces.md) ALB interno |
 | F13 | Arquitectura documentada (Archify) | 1a | [F13](specs/comun/F13-architecture-docs.md) | = | = |
 | F14 | Identidad y permisos heredados | 1a | [F14](specs/comun/F14-identity.md) | [OP-03](specs/on-premise/OP-03-identidad.md) SessionVault en memoria | [CN-03](specs/cloud-native/CN-03-identidad.md) igual; Secrets Manager solo para secretos de servicio |
 | F16 | Proveedores LLM: Bedrock (Ollama y NIM en desarrollo) | 1a | [F16](specs/comun/F16-llm-providers.md) | = | = |
 | F17 | Residencia de datos | 1a | [F17](specs/comun/F17-data-residency.md) | [OP-06](specs/on-premise/OP-06-residencia-datos.md) | [CN-06](specs/cloud-native/CN-06-residencia-datos.md) |
-| F18 | `converdata-discovery`: lectura de metadatos (Apache-2.0) | 1a | [F18](specs/comun/F18-discovery-mcp.md) | Biblioteca dentro del Builder | = |
+| F18 | `discovery-data-agent-discovery`: lectura de metadatos (Apache-2.0) | 1a | [F18](specs/comun/F18-discovery-mcp.md) | Biblioteca dentro del Builder | = |
 | F19 | Descubrimiento entre múltiples BDs (grafo del patrimonio) | 1a | [F19](specs/comun/F19-multi-db-discovery.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) grafo en memoria; entidades y linaje en tablas normales | = |
 | F20 | Motor de análisis | 1b | [F20](specs/comun/F20-analysis-engine.md) | Sin código libre | Se decidirá con la fase 1b |
 | F21 | Capa semántica (métricas certificadas, consultas verificadas) | 1b | [F21](specs/comun/F21-semantic-layer.md) | Esquema `semantic` (fase 1b) | = |
@@ -610,9 +610,9 @@ Fase: **1a** piloto de descubrimiento · **1b** consulta de datos (sin implement
 "=" significa que no hay diferencias frente a la spec común (o frente a on-premise, en la columna AWS).
 
 ## Anexo B. Glosario
-- **Catálogo**: descripción de BDs, esquemas, tablas, columnas, FKs y SPs, **sin valores de datos** (esquema `catalog` de la BD `ConverData`; YAML en desarrollo).
+- **Catálogo**: descripción de BDs, esquemas, tablas, columnas, FKs y SPs, **sin valores de datos** (esquema `catalog` de la BD `DiscoveryDataAgent`; YAML en desarrollo).
 - **Cifra agregada**: total (`COUNT`, `COUNT DISTINCT`, `SUM` o `AVG`) sobre una tabla, con desglose opcional por una categoría (de la tabla o de una tabla relacionada, con una unión), calculado con el login del usuario y una plantilla de SQL fija. Primer corte del AskFlow, apagado por defecto (§13, decisión 17).
-- **Compuerta de calidad**: `converdata eval gate`, siete suites que deben aprobar antes de aceptar un cambio ([calidad bancaria](calidad-bancaria.md)).
+- **Compuerta de calidad**: `discovery-data-agent eval gate`, siete suites que deben aprobar antes de aceptar un cambio ([calidad bancaria](calidad-bancaria.md)).
 - **Golden SQL**: pares pregunta→SQL validados por un humano. El original vive en la auditoría on-prem; en el índice solo su plantilla anonimizada.
 - **Visibilidad**: conjunto de objetos que el login del usuario puede leer o ejecutar, según SQL Server.
 - **Confidence**: puntuación de 0 a 1. En el AskFlow combina los chequeos deterministas con el veredicto del LLM-judge (F9); en el DiscoverFlow combina relevancia, evidencia, confirmaciones y acuerdo entre fuentes (F22).

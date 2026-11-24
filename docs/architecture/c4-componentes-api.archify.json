@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ConverData — C4 nivel 3: componentes de ConverData-API",
+    "title": "DiscoveryDataAgent — C4 nivel 3: componentes de DiscoveryDataAgent-API",
     "output": "docs/architecture/c4-componentes-api.html",
     "locale": "es",
     "quality_profile": "showcase"
@@ -51,7 +51,7 @@
         170,
         64
       ],
-      "description": "Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/converdata_api/security.py)"
+      "description": "Primera barrera de toda petición: cabeceras de seguridad y no-store, rechazo de cambios de estado con cookie desde otro origen (403) y de cuerpos de más de 4 MB (413). También vive aquí el bloqueo temporal por intentos de login fallidos y las condiciones para arrancar en qa y prod. (api/discovery_data_agent_api/security.py)"
     },
     {
       "id": "routes",
@@ -66,7 +66,7 @@
         170,
         64
       ],
-      "description": "Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/converdata_api/main.py)"
+      "description": "Todas las rutas HTTP y sus dependencias: sesión actual, administrador, responsable del dominio. La identidad sale solo del token; ninguna ruta acepta un usuario como parámetro. Audita antes de aplicar cada cambio. (api/discovery_data_agent_api/main.py)"
     },
     {
       "id": "mcpmount",
@@ -81,7 +81,7 @@
         170,
         64
       ],
-      "description": "Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/converdata_api/mcp_mount.py, src/converdata/integration/mcp/server.py)"
+      "description": "Publica las herramientas de descubrimiento para agentes. Usa las mismas sesiones que la web y los mismos topes de ritmo y de tokens. (api/discovery_data_agent_api/mcp_mount.py, src/discovery_data_agent/integration/mcp/server.py)"
     },
     {
       "id": "vault",
@@ -97,7 +97,7 @@
         64
       ],
       "tag": "solo memoria",
-      "description": "Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/converdata_api/vault.py)"
+      "description": "Sesiones en memoria con el login SQL de cada usuario cifrado con una clave que se genera al arrancar. 8 h de inactividad, 12 h de vida total, 5 sesiones por usuario, revocable. Nada llega al disco: un reinicio cierra todas las sesiones. (api/discovery_data_agent_api/vault.py)"
     },
     {
       "id": "runtime",
@@ -112,7 +112,7 @@
         170,
         64
       ],
-      "description": "Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/converdata_api/runtime.py)"
+      "description": "Mantiene el catálogo cargado y su índice, calcula y recuerda 15 minutos qué objetos ve cada sesión (visible_ids), aplica las escrituras de curación y los votos, y lanza la construcción del catálogo. (api/discovery_data_agent_api/runtime.py)"
     },
     {
       "id": "desk",
@@ -127,7 +127,7 @@
         170,
         64
       ],
-      "description": "Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/converdata_api/curation.py, pii.py, tokens.py)"
+      "description": "Responsables por login y dominio, dudas escaladas con su aviso, cola de revisión y tablero de métricas. También el detector de datos personales sobre lo que escribe un responsable y el tope diario de tokens. (api/discovery_data_agent_api/curation.py, pii.py, tokens.py)"
     },
     {
       "id": "tools",
@@ -142,7 +142,7 @@
         170,
         64
       ],
-      "description": "Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/converdata/application/discovery.py)"
+      "description": "Casos de uso del descubrimiento como funciones con el contexto del usuario. Las usan el servidor MCP y la compuerta de calidad. Las rutas REST llaman al DiscoverFlow directamente y la ficha del activo repite el filtro de permisos: es una deuda anotada (DT-18). (src/discovery_data_agent/application/discovery.py)"
     },
     {
       "id": "flow",
@@ -158,7 +158,7 @@
         64
       ],
       "tag": "núcleo",
-      "description": "Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/converdata/flows/discover.py)"
+      "description": "Responde una pregunta: intención, recuperar, evaluar, ordenar, expandir, revisar, responder y auditar. El orden y los ciclos los fija el grafo, nunca el modelo. Detalle en flujo-descubrimiento.html. (src/discovery_data_agent/flows/discover.py)"
     },
     {
       "id": "refresh",
@@ -173,7 +173,7 @@
         170,
         64
       ],
-      "description": "Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/converdata/application/catalog_refresh.py, flows/catalog_build.py, builder/)"
+      "description": "Lee los metadatos de los servidores del inventario, enriquece, relaciona entidades entre BDs y publica sin pisar lo que editaron las personas. Lo usan por igual la línea de comandos y la API. (src/discovery_data_agent/application/catalog_refresh.py, flows/catalog_build.py, builder/)"
     },
     {
       "id": "index",
@@ -188,7 +188,7 @@
         170,
         64
       ],
-      "description": "Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/converdata/catalog/, memory/, graph/)"
+      "description": "Catálogo y conocimiento como objetos en memoria, índice léxico BM25 y grafo del patrimonio (llaves foráneas, la misma entidad en varias BDs). El filtro de permisos se aplica antes de ordenar: no existe una búsqueda sin visible_ids. (src/discovery_data_agent/catalog/, memory/, graph/)"
     },
     {
       "id": "engine",
@@ -203,7 +203,7 @@
         170,
         64
       ],
-      "description": "Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/converdata/discovery/)"
+      "description": "Lógica determinista: expansión es→en de la consulta, cobertura por conceptos, confianza calibrada, agrupación por ambiente y guardas contra objetos inventados. También el clasificador de intención y el ordenador por reglas que se usan sin modelo. (src/discovery_data_agent/discovery/)"
     },
     {
       "id": "rules",
@@ -218,7 +218,7 @@
         170,
         64
       ],
-      "description": "Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/converdata/curation.py)"
+      "description": "Reglas sin entrada ni salida: plantilla de una pregunta confirmada sin literales, regla de votos para dar por buena una confirmación, ediciones de descripciones y plan de carga de un diccionario. (src/discovery_data_agent/curation.py)"
     },
     {
       "id": "llm",
@@ -233,7 +233,7 @@
         170,
         64
       ],
-      "description": "Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/converdata/llm/)"
+      "description": "Único punto por el que pasan las llamadas a modelos. Resuelve cada rol a un proveedor, aplica respaldo y corte por fallos, cuenta tokens y rechaza proveedores no aptos para datos reales. (src/discovery_data_agent/llm/)"
     },
     {
       "id": "connector",
@@ -248,7 +248,7 @@
         170,
         64
       ],
-      "description": "Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/converdata_api/connector.py, src/converdata/identity/visibility.py)"
+      "description": "Abre conexiones a SQL Server con la credencial del propio usuario y ejecuta la consulta fija que dice qué objetos puede leer. Los logins con ; { } = o hosts no válidos no llegan a la cadena ODBC. (api/discovery_data_agent_api/connector.py, src/discovery_data_agent/identity/visibility.py)"
     },
     {
       "id": "storage",
@@ -264,7 +264,7 @@
         64
       ],
       "tag": "fail-closed",
-      "description": "Adaptadores de la BD ConverData: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/converdata/storage/, audit/)"
+      "description": "Adaptadores de la BD DiscoveryDataAgent: catálogo y conocimiento, curación, migraciones y auditoría de solo inserción. Los mismos puertos existen sobre archivos, solo para desarrollo. (src/discovery_data_agent/storage/, audit/)"
     },
     {
       "id": "bedrock",
@@ -299,7 +299,7 @@
     {
       "id": "convdb",
       "type": "database",
-      "label": "BD ConverData",
+      "label": "BD DiscoveryDataAgent",
       "sublabel": "catálogo · curación · auditoría",
       "pos": [
         1540,
@@ -309,7 +309,7 @@
         170,
         64
       ],
-      "description": "Todo el estado persistente. Detalle en modelo-datos-converdata.html."
+      "description": "Todo el estado persistente. Detalle en modelo-datos-discovery-data-agent.html."
     }
   ],
   "boundaries": [
@@ -513,7 +513,7 @@
       "title": "Dos identidades distintas",
       "items": [
         "Login del usuario: solo para preguntar a SQL Server qué puede leer",
-        "Cuenta de servicio: solo para la BD ConverData",
+        "Cuenta de servicio: solo para la BD DiscoveryDataAgent",
         "El modelo nunca recibe ninguna de las dos"
       ]
     },

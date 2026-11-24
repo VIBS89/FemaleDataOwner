@@ -1,4 +1,4 @@
-"""HU-04 y HU-05 · Migraciones de la BD `ConverData`: ejecutor (sin servidor) y DDL contra un SQL Server real."""
+"""HU-04 y HU-05 · Migraciones de la BD `DiscoveryDataAgent`: ejecutor (sin servidor) y DDL contra un SQL Server real."""
 
 import re
 import time
@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from converdata.storage.connection import connection_string, connector, describe, names_database
-from converdata.storage.migrations import Migration, MigrationError, discover, migrate, pending
+from discovery_data_agent.storage.connection import connection_string, connector, describe, names_database
+from discovery_data_agent.storage.migrations import Migration, MigrationError, discover, migrate, pending
 from fakes import FakeDb
 
 REPO = Path(__file__).resolve().parents[1]
-MIGRATIONS = REPO / "db" / "converdata"
+MIGRATIONS = REPO / "db" / "discovery_data_agent"
 
 
 # --- ejecutor, sin servidor -------------------------------------------------------------------------
@@ -78,14 +78,14 @@ def test_la_bd_no_puede_ir_por_delante_del_codigo(tmp_path):
 
 def test_la_cadena_de_conexion_se_describe_sin_secretos():
     assert connection_string("  ") is None
-    text = describe("DRIVER={ODBC Driver 18 for SQL Server};SERVER=srv01;DATABASE=ConverData;UID=app;PWD=S3creta")
-    assert text == "srv01/ConverData" and "S3creta" not in text and "app" not in text
+    text = describe("DRIVER={ODBC Driver 18 for SQL Server};SERVER=srv01;DATABASE=DiscoveryDataAgent;UID=app;PWD=S3creta")
+    assert text == "srv01/DiscoveryDataAgent" and "S3creta" not in text and "app" not in text
 
 
 def test_las_pruebas_no_aceptan_una_cadena_que_nombre_una_bd():
-    """El `conftest.py` de la raíz aborta si `CONVERDATA_TEST_DB` trae `DATABASE`: publicaría un catálogo vacío en ella."""
-    assert names_database("SERVER=srv;DATABASE=ConverData;Trusted_Connection=yes")
-    assert names_database("Server=srv; Initial Catalog = ConverData")
+    """El `conftest.py` de la raíz aborta si `DISCOVERY_DATA_AGENT_TEST_DB` trae `DATABASE`: publicaría un catálogo vacío en ella."""
+    assert names_database("SERVER=srv;DATABASE=DiscoveryDataAgent;Trusted_Connection=yes")
+    assert names_database("Server=srv; Initial Catalog = DiscoveryDataAgent")
     assert not names_database("SERVER=localhost\\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes")
 
 
@@ -176,15 +176,15 @@ def test_el_historial_temporal_conserva_la_version_anterior(db_connect):
     "EXEC audit.usp_purge @keep_days = 180",
 ])
 def test_la_api_no_puede_modificar_ni_borrar_la_auditoria(db_connect, sql):
-    error = _as_role(db_connect, "converdata_app", sql)
+    error = _as_role(db_connect, "discovery_data_agent_app", sql)
     assert error is not None and re.search(r"permission|permiso", error, re.I), error
 
 
 @pytestmark_sql
 def test_la_api_si_puede_insertar_y_leer_la_auditoria(db_connect):
-    assert _as_role(db_connect, "converdata_app",
+    assert _as_role(db_connect, "discovery_data_agent_app",
                     "INSERT INTO audit.audit_event (kind, user_id, data_json) VALUES ('prueba', 'u', '{}')") is None
-    assert _as_role(db_connect, "converdata_app", "SELECT TOP 1 * FROM audit.audit_event") is None
+    assert _as_role(db_connect, "discovery_data_agent_app", "SELECT TOP 1 * FROM audit.audit_event") is None
 
 
 @pytestmark_sql
@@ -194,8 +194,8 @@ def test_la_api_si_puede_insertar_y_leer_la_auditoria(db_connect):
     "DELETE FROM audit.audit_event",
 ])
 def test_el_auditor_solo_lee_la_auditoria(db_connect, sql):
-    assert _as_role(db_connect, "converdata_auditor", sql) is not None
-    assert _as_role(db_connect, "converdata_auditor", "SELECT TOP 1 * FROM audit.audit_question") is None
+    assert _as_role(db_connect, "discovery_data_agent_auditor", sql) is not None
+    assert _as_role(db_connect, "discovery_data_agent_auditor", "SELECT TOP 1 * FROM audit.audit_question") is None
 
 
 @pytestmark_sql
@@ -215,10 +215,10 @@ def test_el_auditor_solo_lee_la_auditoria(db_connect, sql):
 ])
 def test_el_builder_solo_toca_lo_que_deriva_de_los_metadatos(db_connect, sql):
     """No lee preguntas ni confirmaciones, no borra lo curado ni la auditoría, y no puede reescribir el historial."""
-    assert _as_role(db_connect, "converdata_builder", sql) is not None
-    assert _as_role(db_connect, "converdata_builder", "SELECT TOP 1 * FROM catalog.object") is None
-    assert _as_role(db_connect, "converdata_builder", "DELETE FROM knowledge.lineage_edge") is None
-    assert _as_role(db_connect, "converdata_builder",
+    assert _as_role(db_connect, "discovery_data_agent_builder", sql) is not None
+    assert _as_role(db_connect, "discovery_data_agent_builder", "SELECT TOP 1 * FROM catalog.object") is None
+    assert _as_role(db_connect, "discovery_data_agent_builder", "DELETE FROM knowledge.lineage_edge") is None
+    assert _as_role(db_connect, "discovery_data_agent_builder",
                     "INSERT INTO audit.audit_event (kind, user_id, data_json) VALUES ('catalog_build', 'b', '{}')") is None
 
 
@@ -231,29 +231,29 @@ def test_el_builder_solo_toca_lo_que_deriva_de_los_metadatos(db_connect, sql):
     "UPDATE catalog.catalog_version SET version = 1",
 ])
 def test_la_api_no_puede_reescribir_el_historial_ni_la_version(db_connect, sql):
-    assert _as_role(db_connect, "converdata_app", sql) is not None
+    assert _as_role(db_connect, "discovery_data_agent_app", sql) is not None
 
 
 @pytestmark_sql
 def test_la_purga_exige_180_dias_y_solo_la_ejecuta_mantenimiento(db_connect):
-    error = _as_role(db_connect, "converdata_maintenance", "EXEC audit.usp_purge @keep_days = 30")
+    error = _as_role(db_connect, "discovery_data_agent_maintenance", "EXEC audit.usp_purge @keep_days = 30")
     assert error is not None and "180" in error
-    assert _as_role(db_connect, "converdata_maintenance", "EXEC audit.usp_purge @keep_days = 180") is None
-    assert _as_role(db_connect, "converdata_maintenance", "DELETE FROM audit.audit_event") is not None
-    assert _as_role(db_connect, "converdata_maintenance", "SELECT TOP 1 * FROM audit.audit_question") is not None
+    assert _as_role(db_connect, "discovery_data_agent_maintenance", "EXEC audit.usp_purge @keep_days = 180") is None
+    assert _as_role(db_connect, "discovery_data_agent_maintenance", "DELETE FROM audit.audit_event") is not None
+    assert _as_role(db_connect, "discovery_data_agent_maintenance", "SELECT TOP 1 * FROM audit.audit_question") is not None
 
 
 def test_la_version_que_exige_el_codigo_es_la_ultima_migracion():
-    from converdata.storage.migrations import REQUIRED_VERSION
+    from discovery_data_agent.storage.migrations import REQUIRED_VERSION
 
     assert REQUIRED_VERSION == discover(MIGRATIONS)[-1].version
 
 
 def test_la_api_no_arranca_con_migraciones_pendientes_y_lo_dice_claro():
-    from converdata.storage.migrations import REQUIRED_VERSION, require_current
+    from discovery_data_agent.storage.migrations import REQUIRED_VERSION, require_current
 
     behind = FakeDb(results={r"SELECT OBJECT_ID": [(1,)], r"FROM dbo\.schema_version": [(1, "a" * 64)]})
-    with pytest.raises(MigrationError, match="converdata db migrate"):
+    with pytest.raises(MigrationError, match="discovery-data-agent db migrate"):
         require_current(behind.connect)
     current = FakeDb(results={r"SELECT OBJECT_ID": [(1,)],
                               r"FROM dbo\.schema_version": [(v, "a" * 64) for v in range(1, REQUIRED_VERSION + 1)]})

@@ -3,16 +3,16 @@
 import pytest
 from pydantic import BaseModel
 
-from converdata.bootstrap import build_service, user_with_databases
-from converdata.llm.factory import ModelsConfig
-from converdata.llm.gateway import (
+from discovery_data_agent.bootstrap import build_service, user_with_databases
+from discovery_data_agent.llm.factory import ModelsConfig
+from discovery_data_agent.llm.gateway import (
     AllProvidersFailed,
     GatewayConfigError,
     LLMGateway,
     ResidencyError,
     classify_error,
 )
-from converdata.models.intent import IntentResult
+from discovery_data_agent.models.intent import IntentResult
 from conftest import FIXTURE, ONBOARDING_Q
 
 
@@ -183,7 +183,7 @@ def test_caida_total_del_proveedor_usa_el_modo_determinista(analyst):
 
 
 def test_smoke_cli(capsys):
-    from converdata.cli import llm_smoke
+    from discovery_data_agent.cli import llm_smoke
 
     gw, _ = make_gateway({**NIM_ONLY, "roles": {"planner": {"provider": "nvidia_nim", "model": "m"}}})
 
@@ -200,7 +200,7 @@ def test_un_models_yaml_con_el_rol_embed_se_carga_ignorandolo(tmp_path, caplog):
     """El rol `embed` se retiró (PRD §13, decisión 9): un archivo antiguo que aún lo declara no rompe la carga."""
     import logging
 
-    from converdata.llm.factory import load_models
+    from discovery_data_agent.llm.factory import load_models
 
     path = tmp_path / "models.yaml"
     path.write_text(
@@ -210,7 +210,7 @@ def test_un_models_yaml_con_el_rol_embed_se_carga_ignorandolo(tmp_path, caplog):
         "  planner: {provider: nvidia_nim, model: m}\n"
         "  embed: {provider: ollama, model: bge-m3, dimensions: 1024}\n",
         encoding="utf-8")
-    with caplog.at_level(logging.WARNING, logger="converdata.llm.factory"):
+    with caplog.at_level(logging.WARNING, logger="discovery_data_agent.llm.factory"):
         cfg = load_models(path)
     assert set(cfg.roles) == {"planner"}
     assert "embed" in caplog.text
@@ -221,7 +221,7 @@ def test_un_models_yaml_con_el_rol_embed_se_carga_ignorandolo(tmp_path, caplog):
 def test_timeout_del_proveedor_llega_al_cliente_de_nim(monkeypatch):
     import langchain_nvidia_ai_endpoints
 
-    from converdata.llm.factory import ProviderConfig, RoleConfig, build_nim_chat
+    from discovery_data_agent.llm.factory import ProviderConfig, RoleConfig, build_nim_chat
 
     seen = {}
     monkeypatch.setattr(langchain_nvidia_ai_endpoints, "ChatNVIDIA", lambda **kw: seen.update(kw))
@@ -237,7 +237,7 @@ def test_ejemplo_de_configuracion_es_valido():
     """config/models.example.yaml carga y valida (sin construir modelos reales)."""
     from pathlib import Path
 
-    from converdata.llm.factory import load_models
+    from discovery_data_agent.llm.factory import load_models
 
     cfg = load_models(Path(__file__).parents[1] / "config" / "models.example.yaml")
     gw = LLMGateway(cfg, builders={})
@@ -275,14 +275,14 @@ def test_ollama_tampoco_como_respaldo_fuera_de_local():
 
 
 def test_variable_de_entorno_del_servidor_gana_al_archivo(monkeypatch, tmp_path):
-    """El archivo dice local, pero el servidor fija CONVERDATA_ENV=prod: Ollama queda bloqueado."""
+    """El archivo dice local, pero el servidor fija DISCOVERY_DATA_AGENT_ENV=prod: Ollama queda bloqueado."""
     from pathlib import Path
 
-    from converdata.llm.factory import load_models
+    from discovery_data_agent.llm.factory import load_models
 
     example = Path(__file__).parents[1] / "config" / "models.local.example.yaml"
     assert LLMGateway(load_models(example), builders={}).labels["planner"] == "ollama:qwen3.6:35b-a3b"
-    monkeypatch.setenv("CONVERDATA_ENV", "prod")
+    monkeypatch.setenv("DISCOVERY_DATA_AGENT_ENV", "prod")
     with pytest.raises(GatewayConfigError):
         LLMGateway(load_models(example), builders={})
 

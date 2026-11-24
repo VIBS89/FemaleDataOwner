@@ -1,4 +1,4 @@
-# ConverData-API: FastAPI + DiscoverFlow + CatalogBuildFlow, con el driver ODBC 18 para leer los metadatos de SQL Server.
+# DiscoveryDataAgent-API: FastAPI + DiscoverFlow + CatalogBuildFlow, con el driver ODBC 18 para leer los metadatos de SQL Server.
 # Se construye desde la raíz de DataAgent:  docker build -f api/Dockerfile .
 # Imagen base fijada por digest (la etiqueta puede cambiar de contenido). Se actualiza con Dependabot o a mano:
 #   docker buildx imagetools inspect python:3.12-slim-bookworm
@@ -38,22 +38,22 @@ COPY src ./src
 RUN pip install --no-deps --no-build-isolation --no-index .
 COPY api ./api
 COPY config ./config
-# Migraciones de la BD ConverData: `converdata db migrate` desde la misma imagen
+# Migraciones de la BD DiscoveryDataAgent: `discovery-data-agent db migrate` desde la misma imagen
 COPY db ./db
 # Documentación que la web muestra solo a los administradores de datos (GET /admin/docs): manual, wiki y arquitectura.
-# Nada más de docs/ (PRD, specs, backlog); la lista es la de api/converdata_api/documentation.py.
+# Nada más de docs/ (PRD, specs, backlog); la lista es la de api/discovery_data_agent_api/documentation.py.
 COPY docs/manual-desarrollo.md ./docs/manual-desarrollo.md
 COPY docs/wiki ./docs/wiki
 COPY docs/architecture/README.md ./docs/architecture/README.md
 COPY docs/architecture/*.html ./docs/architecture/
-# Solo para CONVERDATA_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
+# Solo para DISCOVERY_DATA_AGENT_DEMO=1 (servidor simulado con metadatos de prueba; sin valores de datos)
 COPY tests/fixtures/bancos ./tests/fixtures/bancos
 COPY tests/fixtures/vbank ./tests/fixtures/vbank
 
-RUN useradd --create-home --uid 10001 converdata && mkdir -p /app/data && chown converdata /app/data
-USER converdata
+RUN useradd --create-home --uid 10001 discovery-data-agent && mkdir -p /app/data && chown discovery-data-agent /app/data
+USER discovery-data-agent
 VOLUME ["/app/data"]
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 # Un solo worker: el SessionVault vive en memoria del proceso (OP-03).
-CMD ["uvicorn", "converdata_api.main:app", "--app-dir", "api", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "discovery_data_agent_api.main:app", "--app-dir", "api", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

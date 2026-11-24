@@ -1,34 +1,34 @@
 <#
 .SYNOPSIS
-  Registra en el Programador de tareas de Windows las tareas de mantenimiento de ConverData (OP-07, HU-18).
+  Registra en el Programador de tareas de Windows las tareas de mantenimiento de DiscoveryDataAgent (OP-07, HU-18).
 
 .DESCRIPTION
-  Crea o actualiza tres tareas en la carpeta \ConverData\ del Programador de tareas:
+  Crea o actualiza tres tareas en la carpeta \DiscoveryDataAgent\ del Programador de tareas:
 
-    Refrescar catalogo   cada noche    converdata catalog build --db [--models <archivo>]
+    Refrescar catalogo   cada noche    discovery-data-agent catalog build --db [--models <archivo>]
         Vuelve a leer los metadatos de los servidores del inventario, detecta tablas y columnas nuevas, cambiadas
         o eliminadas, describe lo nuevo con IA (si se indica el archivo de modelos) y publica el catalogo en la BD
-        ConverData. La API carga la version nueva sin reiniciar.
-    Purgar auditoria     cada domingo  converdata audit purge
+        DiscoveryDataAgent. La API carga la version nueva sin reiniciar.
+    Purgar auditoria     cada domingo  discovery-data-agent audit purge
         Retencion de 180 dias de la auditoria, las dudas escaladas y los originales.
-    Medir regresion      cada lunes    converdata eval gate --db --root <fixtures>   (solo con -GateRoot)
+    Medir regresion      cada lunes    discovery-data-agent eval gate --db --root <fixtures>   (solo con -GateRoot)
         Compuerta de calidad contra el catalogo vigente; sale con error si un indicador baja.
 
   Las tareas corren con la cuenta de servicio indicada (en el servidor del banco, la gMSA de metadatos), aunque nadie
-  haya iniciado sesion. La cadena de conexion de la BD ConverData no se pasa por linea de comandos: cada tarea lee la
-  variable de entorno CONVERDATA_DB de la cuenta que la ejecuta.
+  haya iniciado sesion. La cadena de conexion de la BD DiscoveryDataAgent no se pasa por linea de comandos: cada tarea lee la
+  variable de entorno DISCOVERY_DATA_AGENT_DB de la cuenta que la ejecuta.
 
   Con -WhatIf muestra lo que haria sin registrar nada. Con -Remove quita las tareas.
 
 .EXAMPLE
-  .\registrar-tareas.ps1 -InstallRoot D:\ConverData -ServiceAccount 'BANCO\svc-converdata$' -ModelsPath D:\ConverData\config\models.yaml
+  .\registrar-tareas.ps1 -InstallRoot D:\DiscoveryDataAgent -ServiceAccount 'BANCO\svc-discovery-data-agent$' -ModelsPath D:\DiscoveryDataAgent\config\models.yaml
 
 .EXAMPLE
-  .\registrar-tareas.ps1 -InstallRoot D:\ConverData -ServiceAccount 'BANCO\svc-converdata$' -WhatIf
+  .\registrar-tareas.ps1 -InstallRoot D:\DiscoveryDataAgent -ServiceAccount 'BANCO\svc-discovery-data-agent$' -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    # Carpeta de la instalacion: contiene .venv y db\converdata.
+    # Carpeta de la instalacion: contiene .venv y db\discovery_data_agent.
     [Parameter(Mandatory = $true)] [string] $InstallRoot,
     # Cuenta que ejecuta las tareas. Una gMSA termina en $ y no lleva contrasena.
     [Parameter(Mandatory = $true)] [string] $ServiceAccount,
@@ -49,7 +49,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$TaskPath = '\ConverData\'
+$TaskPath = '\DiscoveryDataAgent\'
 $Python = Join-Path $InstallRoot '.venv\Scripts\python.exe'
 $LogDir = Join-Path $InstallRoot 'data\logs'
 
@@ -65,7 +65,7 @@ if ($Remove) {
 }
 
 if (-not (Test-Path $Python)) {
-    throw "No existe $Python. Instale ConverData en $InstallRoot antes de registrar las tareas."
+    throw "No existe $Python. Instale DiscoveryDataAgent en $InstallRoot antes de registrar las tareas."
 }
 if ($ModelsPath -and -not (Test-Path $ModelsPath)) {
     throw "No existe el archivo de modelos $ModelsPath."
@@ -83,12 +83,12 @@ function Get-Principal {
     return New-ScheduledTaskPrincipal -UserId $ServiceAccount -LogonType S4U -RunLevel Limited
 }
 
-function Register-ConverDataTask {
+function Register-DiscoveryDataAgentTask {
     param([string] $Name, [string] $Description, [string[]] $CliArgs, $Trigger, [int] $HoursLimit)
 
     # Cada corrida deja su salida en un archivo por tarea (sin contenido de datos: el CLI imprime solo conteos).
     $log = Join-Path $LogDir (($Name -replace ' ', '-').ToLower() + '.log')
-    $cli = '-m converdata.cli ' + ($CliArgs -join ' ')
+    $cli = '-m discovery_data_agent.cli ' + ($CliArgs -join ' ')
     $command = "/c `"`"$Python`" $cli >> `"$log`" 2>&1`""
     $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument $command -WorkingDirectory $InstallRoot
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew `
@@ -104,21 +104,21 @@ function Register-ConverDataTask {
 
 $buildArgs = @('catalog', 'build', '--db')
 if ($ModelsPath) { $buildArgs += @('--models', "`"$ModelsPath`"") }
-Register-ConverDataTask -Name 'Refrescar catalogo' `
-    -Description 'ConverData: lee los metadatos de los servidores del inventario y publica el catalogo (tablas y columnas nuevas, cambiadas o eliminadas).' `
+Register-DiscoveryDataAgentTask -Name 'Refrescar catalogo' `
+    -Description 'DiscoveryDataAgent: lee los metadatos de los servidores del inventario y publica el catalogo (tablas y columnas nuevas, cambiadas o eliminadas).' `
     -CliArgs $buildArgs -Trigger (New-ScheduledTaskTrigger -Daily -At $BuildTime) -HoursLimit $BuildHoursLimit
 
-Register-ConverDataTask -Name 'Purgar auditoria' `
-    -Description 'ConverData: retencion de 180 dias de la auditoria, las dudas escaladas y los originales.' `
+Register-DiscoveryDataAgentTask -Name 'Purgar auditoria' `
+    -Description 'DiscoveryDataAgent: retencion de 180 dias de la auditoria, las dudas escaladas y los originales.' `
     -CliArgs @('audit', 'purge') -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At $PurgeTime) -HoursLimit 1
 
 if ($GateRoot) {
-    Register-ConverDataTask -Name 'Medir regresion' `
-        -Description 'ConverData: compuerta de calidad contra el catalogo vigente; falla si un indicador baja.' `
+    Register-DiscoveryDataAgentTask -Name 'Medir regresion' `
+        -Description 'DiscoveryDataAgent: compuerta de calidad contra el catalogo vigente; falla si un indicador baja.' `
         -CliArgs @('eval', 'gate', '--db', '--root', "`"$GateRoot`"") `
         -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At '05:00') -HoursLimit 1
 }
 
 Write-Host ''
-Write-Host 'Recuerde: la cuenta de servicio necesita la variable de entorno CONVERDATA_DB, el derecho "Iniciar sesion como'
+Write-Host 'Recuerde: la cuenta de servicio necesita la variable de entorno DISCOVERY_DATA_AGENT_DB, el derecho "Iniciar sesion como'
 Write-Host 'proceso por lotes" y permiso de escritura en' $LogDir

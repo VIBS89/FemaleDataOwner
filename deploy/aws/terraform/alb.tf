@@ -1,7 +1,7 @@
 # Entrada: ALB con `/` a la web y `/mcp` a la API (CN-01, CN-04). Interno salvo en el entorno demo.
 resource "aws_security_group" "alb" {
   name_prefix = "${local.name}-alb-"
-  description = "ALB de ConverData"
+  description = "ALB de DiscoveryDataAgent"
   vpc_id      = aws_vpc.this.id
   tags        = { Name = "${local.name}-alb" }
 

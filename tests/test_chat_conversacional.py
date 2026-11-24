@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from converdata.bootstrap import build_service, user_with_databases
-from converdata.discovery import assistant, engine, expansion
-from converdata.discovery.deterministic import (
+from discovery_data_agent.bootstrap import build_service, user_with_databases
+from discovery_data_agent.discovery import assistant, engine, expansion
+from discovery_data_agent.discovery.deterministic import (
     RuleBasedIntentClassifier,
     TemplateNarrator,
     contextualize,
@@ -22,8 +22,8 @@ from converdata.discovery.deterministic import (
     is_follow_up,
     join_sentence,
 )
-from converdata.discovery.ports import Advice
-from converdata.evaluation.discovery_eval import evaluate, load_cases
+from discovery_data_agent.discovery.ports import Advice
+from discovery_data_agent.evaluation.discovery_eval import evaluate, load_cases
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BANCOS = FIXTURES / "bancos"
@@ -67,7 +67,7 @@ TEMAS = [
     ("para que sirves", "identity"),
     ("que puedes hacer y que no?", "capabilities"),
     ("ayuda", "capabilities"),
-    ("si agregan tablas o columnas nuevas a la base, como se entera ConverData?", "freshness"),
+    ("si agregan tablas o columnas nuevas a la base, como se entera DiscoveryDataAgent?", "freshness"),
     ("cada cuanto se actualiza tu informacion", "freshness"),
     ("de donde sacas la informacion que me respondes", "sources"),
     ("¿Tú ves los datos de los clientes, como nombres y saldos?", "privacy"),
@@ -430,7 +430,7 @@ def test_area_options_directo(bancos, todos):
 
 
 def test_area_options_vacio_si_no_hay_candidatos(bancos):
-    from converdata.models.discovery import Discovery
+    from discovery_data_agent.models.discovery import Discovery
 
     assert engine.area_options("hola", Discovery(), bancos.deps.settings.discovery) == []
 
@@ -902,7 +902,7 @@ def test_el_paso_intent_de_y_que_significa_lleva_detalle_seguimiento(bancos, tod
     ],
 )
 def test_kind_hint_que_es_el_dato_pide_columna_aunque_diga_tablas(pregunta, intencion, pista):
-    from converdata.discovery.deterministic import _kind_hint
+    from discovery_data_agent.discovery.deterministic import _kind_hint
 
     assert _kind_hint(pregunta, intencion) == pista
 
@@ -912,7 +912,7 @@ def _borrador(clave, tipo, relevancia, **kw):
 
 
 def _intencion(pista):
-    from converdata.models.intent import IntentResult
+    from discovery_data_agent.models.intent import IntentResult
 
     return IntentResult(intent="discovery", asset_kind_hint=pista, rewritten_question="x", confidence=0.5)
 

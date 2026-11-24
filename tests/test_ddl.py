@@ -1,4 +1,4 @@
-"""DDL de la BD `ConverData` (HU-04, OP-02 §BD de trabajo, OP-05): comprobaciones estáticas sobre `db/converdata/*.sql`.
+"""DDL de la BD `DiscoveryDataAgent` (HU-04, OP-02 §BD de trabajo, OP-05): comprobaciones estáticas sobre `db/discovery_data_agent/*.sql`.
 
 Prueban la **forma** y los permisos, no que SQL Server acepte el T-SQL: eso lo hacen los tests con marca `sqlserver` (SD-3)
 de `test_storage_migrations.py`, que también comprueban los roles, `dbo.schema_version` y la ausencia de tablas de grafo.
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-DB_DIR = Path(__file__).parents[1] / "db" / "converdata"
+DB_DIR = Path(__file__).parents[1] / "db" / "discovery_data_agent"
 SCRIPT = re.compile(r"^(\d{3})_[a-z][a-z0-9_]*\.sql$")
 
 
@@ -80,6 +80,6 @@ def test_las_tablas_de_metadatos_no_tienen_columnas_para_valores_de_datos(todo):
             assert not prohibidas, f"{esquema}.{nombre}: {prohibidas}"
 
 
-def test_converdata_app_no_puede_actualizar_ni_borrar_la_auditoria(todo):
-    deniega = [p for v, p, o in _permisos(todo)["converdata_app"] if v == "DENY" and o == "schema::audit"]
+def test_discovery_data_agent_app_no_puede_actualizar_ni_borrar_la_auditoria(todo):
+    deniega = [p for v, p, o in _permisos(todo)["discovery_data_agent_app"] if v == "DENY" and o == "schema::audit"]
     assert any({"UPDATE", "DELETE"} <= permisos for permisos in deniega)

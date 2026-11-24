@@ -3,10 +3,10 @@
 import pytest
 import yaml
 
-from converdata.bootstrap import build_service, user_with_databases
-from converdata.config import Inventory, ServerConfig
-from converdata.flows.catalog_build import build_catalog
-from converdata.metadata.sqlserver import RawColumn, RawObject, format_type
+from discovery_data_agent.bootstrap import build_service, user_with_databases
+from discovery_data_agent.config import Inventory, ServerConfig
+from discovery_data_agent.flows.catalog_build import build_catalog
+from discovery_data_agent.metadata.sqlserver import RawColumn, RawObject, format_type
 
 
 def _clientes(db):
@@ -92,7 +92,7 @@ def test_refresco_no_reescribe_ni_pisa_ediciones_humanas(tmp_path):
 
 
 def test_enriquecimiento_solo_columnas_existentes(tmp_path):
-    from converdata.llm.nodes import ColumnEnrichment, EnrichmentBatch, TableEnrichment
+    from discovery_data_agent.llm.nodes import ColumnEnrichment, EnrichmentBatch, TableEnrichment
 
     class FakeEnricher:
         def enrich(self, tables):
@@ -141,15 +141,15 @@ def test_un_servidor_caido_no_vacia_su_parte_del_catalogo(tmp_path):
     assert (tmp_path / "knowledge" / "lineage" / "views.yaml").read_text(encoding="utf-8") == lineage
 
 
-def test_la_bd_de_trabajo_converdata_no_se_cataloga(tmp_path):
+def test_la_bd_de_trabajo_discovery_data_agent_no_se_cataloga(tmp_path):
     class WithOwnDb(FakeSource):
         def list_databases(self):
-            return [*super().list_databases(), "ConverData", "ConverData_QA"]
+            return [*super().list_databases(), "DiscoveryDataAgent", "DiscoveryDataAgent_QA"]
 
     report = build_catalog(_inventory(), tmp_path, source_factory=WithOwnDb,
-                           exclude_databases=frozenset({"converdata", "converdata_qa"}))
+                           exclude_databases=frozenset({"discoverydataagent", "discoverydataagent_qa"}))
     assert report.databases == ["LOCAL/BancaPrestamos", "LOCAL/BancaTarjetasCredito"]
-    assert not (tmp_path / "catalog" / "desarrollo" / "LOCAL" / "ConverData").exists()
+    assert not (tmp_path / "catalog" / "desarrollo" / "LOCAL" / "DiscoveryDataAgent").exists()
 
 
 # --- Enriquecimiento: tablas que el modelo no describió y elección del rol ------------------------------------------
@@ -164,7 +164,7 @@ class EnriquecedorParcial:
         self.llamadas: list[list[str]] = []
 
     def enrich(self, tables):
-        from converdata.llm.nodes import ColumnEnrichment, EnrichmentBatch, TableEnrichment
+        from discovery_data_agent.llm.nodes import ColumnEnrichment, EnrichmentBatch, TableEnrichment
 
         self.llamadas.append([t["table"] for t in tables])
         pedidas = [t for t in tables if t["table"].split(".")[-1].lower() not in self.nunca]
@@ -273,7 +273,7 @@ class _GatewayFalso:
     ],
 )
 def test_build_enricher_prefiere_enrich_luego_planner_y_luego_fast(roles, esperado):
-    from converdata.llm.nodes import LlmEnricher, build_enricher
+    from discovery_data_agent.llm.nodes import LlmEnricher, build_enricher
 
     enriquecedor = build_enricher(_GatewayFalso(*roles))
     assert isinstance(enriquecedor, LlmEnricher)

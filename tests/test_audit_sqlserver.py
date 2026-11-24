@@ -1,10 +1,10 @@
-"""HU-20 · Auditoría fail-closed en el esquema `audit` de la BD ConverData (F11, OP-05)."""
+"""HU-20 · Auditoría fail-closed en el esquema `audit` de la BD DiscoveryDataAgent (F11, OP-05)."""
 
 import pytest
 
-from converdata.audit.recorder import FeedbackRecord
-from converdata.audit.sqlserver import SqlServerAuditSink
-from converdata.bootstrap import build_service
+from discovery_data_agent.audit.recorder import FeedbackRecord
+from discovery_data_agent.audit.sqlserver import SqlServerAuditSink
+from discovery_data_agent.bootstrap import build_service
 from conftest import FIXTURE, ONBOARDING_Q
 from fakes import FakeDb
 
@@ -19,7 +19,7 @@ def _run(service, analyst):
 
 
 def test_una_pregunta_deja_una_fila_por_tabla_en_una_sola_transaccion(db):
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
 
     service = build_service(FIXTURE, audit=SqlServerAuditSink(db.connect))
     analyst = user_with_databases(service, "analista", ["VBank_ING", "Onboarding", "DWH"])
@@ -36,7 +36,7 @@ def test_una_pregunta_deja_una_fila_por_tabla_en_una_sola_transaccion(db):
 
 
 def test_si_falla_la_escritura_hace_rollback_y_no_entrega_la_respuesta(db, caplog):
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
 
     failing = FakeDb(fail_on=r"audit\.audit_discovery\b")
     service = build_service(FIXTURE, audit=SqlServerAuditSink(failing.connect))
@@ -52,7 +52,7 @@ def test_si_falla_la_escritura_hace_rollback_y_no_entrega_la_respuesta(db, caplo
 
 
 def test_no_guarda_contrasenas_ni_valores_en_los_parametros(db):
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
 
     service = build_service(FIXTURE, audit=SqlServerAuditSink(db.connect))
     user = user_with_databases(service, "analista", None)
@@ -62,7 +62,7 @@ def test_no_guarda_contrasenas_ni_valores_en_los_parametros(db):
 
 
 def test_cliente_desconocido_se_normaliza_a_api(db):
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
 
     service = build_service(FIXTURE, audit=SqlServerAuditSink(db.connect))
     user = user_with_databases(service, "u", None)
@@ -107,7 +107,7 @@ def test_el_voto_se_guarda_como_evento_y_como_feedback_en_la_misma_transaccion(d
 # --- contra SQL Server real (HU-05, HU-20) ------------------------------------------------------------
 @pytest.mark.sqlserver
 def test_auditoria_real_escribe_lee_y_filtra(db_connect):
-    from converdata.bootstrap import user_with_databases
+    from discovery_data_agent.bootstrap import user_with_databases
 
     sink = SqlServerAuditSink(db_connect)
     service = build_service(FIXTURE, audit=sink)
@@ -160,7 +160,7 @@ def test_auditoria_real_si_falla_un_insert_no_queda_nada(db_connect):
 def test_verify_real_avisa_si_la_cuenta_puede_modificar_la_auditoria(db_connect):
     """Las pruebas corren como dueño de la BD: `verify` debe decir que esa cuenta no sirve para producción."""
     report = SqlServerAuditSink(db_connect).verify()
-    assert not report.ok and any("converdata_app" in e for e in report.files[0].errors)
+    assert not report.ok and any("discovery_data_agent_app" in e for e in report.files[0].errors)
 
 
 @pytest.mark.sqlserver

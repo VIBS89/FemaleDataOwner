@@ -6,7 +6,7 @@ en todo lo que la aplicación guarda: solo puede estar donde vive el texto de la
 auditoría y en las dudas escaladas. Ni en el catálogo, ni en el conocimiento, ni en las confirmaciones, ni en los
 votos, ni en los logs, ni en el índice en memoria.
 
-Corre en los dos almacenamientos: archivos (desarrollo) y la BD `ConverData` real (necesita `CONVERDATA_TEST_DB`).
+Corre en los dos almacenamientos: archivos (desarrollo) y la BD `DiscoveryDataAgent` real (necesita `DISCOVERY_DATA_AGENT_TEST_DB`).
 """
 
 import re
@@ -15,9 +15,9 @@ import unicodedata
 import pytest
 from fastapi.testclient import TestClient
 
-from converdata.curation import normalize_question
-from converdata_api.connector import DemoConnector
-from converdata_api.main import create_app
+from discovery_data_agent.curation import normalize_question
+from discovery_data_agent_api.connector import DemoConnector
+from discovery_data_agent_api.main import create_app
 
 from test_api import FIXTURE, build, login, settings  # noqa: F401  (fixtures de la API)
 
@@ -189,7 +189,7 @@ def test_el_literal_de_una_pregunta_solo_queda_donde_viven_las_preguntas(storage
         return
     assert on_disk == {}, on_disk  # con BD el servidor no guarda preguntas en ningún archivo, tampoco en los logs
 
-    # 3. La BD `ConverData`: solo en la auditoría y en las dudas escaladas.
+    # 3. La BD `DiscoveryDataAgent`: solo en la auditoría y en las dudas escaladas.
     found = columns_with_marks(request.getfixturevalue("db_connect"))
     assert set(found) == {"audit.audit_question.question", "curation.request.question", "curation.request.note"}, found
     assert found["audit.audit_question.question"] >= N  # control: la búsqueda sí encuentra lo que está

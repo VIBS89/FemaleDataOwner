@@ -1,4 +1,4 @@
-"""Hooks del ciclo de desarrollo de ConverData (codificar, probar, revisar, commit).
+"""Hooks del ciclo de desarrollo de DiscoveryDataAgent (codificar, probar, revisar, commit).
 
 Uso: python .claude/hooks/ciclo_dev.py <fase>   (el evento llega por stdin como JSON)
   proteger-archivos  PreToolUse Edit|Write   bloquea .env, lockfiles, config/models.yaml y zips

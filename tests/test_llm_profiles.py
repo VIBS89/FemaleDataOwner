@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from converdata.llm import factory
-from converdata.llm.factory import (
+from discovery_data_agent.llm import factory
+from discovery_data_agent.llm.factory import (
     NO_MODEL,
     ModelsConfig,
     apply_profile,
@@ -16,7 +16,7 @@ from converdata.llm.factory import (
     selection_path,
     write_selection,
 )
-from converdata.llm.gateway import GatewayConfigError, LLMGateway, ResidencyError
+from discovery_data_agent.llm.gateway import GatewayConfigError, LLMGateway, ResidencyError
 
 REPO = Path(__file__).resolve().parents[1]
 

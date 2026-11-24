@@ -46,7 +46,7 @@ const MAX_CONVERSATIONS = 50;
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 function storageKey(userId: string) {
-  return `converdata:conversations:${userId}`;
+  return `discovery-data-agent:conversations:${userId}`;
 }
 
 export function ConversationsProvider({ children }: { children: React.ReactNode }) {

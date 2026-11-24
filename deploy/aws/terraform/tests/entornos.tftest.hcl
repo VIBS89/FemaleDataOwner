@@ -24,11 +24,11 @@ mock_provider "aws" {
 }
 
 variables {
-  environment       = "demo"
-  converdata_env    = "dev"
-  demo              = true
-  alb_internal      = false
-  alb_ingress_cidrs = ["198.51.100.7/32"]
+  environment              = "demo"
+  discovery_data_agent_env = "dev"
+  demo                     = true
+  alb_internal             = false
+  alb_ingress_cidrs        = ["198.51.100.7/32"]
 }
 
 run "demo_sin_imagenes" {
@@ -67,23 +67,23 @@ run "demo_sin_redes" {
 run "qa_completo" {
   command = plan
   variables {
-    environment           = "qa"
-    converdata_env        = "qa"
-    demo                  = false
-    alb_internal          = true
-    alb_ingress_cidrs     = ["10.0.0.0/16"]
-    sql_server_cidrs      = ["10.20.30.0/24"]
-    vpn                   = { customer_gateway_ip = "203.0.113.10", static_routes = ["10.0.0.0/16"] }
-    onprem_dns            = { domains = ["banco.local"], target_ips = ["10.0.0.2", "10.0.0.3"] }
-    domain_name           = "converdata-qa.banco.local"
-    certificate_arn       = "arn:aws:acm:us-east-1:111111111111:certificate/00000000-0000-0000-0000-000000000000"
-    admins                = ["admin_datos"]
-    db_secret_enabled     = true
-    models_yaml_file      = "config/models.bedrock.example.yaml"
-    bedrock_resource_arns = ["arn:aws:bedrock:us-east-1:111111111111:inference-profile/ejemplo"]
-    bedrock_model_id      = "ejemplo"
-    builder               = { enabled = true, hosts = [".banco.local"] }
-    alarm_email           = "operaciones@example.com"
+    environment              = "qa"
+    discovery_data_agent_env = "qa"
+    demo                     = false
+    alb_internal             = true
+    alb_ingress_cidrs        = ["10.0.0.0/16"]
+    sql_server_cidrs         = ["10.20.30.0/24"]
+    vpn                      = { customer_gateway_ip = "203.0.113.10", static_routes = ["10.0.0.0/16"] }
+    onprem_dns               = { domains = ["banco.local"], target_ips = ["10.0.0.2", "10.0.0.3"] }
+    domain_name              = "discovery-data-agent-qa.banco.local"
+    certificate_arn          = "arn:aws:acm:us-east-1:111111111111:certificate/00000000-0000-0000-0000-000000000000"
+    admins                   = ["admin_datos"]
+    db_secret_enabled        = true
+    models_yaml_file         = "config/models.bedrock.example.yaml"
+    bedrock_resource_arns    = ["arn:aws:bedrock:us-east-1:111111111111:inference-profile/ejemplo"]
+    bedrock_model_id         = "ejemplo"
+    builder                  = { enabled = true, hosts = [".banco.local"] }
+    alarm_email              = "operaciones@example.com"
   }
 
   assert {
@@ -107,13 +107,13 @@ run "qa_completo" {
 run "qa_sin_https" {
   command = plan
   variables {
-    environment       = "qa"
-    converdata_env    = "qa"
-    demo              = false
-    alb_internal      = true
-    alb_ingress_cidrs = ["10.0.0.0/16"]
-    admins            = ["admin_datos"]
-    db_secret_enabled = true
+    environment              = "qa"
+    discovery_data_agent_env = "qa"
+    demo                     = false
+    alb_internal             = true
+    alb_ingress_cidrs        = ["10.0.0.0/16"]
+    admins                   = ["admin_datos"]
+    db_secret_enabled        = true
   }
   expect_failures = [terraform_data.validaciones]
 }
@@ -122,20 +122,20 @@ run "qa_sin_https" {
 run "qa_desplegado" {
   command = plan
   variables {
-    environment           = "qa"
-    converdata_env        = "qa"
-    demo                  = false
-    alb_internal          = true
-    alb_ingress_cidrs     = ["10.0.0.0/16"]
-    sql_server_cidrs      = ["10.20.30.0/24"]
-    domain_name           = "converdata-qa.banco.local"
-    certificate_arn       = "arn:aws:acm:us-east-1:111111111111:certificate/00000000-0000-0000-0000-000000000000"
-    admins                = ["admin_datos"]
-    db_secret_enabled     = true
-    models_yaml_file      = "config/models.bedrock.example.yaml"
-    bedrock_resource_arns = ["arn:aws:bedrock:us-east-1:111111111111:inference-profile/ejemplo"]
-    builder               = { enabled = true, hosts = [".banco.local"] }
-    image_tag             = "abc123def456"
+    environment              = "qa"
+    discovery_data_agent_env = "qa"
+    demo                     = false
+    alb_internal             = true
+    alb_ingress_cidrs        = ["10.0.0.0/16"]
+    sql_server_cidrs         = ["10.20.30.0/24"]
+    domain_name              = "discovery-data-agent-qa.banco.local"
+    certificate_arn          = "arn:aws:acm:us-east-1:111111111111:certificate/00000000-0000-0000-0000-000000000000"
+    admins                   = ["admin_datos"]
+    db_secret_enabled        = true
+    models_yaml_file         = "config/models.bedrock.example.yaml"
+    bedrock_resource_arns    = ["arn:aws:bedrock:us-east-1:111111111111:inference-profile/ejemplo"]
+    builder                  = { enabled = true, hosts = [".banco.local"] }
+    image_tag                = "abc123def456"
   }
 
   assert {
@@ -143,12 +143,12 @@ run "qa_desplegado" {
     error_message = "Una sola tarea, y nunca dos a la vez durante un despliegue."
   }
   assert {
-    condition     = [for s in local.api_secrets : s.name] == ["CONVERDATA_SETUP_TOKEN", "CONVERDATA_DB"]
+    condition     = [for s in local.api_secrets : s.name] == ["DISCOVERY_DATA_AGENT_SETUP_TOKEN", "DISCOVERY_DATA_AGENT_DB"]
     error_message = "La tarea de la API recibe solo sus secretos, no el login de metadatos (CN-03 CA3)."
   }
   assert {
-    condition     = local.builder_command == "converdata catalog build --db"
-    error_message = "El Builder ejecuta converdata catalog build --db."
+    condition     = local.builder_command == "discovery-data-agent catalog build --db"
+    error_message = "El Builder ejecuta discovery-data-agent catalog build --db."
   }
   assert {
     condition     = length(aws_scheduler_schedule.builder) == 1

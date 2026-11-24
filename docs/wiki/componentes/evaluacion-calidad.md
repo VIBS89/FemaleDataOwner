@@ -6,8 +6,8 @@ Actualizado el 2026-11-17.
 Mide si el descubrimiento acierta, si respeta permisos y si no inventa, y decide si una versión o un catálogo puede liberarse. Regla del proyecto: un cambio de lógica se acepta solo si la compuerta no baja de su línea base ni crea fugas. Incluye también los controles de cadena de suministro, de arquitectura y de literales marcados. Specs: [F25](../../specs/comun/F25-success-metrics.md) y [OP-01](../../specs/on-premise/OP-01-despliegue-local.md). Diagrama: [controles de calidad bancaria](../../architecture/controles-calidad-bancaria.html).
 
 ## Lo esencial
-- `converdata eval discovery` mide un set de preguntas (Hit@1, Hit@3, calibración, brechas, fugas, inventados, latencia, por tipo).
-- `converdata eval gate` corre siete suites y devuelve 0 solo si todas aprueban en todos los catálogos. Por defecto, `tests/fixtures/vbank` y `tests/fixtures/bancos`.
+- `discovery-data-agent eval discovery` mide un set de preguntas (Hit@1, Hit@3, calibración, brechas, fugas, inventados, latencia, por tipo).
+- `discovery-data-agent eval gate` corre siete suites y devuelve 0 solo si todas aprueban en todos los catálogos. Por defecto, `tests/fixtures/vbank` y `tests/fixtures/bancos`.
 - La línea base (`tests/fixtures/*/eval/baseline.yaml`) impide que un tipo de pregunta baje.
 - Todo se midió sin LLM. Bedrock sin probar (HU-35).
 - Los casos los escribió el equipo de desarrollo (sesgo de ajuste). Faltan 50–80 preguntas reales (HU-33).
@@ -24,10 +24,10 @@ Mide si el descubrimiento acierta, si respeta permisos y si no inventa, y decide
 ## Piezas internas
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| Evaluación | `src/converdata/evaluation/discovery_eval.py` | `EvalCase`, `load_cases`, `evaluate`, `EvalReport` (métricas y por tipo). |
-| Compuerta | `src/converdata/evaluation/gate.py` | Siete suites, `Thresholds`, `Baseline`, `run_gate`, `write_reports`, `write_baseline`. |
-| Entradas adversarias | `src/converdata/evaluation/adversarial.py` | `INJECTIONS` (25 plantillas) y `FUZZ` (28 entradas). |
-| CLI | `src/converdata/cli.py` | `eval discovery`, `eval gate`, `audit verify`. |
+| Evaluación | `src/discovery_data_agent/evaluation/discovery_eval.py` | `EvalCase`, `load_cases`, `evaluate`, `EvalReport` (métricas y por tipo). |
+| Compuerta | `src/discovery_data_agent/evaluation/gate.py` | Siete suites, `Thresholds`, `Baseline`, `run_gate`, `write_reports`, `write_baseline`. |
+| Entradas adversarias | `src/discovery_data_agent/evaluation/adversarial.py` | `INJECTIONS` (25 plantillas) y `FUZZ` (28 entradas). |
+| CLI | `src/discovery_data_agent/cli.py` | `eval discovery`, `eval gate`, `audit verify`. |
 | Casos y base | `tests/fixtures/<catálogo>/eval/` | `discovery.yaml`, `baseline.yaml`, y en `bancos` además `reportes.yaml` y `conocimiento/`. |
 | CI | `.github/workflows/calidad.yml` | Trabajos `backend`, `web`, `cadena-de-suministro`. |
 | Cadena de suministro | `requirements/*.lock`, `requirements/README.md`, `tests/test_supply_chain.py` | Bloqueos con hash y la prueba que los vigila. |
@@ -71,30 +71,30 @@ La suite `auditoria` usa sumideros en memoria: no prueba el sumidero de SQL Serv
 - Compuerta (modo determinista): aprobada en los dos catálogos; 0 fugas en 1 065 preguntas × usuario (328 + 737) y 4 862 llamadas a herramientas (553 + 4 309). Con el catálogo de BancosSQL cargado desde la BD (`eval gate --db --root tests/fixtures/bancos`): Hit@1 y Hit@3 98,0 %, 0 fugas en 737 preguntas × usuario y 4 309 llamadas.
 - Preguntas de reporte (25): Hit@1 16 % solo con catálogo, 60 % con el glosario de prueba (Hit@3 16 % → 64 %). Las fija `tests/test_graph_rag.py::test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte`.
 - Las filas vigentes y las históricas del plan no se comparan entre sí: los sets crecieron el 2026-11-17 (BancosSQL de 31 a 58 casos, VBank de 25 a 31).
-- Pruebas: el plan anota 370 pasadas y 82 omitidas sin `CONVERDATA_TEST_DB`, y 452 pasadas con ella.
+- Pruebas: el plan anota 370 pasadas y 82 omitidas sin `DISCOVERY_DATA_AGENT_TEST_DB`, y 452 pasadas con ella.
 
-## Comandos (de [PLAN §4](../../PLAN-desarrollo.md), todos existen en `src/converdata/cli.py`)
+## Comandos (de [PLAN §4](../../PLAN-desarrollo.md), todos existen en `src/discovery_data_agent/cli.py`)
 ```bash
 # Instalación con versión y hash (la CI y requirements/README.md añaden --no-build-isolation --no-index al paquete)
 .venv/Scripts/python -m pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/dev.lock
 .venv/Scripts/python -m pip install --no-deps -e .
 .venv/Scripts/python -m pytest -q
-export CONVERDATA_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes'
+export DISCOVERY_DATA_AGENT_TEST_DB='SERVER=localhost\SQLEXPRESS;Trusted_Connection=yes;TrustServerCertificate=yes'
 .venv/Scripts/python -m pytest -q                       # ahora incluye las pruebas contra SQL Server
-.venv/Scripts/python -m converdata.cli eval gate --out reports
-.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos
-.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/vbank
-.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
-.venv/Scripts/python -m converdata.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml --knowledge tests/fixtures/bancos/eval/conocimiento
-export CONVERDATA_DB='SERVER=localhost\SQLEXPRESS;DATABASE=ConverData;Trusted_Connection=yes;TrustServerCertificate=yes'
-.venv/Scripts/python -m converdata.cli db migrate --status
-.venv/Scripts/python -m converdata.cli eval gate --db --root tests/fixtures/bancos
+.venv/Scripts/python -m discovery_data_agent.cli eval gate --out reports
+.venv/Scripts/python -m discovery_data_agent.cli eval discovery --root tests/fixtures/bancos
+.venv/Scripts/python -m discovery_data_agent.cli eval discovery --root tests/fixtures/vbank
+.venv/Scripts/python -m discovery_data_agent.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml
+.venv/Scripts/python -m discovery_data_agent.cli eval discovery --root tests/fixtures/bancos --cases tests/fixtures/bancos/eval/reportes.yaml --knowledge tests/fixtures/bancos/eval/conocimiento
+export DISCOVERY_DATA_AGENT_DB='SERVER=localhost\SQLEXPRESS;DATABASE=DiscoveryDataAgent;Trusted_Connection=yes;TrustServerCertificate=yes'
+.venv/Scripts/python -m discovery_data_agent.cli db migrate --status
+.venv/Scripts/python -m discovery_data_agent.cli eval gate --db --root tests/fixtures/bancos
 ```
 Opciones verificadas en `cli.py`: `eval discovery` (`--root`, `--db`, `--cases`, `--models`, `--patterns`, `--knowledge`, `--min-hit3`) y `eval gate` (`--root` repetible, `--db`, `--cases`, `--models`, `--suites`, `--out`, `--write-baseline`). `--knowledge` no se combina con `--db`; `--db` exige un único `--root`.
 
 ## Regenerar una línea base
 1. Confirma que la mejora es real y que no baja ningún tipo ni crea fugas (la compuerta lo exige antes).
-2. `converdata eval gate --root tests/fixtures/<catálogo> --write-baseline`. Corre sin la base previa y escribe `eval/baseline.yaml` con la fecha de hoy, los casos, Hit@1, Hit@3 y el porcentaje por tipo.
+2. `discovery-data-agent eval gate --root tests/fixtures/<catálogo> --write-baseline`. Corre sin la base previa y escribe `eval/baseline.yaml` con la fecha de hoy, los casos, Hit@1, Hit@3 y el porcentaje por tipo.
 3. No se puede con `--db`.
 4. Revisa el diff del archivo y súbelo con el cambio que lo justifica.
 5. Si el set cambia de tamaño, anota que las cifras antiguas y nuevas no se comparan (como en PLAN §2). Ampliar el set antes de aceptar un cambio dice más que el porcentaje.
@@ -106,12 +106,12 @@ Hasta el 2026-11-22 no se ejecutó ninguna vez: el archivo no era YAML válido y
 
 | Trabajo | Qué corre |
 |---|---|
-| `backend` | Instala `build.lock` y `dev.lock` con hashes y el paquete sin red; `python -m pytest -q`; `python -m converdata.cli eval gate --out reports`; sube `reports/` como evidencia. |
+| `backend` | Instala `build.lock` y `dev.lock` con hashes y el paquete sin red; `python -m pytest -q`; `python -m discovery_data_agent.cli eval gate --out reports`; sube `reports/` como evidencia. |
 | `web` | `npm ci`; `npx tsc --noEmit && npx eslint src --max-warnings=0`; `npm run build`. |
 | `cadena-de-suministro` | Instala `tools.lock`; `pip-audit -r requirements/runtime.lock --require-hashes --disable-pip`; `npm audit --omit=dev --audit-level=high`; SBOM CycloneDX de la API y de la web, publicado como artefacto. El de la web sale del bloqueo (`npm sbom --package-lock-only`): el trabajo no instala `node_modules`. |
 
 Lo que la CI **no** corre:
-- Las pruebas marcadas `sqlserver` (migraciones, roles, auditoría y catálogo contra SQL Server real, literales marcados en la BD): se omiten por no haber `CONVERDATA_TEST_DB`.
+- Las pruebas marcadas `sqlserver` (migraciones, roles, auditoría y catálogo contra SQL Server real, literales marcados en la BD): se omiten por no haber `DISCOVERY_DATA_AGENT_TEST_DB`.
 - `eval gate --db`, `eval discovery` suelto, `audit purge` (sin prueba automática del comando) y `eval gate --models` (con LLM).
 - Construcción, firma ni análisis de las imágenes Docker.
 - Nada contra Windows Server, IIS ni las tareas programadas.
@@ -127,10 +127,10 @@ Lo que la CI **no** corre:
 - No cubre: paquetes del sistema de la imagen (`msodbcsql18`, `unixodbc`), firma ni escaneo de la imagen construida.
 
 ## Prueba de arquitectura (`tests/test_architecture.py`)
-Tres pruebas con `ast` sobre `src/converdata`: todo módulo tiene capa en `LAYERS`; las dependencias apuntan hacia dentro (integración → aplicación → dominio ← infraestructura); dominio y aplicación no importan librerías de adaptadores (`pyodbc`, `langchain_*`, `fastapi`, `mcp`, `httpx`, `boto3`…). Incluye imports perezosos. No analiza `api/converdata_api` (deuda anotada en el plan). Diagrama: [capas del backend](../../architecture/capas-backend.md).
+Tres pruebas con `ast` sobre `src/discovery_data_agent`: todo módulo tiene capa en `LAYERS`; las dependencias apuntan hacia dentro (integración → aplicación → dominio ← infraestructura); dominio y aplicación no importan librerías de adaptadores (`pyodbc`, `langchain_*`, `fastapi`, `mcp`, `httpx`, `boto3`…). Incluye imports perezosos. No analiza `api/discovery_data_agent_api` (deuda anotada en el plan). Diagrama: [capas del backend](../../architecture/capas-backend.md).
 
 ## Prueba de literales marcados (`api/tests/test_marked_literals.py`)
-100 preguntas con 100 literales distintos en 10 formas (marcas `acme`, `7731dd`, `cta773`), por la API con tres usuarios, votadas, 20 escaladas y varias respondidas. Después busca el literal, también transformado, en el índice en memoria, en el disco del servidor (logs incluidos) y en toda columna de texto de la BD (historial incluido). Solo debe aparecer en `audit.audit_question.question`, `curation.request.question` y `curation.request.note`. Corre en archivos y, con `CONVERDATA_TEST_DB`, en SQL Server. No cubre el cliente MCP, `/discover/stream`, el Visor de eventos ni carpetas de IIS, y no detecta nombres de personas.
+100 preguntas con 100 literales distintos en 10 formas (marcas `acme`, `7731dd`, `cta773`), por la API con tres usuarios, votadas, 20 escaladas y varias respondidas. Después busca el literal, también transformado, en el índice en memoria, en el disco del servidor (logs incluidos) y en toda columna de texto de la BD (historial incluido). Solo debe aparecer en `audit.audit_question.question`, `curation.request.question` y `curation.request.note`. Corre en archivos y, con `DISCOVERY_DATA_AGENT_TEST_DB`, en SQL Server. No cubre el cliente MCP, `/discover/stream`, el Visor de eventos ni carpetas de IIS, y no detecta nombres de personas.
 
 ## Configuración
 | Dónde | Qué |
@@ -138,7 +138,7 @@ Tres pruebas con `ast` sobre `src/converdata`: todo módulo tiene capa en `LAYER
 | `<root>/eval/gate.yaml` | Umbrales opcionales por catálogo (`Thresholds`). No existe en los fixtures. |
 | `<root>/config/settings.yaml` | Pesos, umbrales y patrones del flujo (`patterns`), que `--patterns` puede apagar. |
 | `config/models.yaml` | Con `--models`, el LLM entra a la evaluación y a la compuerta. |
-| `CONVERDATA_TEST_DB` | Cadena de servidor, sin `DATABASE`, para las pruebas `sqlserver`. |
+| `DISCOVERY_DATA_AGENT_TEST_DB` | Cadena de servidor, sin `DATABASE`, para las pruebas `sqlserver`. |
 
 ## Pruebas que lo cubren
 - `tests/test_gate.py`: la compuerta aprueba en los dos catálogos; cada suite falla cuando se le rompe su control (`monkeypatch`); detector de fugas; baterías de tamaño mínimo; la CLI escribe evidencia.
