@@ -55,7 +55,7 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 | `judge` | Nadie: el nodo `review` lo anota como rol, pero no hay implementación conectada | Chequeos deterministas |
 | `embed` | Retirado: se ignora con un aviso; en qa/prod la API no arranca si aparece | — |
 
-`config/models.example.yaml` usa solo `fast` (NIM alojado, `nvidia/nemotron-3.5-bolt-e4b`) y trae comentados los
+`config/models.example.yaml` usa `fast` con `nvidia/nemotron-3-ultra-550b-a55b`, `enrich` con `nvidia/nemotron-3.5-bolt-e4b` y `bolt` como respaldo (NIM alojado) y trae comentados los
 bloques para Claude, OpenAI y Bedrock; `config/models.local.example.yaml` y el
 `config/models.yaml` local usan Ollama y declaran también `judge`.
 
@@ -148,12 +148,16 @@ En la API: `DISCOVERY_DATA_AGENT_MODELS` (ruta del archivo; si no existe, modo d
 
   | Modelo | Resultado | Hit@1 en reportes |
   |---|---|---|
-  | `nvidia/nemotron-3.5-bolt-e4b` | **Elegido para `fast` y `enrich`** (el del ejemplo): 6 de 6 correctas, 1,2 s de media | 52 % (p50 de 2 s) |
+  | `nvidia/nemotron-3.5-bolt-e4b` | **Elegido para `enrich`** (y para `fast` hasta el 2026-11-24): 6 de 6 correctas, 1,2 s de media | 52 % (p50 de 2 s) |
   | `nvidia/nemotron-3-ultra-550b-a55b` | 5 de 6, 5–8 s por llamada; reformula con más detalle, pero bajo carga agota el tiempo y el circuito del gateway lo desconecta | 36 % |
   | `nvidia/nemotron-3.5-super-vl-120b-a12b` | Solo funciona pidiendo JSON en el mensaje (rechaza `guided_json`); 5 s y con timeouts | — |
   | `nemotron-3.5-lightning-30b-a3b`, `nemotron-3-nano-omni-30b-a3b-reasoning` | No sirven hoy: rechazan `guided_json` y no devuelven JSON por mensaje | — |
   | `mistral-large-4`, `kimi-k3.1-pro`, `muse-glimmer-30b`, `step-5-preview`, `gemma-4-31b-it`, `glm-5.3-flash`, `minimax-m3.1-flash` | No sirven hoy: agotan el tiempo | — |
   | `gemma-3-12b-it` | No sirve: 404 | — |
+
+  Repetido el 2026-11-24 (detalle en F16): `fast` pasa a `nvidia/nemotron-3-ultra-550b-a55b` sin razonamiento (84 % de Hit@1 en
+  reportes con conocimiento, frente a 80 % de `bolt`, a ~3 s por respuesta) con `bolt` de respaldo; el gateway apaga el
+  razonamiento en NIM salvo `reasoning: true`, porque con él la redacción volvía vacía; `enrich` sigue en `bolt`, que describe más columnas.
 
   Referencia con Claude Sonnet 5.5: 68 % de Hit@1 en reportes. Todas las llamadas pasan por el gateway y no hay uso directo de un
   proveedor fuera de `src/discovery_data_agent/llm/`: el chat, la reformulación y el refresco del catálogo usan el perfil que elige el
