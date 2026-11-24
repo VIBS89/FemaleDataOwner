@@ -35,7 +35,7 @@ from discovery_data_agent.models.identity import UserContext
 from discovery_data_agent.models.knowledge import BusinessRule, GoldenDiscovery
 from discovery_data_agent.storage.connection import describe
 
-from discovery_data_agent_api.connector import Connector
+from discovery_data_agent_api.connector import Connector, server_from_host
 from discovery_data_agent_api.demo import apply_fixture_knowledge, demo_inventory
 from discovery_data_agent_api.demo_history import HISTORY_MARKER, seed_history
 from discovery_data_agent_api.pii import find_pii
@@ -84,6 +84,22 @@ def open_api_stores(settings: ApiSettings) -> Stores:
                        inventory_path=settings.inventory_path)
 
 
+PRELOAD_ENVIRONMENTS = ("produccion", "qa", "desarrollo", "dr")
+
+
+def preloaded_server(spec: str) -> ServerConfig:
+    """`host|alias|ambiente` de DISCOVERY_DATA_AGENT_PRELOAD_SERVER → el servidor que registraría el primer login.
+
+    Solo para entornos de prueba con SQL Server en la propia tarea, cuyo certificado es autofirmado: por eso se confía
+    en él, y por eso `production_violations` no acepta la variable en qa ni en prod."""
+    parts = [p.strip() for p in spec.split("|")]
+    if len(parts) != 3 or not all(parts) or parts[2] not in PRELOAD_ENVIRONMENTS:
+        raise ValueError("DISCOVERY_DATA_AGENT_PRELOAD_SERVER debe ser 'host|alias|ambiente' "
+                         f"(ambiente: {', '.join(PRELOAD_ENVIRONMENTS)})")
+    host, alias, environment = parts
+    return server_from_host(host, alias, environment, True, Inventory(servers=[]))
+
+
 class AgentRuntime:
     def __init__(self, settings: ApiSettings, connector: Connector, vault: SessionVault, audit,
                  stores: Stores | None = None):
@@ -118,6 +134,8 @@ class AgentRuntime:
         self._pull()
         if settings.demo and settings.demo_preload_inventory and not self.inventory.servers:
             self.save_inventory(demo_inventory(settings.demo_fixtures), by="demo")
+        if settings.preload_server and not self.inventory.servers:
+            self.save_inventory([preloaded_server(settings.preload_server)], by="instalador")
         self.reload()
 
     # --- inventario -------------------------------------------------------------------------------

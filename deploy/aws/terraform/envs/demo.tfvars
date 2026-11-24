@@ -33,7 +33,10 @@ log_retention_days = 3
 sql_sidecar       = true
 sql_memory_mb     = 2048
 db_secret_enabled = true
-admins            = ["dda_admin"]
+admins            = ["dda_admin", "demo"]
+# Login `demo` / contraseña `demo` con todo el acceso, y el SQL Server ya registrado al arrancar (sin código de
+# instalación). Solo con estos datos ficticios y el ALB limitado a las IP de alb_ingress_cidrs.
+sql_demo_login = true
 
 # --- LLM: elegible en pantalla (Administración → Modelos de IA) ---
 # Por defecto Claude Sonnet 5.5 en Bedrock, con el rol de la tarea. Perfiles: Claude Haiku en Bedrock, NVIDIA NIM y

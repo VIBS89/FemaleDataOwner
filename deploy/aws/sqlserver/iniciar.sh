@@ -23,6 +23,11 @@ ALTER LOGIN analista WITH PASSWORD = N'$DDA_ANALISTA_PASSWORD'; ALTER LOGIN anal
 ALTER LOGIN dda_app WITH PASSWORD = N'$DDA_APP_PASSWORD'; ALTER LOGIN dda_app ENABLE;
 ALTER LOGIN sa WITH PASSWORD = N'$MSSQL_SA_PASSWORD';
 SQL
+# Login de demostración con contraseña fija (sql_demo_login): solo con datos de prueba y el ALB limitado por IP.
+if [ "${DDA_DEMO_LOGIN:-0}" = "1" ]; then
+  SQLCMDPASSWORD="$SEED_SA_PASSWORD" "${SQLCMD[@]}" -Q "ALTER LOGIN demo WITH PASSWORD = N'demo'; ALTER LOGIN demo ENABLE;" >/dev/null
+  echo ">> Login demo habilitado"
+fi
 echo ">> SQL Server listo (logins dda_admin, analista, dda_app)"
 unset SEED_SA_PASSWORD
 wait "$pid"

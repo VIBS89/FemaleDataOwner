@@ -63,6 +63,9 @@ class ApiSettings:
     environment: str = "dev"  # DISCOVERY_DATA_AGENT_ENV: local | dev | qa | prod (la misma variable del gateway de LLM)
     # Primer arranque: con el inventario vacío, quien registre el primer servidor debe presentar este secreto.
     setup_token: str | None = None
+    # Solo entornos de prueba (deploy/aws con `sql_sidecar`): "host|alias|ambiente" del servidor que entra al inventario al
+    # arrancar si está vacío. Lo fija el operador al desplegar, así que el primer login no pide host ni código.
+    preload_server: str | None = None
     admins_only: bool = False  # `data_admin` solo para los logins de `admins`, no para cualquier sysadmin de un servidor
     visibility_ttl_s: int = 900  # F14: los permisos del usuario se vuelven a leer de SQL Server cada 15 min
     session_max_age_s: int = 12 * 3600  # vida máxima de una sesión aunque siga activa
@@ -119,6 +122,7 @@ class ApiSettings:
             mcp_allowed_origins=[o.strip() for o in os.environ.get("DISCOVERY_DATA_AGENT_MCP_ORIGINS", "").split(",") if o.strip()],
             environment=os.environ.get("DISCOVERY_DATA_AGENT_ENV", "dev"),
             setup_token=os.environ.get("DISCOVERY_DATA_AGENT_SETUP_TOKEN") or None,
+            preload_server=os.environ.get("DISCOVERY_DATA_AGENT_PRELOAD_SERVER") or None,
             admins_only=_flag("DISCOVERY_DATA_AGENT_ADMINS_ONLY"),
             visibility_ttl_s=int(os.environ.get("DISCOVERY_DATA_AGENT_VISIBILITY_TTL_S", 900)),
             session_max_age_s=int(os.environ.get("DISCOVERY_DATA_AGENT_SESSION_MAX_AGE_S", 12 * 3600)),

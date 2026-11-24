@@ -53,6 +53,7 @@ locals {
       # El ALB añade la dirección del cliente al final de X-Forwarded-For: de ahí sale el origen para el bloqueo de login.
       DISCOVERY_DATA_AGENT_TRUST_PROXY = "1"
     },
+    var.sql_demo_login ? { DISCOVERY_DATA_AGENT_PRELOAD_SERVER = "localhost,1433|SQL Server demo|desarrollo" } : {},
     local.models_yaml == null ? {} : {
       DISCOVERY_DATA_AGENT_MODELS      = "/tmp/models.yaml"
       DISCOVERY_DATA_AGENT_MODELS_YAML = local.models_yaml
