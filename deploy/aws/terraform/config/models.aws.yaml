@@ -25,21 +25,30 @@ providers:
     allowed_data: test
     timeout_s: 60
 
-# Sin perfil elegido rigen estos roles (los mismos del perfil `bedrock`).
+# Sin perfil elegido rigen estos roles (los mismos del perfil `bedrock-nova`). Una cuenta nueva de AWS tiene cuota 0
+# para Claude en Bedrock hasta que AWS la amplía (Service Quotas): mientras tanto, Amazon Nova Pro, que sí está
+# disponible. Medido el 2026-11-24 con BancosSQL: set base 98,0 %, chat 97,8 % Hit@1 (100 % Hit@3), reportes 28 %,
+# 0 fugas y 0 inventados. Con Sonnet los reportes suben al 68 %: cambiar de perfil cuando haya cuota.
 roles:
-  fast:   {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 4000}
-  enrich: {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 16000}
+  fast:   {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 1000}
+  enrich: {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 4000}
 
 fallback: null
 
 circuit: {errors: 3, window_s: 60, open_s: 300}
 
 # La elección se guarda en models.yaml.active, en el disco efímero de la tarea: tras un reinicio vuelve a este.
-active_profile: bedrock
+active_profile: bedrock-nova
 profiles:
+  bedrock-nova:
+    label: "Amazon Nova Pro en Bedrock"
+    description: "Amazon Nova Pro en Amazon Bedrock, dentro de la cuenta de AWS, por Converse con el rol de la tarea. Sin claves."
+    roles:
+      fast:   {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 1000}
+      enrich: {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 4000}
   bedrock:
     label: "Claude Sonnet en Bedrock"
-    description: "Claude Sonnet 5.5 en Amazon Bedrock, dentro de la cuenta de AWS. Sin claves."
+    description: "Claude Sonnet 5.5 en Amazon Bedrock, dentro de la cuenta de AWS. Sin claves. Necesita cuota de Claude en la cuenta."
     roles:
       # Sonnet 5.5: 2 / 10 USD por millón de tokens (precio de Anthropic; el de Bedrock puede variar). Sin
       # `temperature` (Claude la rechaza) y sin respaldo de servidor (Bedrock no lo tiene).

@@ -43,5 +43,11 @@ sql_demo_login = true
 # Claude por la API de Anthropic, cuyas claves `up` carga desde el .env (o `secret demo nvidia-api-key`…).
 models_yaml_file = "config/models.aws.yaml"
 bedrock_mantle   = true
+# Amazon Nova Pro por Converse (perfil por defecto mientras la cuenta no tenga cuota de Claude): el inference
+# profile de EE. UU. y los foundation-model de las regiones a las que enruta. Con public_task no crea VPC endpoint.
+bedrock_resource_arns = [
+  "arn:aws:bedrock:us-east-1:*:inference-profile/us.amazon.nova-pro-v1:0",
+  "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+]
 llm_api_key_envs = ["NVIDIA_API_KEY", "ANTHROPIC_API_KEY"]
 api_requirements = "requirements/dev.lock" # runtime.lock no trae los clientes de NIM ni de Anthropic
