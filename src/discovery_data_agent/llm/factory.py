@@ -195,6 +195,18 @@ def build_nim_chat(role: RoleConfig, provider: ProviderConfig):
 
 
 def build_bedrock_chat(role: RoleConfig, provider: ProviderConfig):
+    if role.model.startswith("anthropic."):
+        # Claude en Bedrock por la Messages API (bedrock-mantle), con el SDK oficial y las credenciales del rol de la
+        # tarea (SigV4). Converse forzaría una herramienta para la salida estructurada, que Claude Sonnet 5.5
+        # rechaza, y enviaría `temperature`. Bedrock no tiene el respaldo de servidor (`fallbacks`).
+        import anthropic
+
+        from discovery_data_agent.llm.anthropic_chat import ClaudeChat
+
+        client = anthropic.AnthropicBedrockMantle(aws_region=provider.region or "us-east-1",
+                                                  timeout=provider.timeout_s, max_retries=1)
+        return ClaudeChat(client, role.model, role.max_tokens, role.effort, refusal_fallback=False)
+
     from langchain_aws import ChatBedrockConverse
 
     kwargs = {"model": role.model, "region_name": provider.region or "us-east-1"}

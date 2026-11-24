@@ -25,6 +25,16 @@ output "ecr_web" {
   value = aws_ecr_repository.this["web"].repository_url
 }
 
+output "ecr_sqlserver" {
+  description = "Repositorio de la imagen de SQL Server Express (vacío sin sql_sidecar)"
+  value       = var.sql_sidecar ? aws_ecr_repository.this["sqlserver"].repository_url : ""
+}
+
+output "sql_logins_secret" {
+  description = "Secreto con las contraseñas de dda_admin y analista: `despliegue.sh credentials <entorno>`"
+  value       = var.sql_sidecar ? aws_secretsmanager_secret.sql[0].name : ""
+}
+
 output "cluster" {
   value = aws_ecs_cluster.this.name
 }
@@ -43,7 +53,12 @@ output "task_subnets" {
 }
 
 output "task_subnet_ids" {
-  value = join(",", aws_subnet.private[*].id)
+  value = join(",", local.task_subnet_ids)
+}
+
+output "task_assign_public_ip" {
+  description = "ENABLED con public_task (demo): lo usa `despliegue.sh builder-run`"
+  value       = var.public_task ? "ENABLED" : "DISABLED"
 }
 
 output "task_security_group" {
@@ -55,6 +70,7 @@ output "secrets" {
   value = concat(
     [for s in aws_secretsmanager_secret.db : s.name],
     [for s in aws_secretsmanager_secret.metadata : s.name],
+    [for s in aws_secretsmanager_secret.llm : s.name],
   )
 }
 

@@ -196,3 +196,67 @@ variable "alarm_email" {
   type        = string
   default     = null
 }
+
+# --- Coste: solo entornos de prueba (demo). qa y prod los rechazan ---
+variable "public_task" {
+  description = "La tarea en las subredes públicas, con IP pública y salida HTTPS a internet: sin NAT ni VPC endpoints de interfaz (unos 60 USD/mes menos) y con acceso a proveedores externos como NVIDIA NIM. Necesita alb_internal = false. Nunca en qa ni prod."
+  type        = bool
+  default     = false
+}
+
+variable "fargate_spot" {
+  description = "Corre la tarea en Fargate Spot (alrededor de un 70 % más barato). AWS puede pararla con dos minutos de aviso; ECS arranca otra sola y los usuarios vuelven a iniciar sesión. Nunca en qa ni prod."
+  type        = bool
+  default     = false
+}
+
+variable "schedule" {
+  description = "Encendido y apagado programados de la tarea (EventBridge Scheduler, sin coste): fuera de horario no se paga Fargate. El ALB sigue en marcha y responde 503."
+  type = object({
+    enabled  = optional(bool, false)
+    start    = optional(string, "cron(0 7 ? * MON-FRI *)")
+    stop     = optional(string, "cron(0 20 ? * MON-FRI *)")
+    timezone = optional(string, "America/El_Salvador")
+  })
+  default = {}
+}
+
+variable "llm_api_key_envs" {
+  description = "Variables de entorno con claves de proveedores de LLM externos (p. ej. NVIDIA_API_KEY). Cada una es un secreto vacío que se carga con `despliegue.sh secret <entorno> nvidia-api-key` y llega solo a la API."
+  type        = list(string)
+  default     = []
+  validation {
+    condition     = alltrue([for e in var.llm_api_key_envs : can(regex("^[A-Z][A-Z0-9_]*_API_KEY$", e))])
+    error_message = "Nombres en mayúsculas terminados en _API_KEY (p. ej. NVIDIA_API_KEY)."
+  }
+}
+
+variable "api_requirements" {
+  description = "Bloqueo de dependencias con el que despliegue.sh construye la imagen de la API. runtime.lock trae Bedrock; NVIDIA NIM necesita requirements/dev.lock. Terraform no lo usa."
+  type        = string
+  default     = "requirements/runtime.lock"
+}
+
+variable "ecr_keep_images" {
+  description = "Imágenes que conserva cada repositorio de ECR (las más recientes)."
+  type        = number
+  default     = 20
+}
+
+variable "sql_sidecar" {
+  description = "SQL Server 2022 Express con las bases de BancosSQL como contenedor de la tarea (deploy/aws/sqlserver): servidor de datos y BD DiscoveryDataAgent sin RDS. Solo entornos de prueba."
+  type        = bool
+  default     = false
+}
+
+variable "sql_memory_mb" {
+  description = "Memoria máxima de SQL Server dentro de la tarea (MSSQL_MEMORY_LIMIT_MB). SQL Server pide al menos 2000."
+  type        = number
+  default     = 2048
+}
+
+variable "bedrock_mantle" {
+  description = "Permite a la API llamar a Claude en Bedrock por la Messages API (bedrock-mantle:CreateInference), con el rol de la tarea. Los modelos se eligen en el models.yaml."
+  type        = bool
+  default     = false
+}

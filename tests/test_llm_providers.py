@@ -263,6 +263,31 @@ def test_el_constructor_de_claude_usa_el_sdk_oficial(monkeypatch):
     assert "api_key" not in seen
 
 
+def test_claude_en_bedrock_usa_el_cliente_mantle_del_sdk_oficial(monkeypatch):
+    """`anthropic.claude-*` en Bedrock va por la Messages API (bedrock-mantle) con el rol de la tarea: salida
+    estructurada sin forzar una herramienta (Claude Sonnet 5.5 lo rechaza) y sin `temperature`. Bedrock no tiene el
+    respaldo de servidor (`fallbacks`), así que no se pide aunque el rol lo declare."""
+    import anthropic
+    import langchain_aws
+
+    from discovery_data_agent.llm.anthropic_chat import ClaudeChat
+    from discovery_data_agent.llm.factory import ProviderConfig, RoleConfig, build_bedrock_chat
+
+    seen = {}
+    monkeypatch.setattr(anthropic, "AnthropicBedrockMantle", lambda **kw: seen.update(kw) or "cliente")
+    role = RoleConfig(provider="bedrock", model="anthropic.claude-haiku-5-5", temperature=0.0, max_tokens=800,
+                      effort="low", refusal_fallback=True)
+    chat = build_bedrock_chat(role, ProviderConfig(region="us-east-2", timeout_s=45))
+    assert isinstance(chat, ClaudeChat) and chat.model == "anthropic.claude-haiku-5-5"
+    assert seen == {"aws_region": "us-east-2", "timeout": 45, "max_retries": 1}
+    assert chat._refusal_fallback is False and chat._effort == "low" and chat._max_tokens == 800
+
+    # Los demás modelos de Bedrock siguen por Converse.
+    monkeypatch.setattr(langchain_aws, "ChatBedrockConverse", lambda **kw: ("converse", kw))
+    other = build_bedrock_chat(RoleConfig(provider="bedrock", model="amazon.nova-pro-v1:0"), ProviderConfig())
+    assert other[0] == "converse" and other[1]["model"] == "amazon.nova-pro-v1:0"
+
+
 def test_los_errores_reales_de_los_sdk_se_clasifican():
     """Las excepciones de `anthropic` y `openai` llevan el código HTTP: con él el gateway decide si salta de proveedor."""
     import anthropic

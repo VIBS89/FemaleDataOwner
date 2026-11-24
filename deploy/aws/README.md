@@ -16,7 +16,8 @@ bash deploy/aws/despliegue.sh <comando> <entorno>
 | `despliegue.sh` | Los comandos del equipo: `plan`, `apply`, `deploy`, `rollback`, `logs`… (`help` los lista) |
 | `terraform/` | La pila de un entorno. Un archivo por tema: red, VPN, seguridad, ALB, ECS, alarmas |
 | `terraform/envs/` | Un `.tfvars` por entorno: `demo.tfvars` y la plantilla `qa.tfvars.example` |
-| `terraform/config/` | El `models.yaml` de Bedrock que recibe la tarea |
+| `terraform/config/` | El `models.yaml` que recibe la tarea: perfiles de Bedrock, NIM y Anthropic para el demo; Bedrock de ejemplo para qa |
+| `sqlserver/` | Imagen de SQL Server Express con las bases de prueba (entorno demo) |
 | `terraform/tests/` | Planes de prueba con el proveedor simulado (`despliegue.sh validate`) |
 | `bootstrap/` | El bucket del estado de Terraform, una vez por cuenta |
 
@@ -52,29 +53,63 @@ Comprobación sin cuenta de AWS, útil antes de un PR que toque esta carpeta:
 bash deploy/aws/despliegue.sh validate
 ```
 
-## Primer despliegue: entorno demo
+## Entorno demo: la solución completa en AWS, creada y destruida el mismo día
 
-El demo usa servidores simulados (usuarios `demo` y `analista`, contraseña `demo`), sin VPN ni datos del banco. Sirve
-para probar el camino completo. Su ALB es público pero solo acepta las IP que se indiquen; sin certificado va por HTTP.
+Todo corre en **una tarea de Fargate Spot**, sin RDS ni NAT:
 
-1. **Estado de Terraform**, una vez por cuenta:
-   ```bash
-   bash deploy/aws/despliegue.sh bootstrap us-east-1
-   ```
-2. **Redes permitidas**: en `terraform/envs/demo.tfvars`, poner en `alb_ingress_cidrs` las IP públicas del equipo (`curl https://checkip.amazonaws.com`, con `/32`).
-3. **Infraestructura** (unos 5 minutos; todavía sin tarea, porque no hay imágenes):
-   ```bash
-   bash deploy/aws/despliegue.sh apply demo
-   ```
-4. **Aplicación**: construye las imágenes del commit actual, las sube y arranca la tarea. Muestra el plan y pide confirmación.
-   ```bash
-   bash deploy/aws/despliegue.sh deploy demo
-   ```
-   Al terminar imprime la dirección del sitio. Con cambios sin commit: `ALLOW_DIRTY=1 bash deploy/aws/despliegue.sh deploy demo`.
-5. **Apagarlo** cuando no se use (cuesta aunque nadie entre):
-   ```bash
-   bash deploy/aws/despliegue.sh destroy demo
-   ```
+| Contenedor | Qué hace |
+|---|---|
+| `sqlserver` | SQL Server 2022 **Express** (licencia gratuita) con las cinco bases de `BancosSQL.zip` ya cargadas (datos 100 % ficticios) y la BD de trabajo `DiscoveryDataAgent`. Imagen de `deploy/aws/sqlserver/` |
+| `api` | Migra `DiscoveryDataAgent` al arrancar y sirve la API y el MCP |
+| `web` | El sitio, detrás del ALB |
+
+El modelo se elige en pantalla (Administración → Modelos de IA), en `terraform/config/models.aws.yaml`. El perfil
+por defecto es **Claude Sonnet 5.5 en Bedrock**: lo llama el rol de la tarea por la Messages API (`bedrock-mantle`),
+sin claves. Las alternativas son Claude Haiku 5.5 en Bedrock (unas 20 veces más barato), NVIDIA NIM y Claude por la
+API de Anthropic. Las claves de estos dos últimos van a Secrets Manager.
+
+**Por qué no RDS:** un RDS SQL Server Express (`db.t3.micro`) costaría lo mismo que el resto del demo junto y añadiría
+red y copias. Como contenedor, SQL Server solo suma 2 GB de memoria a la tarea, unos 0,25 USD al día en Spot. No se
+cambia de motor porque la solución descubre metadatos de SQL Server: con otro motor dejaría de mostrar lo que hace.
+
+### Antes de empezar
+
+- Docker Desktop en marcha, credenciales de AWS cargadas y, en el `.env` de la raíz, `NVIDIA_API_KEY` y `ANTHROPIC_API_KEY`.
+- En la consola de Bedrock (us-east-1), **acceso a Claude Sonnet 5.5 y Claude Haiku 5.5** (Model access). Sin él, el
+  perfil de Bedrock falla y el chat responde por su camino determinista; los otros perfiles siguen funcionando.
+
+### Crear
+
+```bash
+bash deploy/aws/despliegue.sh up demo         # unos 20 minutos la primera vez (la imagen de SQL carga las bases)
+```
+
+`up` crea el bucket del estado si falta y la infraestructura. Después carga las claves de LLM desde el `.env`,
+construye y sube las tres imágenes y arranca la tarea. Al terminar imprime la dirección y los datos de acceso
+(`credentials demo` los repite). Con `alb_ingress_cidrs = []` el ALB solo acepta la IP pública de quien ejecuta el
+script; para enseñarlo a otras personas, poner sus IP en el `.tfvars` y repetir `apply demo`.
+
+### Mostrar
+
+1. Entrar con autenticación SQL como `dda_admin`, servidor `localhost,1433`, «confiar en el certificado» y el código
+   de instalación. Esto registra el servidor.
+2. Administración → **Descubrir esquemas** (unos segundos: 5 bases, 42 objetos, 398 columnas, la entidad `Cliente`
+   en 4 bases y su linaje).
+3. Preguntar en el chat. Cambiar de modelo en Administración → Modelos de IA.
+4. Entrar como `analista`: solo ve `BancaCuentasDebito` y `BancaPrestamos`. El descubrimiento respeta los permisos.
+
+Cada arranque de la tarea (despliegue, `start` o una interrupción de Spot) parte de la imagen: hay que repetir los
+pasos 1 y 2.
+
+### Destruir
+
+```bash
+bash deploy/aws/despliegue.sh teardown demo   # destruye todo, también el bucket del estado
+```
+
+`teardown` lista al final lo que siga etiquetado con `app=discovery-data-agent`. Lo único que queda es la clave KMS en
+espera de borrado (AWS exige al menos 7 días). Entre medias, `stop demo` deja la tarea en 0 (no se paga Fargate) y
+`start demo` la vuelve a encender.
 
 ## Entornos qa y prod
 
@@ -119,6 +154,7 @@ Mientras tanto, el demo valida todo lo demás: imágenes, ECR, tarea, ALB, endpo
 | Volver a la anterior | `despliegue.sh rollback <entorno> <etiqueta>` (la etiqueta actual: `status`) |
 | Cambiar configuración | Editar el `.tfvars`, luego `plan` y `apply` |
 | Ver el estado | `despliegue.sh status <entorno>` |
+| Apagar o encender la tarea | `despliegue.sh stop\|start <entorno>` (o `schedule` en el `.tfvars`) |
 | Ver logs | `despliegue.sh logs <entorno> [api\|web\|builder]` |
 | Rotar un secreto | `despliegue.sh secret <entorno> <nombre>` y `restart` |
 | Refrescar el catálogo ya | `despliegue.sh builder-run <entorno>` |
@@ -132,10 +168,29 @@ cada despliegue.
 
 ## Coste orientativo
 
-Con precios de lista de `us-east-1`, que conviene comprobar: el demo ronda los **120–130 USD al mes** encendido todo
-el tiempo (los VPC endpoints unos 60, la tarea de 1 vCPU y 4 GB unos 45, el ALB unos 20). En qa y prod se suman la
-tarea mayor, la VPN (unos 36) y el reenvío de DNS (unos 180: es lo más caro; se evita si el banco acepta registrar los
-nombres en una zona privada de Route 53).
+Precios de lista de `us-east-1` (noviembre de 2026; comprobarlos en la calculadora de AWS). Se cobran por hora, así que
+un demo que se crea y se destruye el mismo día solo paga las horas que estuvo encendido.
+
+| Pieza del demo | USD por hora | USD por 24 h |
+|---|---|---|
+| ALB (hora fija y consumo bajo) | 0,025–0,030 | 0,60–0,75 |
+| 3 IPv4 públicas (2 del ALB, 1 de la tarea) | 0,015 | 0,36 |
+| Tarea Fargate Spot, 1 vCPU y 4 GB, con SQL Server Express (bajo demanda: 0,058/h) | ~0,018 | ~0,43 |
+| Clave KMS, 5 secretos, ECR (3 imágenes), logs, alarmas (prorrateo mensual) | ~0,005 | ~0,12 |
+| S3 del estado, SSM, EventBridge, tráfico de una demostración | ~0 | < 0,05 |
+| **Infraestructura** | **~0,065** | **~1,6** |
+| Claude Sonnet 5.5 en Bedrock (según uso; con Haiku, unas 20 veces menos) | — | ~0,5–3 |
+
+El modelo se paga por token. Una demostración con unas cien preguntas y un «Descubrir esquemas» con descripciones de
+IA ronda 1 USD con Sonnet. Los precios de Bedrock pueden diferir de los de Anthropic: conviene comprobarlos. NVIDIA NIM
+y la API de Anthropic se cobran fuera de AWS.
+
+Sin el perfil económico (VPC endpoints y Fargate bajo demanda) el mismo día cuesta unos 4 USD: los 5 endpoints de
+interfaz en dos zonas suman 0,10 USD por hora. Encendido todo el mes, la infraestructura del demo ronda los 50 USD (el ALB es más
+de la mitad) frente a los 120–130 del diseño de qa. Las llamadas a NVIDIA NIM no se cobran en AWS.
+
+En qa y prod se suman la tarea mayor, los VPC endpoints, la VPN (unos 36 USD al mes) y el reenvío de DNS (unos 180: es
+lo más caro; se evita si el banco acepta registrar los nombres en una zona privada de Route 53).
 
 ## Pendiente
 
