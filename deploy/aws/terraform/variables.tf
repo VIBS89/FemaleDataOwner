@@ -259,6 +259,26 @@ variable "sql_demo_login" {
   }
 }
 
+variable "catalog_seed" {
+  description = <<-EOT
+    Con sql_demo_login: catálogo que la API publica en la BD al arrancar, en lugar de descubrirlo y describirlo con el
+    modelo. Así el entorno de pruebas busca sobre el mismo catálogo y conocimiento con el que se miden los resultados.
+    root: directorio de la imagen con config/, catalog/ y knowledge/. knowledge: fuentes de conocimiento extra
+    (items/, rules/…) que se suman a las de root. server_id: id del servidor en ese catálogo, que recibe el SQL Server
+    de la tarea para que los permisos de cada login casen con los activos.
+  EOT
+  type = object({
+    root      = string
+    knowledge = optional(string)
+    server_id = string
+  })
+  default = null
+  validation {
+    condition     = var.catalog_seed == null || var.sql_demo_login
+    error_message = "catalog_seed necesita sql_demo_login = true (el SQL Server de la tarea registrado al arrancar)."
+  }
+}
+
 variable "sql_memory_mb" {
   description = "Memoria máxima de SQL Server dentro de la tarea (MSSQL_MEMORY_LIMIT_MB). SQL Server pide al menos 2000."
   type        = number

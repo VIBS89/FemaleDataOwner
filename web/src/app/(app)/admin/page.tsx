@@ -743,6 +743,7 @@ const ROLE_LABEL: Record<string, string> = {
   enrich: "Describir tablas nuevas",
   planner: "Interpretar y ordenar",
   judge: "Revisar",
+  coder: "Escribir la consulta de los datos",
 };
 
 const NO_MODEL = "none";
