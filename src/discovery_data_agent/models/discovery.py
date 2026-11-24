@@ -111,6 +111,15 @@ class Validation(BaseModel):
     attempts: int = 1
 
 
+class ChartSpec(BaseModel):
+    """Gráfico que conviene para el resultado: lo sugiere el LLM y lo confirma `ask.engine.chart_for` contra los datos."""
+
+    kind: Literal["bar", "pie"]
+    label_column: str  # categorías (eje o porciones)
+    value_column: str  # la medida, numérica
+    title: str = ""
+
+
 class DataAnswer(BaseModel):
     """Respuesta con datos del AskFlow (F6–F10): la cifra o la tabla, y la evidencia de dónde salió.
 
@@ -127,6 +136,7 @@ class DataAnswer(BaseModel):
     tables: list[str] = Field(default_factory=list)
     explanation: str = ""  # cómo se calculó, en lenguaje sencillo
     filters: list[str] = Field(default_factory=list)  # criterios aplicados, en lenguaje sencillo
+    chart: ChartSpec | None = None  # gráfico sugerido; None = tabla o cifra sola
 
     def redacted(self) -> "DataAnswer":
         return self.model_copy(update={"rows": []})

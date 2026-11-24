@@ -32,6 +32,14 @@ Reglas de las frases (escribe siempre las dos; se usa la que corresponda al resu
 - `list_intro`, para varias filas (un listado o un desglose): una frase que presente la tabla; solo admite {filas}.
   Ejemplo: "Estos son los {filas} estados de los préstamos, con cuántos hay y su saldo total:".
 - No escribas números tú mismo. No menciones tablas, columnas, SQL ni bases de datos.
+
+Gráfico (`chart`): decide si ayuda a entender el resultado, pensando en una persona de negocio.
+- "bar": una medida comparada entre categorías (por departamento, por estado, top N) o su evolución en el tiempo
+  (por mes, por año). Ordena el SELECT de forma útil (mayor a menor, o cronológico).
+- "pie": el reparto de un total entre pocas categorías (hasta 6) cuando importa la proporción ("qué porcentaje",
+  "cómo se distribuye", "participación"). Nunca con valores negativos ni con promedios o tasas.
+- "none": una cifra sola, un listado de registros (préstamos, clientes) o varias medidas en escalas distintas.
+`label_column` y `value_column` son alias exactos del SELECT; `title`, un título corto sin cifras.
 Si recibes errores de un intento anterior, corrige la consulta."""
 
 

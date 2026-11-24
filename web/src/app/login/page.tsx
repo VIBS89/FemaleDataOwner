@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, KeyRound, Loader2, Server, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, DatabaseZap, KeyRound, Loader2, Server, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Brand } from "@/components/brand";
@@ -72,36 +72,39 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[1.1fr_1fr]">
-      <aside className="from-primary relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br to-[oklch(0.32_0.12_262)] p-10 text-white lg:flex">
+      <aside className="bg-brand-gradient relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-white/15 backdrop-blur">
-            <Sparkles className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-white text-brand shadow-sm">
+            <DatabaseZap className="size-5" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Discovery Data Agent</span>
+          <div className="grid leading-tight">
+            <span className="font-heading text-xl font-extrabold tracking-tight">Discovery Data Agent</span>
+            <span className="text-xs text-white/75">Gerencia de Datos · Banco Atlántida El Salvador</span>
+          </div>
         </div>
         <div className="max-w-md space-y-6">
-          <h1 className="text-3xl leading-tight font-semibold tracking-tight">
+          <h1 className="text-[2rem] leading-tight font-extrabold tracking-tight text-balance">
             Pregunta en español dónde está un dato. El agente te dice dónde vive, qué significa y cuánto confiar.
           </h1>
-          <ul className="space-y-3 text-sm text-white/85">
+          <ul className="space-y-3 text-[15px] text-white/90">
             {[
               "Base de datos, tabla, ambiente y servidor de cada candidato",
               "Descripción con su fuente, reglas de negocio, relaciones y responsables",
               "Solo ves lo que tu login de base de datos ya puede leer",
             ].map((t) => (
               <li key={t} className="flex gap-2.5">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-white/70" />
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-white" />
                 {t}
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-xs text-white/60">Los datos de clientes no salen del banco: el catálogo guarda solo metadatos.</p>
-        <div className="pointer-events-none absolute -right-24 -bottom-24 size-96 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -top-16 right-24 size-56 rounded-full bg-white/5" />
+        <p className="text-xs text-white/75">Los datos de clientes no salen del banco: el catálogo guarda solo metadatos.</p>
+        <div className="pointer-events-none absolute -right-24 -bottom-24 size-96 rounded-full border-[40px] border-white/[0.06]" />
+        <div className="pointer-events-none absolute -top-16 right-24 size-56 rounded-full bg-white/[0.06]" />
       </aside>
 
-      <main className="flex items-center justify-center p-4 sm:p-8">
+      <main className="flex items-center justify-center border-t-4 border-brand p-4 sm:p-8 lg:border-t-0">
         <div className="w-full max-w-md space-y-6">
           <div className="lg:hidden">
             <Brand />
@@ -126,7 +129,7 @@ export default function LoginPage() {
                       <Sparkles className="size-3" /> Configuración inicial
                     </Badge>
                   )}
-                  <CardTitle className="text-xl">{firstRun ? "Conecta el agente a tu SQL Server" : "Inicia sesión"}</CardTitle>
+                  <CardTitle className="text-2xl font-bold">{firstRun ? "Conecta el agente a tu SQL Server" : "Inicia sesión"}</CardTitle>
                   <CardDescription>
                     {firstRun
                       ? "Aún no hay catálogo. Entra con un login que pueda ver la definición de las bases (VIEW ANY DEFINITION) y el agente descubrirá los esquemas."

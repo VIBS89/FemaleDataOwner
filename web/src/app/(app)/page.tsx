@@ -211,7 +211,7 @@ function Welcome({ name, onPick }: { name: string; onPick: (q: string) => void }
       <div className="bg-primary/10 text-primary mb-5 flex size-14 items-center justify-center rounded-2xl">
         <Sparkles className="size-6" />
       </div>
-      <h2 className="text-2xl font-semibold tracking-tight">Hola, {name.replace(/^.*\\/, "")}. ¿Qué dato buscas?</h2>
+      <h2 className="text-[1.75rem] font-extrabold tracking-tight">Hola, {name.replace(/^.*\\/, "")}. ¿Qué dato buscas?</h2>
       <p className="text-muted-foreground mt-2 max-w-lg text-sm">
         Te digo en qué base, tabla y columna está, qué significa, qué reglas aplican, con qué se relaciona y cuánta confianza merece.
       </p>

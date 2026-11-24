@@ -8,6 +8,16 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 
+class ChartSuggestion(BaseModel):
+    kind: Literal["bar", "pie", "none"] = Field(
+        description="bar: comparar una medida entre categorías, rankings o evolución en el tiempo. pie: partes de un "
+                    "total (porcentajes o reparto) con pocas categorías, todas positivas. none: una cifra sola, un "
+                    "listado de registros o varias medidas que no se comparan en una sola escala.")
+    label_column: str = Field(default="", description="Alias de la columna con las categorías")
+    value_column: str = Field(default="", description="Alias de la columna numérica que se grafica")
+    title: str = Field(default="", description="Título corto del gráfico, en lenguaje de negocio")
+
+
 class SqlPlan(BaseModel):
     """Lo que devuelve el planner. Nunca ve los resultados: la frase lleva marcadores que se rellenan después."""
 
@@ -24,6 +34,9 @@ class SqlPlan(BaseModel):
     explanation: str = Field(description="Cómo se calculó, en una o dos frases sencillas, sin nombres técnicos")
     filters: list[str] = Field(default_factory=list,
                                description="Criterios aplicados en lenguaje sencillo, p. ej. 'Solo préstamos vigentes'")
+    chart: ChartSuggestion = Field(
+        default_factory=lambda: ChartSuggestion(kind="none"),
+        description="Si un gráfico ayuda a entender el resultado y cuál. Se decide antes de ver los datos.")
 
 
 class QuestionInterpretation(BaseModel):

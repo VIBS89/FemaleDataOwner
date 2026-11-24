@@ -22,13 +22,13 @@ import re
 import time
 from dataclasses import dataclass, field
 
-from discovery_data_agent.ask.ports import (QueryExecutor, QueryRejected, QueryResult, QuestionInterpretation,
-                                  QuestionInterpreter, SqlPlan, SqlPlanner)
+from discovery_data_agent.ask.ports import (ChartSuggestion, QueryExecutor, QueryRejected, QueryResult,
+                                            QuestionInterpretation, QuestionInterpreter, SqlPlan, SqlPlanner)
 from discovery_data_agent.ask.validator import ValidationError, validate
 from discovery_data_agent.catalog.ids import table_key
 from discovery_data_agent.catalog.store import Catalog
 from discovery_data_agent.models.catalog import CatalogObject, Column
-from discovery_data_agent.models.discovery import DataAnswer, Discovery
+from discovery_data_agent.models.discovery import ChartSpec, DataAnswer, Discovery
 from discovery_data_agent.models.identity import UserContext
 
 MAX_ATTEMPTS = 3
@@ -256,6 +256,7 @@ class AskEngine:
                 row_count=len(result.rows), truncated=result.truncated, sql=checked.sql, database=checked.database,
                 server=executor.server_label(server), tables=checked.tables,
                 explanation=plan.explanation.strip(), filters=[f for f in plan.filters if f.strip()],
+                chart=chart_for(plan.chart, result),
             )
             if result.truncated:
                 outcome.notes.append(f"Muestro las primeras {self.max_rows} filas; hay más resultados.")
@@ -306,6 +307,42 @@ def _fill(template: str, result: QueryResult, question: str, allow_columns: bool
     return PLACEHOLDER.sub(
         lambda m: format_value(len(result.rows)) if m.group(1).lower() == "filas"
         else format_value(row[columns[m.group(1).lower()]]), template).strip()
+
+
+# --- gráfico ------------------------------------------------------------------------------
+MAX_BAR_ROWS = 30  # más categorías no se leen en un gráfico: queda la tabla
+MAX_PIE_ROWS = 12  # la web muestra hasta 6 porciones y agrupa el resto en "Otros"
+
+
+def _number(value) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float, decimal.Decimal)):
+        return float(value)
+    return None
+
+
+def chart_for(suggestion: ChartSuggestion | None, result: QueryResult) -> ChartSpec | None:
+    """El LLM decide si conviene un gráfico antes de ver los datos; aquí se confirma que el resultado lo sostiene:
+    columnas existentes, la medida numérica en todas las filas, un número de categorías legible y, en un pastel,
+    solo valores positivos (un reparto con negativos o en cero no es un pastel). Si no, no hay gráfico."""
+    if suggestion is None or suggestion.kind == "none":
+        return None
+    columns = {c.lower(): i for i, c in enumerate(result.columns)}
+    label, value = columns.get(suggestion.label_column.lower()), columns.get(suggestion.value_column.lower())
+    if label is None or value is None or label == value:
+        return None
+    rows = result.rows
+    limit = MAX_PIE_ROWS if suggestion.kind == "pie" else MAX_BAR_ROWS
+    if not 2 <= len(rows) <= limit or result.truncated:
+        return None
+    numbers = [_number(r[value]) for r in rows]
+    if any(n is None for n in numbers):
+        return None
+    if suggestion.kind == "pie" and (any(n < 0 for n in numbers) or sum(numbers) <= 0):
+        return None
+    return ChartSpec(kind=suggestion.kind, label_column=result.columns[label], value_column=result.columns[value],
+                     title=suggestion.title.strip())
 
 
 def fill_answer(template: str, result: QueryResult, question: str, list_intro: str = "") -> str:

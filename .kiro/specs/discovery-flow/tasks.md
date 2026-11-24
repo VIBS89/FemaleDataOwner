@@ -1,0 +1,30 @@
+# Tareas: DiscoverFlow
+
+- [x] 1. Recuperación léxica filtrada por visibilidad
+  - BM25 en memoria sobre columnas, tablas, conocimiento y golden discovery
+  - _Requisitos: 1.1, 4.1_
+- [x] 2. Grafo del patrimonio y agrupación por activo lógico
+  - Entidades entre bases, copias canónicas, aviso de ambientes que difieren
+  - _Requisitos: 1.3, 1.4_
+- [x] 3. Confianza calibrada y brechas de conocimiento
+  - `compute_confidence`, umbral 0,6, calificativos desconocidos y literales
+  - _Requisitos: 2.1, 2.2, 2.3_
+- [x] 4. Grafo de LangGraph `intent → retrieve ⇄ grade → rerank → expand ⇄ review → respond → finalize`
+  - _Requisitos: 1.1, 3.1_
+- [x] 5. Chat de negocio
+  - [x] 5.1 Respuestas fijas sobre el asistente y cortesía (_Requisito 3.5_)
+  - [x] 5.2 Seguimientos con el historial (_Requisito 3.3_)
+  - [x] 5.3 Aclaración no bloqueante por áreas (_Requisito 3.2_)
+  - [x] 5.4 Rechazo de órdenes de escritura (_Requisito 3.4_)
+- [x] 6. Reformulación con LLM medida contra el catálogo (`LlmQueryExpander`)
+  - _Requisito: 3.1_
+- [x] 7. Guardas de texto generado y modo determinista sin modelo
+  - _Requisitos: 4.2, 4.4_
+- [x] 8. Auditoría fail-closed de cada pregunta
+  - _Requisito: 4.3_
+- [x] 9. Evaluación por tipo de pregunta y compuerta `eval gate` en la CI
+  - _Requisitos: 5.1, 5.2_
+- [ ] 10. Medir el flujo con Amazon Bedrock en `eval discovery` y fijar su línea base
+  - _Requisitos: 1.5, 5.1_
+- [ ] 11. Reunir 50–80 preguntas reales del banco y medir contra ellas
+  - _Requisito: 5.1_

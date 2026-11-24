@@ -303,3 +303,43 @@ def test_sin_fase_1b_la_plantilla_sigue_diciendo_por_que_no_calcula():
                   sql_executor=FakeExecutor())
     assert env.flow == "discover" and env.data is None
     assert any(a.startswith("No calculé la cifra") for a in env.assumptions)
+
+
+# --- gráficos: la IA sugiere, los datos confirman ------------------------------------------------------------
+from discovery_data_agent.ask.engine import chart_for  # noqa: E402
+from discovery_data_agent.ask.ports import ChartSuggestion  # noqa: E402
+
+ESTADOS = QueryResult(["estado", "total"], [["Vigente", 1796], ["Cancelado", 793], ["En mora", 80]])
+
+
+def test_un_desglose_se_grafica_como_lo_sugiere_la_ia():
+    chart = chart_for(ChartSuggestion(kind="bar", label_column="Estado", value_column="TOTAL", title="Préstamos"), ESTADOS)
+    assert (chart.kind, chart.label_column, chart.value_column, chart.title) == ("bar", "estado", "total", "Préstamos")
+    assert chart_for(ChartSuggestion(kind="pie", label_column="estado", value_column="total"), ESTADOS).kind == "pie"
+
+
+@pytest.mark.parametrize("suggestion, result", [
+    (ChartSuggestion(kind="none"), ESTADOS),  # la IA dijo que no
+    (ChartSuggestion(kind="bar", label_column="estado", value_column="no_existe"), ESTADOS),
+    (ChartSuggestion(kind="bar", label_column="estado", value_column="estado"), ESTADOS),
+    (ChartSuggestion(kind="bar", label_column="estado", value_column="total"), QueryResult(["estado", "total"], [["A", 1]])),
+    (ChartSuggestion(kind="bar", label_column="estado", value_column="total"),
+     QueryResult(["estado", "total"], [["A", 1], ["B", None]])),  # una medida vacía
+    (ChartSuggestion(kind="pie", label_column="estado", value_column="total"),
+     QueryResult(["estado", "total"], [["A", 5], ["B", -2]])),  # un pastel no reparte negativos
+    (ChartSuggestion(kind="pie", label_column="estado", value_column="total"),
+     QueryResult(["estado", "total"], [[str(i), 1] for i in range(13)])),  # demasiadas porciones
+    (ChartSuggestion(kind="bar", label_column="estado", value_column="total"),
+     QueryResult(["estado", "total"], [["A", 1], ["B", 2]], truncated=True)),
+])
+def test_sin_datos_que_lo_sostengan_no_hay_grafico(suggestion, result):
+    assert chart_for(suggestion, result) is None
+
+
+def test_la_respuesta_lleva_el_grafico_confirmado(service, analyst):
+    p = plan(sql="SELECT OnboardingStatus AS estado, COUNT(*) AS total FROM [VBank_ING].[dbo].[Users] "
+                 "GROUP BY OnboardingStatus")
+    p.chart = ChartSuggestion(kind="pie", label_column="estado", value_column="total", title="Clientes por estado")
+    env = ask_service(service, FakePlanner(p)).run(Q, analyst, sql_executor=FakeExecutor(
+        QueryResult(["estado", "total"], [["COMPLETO", 10], ["PENDIENTE", 3]])))
+    assert env.data.chart.kind == "pie" and env.data.chart.title == "Clientes por estado"
