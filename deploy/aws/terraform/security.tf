@@ -52,7 +52,7 @@ resource "aws_kms_alias" "this" {
 
 # --- ECR: etiquetas inmutables y análisis al subir ---
 resource "aws_ecr_repository" "this" {
-  for_each             = toset(["api", "web"])
+  for_each             = toset(concat(["api", "web"], var.sql_sidecar ? ["sqlserver"] : []))
   name                 = "${local.name}/${each.key}"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = !local.production
@@ -73,8 +73,8 @@ resource "aws_ecr_lifecycle_policy" "this" {
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "Conserva las 20 imagenes mas recientes"
-      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = 20 }
+      description  = "Conserva las ${var.ecr_keep_images} imagenes mas recientes"
+      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = var.ecr_keep_images }
       action       = { type = "expire" }
     }]
   })
@@ -82,7 +82,8 @@ resource "aws_ecr_lifecycle_policy" "this" {
 
 # --- Secretos de servicio (nunca logins de usuarios: CN-03 CA2) ---
 # El código de instalación lo genera Terraform; los demás se crean vacíos y su valor se carga con
-# `despliegue.sh secret <entorno> <nombre>`, para que no pase por el estado ni por el repositorio.
+# `despliegue.sh secret <entorno> <nombre>`, para que no pase por el estado ni por el repositorio. Excepción: con
+# sql_sidecar (solo pruebas) Terraform genera las contraseñas de SQL Server y quedan en el estado, cifrado con KMS.
 resource "random_password" "setup_token" {
   count   = var.demo ? 0 : 1
   length  = 40
@@ -107,6 +108,15 @@ resource "aws_secretsmanager_secret" "db" {
   count                   = var.db_secret_enabled ? 1 : 0
   name                    = "discovery-data-agent/${var.environment}/db"
   description             = "DISCOVERY_DATA_AGENT_DB: cadena ODBC de la BD DiscoveryDataAgent"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = local.production ? 30 : 0
+}
+
+# Claves de proveedores de LLM externos (llm_api_key_envs). Solo las recibe la API.
+resource "aws_secretsmanager_secret" "llm" {
+  for_each                = local.llm_secrets
+  name                    = "discovery-data-agent/${var.environment}/${each.key}"
+  description             = "${each.value}: clave del proveedor de LLM"
   kms_key_id              = aws_kms_key.this.arn
   recovery_window_in_days = local.production ? 30 : 0
 }
@@ -136,7 +146,10 @@ data "aws_iam_policy_document" "assume_ecs_tasks" {
 }
 
 locals {
-  api_secret_arns = concat(aws_secretsmanager_secret.setup_token[*].arn, aws_secretsmanager_secret.db[*].arn)
+  api_secret_arns = concat(
+    aws_secretsmanager_secret.setup_token[*].arn, aws_secretsmanager_secret.db[*].arn,
+    [for s in aws_secretsmanager_secret.llm : s.arn], aws_secretsmanager_secret.sql[*].arn,
+  )
   builder_secret_arns = concat(
     aws_secretsmanager_secret.db[*].arn, [for s in aws_secretsmanager_secret.metadata : s.arn]
   )
@@ -202,6 +215,26 @@ resource "aws_iam_role_policy" "bedrock" {
   name     = "bedrock"
   role     = aws_iam_role.task[each.key].id
   policy   = data.aws_iam_policy_document.bedrock.json
+}
+
+# Claude en Bedrock por la Messages API (bedrock-mantle). Los modelos concretos los elige el models.yaml.
+data "aws_iam_policy_document" "bedrock_mantle" {
+  statement {
+    actions   = ["bedrock-mantle:CreateInference"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = [var.region]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "bedrock_mantle" {
+  count  = var.bedrock_mantle ? 1 : 0
+  name   = "bedrock-mantle"
+  role   = aws_iam_role.task["api"].id
+  policy = data.aws_iam_policy_document.bedrock_mantle.json
 }
 
 data "aws_iam_policy_document" "ecs_exec" {

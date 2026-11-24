@@ -64,8 +64,10 @@ resource "aws_route_table_association" "public" {
 }
 
 # --- VPC endpoints: lo único que la tarea alcanza de AWS ---
+# Con public_task (demo) no hay ninguno de interfaz: la tarea llega a ECR, Logs y Secrets Manager por internet. Cada
+# endpoint de interfaz cuesta unos 15 USD/mes (dos zonas), y son el gasto mayor del demo.
 locals {
-  interface_endpoints = toset(concat(
+  interface_endpoints = var.public_task ? toset([]) : toset(concat(
     ["ecr.api", "ecr.dkr", "logs", "secretsmanager"],
     local.bedrock_enabled ? ["bedrock-runtime"] : [],
     var.enable_ecs_exec ? ["ssmmessages"] : [],
@@ -160,4 +162,15 @@ resource "aws_vpc_security_group_egress_rule" "task_to_sql" {
   ip_protocol       = "tcp"
   from_port         = 1433
   to_port           = 1433
+}
+
+# Solo con public_task: salida HTTPS a internet (AWS por sus direcciones públicas y el proveedor de LLM externo).
+resource "aws_vpc_security_group_egress_rule" "task_to_internet" {
+  count             = var.public_task ? 1 : 0
+  security_group_id = aws_security_group.task.id
+  description       = "HTTPS a internet (solo demo)"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
 }

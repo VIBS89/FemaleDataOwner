@@ -364,9 +364,9 @@
       "dot": "amber",
       "title": "Estado",
       "items": [
-        "Nada de esto está desplegado: es el destino después del piloto on-premise",
-        "Especificado en CN-01 a CN-06; no hay infraestructura como código en el repo",
-        "Por confirmar con Seguridad: Guardrails y si la VPN puede llevar tráfico de usuarios"
+        "Destino de qa y prod; todavía sin desplegar",
+        "Infraestructura como código en deploy/aws (Terraform y despliegue.sh); bloqueos en la hoja de ruta cloud §5",
+        "El entorno demo, sin VPN ni banco, está en aws-demo-architecture"
       ]
     }
   ]

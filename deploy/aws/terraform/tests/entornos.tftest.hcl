@@ -155,3 +155,125 @@ run "qa_desplegado" {
     error_message = "El Builder queda programado."
   }
 }
+
+# Perfil económico del demo: sin endpoints de interfaz, tarea pública en Spot, horario y clave de NIM.
+run "demo_economico" {
+  command = plan
+  variables {
+    public_task      = true
+    fargate_spot     = true
+    schedule         = { enabled = true }
+    models_yaml_file = "config/models.aws.yaml"
+    llm_api_key_envs = ["NVIDIA_API_KEY"]
+    image_tag        = "abc123def456"
+  }
+
+  assert {
+    condition     = length(aws_vpc_endpoint.interface) == 0 && length(aws_vpc_security_group_egress_rule.task_to_internet) == 1
+    error_message = "Con public_task no hay endpoints de interfaz y la tarea sale por HTTPS a internet."
+  }
+  assert {
+    condition     = aws_ecs_service.app[0].network_configuration[0].assign_public_ip
+    error_message = "La tarea lleva IP pública (no hay NAT)."
+  }
+  assert {
+    condition     = one(aws_ecs_service.app[0].capacity_provider_strategy).capacity_provider == "FARGATE_SPOT"
+    error_message = "La tarea corre en Fargate Spot."
+  }
+  assert {
+    condition     = length(aws_scheduler_schedule.service) == 2
+    error_message = "Hay un horario de encendido y otro de apagado."
+  }
+  assert {
+    condition     = contains([for s in local.api_secrets : s.name], "NVIDIA_API_KEY") && length(aws_secretsmanager_secret.llm) == 1
+    error_message = "La clave de NIM es un secreto que solo recibe la API."
+  }
+}
+
+run "qa_sin_atajos_de_coste" {
+  command = plan
+  variables {
+    environment              = "qa"
+    discovery_data_agent_env = "qa"
+    demo                     = false
+    alb_internal             = true
+    alb_ingress_cidrs        = ["10.0.0.0/16"]
+    domain_name              = "discovery-data-agent-qa.banco.local"
+    certificate_arn          = "arn:aws:acm:us-east-1:111111111111:certificate/00000000-0000-0000-0000-000000000000"
+    admins                   = ["admin_datos"]
+    db_secret_enabled        = true
+    fargate_spot             = true
+  }
+  expect_failures = [terraform_data.validaciones]
+}
+
+# El entorno demo completo: SQL Server Express en la tarea, Claude en Bedrock y perfiles de NIM y Anthropic.
+run "demo_completo_en_aws" {
+  command = plan
+  variables {
+    demo              = false
+    public_task       = true
+    fargate_spot      = true
+    task_memory       = 4096
+    sql_sidecar       = true
+    db_secret_enabled = true
+    admins            = ["dda_admin"]
+    models_yaml_file  = "config/models.aws.yaml"
+    bedrock_mantle    = true
+    llm_api_key_envs  = ["NVIDIA_API_KEY", "ANTHROPIC_API_KEY"]
+    image_tag         = "abc123def456"
+  }
+
+  assert {
+    condition     = contains(keys(aws_ecr_repository.this), "sqlserver") && length(aws_secretsmanager_secret_version.db) == 1
+    error_message = "Con sql_sidecar hay repositorio de la imagen de SQL Server y la cadena de la BD la escribe Terraform."
+  }
+  assert {
+    condition     = [for c in local.app_containers : c.name] == ["sqlserver", "api", "api-eventos", "web"]
+    error_message = "La tarea lleva SQL Server, la API, su puente de logs y la web."
+  }
+  assert {
+    condition     = local.app_containers[1].dependsOn[0].containerName == "sqlserver"
+    error_message = "La API espera a que SQL Server esté sano."
+  }
+  assert {
+    condition     = strcontains(local.app_containers[1].command[2], "discovery-data-agent db migrate && exec uvicorn")
+    error_message = "La API migra la BD DiscoveryDataAgent antes de arrancar."
+  }
+  assert {
+    condition     = length(aws_iam_role_policy.bedrock_mantle) == 1 && length(aws_secretsmanager_secret.llm) == 2
+    error_message = "La API puede llamar a Claude en Bedrock y recibe las claves de NIM y Anthropic."
+  }
+}
+
+run "sql_sidecar_sin_memoria" {
+  command = plan
+  variables {
+    demo              = false
+    sql_sidecar       = true
+    db_secret_enabled = true
+    task_memory       = 2048
+  }
+  expect_failures = [terraform_data.validaciones]
+}
+
+# Los atajos del demo (salida a internet, claves de LLM de terceros) nunca junto a la red del banco.
+run "demo_con_red_del_banco" {
+  command = plan
+  variables {
+    public_task      = true
+    llm_api_key_envs = ["NVIDIA_API_KEY"]
+    sql_server_cidrs = ["10.20.30.0/24"]
+  }
+  expect_failures = [terraform_data.validaciones]
+}
+
+# Una pila llamada prod no acepta los atajos aunque la API diga dev.
+run "prod_por_nombre" {
+  command = plan
+  variables {
+    environment  = "prod"
+    fargate_spot = true
+  }
+  expect_failures = [terraform_data.validaciones]
+}

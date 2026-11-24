@@ -1,6 +1,7 @@
 locals {
-  name       = "discovery-data-agent-${var.environment}"
-  production = contains(["qa", "prod"], var.discovery_data_agent_env)
+  name = "discovery-data-agent-${var.environment}"
+  # Producción por la variable de la API o por el nombre de la pila: los atajos de coste no valen en ninguna de las dos.
+  production = contains(["qa", "prod"], var.discovery_data_agent_env) || contains(["qa", "prod"], var.environment)
   account_id = data.aws_caller_identity.current.account_id
   partition  = data.aws_partition.current.partition
   azs        = slice(data.aws_availability_zones.available.names, 0, 2)
@@ -19,6 +20,13 @@ locals {
   bedrock_enabled = length(var.bedrock_resource_arns) > 0
   builder_enabled = var.builder.enabled && local.deployed
 
+  # Subredes de las tareas: privadas, salvo con public_task (solo demo), que usa las públicas del ALB.
+  task_subnet_ids = var.public_task ? aws_subnet.public[*].id : aws_subnet.private[*].id
+  # Secretos con claves de LLM externos: nombre del secreto (nvidia-api-key) => variable (NVIDIA_API_KEY).
+  llm_secrets = { for e in var.llm_api_key_envs : lower(replace(e, "_", "-")) => e }
+
+  # Con la BD en la tarea (sql_sidecar), la API la migra antes de arrancar: cada arranque parte de una BD vacía.
+  migrate = var.sql_sidecar ? "discovery-data-agent db migrate && " : ""
   uvicorn = "exec uvicorn discovery_data_agent_api.main:app --app-dir api --host 0.0.0.0 --port 8000 --workers 1"
   # El models.yaml no va en la imagen: llega como variable y el arranque lo escribe en /tmp.
   write_models = "printf '%s' \"$DISCOVERY_DATA_AGENT_MODELS_YAML\" > /tmp/models.yaml"
@@ -58,6 +66,27 @@ resource "terraform_data" "validaciones" {
     precondition {
       condition     = !var.builder.enabled || (var.db_secret_enabled && length(var.builder.hosts) > 0)
       error_message = "El Builder necesita db_secret_enabled = true y builder.hosts (DISCOVERY_DATA_AGENT_BUILDER_HOSTS)."
+    }
+    precondition {
+      condition     = !local.production || !(var.public_task || var.fargate_spot || var.schedule.enabled)
+      error_message = "Con discovery_data_agent_env qa o prod no se usan public_task, fargate_spot ni schedule: son atajos de coste del demo."
+    }
+    precondition {
+      condition = (!(var.public_task || var.sql_sidecar || length(var.llm_api_key_envs) > 0)
+      || (var.vpn == null && length(var.sql_server_cidrs) == 0 && var.onprem_dns == null))
+      error_message = "public_task, sql_sidecar y llm_api_key_envs son del entorno de pruebas: no se combinan con la VPN ni con SQL Server del banco (los datos reales saldrían a internet o a proveedores de prueba)."
+    }
+    precondition {
+      condition     = !var.sql_sidecar || (!local.production && !var.demo && var.db_secret_enabled)
+      error_message = "sql_sidecar es para entornos de prueba sin modo demo y necesita db_secret_enabled = true."
+    }
+    precondition {
+      condition     = !var.sql_sidecar || var.task_memory >= var.sql_memory_mb + 1536
+      error_message = "task_memory no alcanza para SQL Server (sql_memory_mb) más la API y la web (unos 1,5 GB)."
+    }
+    precondition {
+      condition     = !var.public_task || !var.alb_internal
+      error_message = "public_task usa las subredes públicas, que solo existen con alb_internal = false."
     }
     precondition {
       condition     = !local.bedrock_enabled || var.models_yaml_file != null

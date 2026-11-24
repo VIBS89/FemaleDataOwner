@@ -8,8 +8,14 @@ resource "aws_ecs_cluster" "this" {
   }
 }
 
+# FARGATE_SPOT solo se usa con fargate_spot = true; tenerlo disponible no cuesta nada.
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  cluster_name       = aws_ecs_cluster.this.name
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+}
+
 resource "aws_cloudwatch_log_group" "this" {
-  for_each          = toset(["api", "web", "builder"])
+  for_each          = toset(concat(["api", "web", "builder"], var.sql_sidecar ? ["sqlserver"] : []))
   name              = "/discovery-data-agent/${var.environment}/${each.key}"
   retention_in_days = var.log_retention_days
   kms_key_id        = aws_kms_key.this.arn
@@ -17,8 +23,8 @@ resource "aws_cloudwatch_log_group" "this" {
 
 locals {
   log_configuration = {
-    for name, prefix in { api = "api", eventos = "eventos", web = "web", builder = "builder" } : name => {
-      logDriver               = "awslogs"
+    for name, prefix in merge({ api = "api", eventos = "eventos", web = "web", builder = "builder" }, var.sql_sidecar ? { sqlserver = "sqlserver" } : {}) : name => {
+      logDriver = "awslogs"
       options = {
         "awslogs-group"         = aws_cloudwatch_log_group.this[name == "eventos" ? "api" : name].name
         "awslogs-region"        = var.region
@@ -57,38 +63,24 @@ locals {
   api_secrets = concat(
     [for s in aws_secretsmanager_secret.setup_token : { name = "DISCOVERY_DATA_AGENT_SETUP_TOKEN", valueFrom = s.arn }],
     [for s in aws_secretsmanager_secret.db : { name = "DISCOVERY_DATA_AGENT_DB", valueFrom = s.arn }],
+    [for k, e in local.llm_secrets : { name = e, valueFrom = aws_secretsmanager_secret.llm[k].arn }],
   )
 
   data_mount = [{ sourceVolume = "data", containerPath = "/app/data", readOnly = false }]
 }
 
-resource "aws_ecs_task_definition" "app" {
-  count                    = local.deployed ? 1 : 0
-  family                   = local.name
-  requires_compatibilities = ["FARGATE"]
-  network_mode             = "awsvpc"
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
-  execution_role_arn       = aws_iam_role.execution["api"].arn
-  task_role_arn            = aws_iam_role.task["api"].arn
-
-  runtime_platform {
-    operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
-  }
-
-  # Disco efímero de la tarea, no persistente (CN-06): desaparece al parar. Con DISCOVERY_DATA_AGENT_DB solo lleva los logs.
-  volume {
-    name = "data"
-  }
-
-  container_definitions = jsonencode([
-    {
-      name      = "api"
-      image     = local.api_image
-      essential = true
+# Contenedores de la tarea web + API (y SQL Server con sql_sidecar).
+locals {
+  app_containers = concat(local.sql_container, [
+    merge(var.sql_sidecar ? { dependsOn = [{ containerName = "sqlserver", condition = "HEALTHY" }] } : {}, {
+      name                              = "api"
+      image                             = local.api_image
+      essential                         = true
       # Sin models.yaml vale el CMD de la imagen; con él, el arranque lo escribe antes de lanzar el mismo uvicorn.
-      command          = local.models_yaml == null ? split(" ", trimprefix(local.uvicorn, "exec ")) : ["sh", "-c", "${local.write_models} && ${local.uvicorn}"]
+      command = (local.models_yaml == null && !var.sql_sidecar
+        ? split(" ", trimprefix(local.uvicorn, "exec "))
+        : ["sh", "-c", join(" && ", compact([local.models_yaml == null ? "" : local.write_models, "${local.migrate}${local.uvicorn}"]))]
+      )
       portMappings     = [{ containerPort = 8000, protocol = "tcp" }]
       environment      = [for k, v in local.api_env : { name = k, value = v }]
       secrets          = local.api_secrets
@@ -102,7 +94,7 @@ resource "aws_ecs_task_definition" "app" {
         retries     = 3
         startPeriod = 60
       }
-    },
+    }),
     {
       # Puente hasta que la API escriba sus logs en la salida estándar (CN-01 §Dependencias, punto 2): hoy van al
       # archivo de DISCOVERY_DATA_AGENT_LOG_DIR, y este contenedor los lleva a CloudWatch. Se quita con ese cambio de código.
@@ -130,17 +122,41 @@ resource "aws_ecs_task_definition" "app" {
   ])
 }
 
+resource "aws_ecs_task_definition" "app" {
+  count                    = local.deployed ? 1 : 0
+  family                   = local.name
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
+  execution_role_arn       = aws_iam_role.execution["api"].arn
+  task_role_arn            = aws_iam_role.task["api"].arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+
+  # Disco efímero de la tarea, no persistente (CN-06): desaparece al parar. Con DISCOVERY_DATA_AGENT_DB solo lleva los logs.
+  volume {
+    name = "data"
+  }
+
+  container_definitions = jsonencode(local.app_containers)
+}
+
 resource "aws_ecs_service" "app" {
-  count                             = local.deployed ? 1 : 0
-  name                              = local.name
-  cluster                           = aws_ecs_cluster.this.id
-  task_definition                   = aws_ecs_task_definition.app[0].arn
-  launch_type                       = "FARGATE"
-  platform_version                  = "LATEST"
-  desired_count                     = 1
-  enable_execute_command            = var.enable_ecs_exec
-  availability_zone_rebalancing     = "DISABLED"
-  health_check_grace_period_seconds = 120
+  count                         = local.deployed ? 1 : 0
+  name                          = local.name
+  cluster                       = aws_ecs_cluster.this.id
+  task_definition               = aws_ecs_task_definition.app[0].arn
+  launch_type                   = var.fargate_spot ? null : "FARGATE"
+  platform_version              = "LATEST"
+  desired_count                 = 1
+  enable_execute_command        = var.enable_ecs_exec
+  availability_zone_rebalancing = "DISABLED"
+  # Con SQL Server en la tarea, el arranque incluye levantar la BD y migrarla antes de que la API responda.
+  health_check_grace_period_seconds = var.sql_sidecar ? 300 : 120
 
   # Nunca dos tareas a la vez (dos SessionVault): cada despliegue para la tarea vieja y luego arranca la nueva.
   # Hay un corte de alrededor de un minuto y los usuarios vuelven a iniciar sesión.
@@ -152,10 +168,18 @@ resource "aws_ecs_service" "app" {
     rollback = true
   }
 
+  dynamic "capacity_provider_strategy" {
+    for_each = var.fargate_spot ? [1] : []
+    content {
+      capacity_provider = "FARGATE_SPOT"
+      weight            = 1
+    }
+  }
+
   network_configuration {
-    subnets          = aws_subnet.private[*].id
+    subnets          = local.task_subnet_ids
     security_groups  = [aws_security_group.task.id]
-    assign_public_ip = false
+    assign_public_ip = var.public_task
   }
 
   dynamic "load_balancer" {
@@ -167,7 +191,15 @@ resource "aws_ecs_service" "app" {
     }
   }
 
-  depends_on = [aws_lb_listener_rule.mcp, aws_vpc_endpoint.interface, aws_vpc_endpoint.s3]
+  # El número de tareas lo mueven el horario (schedule.tf) y `despliegue.sh start|stop`; Terraform solo fija el inicial.
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+
+  depends_on = [
+    aws_lb_listener_rule.mcp, aws_vpc_endpoint.interface, aws_vpc_endpoint.s3,
+    aws_ecs_cluster_capacity_providers.this, aws_vpc_security_group_egress_rule.task_to_internet,
+  ]
 }
 
 # --- Builder: la misma imagen ejecutando `discovery-data-agent catalog build --db`; corre y termina (CN-02) ---
@@ -285,9 +317,9 @@ resource "aws_scheduler_schedule" "builder" {
       launch_type         = "FARGATE"
 
       network_configuration {
-        subnets          = aws_subnet.private[*].id
+        subnets          = local.task_subnet_ids
         security_groups  = [aws_security_group.task.id]
-        assign_public_ip = false
+        assign_public_ip = var.public_task
       }
     }
 
