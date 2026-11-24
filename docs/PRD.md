@@ -573,7 +573,7 @@ de conocimiento, BD `DiscoveryDataAgent`, permisos heredados también al descubr
 ## Anexo A. Catálogo de specs
 ```
 docs/specs/
-├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F25)
+├─ comun/          Lógica de la solución, idéntica en ambos despliegues (F1–F25; F26 propuesta futura)
 ├─ on-premise/     Despliegue en la red corporativa; es el del piloto (OP-01 a OP-09; OP-07: instalación y operación; OP-08: interfaz web; OP-09: situaciones de desarrollo)
 └─ cloud-native/   Despliegue mínimo en AWS, posterior al piloto (CN-01 a CN-06)
 ```
@@ -606,6 +606,7 @@ Fase: **1a** piloto de descubrimiento · **1b** consulta de datos (sin implement
 | F23 | Fuentes de conocimiento: diccionarios, documentación, ETL y reglas de negocio | 1a | [F23](specs/comun/F23-knowledge-sources.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) | [CN-02](specs/cloud-native/CN-02-catalogo-memoria.md) |
 | F24 | Curación y captura del conocimiento institucional | 1a | [F24](specs/comun/F24-knowledge-curation.md) | [OP-02](specs/on-premise/OP-02-catalogo-memoria.md) esquema `curation`, [OP-04](specs/on-premise/OP-04-interfaces.md) | = |
 | F25 | Métricas de éxito, línea base y piloto | 1a | [F25](specs/comun/F25-success-metrics.md) | = | = |
+| F26 | Acceso por área de trabajo (propuesta futura; [otros features futuros](backlog/futuro.md)) | futuro | [F26](specs/comun/F26-acceso-por-area.md) | = | = |
 
 "=" significa que no hay diferencias frente a la spec común (o frente a on-premise, en la columna AWS).
 

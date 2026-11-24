@@ -165,6 +165,7 @@ Permisos heredados de SQL Server: [diagrama](docs/architecture/permisos-heredado
 | [docs/specs/comun/](docs/specs/comun/) | F1–F25: lógica de la solución, idéntica en ambos despliegues |
 | [docs/specs/on-premise/](docs/specs/on-premise/) | OP-01 a OP-07: despliegue sobre el stack Microsoft (OP-07: instalación, entornos y operación) |
 | [docs/backlog/on-premise.md](docs/backlog/on-premise.md) | Objetivos SMART, épicas e historias de usuario para terminar la versión on-premise |
+| [docs/backlog/futuro.md](docs/backlog/futuro.md) | Features futuros propuestos para el banco (acceso por área [F26](docs/specs/comun/F26-acceso-por-area.md), datos sensibles, linaje normativo, Teams…), sin priorizar |
 | [docs/PLAN-desarrollo.md](docs/PLAN-desarrollo.md) | Estado, resultados medidos, próximos pasos y cómo retomar |
 | [docs/calidad-bancaria.md](docs/calidad-bancaria.md) | Controles de seguridad, compuerta de calidad y lo que falta para operar en un banco |
 | [docs/specs/cloud-native/](docs/specs/cloud-native/) | CN-01 a CN-06: despliegue mínimo en AWS, posterior al piloto |
