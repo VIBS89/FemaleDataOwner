@@ -281,6 +281,28 @@ def test_la_cadena_de_conexion_escapa_usuario_y_contrasena(monkeypatch):
         connector.connection_string(server, Credential("S1", "ana", "x"), database="master;Trusted_Connection=yes")
 
 
+@pytest.mark.parametrize("error, message", [
+    # pyodbc lanza InterfaceError (no OperationalError) cuando SQL Server rechaza el login: no es un driver faltante
+    (("28000", "[28000] Login failed for user 'ana'. (18456)"), "Usuario o contraseña incorrectos"),
+    (("IM002", "[IM002] Data source name not found and no default driver specified"), "No hay un driver ODBC 17/18 para SQL Server"),
+    (("08001", "[08001] TCP Provider: No connection could be made"), "No se pudo conectar al servidor"),
+])
+def test_los_errores_del_driver_dan_un_mensaje_segun_su_causa(monkeypatch, error, message):
+    import pyodbc
+
+    connector = SqlConnector()
+    exc_type = pyodbc.OperationalError if error[0] == "08001" else pyodbc.InterfaceError
+
+    def fail(*_a, **_k):
+        raise exc_type(*error)
+
+    monkeypatch.setattr(connector, "connect", fail)
+    server = ServerConfig(id="S1", host="sql01", alias="SQL", environment="desarrollo")
+    with pytest.raises(LoginFailed) as caught:
+        connector._open(server, Credential("S1", "ana", "x"))
+    assert str(caught.value) == message
+
+
 def test_formatos_de_host_y_base_de_datos():
     for good in ("sql01", "sql01.banco.local", "sql01\\INSTANCIA", "sql01,1433", "tcp:sql01.banco.local,1433", "10.1.2.3",
                  "localhost\\SQLEXPRESS", "demo-sql"):
