@@ -15,7 +15,7 @@ completan con datos reales del equipo antes del pitch.
 | 3 | [El agente decide su camino, no sigue un guion](#3-el-agente-decide-su-camino-no-sigue-un-guion) |
 | 4 | [10 servicios de AWS, desplegados con Terraform](#4-10-servicios-de-aws-desplegados-con-terraform) |
 | 5 | [Míralo decidir](#5-miralo-decidir) |
-| 6 | [Medido hoy, comprometido para el piloto](#6-medido-hoy-comprometido-para-el-piloto) |
+| 6 | [Más rápido, más barato, menos riesgo](#6-mas-rapido-mas-barato-menos-riesgo) |
 | 7 | [Que ninguna pregunta sobre datos dependa de una sola persona](#7-que-ninguna-pregunta-sobre-datos-dependa-de-una-sola-persona) |
 | 8 | [Pregunta en español, respuesta con evidencia](#8-pregunta-en-espanol-respuesta-con-evidencia) |
 | 9 | [One question replaces a chain of messages to experts](#9-one-question-replaces-a-chain-of-messages-to-experts) |
@@ -162,34 +162,42 @@ completan con datos reales del equipo antes del pitch.
 > OPCIONAL, solo si ya está probado y cabe sin pasar de 3:50: 10 s mostrando a Kiro o Claude Code consultando el mismo catálogo por MCP.
 > PLAN B si falla la conexión: usar los 2 min de gracia; si sigue fallando, ir al anexo “Pregunta en español, respuesta con evidencia” y narrar los cuatro pasos sobre esa pantalla. No se aceptan demos grabadas.
 
-## 6. Medido hoy, comprometido para el piloto
+## 6. Más rápido, más barato, menos riesgo
 
-*4 · Impacto*
+*4 · Impacto en el negocio*
 
-- Medido en nuestras evaluaciones
-- **98 %**
-- acierta a la primera en 58 preguntas sobre bases bancarias
-- **0**
-- fugas de permisos y objetos inventados en todas las corridas
-- **1 332**
-- pruebas automáticas y compuerta de calidad en cada cambio
-- Metas de negocio, contra la línea base que mide el propio agente
-- ≈ [__] h por semana liberadas
-- **−50 %**
-- tiempo para localizar una fuente
-- **−30 %**
-- consultas a expertos
+- Meta piloto
 - **−20 a 40 %**
-- tiempo de análisis de requerimientos
+- **Tiempo hasta decidir con datos**
+- El dato correcto en segundos, no en días de preguntar.
+- Ahorro estimado
+- **US$ [__]/año**
+- **Horas de personal liberadas**
+- [N] analistas × [x] h/sem × 50 % × [US$/h] × 48 sem.
+- Medido
+- **22 → 67 %**
+- **Reportes normativos**
+- Preguntas normativas resueltas a la primera, con glosario.
+- Meta piloto
+- **−30 %**
+- **Dependencia de expertos**
+- Menos consultas a quienes guardan el conocimiento histórico.
+- KPI de riesgo
+- **[__] %**
+- **Conocimiento crítico protegido**
+- Activos clave con responsable y descripción revisada.
+- Meta piloto
 - **−20 %**
-- reprocesos por fuente equivocada
+- **Reprocesos por fuente errónea**
+- Menos reportes rehechos y menos riesgo ante el regulador.
+- Ya medido: 98 % de acierto a la primera · 0 fugas de permisos · 0 objetos inventados · 1 332 pruebas automáticas.
 
 **Notas del orador**
 
-> RELOJ 3:50–4:25 (35 s, ~85 palabras) · [Integrante 6]. Lo medido: 98 % de acierto a la primera en 58 preguntas, cero fugas de permisos y cero objetos inventados, con 1 332 pruebas automáticas. Lo que comprometemos en el piloto: 50 % menos de tiempo para localizar datos y 30 % menos de consultas a expertos. En horas: con [N] analistas que dedican [x] h por semana a buscar datos, son [N·x/2] h por semana liberadas. Y como el agente mide la línea base desde el primer día, el ahorro se puede demostrar.
+> RELOJ 3:50–4:25 (35 s, ~90 palabras) · [Integrante 6]. Para el banco son tres cosas: velocidad, dinero y riesgo. Velocidad: entre 20 y 40 % menos tiempo hasta decidir con datos, y las preguntas de reportes normativos que se resuelven a la primera pasan de 22 a 67 % al cargar el glosario del banco. Dinero: con [N] analistas que dedican [x] horas por semana a buscar datos, la mitad de ese tiempo vale US$ [__] al año. Riesgo: 30 % menos dependencia de las pocas personas con el conocimiento histórico, y 20 % menos reprocesos por usar la fuente equivocada. Cada meta se compara con la línea base que registra el propio agente desde el día uno.
 >
-> ANTES DEL PITCH: reemplazar [__] en el slide por el resultado de N·x/2 (mismos N y x del slide del problema). Si hay costo por hora, agregar “≈ US$ [__] al mes”.
-> Distinguir siempre “medido” (evaluaciones) de “meta” (piloto): el jurado valora impacto cuantificado y honesto.
+> ANTES DEL PITCH: completar US$ [__] con N × x × 0,5 × costo por hora × 48 (los mismos N y x del slide del problema) y el KPI de riesgo [__] % (si no hay dato, decir “lo medimos desde el día uno”).
+> QUÉ ES QUÉ: “Medido” = 9 preguntas normativas del set de reportes, catálogo solo (22 %) frente a catálogo con glosario de prueba (67 %) (docs/PLAN-desarrollo.md §2). “Meta piloto” = objetivos del PRD (§3), por validar con la línea base. No presentar las metas como resultados.
 
 ## 7. Que ninguna pregunta sobre datos dependa de una sola persona
 
