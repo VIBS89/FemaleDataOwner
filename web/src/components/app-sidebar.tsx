@@ -79,7 +79,7 @@ export function AppSidebar() {
               <Link href="/" onClick={newChat}>
                 <BrandMark />
                 <div className="grid flex-1 text-left leading-tight">
-                  <span className="font-semibold tracking-tight">DiscoveryDataAgent</span>
+                  <span className="font-semibold tracking-tight">Discovery Data Agent</span>
                   <span className="text-muted-foreground text-xs">Descubrimiento de datos</span>
                 </div>
               </Link>
