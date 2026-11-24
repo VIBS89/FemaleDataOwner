@@ -168,12 +168,12 @@ completan con datos reales del equipo antes del pitch.
 
 - Meta piloto
 - **−20 a 40 %**
-- **Tiempo hasta decidir con datos**
-- El dato correcto en segundos, no en días de preguntar.
-- Ahorro estimado
-- **US$ [__]/año**
-- **Horas de personal liberadas**
-- [N] analistas × [x] h/sem × 50 % × [US$/h] × 48 sem.
+- **Menor costo de oportunidad**
+- Menos tiempo hasta decidir con datos: el banco actúa antes.
+- Medido en AWS
+- **≈ 1 s**
+- **De días a segundos**
+- Respuesta con evidencia, sin esperar al experto.
 - Medido
 - **22 → 67 %**
 - **Reportes normativos**
@@ -181,22 +181,23 @@ completan con datos reales del equipo antes del pitch.
 - Meta piloto
 - **−30 %**
 - **Dependencia de expertos**
-- Menos consultas a quienes guardan el conocimiento histórico.
+- Menos consultas a quienes guardan la historia.
 - Meta piloto
 - **−50 %**
-- **Tiempo para localizar una fuente**
-- De buscar entre bases y personas a una pregunta en el chat.
+- **Tiempo para localizar datos**
+- De buscar entre bases y personas a una pregunta.
 - Meta piloto
 - **−20 %**
-- **Reprocesos por fuente errónea**
-- Menos reportes rehechos y menos riesgo ante el regulador.
+- **Riesgo de multas regulatorias**
+- Menos entregas al regulador rehechas por errores.
 - Ya medido: 98 % de acierto a la primera · 0 fugas de permisos · 0 objetos inventados · 1 332 pruebas automáticas.
 
 **Notas del orador**
 
-> RELOJ 3:50–4:25 (35 s, ~90 palabras) · [Integrante 6]. Para el banco son tres cosas: velocidad, dinero y riesgo. Velocidad: entre 20 y 40 % menos tiempo hasta decidir con datos, y las preguntas de reportes normativos que se resuelven a la primera pasan de 22 a 67 % al cargar el glosario del banco. Dinero: con [N] analistas que dedican [x] horas por semana a buscar datos, la mitad de ese tiempo vale US$ [__] al año. Riesgo: 30 % menos dependencia de las pocas personas con el conocimiento histórico, y 20 % menos reprocesos por usar la fuente equivocada. Y la meta central: la mitad del tiempo para localizar una fuente. Cada meta se compara con la línea base que registra el propio agente desde el día uno.
+> RELOJ 3:50–4:25 (35 s, ~90 palabras) · [Integrante 6]. Para el banco son tres cosas: velocidad, dinero y riesgo. Velocidad: entre 20 y 40 % menos tiempo hasta decidir con datos, es decir, menor costo de oportunidad, y las preguntas de reportes normativos que se resuelven a la primera pasan de 22 a 67 % al cargar el glosario del banco. Y lo que hoy toma horas o días de preguntar, el agente lo responde en alrededor de un segundo, desplegado en AWS. Riesgo: 30 % menos dependencia de las pocas personas con el conocimiento histórico, y 20 % menos entregas al regulador rehechas, con menos exposición a multas. Y la meta central: la mitad del tiempo para localizar una fuente. Cada meta se compara con la línea base que registra el propio agente desde el día uno.
 >
-> ANTES DEL PITCH: completar US$ [__] con N × x × 0,5 × costo por hora × 48 (los mismos N y x del slide del problema).
+> PARA PREGUNTAS (ahorro en dinero): con un costo de 10 a 15 US$ por hora, cada hora semanal que un analista dedica a buscar datos vale US$ 240–360 al año al reducirla a la mitad (0,5 × 10–15 × 48 semanas). Ejemplo: 20 analistas × 6 h/sem → US$ 28 800–43 200 al año. El costo por hora es la estimación del equipo.
+> QUÉ ES QUÉ: “≈ 1 s” = mediana medida con Nova Pro en Bedrock (1,0 s en las evaluaciones con BancosSQL; 1,2–1,4 s en el entorno de AWS). El −20 % de entregas rehechas es la meta de reprocesos del PRD, no una cifra de multas.
 > QUÉ ES QUÉ: “Medido” = 9 preguntas normativas del set de reportes, catálogo solo (22 %) frente a catálogo con glosario de prueba (67 %) (docs/PLAN-desarrollo.md §2). “Meta piloto” = objetivos del PRD (§3), por validar con la línea base. No presentar las metas como resultados.
 
 ## 7. Que ninguna pregunta sobre datos dependa de una sola persona
