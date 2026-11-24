@@ -28,6 +28,8 @@ from typing import Annotated, Any, Iterator, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from discovery_data_agent.ask.engine import AskEngine, AskOutcome
+from discovery_data_agent.ask.ports import QueryExecutor, QuestionInterpretation
 from discovery_data_agent.audit.recorder import AuditSink, InMemoryAuditSink, StepRecord, TraceRecord
 from discovery_data_agent.catalog.store import Catalog, KnowledgeBase
 from discovery_data_agent.config import OwnersDirectory, Settings
@@ -51,6 +53,7 @@ from discovery_data_agent.models.intent import IntentResult
 
 MAX_RETRIEVAL_ATTEMPTS = 2  # C: búsqueda original + una reformulación
 MAX_REVIEW_ATTEMPTS = 2  # B: revisión + una corrección
+ASK_HINTS = 10  # fase 1b: activos mejor puntuados que orientan la base cuando no hay candidato recomendado
 
 STEP_LABELS = {
     "intent": "Interpretando la pregunta",
@@ -59,6 +62,7 @@ STEP_LABELS = {
     "rerank": "Priorizando candidatos",
     "expand": "Agregando ubicaciones, reglas, relaciones y responsables",
     "review": "Revisando el resultado",
+    "ask": "Calculando el dato con tus permisos",
     "compute": "Calculando la cifra con tus permisos",
     "respond": "Redactando la respuesta",
     "finalize": "Registrando la auditoría",
@@ -85,6 +89,8 @@ class DiscoverDeps:
     reviewer: Reviewer | None = None  # B con juez LLM (rol `judge`); None → solo chequeos deterministas
     guide: Guide | None = None  # sin resultados: el LLM (rol `fast`) reconoce el tema o propone una aclaración de negocio
     graph: object | None = None  # EstateGraph (F19); lo construye `DiscoverService` si falta
+    # Fase 1b (`features.ask_llm_sql`): SQL de un LLM cuando la plantilla de cifras no puede responder.
+    ask: AskEngine | None = None
     audit: AuditSink = field(default_factory=InMemoryAuditSink)
     model_names: Mapping[str, str] = field(default_factory=dict)  # rol → proveedor:modelo (`audit_step.model`)
 
@@ -98,6 +104,9 @@ class DiscoverState(TypedDict, total=False):
     clarification: Clarification
     executor: Any  # `figures.FigureExecutor` de la sesión; sin él no se calculan cifras
     figure: Any  # `models.figures.Figure` calculada
+    sql_executor: QueryExecutor  # fase 1b: SQL validado con la sesión del usuario (`runtime.ask_executor`)
+    interpretation: QuestionInterpretation  # fase 1b: lo que entendió el LLM de la pregunta
+    ask: AskOutcome  # fase 1b: el dato calculado con SQL de un LLM
     history: list[str]
     client: str
     user: UserContext
@@ -157,6 +166,17 @@ def build_discover_graph(deps: DiscoverDeps):
     def patterns():
         return deps.settings.patterns
 
+    def llm_sql_available(state) -> bool:
+        return bool(deps.settings.features.ask_llm_sql and deps.ask is not None and state.get("sql_executor"))
+
+    def wants_figure(state) -> bool:
+        return bool(state.get("figures") and deps.settings.features.ask_flow and state.get("executor")
+                    and state["discovery"].candidates)
+
+    def wants_llm_sql(state) -> bool:
+        return bool(state.get("figures") and llm_sql_available(state)
+                    and (state["discovery"].candidates or state.get("ranked")))
+
     def intent_node(state):
         error = None
         history = state.get("history", [])
@@ -185,6 +205,17 @@ def build_discover_graph(deps: DiscoverDeps):
                 search = current
         assumptions: list[str] = []
         figures = result.intent in ("data_query", "procedure")
+        interpretation = None
+        if llm_sql_available(state) and result.intent != "out_of_scope":
+            # Fase 1b: el LLM reconoce un pedido de datos sin listas de palabras clave ("dame los 10…") y reescribe la
+            # pregunta. Solo suma: el rechazo de escrituras y el resto de la intención siguen siendo de las reglas.
+            try:
+                interpretation = deps.ask.interpret(search, history, state["user"])
+            except Exception as exc:
+                error = ((error + ";") if error else "") + f"interprete:fallback:{type(exc).__name__}"
+            if interpretation is not None and interpretation.kind == "dato":
+                figures = True
+                result = result.model_copy(update={"intent": "data_query", "confidence": max(result.confidence, 0.8)})
         if result.intent == "out_of_scope":
             route = "out_of_scope"
         elif result.intent == "ambiguous" or result.confidence < 0.6:
@@ -193,7 +224,7 @@ def build_discover_graph(deps: DiscoverDeps):
             # F3: una pregunta de cifras primero se descubre (qué información la responde). Con `features.ask_flow` y un
             # ejecutor de la sesión, el nodo `compute` calcula después el agregado; sin ellos se indica dónde está.
             route = "discover"
-            if not (deps.settings.features.ask_flow and state.get("executor")):
+            if not (deps.settings.features.ask_flow and state.get("executor")) and not llm_sql_available(state):
                 assumptions.append(NO_FIGURES_NOTE)
             result = result.model_copy(update={"intent": "discovery"})
         else:
@@ -203,8 +234,11 @@ def build_discover_graph(deps: DiscoverDeps):
             hint = engine.entity_kind_hint(search, result, deps.catalog, state["user"].visible_ids)
             if hint:
                 result = result.model_copy(update={"asset_kind_hint": hint})
-        return {"intent": result, "route": route, "assumptions": assumptions, "search_question": search,
-                "figures": figures}, error, detail
+        out = {"intent": result, "route": route, "assumptions": assumptions, "search_question": search,
+               "figures": figures}
+        if interpretation is not None:
+            out["interpretation"] = interpretation
+        return out, error, detail
 
     # --- D: recuperación con plan de consultas ---------------------------------------------
     def retrieve_node(state):
@@ -305,7 +339,9 @@ def build_discover_graph(deps: DiscoverDeps):
         )
         detail = f"caminos={len(discovery.join_paths)}" if discovery.join_paths else None
         out: dict = {"discovery": discovery}
-        if discovery.unresolved_parts:
+        # Con la fase 1b el planner ve todas las tablas de la base: que el buscador no ubique una parte de la pregunta
+        # (p. ej. una fecha) no significa que falte el dato.
+        if discovery.unresolved_parts and not (state.get("figures") and llm_sql_available(state)):
             out["assumptions"] = [f"No encontré datos disponibles para «{p}»." for p in discovery.unresolved_parts]
         return out, None, detail
 
@@ -392,9 +428,28 @@ def build_discover_graph(deps: DiscoverDeps):
         return ({"figure": figure, "db_ms": ms, "_model_used": False}, None,
                 f"{plan.operation};grupos={len(figure.groups)};ms={ms}")
 
+    # --- fase 1b: SQL de un LLM cuando la plantilla no basta ----------------------------------
+    def ask_node(state):
+        # Aunque ningún activo llegue al umbral de recomendación, los mejor puntuados dicen en qué base buscar.
+        hints = [d.asset_key for d in state.get("ranked", [])[:ASK_HINTS]]
+        search = state.get("search_question") or state["question"]
+        try:
+            outcome = deps.ask.run(search, state["discovery"], state["user"], state["sql_executor"], hints,
+                                   state.get("interpretation"))
+        except Exception as exc:  # el LLM o la conexión fallaron: se responde como descubrimiento
+            outcome = AskOutcome(False, notes=[FIGURE_FAILED_NOTE], errors=[f"fallo:{type(exc).__name__}"])
+        detail = f"intentos={outcome.attempts}" + (f";filas={outcome.data.row_count}" if outcome.data else "")
+        error = None if outcome.ok else (",".join(outcome.errors) or None)
+        # Si la plantilla va a intentarlo después, sus avisos sustituyen a los de este intento.
+        notes = [] if not outcome.ok and wants_figure(state) else list(outcome.notes)
+        return {"ask": outcome, "assumptions": notes}, error, detail
+
     def respond_node(state):
         if state.get("figure") is not None:  # el número nunca lo redacta un modelo
             return {"answer_text": figures.answer_text(state["figure"]), "_model_used": False}, None
+        asked = state.get("ask")
+        if asked is not None and asked.ok:  # fase 1b: la frase se rellenó con el resultado, sin pasar por un modelo
+            return {"answer_text": asked.text, "_model_used": False}, None
         discovery = state["discovery"]
         search = state.get("search_question") or state["question"]
         error = None
@@ -479,10 +534,17 @@ def build_discover_graph(deps: DiscoverDeps):
             env.confidence = disc.candidates[0].confidence if disc.candidates else 0.0
             env.databases = engine.databases_of(disc)
             env.tables_used = engine.tables_of(disc)
+            asked = state.get("ask")
+            if asked is not None and asked.ok:
+                env.flow, env.data = "ask", asked.data
+                env.databases, env.tables_used = [asked.data.database], list(asked.data.tables)
+                env.confidence = None  # la del descubrimiento no aplica a un dato calculado
         env.timings_ms = {"total": int((time.perf_counter() - state["started"]) * 1000), "db": state.get("db_ms", 0)}
         record = TraceRecord(
             trace_id=state["trace_id"], user_id=state["user"].user_id, client=state.get("client", "api"),
-            question=state["question"], envelope=env, intent=intent.intent if intent else None,
+            question=state["question"], intent=intent.intent if intent else None,
+            # La auditoría guarda la consulta y el número de filas, nunca los valores (F11, F17).
+            envelope=env.model_copy(update={"data": env.data.redacted()}) if env.data else env,
             steps=list(state.get("steps", [])),
         )
         try:
@@ -505,6 +567,7 @@ def build_discover_graph(deps: DiscoverDeps):
     g.add_node("expand", _timed("expand", None, deps, expand_node))
     g.add_node("review", _timed("review", "judge", deps, review_node, "review_attempt"))
     g.add_node("compute", _timed("compute", None, deps, compute_node))
+    g.add_node("ask", _timed("ask", "coder", deps, ask_node))
     g.add_node("respond", _timed("respond", "fast", deps, respond_node))
     g.add_node("finalize", finalize_node)  # escribe la auditoría con los pasos anteriores; no se audita a sí mismo
     g.add_edge(START, "intent")
@@ -517,13 +580,21 @@ def build_discover_graph(deps: DiscoverDeps):
     g.add_edge("rerank", "expand")
     g.add_edge("expand", "review")
     def after_review(state):
+        # Con la fase 1b activa responde primero el SQL de un LLM (entiende filtros, periodos y varias uniones); las
+        # cifras de plantilla (decisión 17) quedan de respaldo. Sin la fase 1b, el orden de main no cambia.
         if state["review_route"] == "fix":
             return "fix"
-        wants_figure = (state.get("figures") and deps.settings.features.ask_flow and state.get("executor")
-                        and state["discovery"].candidates)
-        return "compute" if wants_figure else "accept"
+        if wants_llm_sql(state):
+            return "ask"
+        return "compute" if wants_figure(state) else "accept"
 
-    g.add_conditional_edges("review", after_review, {"fix": "expand", "accept": "respond", "compute": "compute"})
+    def after_ask(state):
+        asked = state.get("ask")
+        return "compute" if (asked is None or not asked.ok) and wants_figure(state) else "respond"
+
+    g.add_conditional_edges("review", after_review,
+                            {"fix": "expand", "accept": "respond", "compute": "compute", "ask": "ask"})
+    g.add_conditional_edges("ask", after_ask, {"compute": "compute", "respond": "respond"})
     g.add_edge("compute", "respond")
     g.add_edge("respond", "finalize")
     g.add_edge("finalize", END)
@@ -545,7 +616,7 @@ class DiscoverService:
         self.graph = build_discover_graph(self.deps)
 
     def _initial(self, question: str, user: UserContext, history: list[str] | None, client: str,
-                 executor=None) -> DiscoverState:
+                 executor=None, sql_executor: QueryExecutor | None = None) -> DiscoverState:
         if user.visible_ids is None:
             raise ValueError("El DiscoverFlow requiere la visibilidad del usuario (F14)")
         return {
@@ -554,6 +625,7 @@ class DiscoverService:
             "history": history or [],
             "client": client,
             "executor": executor,
+            "sql_executor": sql_executor,
             "user": user,
             "started": time.perf_counter(),
             "assumptions": [],
@@ -561,17 +633,19 @@ class DiscoverService:
         }
 
     def run(self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api",
-            executor=None) -> AnswerEnvelope:
+            executor=None, sql_executor: QueryExecutor | None = None) -> AnswerEnvelope:
         """`executor`: cómo ejecutar un agregado con la sesión de quien pregunta (`figures.FigureExecutor`). Solo se
-        usa con `features.ask_flow`; sin él, una pregunta de cifras se responde indicando dónde está la información."""
-        final = self.graph.invoke(self._initial(question, user, history, client, executor))
+        usa con `features.ask_flow`; sin él, una pregunta de cifras se responde indicando dónde está la información.
+        `sql_executor`: fase 1b (`features.ask_llm_sql`), ejecuta el SQL de un LLM ya validado con la sesión."""
+        final = self.graph.invoke(self._initial(question, user, history, client, executor, sql_executor))
         return final["envelope"]
 
     def stream(
-        self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api", executor=None
+        self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api", executor=None,
+        sql_executor: QueryExecutor | None = None,
     ) -> Iterator[tuple[str, dict]]:
         """Eventos por nodo (`step`) y, al final, la respuesta (`answer`)."""
-        for update in self.graph.stream(self._initial(question, user, history, client, executor),
+        for update in self.graph.stream(self._initial(question, user, history, client, executor, sql_executor),
                                         stream_mode="updates"):
             for node, payload in update.items():
                 if node == "finalize":

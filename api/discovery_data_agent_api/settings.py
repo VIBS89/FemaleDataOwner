@@ -45,6 +45,7 @@ class ApiSettings:
     allow_windows_auth: bool = False  # solo fuera de contenedores: Trusted_Connection con la cuenta del proceso
     figures_daily_limit: int = 300  # consultas de cifras por usuario y día (cada cifra son de 1 a 3); 0 = sin tope
     ask_flow: bool = False  # cifras agregadas con los permisos del usuario (DISCOVERY_DATA_AGENT_ASK_FLOW); apagado por defecto
+    ask_llm_sql: bool = False  # fase 1b: SQL de un LLM cuando la plantilla no basta (DISCOVERY_DATA_AGENT_ASK_LLM_SQL); apagado
     demo: bool = False  # servidores simulados con los metadatos de los fixtures; nunca en producción
     demo_fixtures: list[Path] = field(default_factory=lambda: list(DEFAULT_DEMO_FIXTURES))
     demo_preload_inventory: bool = True  # demo: el inventario arranca con los servidores de los fixtures
@@ -99,6 +100,7 @@ class ApiSettings:
             # Apagado por defecto: usa la cuenta del proceso, no la de quien llama (solo para desarrollo local).
             allow_windows_auth=_flag("DISCOVERY_DATA_AGENT_ALLOW_WINDOWS_AUTH"),
             ask_flow=_flag("DISCOVERY_DATA_AGENT_ASK_FLOW"),
+            ask_llm_sql=_flag("DISCOVERY_DATA_AGENT_ASK_LLM_SQL"),
             figures_daily_limit=int(os.environ.get("DISCOVERY_DATA_AGENT_FIGURES_DAILY_LIMIT", 300)),
             demo=_flag("DISCOVERY_DATA_AGENT_DEMO"),
             demo_fixtures=[_installed(p.strip()) for p in os.environ.get("DISCOVERY_DATA_AGENT_DEMO_FIXTURE", ",".join(

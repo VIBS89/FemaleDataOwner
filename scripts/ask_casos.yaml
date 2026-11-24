@@ -1,0 +1,173 @@
+# Casos de uso del AskFlow: preguntas típicas de usuarios de negocio y BI, cada una con su consulta de verificación.
+#
+# `esperado` es la consulta (escrita a mano) que da la respuesta correcta; `alternativas` son otras lecturas válidas
+# de una pregunta ambigua (p. ej. "compras" con o sin las rechazadas). Un caso pasa si el resultado del agente
+# contiene las cifras de alguna de ellas. `fecha_hoy` fija los periodos relativos ("el trimestre pasado").
+#
+# Correr (con la API levantada):  .venv/Scripts/python scripts/ask_eval.py --login demo
+# Los datos de verificación vienen del SQL Server local (BancaPrestamos, BancaTarjetasCredito, …).
+
+fecha_hoy: 2026-11-23
+
+casos:
+  # --- 1. Conteos simples y con filtro de negocio -------------------------------------------
+  - id: conteo-prestamos-activos
+    categoria: Conteo con filtro de negocio
+    pregunta: ¿Cuántos clientes tienen préstamos activos?
+    esperado: SELECT COUNT(DISTINCT ClienteID) FROM BancaPrestamos.dbo.Prestamos WHERE Estado = 'Vigente'
+
+  - id: conteo-tarjetas-bloqueadas
+    categoria: Conteo con filtro de negocio
+    pregunta: ¿Cuántas tarjetas de crédito están bloqueadas?
+    esperado: SELECT COUNT(*) FROM BancaTarjetasCredito.dbo.TarjetasCredito WHERE Estado = 'Bloqueada'
+
+  - id: clientes-cuenta-ahorro
+    categoria: Conteo con filtro de negocio
+    pregunta: ¿Cuántos clientes tienen cuenta de ahorro?
+    esperado: SELECT COUNT(DISTINCT ClienteID) FROM BancaCuentasDebito.dbo.CuentasDeposito WHERE TipoCuenta = 'Ahorro'
+
+  # --- 2. Sumas y promedios -----------------------------------------------------------------
+  - id: saldo-cartera-vigente
+    categoria: Suma
+    pregunta: ¿Cuál es el saldo total de la cartera de préstamos vigentes?
+    esperado: SELECT SUM(SaldoCapital) FROM BancaPrestamos.dbo.Prestamos WHERE Estado = 'Vigente'
+
+  - id: tasa-promedio
+    categoria: Promedio
+    pregunta: ¿Cuál es la tasa de interés promedio de los préstamos?
+    esperado: SELECT AVG(TasaAnual) FROM BancaPrestamos.dbo.Prestamos
+    alternativas:
+      - SELECT AVG(TasaAnual) FROM BancaPrestamos.dbo.Prestamos WHERE Estado = 'Vigente'
+
+  - id: porcentaje-rechazo
+    categoria: Porcentaje
+    pregunta: ¿Qué porcentaje de las solicitudes de crédito fueron rechazadas?
+    esperado: >-
+      SELECT 100.0 * SUM(CASE WHEN Estado = 'Rechazada' THEN 1 ELSE 0 END) / COUNT(*)
+      FROM BancaPrestamos.dbo.SolicitudesCredito
+
+  # --- 3. Agrupaciones (desgloses) ----------------------------------------------------------
+  - id: prestamos-por-estado
+    categoria: Agrupación
+    pregunta: ¿Cuántos préstamos hay por estado?
+    esperado: SELECT Estado, COUNT(*) FROM BancaPrestamos.dbo.Prestamos GROUP BY Estado
+
+  - id: ingreso-por-segmento
+    categoria: Agrupación (sin palabra clave)
+    pregunta: muéstrame el ingreso mensual promedio de los clientes de préstamos por segmento
+    esperado: SELECT Segmento, AVG(IngresoMensual) FROM BancaPrestamos.dbo.Clientes GROUP BY Segmento
+    alternativas:
+      - >-
+        SELECT c.Segmento, AVG(c.IngresoMensual) FROM BancaPrestamos.dbo.Clientes c
+        WHERE EXISTS (SELECT 1 FROM BancaPrestamos.dbo.Prestamos p WHERE p.ClienteID = c.ClienteID) GROUP BY c.Segmento
+
+  # --- 4. Uniones entre tablas --------------------------------------------------------------
+  - id: mora-por-departamento
+    categoria: Unión de tablas
+    pregunta: ¿Cuántos clientes con préstamos en mora hay por departamento?
+    esperado: >-
+      SELECT c.Departamento, COUNT(DISTINCT p.ClienteID) FROM BancaPrestamos.dbo.Prestamos p
+      JOIN BancaPrestamos.dbo.Clientes c ON c.ClienteID = p.ClienteID WHERE p.Estado = 'En mora' GROUP BY c.Departamento
+
+  - id: leasing-por-tipo-activo
+    categoria: Unión de tablas
+    pregunta: ¿Cuántos contratos de leasing hay por tipo de activo?
+    esperado: >-
+      SELECT a.TipoActivo, COUNT(*) FROM BancaLeasing.dbo.ContratosLeasing c
+      JOIN BancaLeasing.dbo.Activos a ON a.ActivoID = c.ActivoID GROUP BY a.TipoActivo
+
+  - id: tokens-activos-por-wallet
+    categoria: Unión de tablas
+    pregunta: ¿Cuántos tokens activos hay por wallet?
+    esperado: >-
+      SELECT w.Nombre, COUNT(*) FROM BancaTokenizacion.dbo.Tokens t
+      JOIN BancaTokenizacion.dbo.Wallets w ON w.WalletID = t.WalletID WHERE t.Estado = 'Activo' GROUP BY w.Nombre
+
+  # --- 5. Rankings y listados ---------------------------------------------------------------
+  - id: top-comercios
+    categoria: Ranking (unión)
+    pregunta: ¿Cuáles son los 5 comercios con mayor monto de compras con tarjeta de crédito?
+    esperado: >-
+      SELECT TOP 5 m.Nombre, SUM(t.Monto) FROM BancaTarjetasCredito.dbo.TransaccionesTC t
+      JOIN BancaTarjetasCredito.dbo.Comercios m ON m.ComercioID = t.ComercioID
+      WHERE t.TipoTransaccion = 'Compra' GROUP BY m.Nombre ORDER BY 2 DESC
+    alternativas:
+      - >-
+        SELECT TOP 5 m.Nombre, SUM(t.Monto) FROM BancaTarjetasCredito.dbo.TransaccionesTC t
+        JOIN BancaTarjetasCredito.dbo.Comercios m ON m.ComercioID = t.ComercioID
+        WHERE t.TipoTransaccion = 'Compra' AND t.Estado = 'Aprobada' GROUP BY m.Nombre ORDER BY 2 DESC
+
+  - id: top-prestamos-saldo
+    categoria: Listado (sin palabra clave)
+    pregunta: Dame los 10 préstamos con mayor saldo de capital
+    esperado: SELECT TOP 10 NumeroPrestamo, SaldoCapital FROM BancaPrestamos.dbo.Prestamos ORDER BY SaldoCapital DESC
+
+  # --- 6. Rangos de fechas ------------------------------------------------------------------
+  - id: desembolso-semestre
+    categoria: Rango de fechas explícito
+    pregunta: ¿Cuánto se desembolsó en préstamos entre enero y junio de 2026?
+    esperado: >-
+      SELECT SUM(MontoDesembolsado) FROM BancaPrestamos.dbo.Prestamos
+      WHERE FechaDesembolso >= '2026-01-01' AND FechaDesembolso < '2026-07-01'
+
+  - id: compras-q2
+    categoria: Trimestre explícito
+    pregunta: ¿Cuál fue el monto total de compras con tarjeta de crédito en el segundo trimestre de 2026?
+    esperado: >-
+      SELECT SUM(Monto) FROM BancaTarjetasCredito.dbo.TransaccionesTC
+      WHERE TipoTransaccion = 'Compra' AND FechaHora >= '2026-04-01' AND FechaHora < '2026-07-01'
+    alternativas:
+      - >-
+        SELECT SUM(Monto) FROM BancaTarjetasCredito.dbo.TransaccionesTC WHERE TipoTransaccion = 'Compra'
+        AND Estado = 'Aprobada' AND FechaHora >= '2026-04-01' AND FechaHora < '2026-07-01'
+
+  - id: solicitudes-trimestre-pasado
+    categoria: Trimestre en lenguaje natural
+    pregunta: ¿Cuántas solicitudes de crédito se aprobaron el trimestre pasado?
+    esperado: >-
+      SELECT COUNT(*) FROM BancaPrestamos.dbo.SolicitudesCredito
+      WHERE Estado = 'Aprobada' AND FechaSolicitud >= '2026-07-01' AND FechaSolicitud < '2026-10-01'
+
+  - id: tarjetahabientes-ultimos-3-meses
+    categoria: Periodo relativo (unión)
+    pregunta: dime cuantas personas tienen tarjetas de credito con alguna compra en los ultimos 3 meses
+    esperado: >-
+      SELECT COUNT(DISTINCT tc.ClienteID) FROM BancaTarjetasCredito.dbo.TransaccionesTC t
+      JOIN BancaTarjetasCredito.dbo.TarjetasCredito tc ON tc.TarjetaID = t.TarjetaID
+      WHERE t.TipoTransaccion = 'Compra' AND t.FechaHora >= DATEADD(MONTH, -3, '2026-11-23')
+    alternativas:
+      - >-
+        SELECT COUNT(DISTINCT tc.ClienteID) FROM BancaTarjetasCredito.dbo.TransaccionesTC t
+        JOIN BancaTarjetasCredito.dbo.TarjetasCredito tc ON tc.TarjetaID = t.TarjetaID
+        WHERE t.TipoTransaccion = 'Compra' AND t.Estado = 'Aprobada' AND t.FechaHora >= DATEADD(MONTH, -3, '2026-11-23')
+
+  # --- 7. Comparaciones y evolución ---------------------------------------------------------
+  - id: desembolsos-2025-vs-2024
+    categoria: Comparación de periodos
+    pregunta: ¿Cuántos préstamos se desembolsaron en 2025 comparado con 2024?
+    esperado: >-
+      SELECT SUM(CASE WHEN YEAR(FechaDesembolso) = 2025 THEN 1 ELSE 0 END),
+             SUM(CASE WHEN YEAR(FechaDesembolso) = 2024 THEN 1 ELSE 0 END) FROM BancaPrestamos.dbo.Prestamos
+    sin_orden: true  # puede venir como dos columnas o como dos filas
+
+  - id: movimientos-por-mes
+    categoria: Evolución mensual
+    pregunta: ¿Cuántos movimientos de cuentas hubo cada mes en 2026?
+    esperado: >-
+      SELECT MONTH(FechaHora), COUNT(*) FROM BancaCuentasDebito.dbo.MovimientosCuenta
+      WHERE FechaHora >= '2026-01-01' AND FechaHora < '2027-01-01' GROUP BY MONTH(FechaHora)
+    solo_cifras: [1]  # el mes puede venir como número, nombre o fecha: se comparan los conteos
+
+  # --- 8. Conversación (pregunta de seguimiento) --------------------------------------------
+  - id: seguimiento-bloqueadas
+    categoria: Pregunta de seguimiento
+    historial: ["¿Cuántas tarjetas de crédito activas hay?"]
+    pregunta: ¿y cuántas están bloqueadas?
+    esperado: SELECT COUNT(*) FROM BancaTarjetasCredito.dbo.TarjetasCredito WHERE Estado = 'Bloqueada'
+
+  # --- 9. El descubrimiento sigue funcionando -----------------------------------------------
+  - id: descubrimiento-fecha-desembolso
+    categoria: Descubrimiento (no es un dato)
+    pregunta: ¿Dónde está la fecha de desembolso de los préstamos?
+    flujo: discover
+    candidato: BancaPrestamos.dbo.Prestamos.FechaDesembolso

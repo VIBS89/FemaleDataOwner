@@ -107,6 +107,18 @@ def build_service_from_snapshot(
             llm_ports["narrator"] = LlmNarrator(gateway.chat("fast"))
             llm_ports["expander"] = LlmQueryExpander(gateway.chat("fast"))
             llm_ports["guide"] = LlmGuide(gateway.chat("fast"))
+        if gateway.has_role("coder"):
+            from discovery_data_agent.ask.engine import AskEngine
+            from discovery_data_agent.ask.planner import LlmInterpreter, LlmSqlPlanner
+
+            # Fase 1b (`features.ask_llm_sql`, apagado por defecto): el rol `coder` escribe el T-SQL cuando las
+            # plantillas de cifras (`features.ask_flow`, decisión 17) no pueden responder. El intérprete (rol
+            # `interpret`, o `coder`) entiende la pregunta sin listas de palabras clave. Se construye siempre que
+            # haya rol: la API decide por pregunta si lo usa, según la bandera.
+            interpret_role = "interpret" if gateway.has_role("interpret") else "coder"
+            llm_ports["ask"] = AskEngine(LlmSqlPlanner(gateway.chat("coder")), catalog,
+                                         max_rows=settings.features.ask_max_rows,
+                                         interpreter=LlmInterpreter(gateway.chat(interpret_role)))
         model_names = gateway.labels  # vista viva: proveedor:modelo que atendió cada rol (audit_step.model)
 
     store = InMemoryVectorStore()

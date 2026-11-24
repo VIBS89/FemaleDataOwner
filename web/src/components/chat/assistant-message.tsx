@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import type { AssetTab } from "@/components/asset-sheet";
 import { CandidateCard } from "@/components/chat/candidate-card";
+import { DataEvidence, DataResult } from "@/components/chat/data-answer";
 import { FigureCard } from "@/components/chat/figure-card";
 import type { Message, Verdict } from "@/components/chat/conversations";
 import { ConfidencePill } from "@/components/confidence";
@@ -61,7 +62,9 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
     );
   }
   const env = message.envelope!;
-  const disc = env.discovery;
+  const data = env.flow === "ask" ? env.data : null;
+  // Con el dato calculado, la respuesta es el dato: los candidatos del descubrimiento quedan fuera de la vista.
+  const disc = data ? null : env.discovery;
   const top = disc?.candidates[0];
 
   return (
@@ -76,10 +79,14 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
             <AlertCircle />
             <AlertDescription>{env.answer_text}</AlertDescription>
           </Alert>
+        ) : data ? (
+          <p className="text-lg leading-relaxed font-medium whitespace-pre-line">{env.answer_text}</p>
         ) : (
           // Con cifra, la tarjeta ya muestra el número, el desglose y los avisos: el texto sería repetirlos.
           !env.figure && <p className="text-[15px] leading-relaxed whitespace-pre-line">{env.answer_text}</p>
         )}
+
+        {data && <DataResult data={data} />}
 
         {env.assumptions.map((a) => (
           <p key={a} className="text-muted-foreground flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs">
@@ -233,7 +240,19 @@ export function AssistantMessage({ message, onAsk, onVerdict, onOpenAsset, onEsc
           </div>
         )}
 
-        <Footer message={message} />
+        {data && <DataEvidence data={data} />}
+
+        {!data && <Footer message={message} />}
+        {data && (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+            {env.timings_ms.total != null && (
+              <span className="flex items-center gap-1">
+                <Timer className="size-3" /> {(env.timings_ms.total / 1000).toFixed(1)} s
+              </span>
+            )}
+            <TraceButton traceId={env.trace_id} />
+          </div>
+        )}
       </div>
     </Row>
   );
@@ -299,17 +318,7 @@ function Footer({ message }: { message: Message }) {
             Cómo lo obtuve <ChevronDown className="size-3 transition group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
         )}
-        <button
-          className="hover:text-foreground flex items-center gap-1"
-          onClick={() => {
-            navigator.clipboard.writeText(env.trace_id);
-            toast.success("Id de la traza copiado", {
-              description: "Úsalo para buscar esta respuesta en la auditoría.",
-            });
-          }}
-        >
-          <Copy className="size-3" /> Traza
-        </button>
+        <TraceButton traceId={env.trace_id} />
       </div>
       {searched && (
         <CollapsibleContent className="mt-2 rounded-lg border bg-muted/30 p-3 text-xs">
@@ -340,6 +349,20 @@ function Footer({ message }: { message: Message }) {
         </CollapsibleContent>
       )}
     </Collapsible>
+  );
+}
+
+function TraceButton({ traceId }: { traceId: string }) {
+  return (
+    <button
+      className="hover:text-foreground flex items-center gap-1"
+      onClick={() => {
+        navigator.clipboard.writeText(traceId);
+        toast.success("Id de la traza copiado", { description: "Úsalo para buscar esta respuesta en la auditoría." });
+      }}
+    >
+      <Copy className="size-3" /> Traza
+    </button>
   );
 }
 

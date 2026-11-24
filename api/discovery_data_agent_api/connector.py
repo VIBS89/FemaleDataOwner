@@ -110,12 +110,13 @@ class SqlConnector:
             return self.connect(server, cred, database)
         except LoginFailed:
             raise
-        except pyodbc.InterfaceError as exc:
-            raise LoginFailed("No hay un driver ODBC 17/18 para SQL Server", credentials=False) from exc
         except pyodbc.Error as exc:
+            # pyodbc lanza InterfaceError también para un login rechazado (28000): se decide por el SQLSTATE.
             state = exc.args[0] if exc.args else ""
             if state == "28000":
                 raise LoginFailed("Usuario o contraseña incorrectos") from None
+            if state.startswith("IM"):  # administrador de ODBC: driver no encontrado o no cargable
+                raise LoginFailed("No hay un driver ODBC 17/18 para SQL Server", credentials=False) from None
             raise LoginFailed("No se pudo conectar al servidor", credentials=False) from None
         except RuntimeError:  # best_driver: no hay driver instalado
             raise LoginFailed("No hay un driver ODBC 17/18 para SQL Server", credentials=False) from None

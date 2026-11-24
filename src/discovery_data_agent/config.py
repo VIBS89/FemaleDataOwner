@@ -119,7 +119,13 @@ class Patterns(BaseModel):
 
 
 class Features(BaseModel):
-    ask_flow: bool = False  # fase 1a: las preguntas de datos se responden como descubrimiento (F3)
+    # Cifras agregadas con plantilla fija (primer corte del AskFlow, PRD §13 decisión 17). false: las preguntas de
+    # datos se responden como descubrimiento (F3).
+    ask_flow: bool = False
+    # Fase 1b, apagada por defecto: cuando la plantilla no puede responder (fechas, varias uniones, listados), un LLM
+    # (rol `coder`) escribe el T-SQL, que pasa el validador (F7) y corre con los permisos del usuario (F6–F10).
+    ask_llm_sql: bool = False
+    ask_max_rows: int = 1000  # filas que se devuelven como máximo (F7: se inyecta TOP max+1 para detectar truncado)
 
 
 class AuditSettings(BaseModel):

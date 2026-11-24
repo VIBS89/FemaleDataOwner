@@ -630,7 +630,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         asked_at = time.time()
         with tokens.as_user(session.user_id):
             envelope = run_service.run(body.question, runtime.user_context(session), history=body.history, client="web",
-                                       executor=runtime.figure_executor(session))
+                                       executor=runtime.figure_executor(session),
+                                       sql_executor=runtime.ask_executor(session))
         if degraded:
             envelope.assumptions.append(DEGRADED_NOTE)
         remember(envelope, body.question, session, service, asked_at)
@@ -648,7 +649,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
 
         def events():
             steps = run_service.stream(body.question, user, history=body.history, client="web",
-                                       executor=runtime.figure_executor(session))
+                                       executor=runtime.figure_executor(session),
+                                       sql_executor=runtime.ask_executor(session))
             while True:
                 with tokens.as_user(session.user_id):  # cada paso corre en un hilo con su propio contexto
                     try:

@@ -29,6 +29,8 @@ LAYERS = {
     "discovery_data_agent.memory.base": "domain",
     "discovery_data_agent.memory.text": "domain",
     "discovery_data_agent.metadata.ports": "domain",
+    "discovery_data_agent.ask": "domain",  # AskFlow: motor, validador y puertos (F6–F10)
+    "discovery_data_agent.ask.planner": "infrastructure",  # el planner con LLM (langchain)
     "discovery_data_agent.audit.sqlserver": "infrastructure",
     "discovery_data_agent.audit.chain": "infrastructure",
     "discovery_data_agent.flows": "application",

@@ -47,6 +47,8 @@ MAX_TRACES = 500
 FIGURE_TIMEOUT_S = 15  # tope de una consulta de cifras; pasado ese tiempo se responde sin el número
 FIGURE_MAX_ROWS = 50  # un total, o los grupos de un desglose: nunca un volcado de filas
 FIGURE_CONCURRENCY = 2  # cifras calculándose a la vez en toda la API: no se carga la operación del banco
+ASK_TIMEOUT_S = 30  # fase 1b: una consulta con varias uniones o un periodo largo puede tardar más que una cifra
+ASK_SLOT_WAIT_S = 10  # espera por un turno de ejecución: una pregunta encadena sondeos y la consulta final
 
 
 @dataclass
@@ -235,6 +237,8 @@ class AgentRuntime:
             service = build_service(self.settings.data_root, gateway=gateway, audit=self.audit)
         if self.settings.ask_flow:  # DISCOVERY_DATA_AGENT_ASK_FLOW=1 activa las cifras agregadas sin editar settings.yaml
             service.deps.settings.features.ask_flow = True
+        if self.settings.ask_llm_sql:  # DISCOVERY_DATA_AGENT_ASK_LLM_SQL=1: fase 1b, SQL de un LLM cuando la plantilla no basta
+            service.deps.settings.features.ask_llm_sql = True
         return service
 
     def reload(self) -> None:
@@ -402,6 +406,55 @@ class AgentRuntime:
                 self._figure_slots.release()
 
         return run
+
+    def ask_executor(self, session: Session):
+        """Fase 1b (`ask_llm_sql`): ejecutor de SQL generado por un LLM y ya validado (F7), o None si no está activo
+        o el conector no abre conexiones de datos (modo demo). Pasa por los mismos controles que las cifras."""
+        service = self.service
+        enabled = self.settings.ask_llm_sql or (service is not None and service.deps.settings.features.ask_llm_sql)
+        if not enabled or not hasattr(self.connector, "connect"):
+            return None
+        from discovery_data_agent_api.executor import SessionQueryExecutor
+
+        return SessionQueryExecutor(
+            self.inventory,
+            lambda server_id, database, sql, max_rows, probe: self._run_ask(session, server_id, database, sql,
+                                                                             max_rows, probe))
+
+    def _run_ask(self, session: Session, server_id: str, database: str, sql: str, max_rows: int, probe: bool):
+        """Como `figure_executor`, pero para SQL ya validado por `discovery_data_agent.ask.validator`. Los sondeos (valores de
+        categorías y rangos de fechas para el planner) se auditan pero no cuentan para el tope diario."""
+        server = self.inventory.server(server_id)
+        cred = self.vault.credential(session, server_id)
+        if server is None or cred is None:
+            raise PermissionError("Tu sesión no tiene acceso a ese servidor.")
+        allowed = server.figures if server.figures is not None else server.environment != "produccion"
+        if not allowed:
+            raise PermissionError("Ese servidor no está autorizado para calcular datos.")
+        if not probe and not self._count_figure(session.user_id):
+            raise PermissionError("Alcanzaste el tope diario de consultas de datos.")
+        if not self._figure_slots.acquire(timeout=ASK_SLOT_WAIT_S):
+            raise TimeoutError("Hay demasiadas consultas calculándose a la vez")
+        try:
+            # Antes de tocar datos queda registrado quién consulta qué y dónde (sin valores); sin auditoría no se ejecuta.
+            self.audit.event("ask_probe" if probe else "ask_query", session.user_id, server=server_id,
+                             database=database, sql=sql)
+            conn = self.connector.connect(server, cred, database)
+            try:
+                conn.timeout = ASK_TIMEOUT_S
+                conn.autocommit = False  # nada de lo que corra aquí se confirma: al terminar siempre se revierte
+                cursor = conn.cursor()
+                cursor.execute("SET LOCK_TIMEOUT 5000; SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;")
+                cursor.execute(sql)
+                columns = [d[0] for d in cursor.description or []]
+                return columns, [list(row) for row in cursor.fetchmany(max_rows)]
+            finally:
+                try:
+                    conn.rollback()
+                finally:
+                    conn.close()
+        finally:
+            self._figure_slots.release()
 
     def _count_figure(self, user_id: str) -> bool:
         """Cuenta una consulta de cifras del usuario hoy; False si ya llegó al tope (`figures_daily_limit`). El límite

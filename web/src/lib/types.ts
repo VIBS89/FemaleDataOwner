@@ -84,6 +84,20 @@ export interface Figure {
   sql: string[];
 }
 
+// Fase 1b (`ask_llm_sql`): el dato con SQL de un LLM y la evidencia de dónde salió (DataAnswer).
+export interface DataAnswer {
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  row_count: number;
+  truncated: boolean;
+  sql: string;
+  database: string;
+  server: string;
+  tables: string[];
+  explanation: string;
+  filters: string[];
+}
+
 export interface AnswerEnvelope {
   trace_id: string;
   flow: "discover" | "ask";
@@ -97,6 +111,7 @@ export interface AnswerEnvelope {
   confidence: number | null;
   discovery: Discovery | null;
   figure?: Figure | null; // ausente en respuestas antiguas del historial
+  data?: DataAnswer | null; // fase 1b
   timings_ms: Record<string, number>;
 }
 
