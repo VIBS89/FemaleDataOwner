@@ -256,3 +256,24 @@ run "sql_sidecar_sin_memoria" {
   }
   expect_failures = [terraform_data.validaciones]
 }
+
+# Los atajos del demo (salida a internet, claves de LLM de terceros) nunca junto a la red del banco.
+run "demo_con_red_del_banco" {
+  command = plan
+  variables {
+    public_task      = true
+    llm_api_key_envs = ["NVIDIA_API_KEY"]
+    sql_server_cidrs = ["10.20.30.0/24"]
+  }
+  expect_failures = [terraform_data.validaciones]
+}
+
+# Una pila llamada prod no acepta los atajos aunque la API diga dev.
+run "prod_por_nombre" {
+  command = plan
+  variables {
+    environment  = "prod"
+    fargate_spot = true
+  }
+  expect_failures = [terraform_data.validaciones]
+}

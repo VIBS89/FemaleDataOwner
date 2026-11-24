@@ -9,8 +9,8 @@ region                   = "us-east-1"
 demo                     = false
 
 # ALB público, restringido a las IP indicadas. Con la lista vacía, despliegue.sh pone la IP pública de quien lo
-# ejecuta (/32). Para enseñarlo a otras personas, añadir aquí sus IP. Sin certificado escucha en HTTP: solo datos
-# de prueba.
+# ejecuta (/32). Para enseñarlo a otras personas, añadir aquí sus IP. Sin certificado escucha en HTTP: las
+# contraseñas y la sesión viajan en claro. Con más de una IP, mejor HTTPS (domain_name y route53_zone_id, abajo).
 alb_internal      = false
 alb_ingress_cidrs = []
 

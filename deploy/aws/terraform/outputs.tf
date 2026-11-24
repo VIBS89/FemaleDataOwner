@@ -90,3 +90,8 @@ output "vpn" {
 output "alarms_topic" {
   value = aws_sns_topic.alarms.arn
 }
+
+output "llm_secrets" {
+  description = "Secretos de claves de LLM externos => variable de entorno (los carga `despliegue.sh up` desde el .env)"
+  value       = local.llm_secrets
+}

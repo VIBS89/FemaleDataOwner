@@ -1,6 +1,7 @@
 locals {
-  name       = "discovery-data-agent-${var.environment}"
-  production = contains(["qa", "prod"], var.discovery_data_agent_env)
+  name = "discovery-data-agent-${var.environment}"
+  # Producción por la variable de la API o por el nombre de la pila: los atajos de coste no valen en ninguna de las dos.
+  production = contains(["qa", "prod"], var.discovery_data_agent_env) || contains(["qa", "prod"], var.environment)
   account_id = data.aws_caller_identity.current.account_id
   partition  = data.aws_partition.current.partition
   azs        = slice(data.aws_availability_zones.available.names, 0, 2)
@@ -69,6 +70,11 @@ resource "terraform_data" "validaciones" {
     precondition {
       condition     = !local.production || !(var.public_task || var.fargate_spot || var.schedule.enabled)
       error_message = "Con discovery_data_agent_env qa o prod no se usan public_task, fargate_spot ni schedule: son atajos de coste del demo."
+    }
+    precondition {
+      condition = (!(var.public_task || var.sql_sidecar || length(var.llm_api_key_envs) > 0)
+      || (var.vpn == null && length(var.sql_server_cidrs) == 0 && var.onprem_dns == null))
+      error_message = "public_task, sql_sidecar y llm_api_key_envs son del entorno de pruebas: no se combinan con la VPN ni con SQL Server del banco (los datos reales saldrían a internet o a proveedores de prueba)."
     }
     precondition {
       condition     = !var.sql_sidecar || (!local.production && !var.demo && var.db_secret_enabled)

@@ -175,7 +175,10 @@ cmd_secret() {
   [[ "$name" =~ ^[a-z][a-z-]*$ ]] || die "Indica el secreto: db, metadata-user, metadata-password, nvidia-api-key… (salida 'secrets')."
   read -r -s -p "Valor de discovery-data-agent/$ENV_NAME/$name (no se muestra): " value || true; echo >&2
   [ -n "$value" ] || die "Valor vacío: no se cambió nada."
-  aws secretsmanager put-secret-value --secret-id "discovery-data-agent/$ENV_NAME/$name" --secret-string "$value" >/dev/null
+  local tmp; tmp="$(mktemp)"; printf '%s' "$value" > "$tmp"
+  aws secretsmanager put-secret-value --secret-id "discovery-data-agent/$ENV_NAME/$name" \
+    --secret-string "file://$(native_path "$tmp")" >/dev/null || { rm -f "$tmp"; die "No se pudo guardar el secreto."; }
+  rm -f "$tmp"
   echo ">> Guardado. La tarea lo lee al arrancar: 'restart $ENV_NAME' para que lo tome." >&2
 }
 
@@ -195,8 +198,9 @@ state_bucket_exists() { aws s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1
 
 # Carga las claves de LLM (llm_api_key_envs) que aún no tengan valor, desde el entorno o el .env del repositorio.
 load_llm_keys() {
-  local env_file="${ENV_FILE:-../../.env}" pair secret var value tmp
-  for pair in $(tf output -json llm_secrets | tr -d '{}" ' | tr ',' ' '); do
+  local env_file="${ENV_FILE:-../../.env}" pairs pair secret var value tmp
+  pairs="$(tf output -json llm_secrets)" || die "No se pudo leer el output llm_secrets."
+  for pair in $(printf '%s' "$pairs" | tr -d '{}" ' | tr ',' ' '); do
     secret="${pair%%:*}"; var="${pair#*:}"
     if aws secretsmanager get-secret-value --secret-id "discovery-data-agent/$ENV_NAME/$secret" >/dev/null 2>&1; then
       echo ">> $secret ya tiene valor" >&2; continue
@@ -242,7 +246,7 @@ cmd_up() {
   load_llm_keys
   ALLOW_DIRTY=1 cmd_deploy "$@"
   echo ">> Listo: $(out url)"
-  [ -z "$(out sql_logins_secret)" ] || cmd_credentials
+  [ -z "$(out sql_logins_secret)" ] || echo ">> Usuarios, contraseñas y código de instalación: bash deploy/aws/despliegue.sh credentials $ENV_NAME"
   echo ">> Para no pagar más: bash deploy/aws/despliegue.sh teardown $ENV_NAME"
 }
 

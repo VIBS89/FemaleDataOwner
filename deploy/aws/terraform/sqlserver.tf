@@ -23,7 +23,7 @@ locals {
     ]
     logConfiguration = local.log_configuration["sqlserver"]
     healthCheck = {
-      command     = ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -C -b -Q 'SELECT 1' >/dev/null"]
+      command     = ["CMD-SHELL", "SQLCMDPASSWORD=\"$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' >/dev/null"]
       interval    = 15
       timeout     = 10
       retries     = 5

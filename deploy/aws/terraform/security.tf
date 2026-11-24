@@ -82,7 +82,8 @@ resource "aws_ecr_lifecycle_policy" "this" {
 
 # --- Secretos de servicio (nunca logins de usuarios: CN-03 CA2) ---
 # El código de instalación lo genera Terraform; los demás se crean vacíos y su valor se carga con
-# `despliegue.sh secret <entorno> <nombre>`, para que no pase por el estado ni por el repositorio.
+# `despliegue.sh secret <entorno> <nombre>`, para que no pase por el estado ni por el repositorio. Excepción: con
+# sql_sidecar (solo pruebas) Terraform genera las contraseñas de SQL Server y quedan en el estado, cifrado con KMS.
 resource "random_password" "setup_token" {
   count   = var.demo ? 0 : 1
   length  = 40
@@ -221,6 +222,11 @@ data "aws_iam_policy_document" "bedrock_mantle" {
   statement {
     actions   = ["bedrock-mantle:CreateInference"]
     resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = [var.region]
+    }
   }
 }
 
