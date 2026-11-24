@@ -52,6 +52,15 @@
 }
 
 :root {
+  /* Gráficos de datos: paleta categórica validada (skill dataviz, validate_palette.js) contra la tarjeta en claro.
+     Slots 3–5 quedan bajo 3:1: el pastel lleva leyenda con nombre y porcentaje y la vista de tabla. */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-6: #008300;
+  --viz-other: #9b9a95;
   --radius: 0.625rem;
   --background: oklch(0.985 0.003 250);
   --foreground: oklch(0.145 0 0);
@@ -94,6 +103,14 @@
 }
 
 .dark {
+  /* Los mismos tonos, escalonados para la tarjeta oscura (todos >= 3:1). */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #0ca30c;
+  --viz-other: #75746f;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

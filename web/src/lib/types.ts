@@ -96,6 +96,14 @@ export interface DataAnswer {
   tables: string[];
   explanation: string;
   filters: string[];
+  chart?: ChartSpec | null; // gráfico que sugirió la IA y confirmaron los datos
+}
+
+export interface ChartSpec {
+  kind: "bar" | "pie";
+  label_column: string;
+  value_column: string;
+  title: string;
 }
 
 export interface AnswerEnvelope {
