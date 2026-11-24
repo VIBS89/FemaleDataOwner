@@ -4,6 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Identidad Banco Atlántida El Salvador (tomada de bancoatlantida.com.sv):
+ *   rojo Atlántida  #D9272E  oklch(0.573 0.211 25.6)  — color de marca, acciones principales
+ *   rojo profundo   #C61116  oklch(0.525 0.207 27.7)  — hover/pressed y texto rojo sobre blanco
+ *   rojo noche      #A50F13  oklch(0.460 0.180 27.5)  — degradados y fondos de marca
+ *   gris Atlántida  #626269 / #77777A / #707070 (logo) — texto secundario y neutros
+ * Tipografía: el sitio usa Neo Sans (licencia comercial, no se usa aquí) + Nunito Sans. Aquí, solo fuentes libres
+ * (SIL OFL): Nunito (títulos, redondeada como Neo Sans), Nunito Sans (texto) y JetBrains Mono (código y nombres
+ * técnicos). Se sirven desde el propio bundle (@fontsource-variable), sin CDN: el servidor on-premise no descarga
+ * nada en tiempo de ejecución.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-conf-high: var(--conf-high);
@@ -13,9 +25,14 @@
   --color-conf-low: var(--conf-low);
   --color-conf-low-bg: var(--conf-low-bg);
   --color-foreground: var(--foreground);
-  /* Fuentes del sistema: sin descargas externas (on-premise, proxies con inspección TLS) */
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SF Mono", Menlo, monospace;
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-soft: var(--brand-soft);
+  /* Solo tipografías libres (SIL OFL), empaquetadas con la app; después solo genéricos del navegador */
+  --font-sans: "Nunito Sans Variable", "Nunito Sans", sans-serif;
+  --font-heading: "Nunito Variable", "Nunito", "Nunito Sans Variable", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -61,45 +78,55 @@
   --viz-5: #e87ba4;
   --viz-6: #008300;
   --viz-other: #9b9a95;
-  --radius: 0.625rem;
-  --background: oklch(0.985 0.003 250);
-  --foreground: oklch(0.145 0 0);
+  --radius: 0.75rem;
+
+  /* Marca */
+  --brand: oklch(0.573 0.211 25.6); /* #D9272E */
+  --brand-strong: oklch(0.525 0.207 27.7); /* #C61116 */
+  --brand-deep: oklch(0.46 0.18 27.5); /* #A50F13 */
+  --brand-soft: oklch(0.967 0.016 22); /* tinte rojo para selección y realces */
+
+  /* Neutros con el leve matiz frío del gris Atlántida (#626269) */
+  --background: oklch(0.982 0.002 286);
+  --foreground: oklch(0.22 0.008 286);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.22 0.008 286);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.46 0.15 256);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.955 0.018 256);
-  --accent-foreground: oklch(0.32 0.11 256);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.62 0.13 256);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.22 0.008 286);
+  --primary: var(--brand); /* blanco sobre #D9272E: 4.9:1 (AA) */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.955 0.004 286);
+  --secondary-foreground: oklch(0.3 0.01 286);
+  --muted: oklch(0.957 0.003 286);
+  --muted-foreground: oklch(0.499 0.011 286); /* #626269: 6:1 sobre blanco */
+  --accent: var(--brand-soft);
+  --accent-foreground: var(--brand-strong);
+  /* Rojo vino, más oscuro y frío que el de marca, para que «eliminar» no se confunda con la acción principal */
+  --destructive: oklch(0.45 0.17 8);
+  --border: oklch(0.912 0.004 286);
+  --input: oklch(0.88 0.005 286);
+  --ring: oklch(0.573 0.211 25.6 / 70%);
+  --chart-1: var(--brand);
+  --chart-2: oklch(0.499 0.011 286);
+  --chart-3: oklch(0.72 0.12 40);
+  --chart-4: oklch(0.46 0.18 27.5);
+  --chart-5: oklch(0.75 0.006 286);
   --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.46 0.15 256);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.955 0.018 256);
-  --sidebar-accent-foreground: oklch(0.32 0.11 256);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.62 0.13 256);
-  /* Confianza de los candidatos (F22): alta ≥ 80 %, media ≥ 60 %, baja < 60 % (umbral de brecha) */
-  --conf-high: oklch(0.52 0.13 155);
+  --sidebar-foreground: oklch(0.3 0.01 286);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--brand-soft);
+  --sidebar-accent-foreground: var(--brand-strong);
+  --sidebar-border: oklch(0.925 0.004 286);
+  --sidebar-ring: oklch(0.573 0.211 25.6 / 70%);
+  /* Confianza de los candidatos (F22): alta ≥ 80 %, media ≥ 60 %, baja < 60 % (umbral de brecha).
+     La baja va en naranja quemado y no en rojo para no leerse como color de marca. */
+  --conf-high: oklch(0.5 0.12 155);
   --conf-high-bg: oklch(0.96 0.04 155);
-  --conf-mid: oklch(0.55 0.13 75);
+  --conf-mid: oklch(0.53 0.12 75);
   --conf-mid-bg: oklch(0.97 0.05 85);
-  --conf-low: oklch(0.55 0.18 30);
-  --conf-low-bg: oklch(0.97 0.03 30);
+  --conf-low: oklch(0.52 0.15 45);
+  --conf-low-bg: oklch(0.96 0.035 50);
 }
 
 .dark {
@@ -111,48 +138,89 @@
   --viz-5: #d55181;
   --viz-6: #0ca30c;
   --viz-other: #75746f;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --brand: oklch(0.64 0.2 25);
+  --brand-strong: oklch(0.7 0.17 24);
+  --brand-deep: oklch(0.42 0.16 27.5);
+  --brand-soft: oklch(0.3 0.07 25);
+  --background: oklch(0.17 0.006 286);
+  --foreground: oklch(0.97 0.003 286);
+  --card: oklch(0.21 0.007 286);
+  --card-foreground: oklch(0.97 0.003 286);
+  --popover: oklch(0.21 0.007 286);
+  --popover-foreground: oklch(0.97 0.003 286);
+  --primary: var(--brand);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.27 0.008 286);
+  --secondary-foreground: oklch(0.97 0.003 286);
+  --muted: oklch(0.27 0.008 286);
+  --muted-foreground: oklch(0.72 0.01 286);
+  --accent: var(--brand-soft);
+  --accent-foreground: oklch(0.92 0.04 22);
+  --destructive: oklch(0.68 0.17 10);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.64 0.2 25 / 70%);
+  --chart-1: var(--brand);
+  --chart-2: oklch(0.72 0.01 286);
+  --chart-3: oklch(0.75 0.12 40);
+  --chart-4: oklch(0.5 0.17 27.5);
+  --chart-5: oklch(0.45 0.008 286);
+  --sidebar: oklch(0.2 0.007 286);
+  --sidebar-foreground: oklch(0.92 0.004 286);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--brand-soft);
+  --sidebar-accent-foreground: oklch(0.92 0.04 22);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.64 0.2 25 / 70%);
+  --conf-high: oklch(0.75 0.13 155);
+  --conf-high-bg: oklch(0.3 0.05 155);
+  --conf-mid: oklch(0.8 0.12 80);
+  --conf-mid-bg: oklch(0.32 0.05 80);
+  --conf-low: oklch(0.75 0.14 50);
+  --conf-low-bg: oklch(0.32 0.06 45);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    font-feature-settings: "kern", "liga";
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+  /* Títulos en Nunito: misma familia que Nunito Sans, con terminales redondeadas como la Neo Sans del banco */
+  h1,
+  h2,
+  h3,
+  h4,
+  [data-slot="card-title"],
+  [data-slot="dialog-title"],
+  [data-slot="sheet-title"],
+  [data-slot="alert-title"] {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: oklch(0.573 0.211 25.6 / 18%);
+  }
+  /* Barra de desplazamiento fina en rojo, como en bancoatlantida.com.sv */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.573 0.211 25.6 / 55%) transparent;
   }
 }
 @layer utilities {
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+  .bg-brand-gradient {
+    background-image:
+      radial-gradient(120% 80% at 100% 0%, oklch(0.62 0.2 28 / 55%) 0%, transparent 60%),
+      linear-gradient(140deg, var(--brand) 0%, var(--brand-strong) 45%, var(--brand-deep) 100%);
+  }
   .animate-in-up {
     animation: in-up 0.25s ease-out both;
   }

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { SessionProvider } from "@/components/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+// Tipografías libres (SIL OFL) empaquetadas con la app: sin CDN ni descargas en tiempo de ejecución
+import "@fontsource-variable/nunito";
+import "@fontsource-variable/nunito-sans";
+import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
