@@ -1,7 +1,7 @@
 # Presentación del hackathon (Shark Tank)
 
 Pitch de Discovery Data Agent para el hackathon AWS Builders League · Women Agentic 2026: 7 diapositivas para 5 minutos más
-3 de anexo para la ronda de preguntas. Cada diapositiva trae en sus notas el tiempo, quién habla y qué decir.
+2 de anexo para la ronda de preguntas (plan B de la demo, y herramientas MCP y reglas). Cada diapositiva trae en sus notas el tiempo, quién habla y qué decir.
 
 | Archivo | Qué es |
 |---|---|

@@ -18,9 +18,7 @@ completan con datos reales del equipo antes del pitch.
 | 6 | [Más rápido, más barato, menos riesgo](#6-mas-rapido-mas-barato-menos-riesgo) |
 | 7 | [Que ninguna pregunta sobre datos dependa de una sola persona](#7-que-ninguna-pregunta-sobre-datos-dependa-de-una-sola-persona) |
 | 8 | [Pregunta en español, respuesta con evidencia](#8-pregunta-en-espanol-respuesta-con-evidencia) |
-| 9 | [One question replaces a chain of messages to experts](#9-one-question-replaces-a-chain-of-messages-to-experts) |
-| 10 | [10 herramientas por MCP y 5 reglas que nunca rompe](#10-10-herramientas-por-mcp-y-5-reglas-que-nunca-rompe) |
-| 11 | [Cómo sabemos que el problema es real](#11-como-sabemos-que-el-problema-es-real) |
+| 9 | [10 herramientas por MCP y 5 reglas que nunca rompe](#9-10-herramientas-por-mcp-y-5-reglas-que-nunca-rompe) |
 
 ## 1. Discovery Data Agent
 
@@ -41,20 +39,15 @@ completan con datos reales del equipo antes del pitch.
 
 *1 · Problema y cliente*
 
-- Un martes cualquiera, una analista de BI pregunta:
+- Una analista de BI de la Gerencia de Datos de Banco Atlántida El Salvador pregunta:
 - “¿Dónde está el identificador único del cliente de onboarding digital?”
-- Cliente
-- Gerencia de Datos de Banco Atlántida El Salvador y sus siete perfiles: de ingenieros de datos a nuevos colaboradores.
-- **Dependencia de expertos**
-- Cuellos de botella cuando la persona que sabe no está.
-- **Búsquedas duplicadas**
-- Cada equipo investiga de nuevo lo que otro ya encontró.
-- **Reprocesos**
-- Una fuente equivocada se descubre tarde, en el reporte.
-- **Conocimiento que se va**
-- Cuando alguien cambia de rol, lo que sabía se va.
+- Escribe a dos o tres expertos, espera y a veces termina en la fuente equivocada.
+- Dependencia de expertos
+- Búsquedas duplicadas
+- Reprocesos
+- Conocimiento que se va
 - **[x h]**
-- por semana dedica cada analista a buscar datos, según [N] entrevistas con la Gerencia de Datos. Lo planteó el propio cliente y hoy nadie lo mide.
+- por semana dedica cada analista a buscar datos, según [N] entrevistas. Lo planteó el propio cliente y hoy nadie lo mide.
 
 **Notas del orador**
 
@@ -78,15 +71,15 @@ completan con datos reales del equipo antes del pitch.
 - Revisa: ¿existe y tiene permiso?
 - 6
 - Responde con evidencia
-- Los pasos 3 y 5 pueden devolver el flujo atrás (ciclos acotados). Cuando no encuentra, decide:
+- Los pasos 3 y 5 pueden devolver el flujo atrás. Cuando no encuentra, decide:
 - **Cubre poco**
-- Reformula la pregunta con el LLM y vuelve a buscar.
+- Reformula y vuelve a buscar.
 - **Confianza baja**
-- No inventa: lo dice y escala al responsable del dato.
+- No inventa: escala al responsable.
 - **Varias áreas**
-- Responde y ofrece aclarar si el dato existe en varias áreas.
+- Responde y ofrece aclarar.
 - **Piden modificar**
-- Rechaza la orden: el agente es de solo lectura.
+- Se niega: es de solo lectura.
 - Cinco reglas que nunca rompe
 - Permisos heredados
 - Datos no salen del banco
@@ -219,7 +212,7 @@ completan con datos reales del equipo antes del pitch.
 
 > RELOJ 4:25–4:50 (25 s, ~65 palabras) · [Integrante 1] cierra. Hoy resolvemos clientes y onboarding. El siguiente paso es un piloto de 8 semanas con 10 a 15 usuarios de la Gerencia de Datos. Y la visión: que todo el patrimonio de datos del banco sea consultable por personas y por agentes. Somos seis, trabajamos en un repositorio con Spec-Driven Development, y cualquiera de nosotras puede explicar cualquier parte. Que ninguna pregunta sobre datos dependa de una sola persona. Gracias.
 >
-> TERMINAR EN 4:50 como máximo; a los 5:00 el tiempo cuenta en Presentación. Para las preguntas (2 min), todo el equipo al frente: responde quien conozca el tema, sin silencios. Anexos listos: respuesta del agente, herramientas MCP y reglas, evidencia.
+> TERMINAR EN 4:50 como máximo; a los 5:00 el tiempo cuenta en Presentación. Para las preguntas (2 min), todo el equipo al frente: responde quien conozca el tema, sin silencios. Anexos listos: respuesta del agente (plan B de la demo) y herramientas MCP y reglas.
 
 ## 8. Pregunta en español, respuesta con evidencia
 
@@ -243,34 +236,7 @@ completan con datos reales del equipo antes del pitch.
 
 > Anexo para preguntas y plan B de la demo. La persona escribe como habla. El agente devuelve una lista priorizada con la ubicación exacta, la descripción y quién la revisó, la regla de negocio, las relaciones y la confianza. Con “Es este” el conocimiento se fortalece para los siguientes usuarios.
 
-## 9. One question replaces a chain of messages to experts
-
-*Annex · Use case*
-
-- A BI analyst, building a report, asks in Spanish:
-- “Where is the unique client identifier for digital onboarding?”
-- Without the agent
-- She messages two or three experts, waits, and may end up on the wrong source.
-- 1 · Finds
-- **Right field, with context**
-- Returns ClientCode with its business rule (BR-ONB-004) and related tables, ranked by confidence.
-- 2 · Respects permissions
-- **Nobody sees more than allowed**
-- HR objects never appear: the agent inherits the person’s SQL Server permissions.
-- 3 · Does not invent
-- **Low confidence, so it escalates**
-- Asked for the credit risk score, confidence is 44 %. It says so and routes the question to the data owner.
-- 4 · Learns
-- **The expert answers once**
-- The same question now returns 93 %, for this analyst and for the next one.
-- **1 question**
-- gives a sourced answer with a confidence level, and what the owner confirms stays available to everyone.
-
-**Notas del orador**
-
-> Annex for Q&A. Use case in English: a BI analyst asks in Spanish where the digital onboarding client identifier lives. The agent finds ClientCode with its business rule and relations, respects inherited SQL Server permissions, declines to invent an answer when confidence is low (credit risk score, 44 %) and escalates to the owner, and learns from the owner’s answer (same question, 93 %). The four steps mirror the live demo, so it also works as the plan B narration.
-
-## 10. 10 herramientas por MCP y 5 reglas que nunca rompe
+## 9. 10 herramientas por MCP y 5 reglas que nunca rompe
 
 *Anexo · Herramientas y reglas*
 
@@ -299,20 +265,3 @@ completan con datos reales del equipo antes del pitch.
 **Notas del orador**
 
 > Anexo para preguntas. El agente expone diez herramientas por MCP, así otros agentes lo usan igual que el chat. Y sigue cinco reglas fijas, probadas en cada cambio por una compuerta de calidad: permisos heredados, residencia de datos, cero objetos inventados, solo lectura y auditoría fail-closed.
-
-## 11. Cómo sabemos que el problema es real
-
-*Anexo · Evidencia*
-
-- **Lo pidió el cliente**
-- La Gerencia de Datos lo planteó en su Propuesta 1: el acceso al dato depende del conocimiento tribal y de documentación parcial.
-- **El patrimonio es grande**
-- [N] servidores SQL Server, [N] bases de datos y [N] tablas entre producción, QA, DWH y desarrollo.
-- **Nadie lo mide hoy**
-- No existe medición del tiempo de búsqueda. El agente mide la línea base desde el primer día.
-- **[x h]**
-- por semana dedica cada analista a localizar y entender fuentes de datos, según [N] entrevistas con la Gerencia de Datos.
-
-**Notas del orador**
-
-> Anexo para preguntas. Tres pruebas: lo pidió el propio cliente, el patrimonio es grande y nadie lo mide. Dar la cifra de las entrevistas (completar antes del pitch). Si no hay entrevistas, decir que el producto mide la línea base desde el día uno: tiempo hasta encontrar el dato, escalamientos y brechas.
