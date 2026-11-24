@@ -36,6 +36,7 @@ export const FLOW_STEPS = [
   "Priorizando candidatos",
   "Agregando ubicaciones, reglas, relaciones y responsables",
   "Revisando el resultado",
+  "Calculando el dato con tus permisos",
   "Redactando la respuesta",
 ];
 

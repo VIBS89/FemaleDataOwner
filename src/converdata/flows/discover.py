@@ -5,6 +5,9 @@
                     │       └── reintento ┘ (C, máx. 1)  └── corrección ┘ (B, máx. 1)
                     └─► finalize   (aclaración o fuera de alcance)
 
+Con `features.ask_flow` y un ejecutor con la conexión del usuario, una pregunta de cifras pasa además por `ask`
+(entre `review` y `respond`): calcula el dato con los permisos del usuario y la respuesta lo dice directamente (F6–F10).
+
 Patrones de agentes (activables en `Settings.patterns`, medidos con `converdata eval discovery`):
 - **D, expansión de la consulta** (`retrieve`): pregunta original + variante con términos técnicos; cobertura por conceptos.
 - **C, RAG correctivo** (`grade`): si la recuperación cubre poco la pregunta, se reformula una vez (LLM `fast` o léxico).
@@ -28,6 +31,8 @@ from typing import Annotated, Any, Iterator, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from converdata.ask.engine import AskEngine, AskOutcome
+from converdata.ask.ports import QueryExecutor, QuestionInterpretation
 from converdata.audit.recorder import AuditSink, InMemoryAuditSink, StepRecord, TraceRecord
 from converdata.catalog.store import Catalog, KnowledgeBase
 from converdata.config import OwnersDirectory, Settings
@@ -42,6 +47,7 @@ from converdata.models.intent import IntentResult
 
 MAX_RETRIEVAL_ATTEMPTS = 2  # C: búsqueda original + una reformulación
 MAX_REVIEW_ATTEMPTS = 2  # B: revisión + una corrección
+ASK_HINTS = 10  # AskFlow: activos mejor puntuados que orientan la base cuando no hay candidato recomendado
 
 STEP_LABELS = {
     "intent": "Interpretando la pregunta",
@@ -50,6 +56,7 @@ STEP_LABELS = {
     "rerank": "Priorizando candidatos",
     "expand": "Agregando ubicaciones, reglas, relaciones y responsables",
     "review": "Revisando el resultado",
+    "ask": "Calculando el dato con tus permisos",
     "respond": "Redactando la respuesta",
     "finalize": "Registrando la auditoría",
 }
@@ -70,6 +77,7 @@ class DiscoverDeps:
     expander: QueryExpander | None = None  # C/D con LLM (rol `fast`); None → solo léxico
     reviewer: Reviewer | None = None  # B con juez LLM (rol `judge`); None → solo chequeos deterministas
     graph: object | None = None  # EstateGraph (F19); lo construye `DiscoverService` si falta
+    ask: AskEngine | None = None  # AskFlow (F6–F10); None → las preguntas de cifras se responden como descubrimiento
     audit: AuditSink = field(default_factory=InMemoryAuditSink)
     model_names: Mapping[str, str] = field(default_factory=dict)  # rol → proveedor:modelo (`audit_step.model`)
 
@@ -94,6 +102,10 @@ class DiscoverState(TypedDict, total=False):
     review_attempt: int
     review_route: str
     validation: Validation
+    executor: QueryExecutor  # conexión del usuario (F8); solo la da la API
+    data_query: bool
+    interpretation: QuestionInterpretation  # lo que entendió el LLM de la pregunta (AskFlow)
+    ask: AskOutcome
     answer_text: str
     envelope: AnswerEnvelope
     steps: Annotated[list[StepRecord], operator.add]
@@ -137,20 +149,40 @@ def build_discover_graph(deps: DiscoverDeps):
 
     def intent_node(state):
         error = None
+        data_query = False
         try:
             result = deps.intent_classifier.classify(state["question"], state.get("history", []))
         except Exception as exc:  # throttling, timeout o salida no parseable → reglas
             error = f"fallback:{type(exc).__name__}"
             result = fallback_intent.classify(state["question"], state.get("history", []))
         assumptions: list[str] = []
+        can_ask = deps.settings.features.ask_flow and deps.ask is not None and state.get("executor") is not None
+        interpretation = None
+        if can_ask and deps.ask.interpreter is not None:
+            # El LLM decide si la pregunta pide un dato y la reescribe; las reglas quedan solo como respaldo.
+            try:
+                interpretation = deps.ask.interpret(state["question"], state.get("history", []), state["user"])
+            except Exception as exc:
+                error = ((error + ";") if error else "") + f"interprete:fallback:{type(exc).__name__}"
+        if interpretation is not None:
+            kind = {"dato": "data_query", "fuera_de_alcance": "out_of_scope"}.get(interpretation.kind)
+            if kind:
+                result = result.model_copy(update={"intent": kind, "confidence": max(result.confidence, 0.8)})
+            elif result.intent in ("data_query", "procedure"):
+                result = result.model_copy(update={"intent": "discovery"})
+            if interpretation.refined_question.strip():
+                result = result.model_copy(update={"rewritten_question": interpretation.refined_question.strip()})
         if result.intent == "out_of_scope":
             route = "out_of_scope"
         elif result.intent == "ambiguous" or result.confidence < 0.6:
             route = "clarify"
-        elif result.intent in ("data_query", "procedure") and not deps.settings.features.ask_flow:
-            # F3: fase 1a sin AskFlow → se responde como descubrimiento indicando dónde están los datos.
+        elif result.intent in ("data_query", "procedure"):
             route = "discover"
-            assumptions.append("La consulta de datos no está habilitada en esta fase; te indico dónde están los datos.")
+            if can_ask:
+                data_query = True  # AskFlow: primero se descubre dónde vive el dato y luego `ask` lo calcula
+            else:
+                # F3: sin AskFlow → se responde como descubrimiento indicando dónde están los datos.
+                assumptions.append("La consulta de datos no está habilitada en esta fase; te indico dónde están los datos.")
             result = result.model_copy(update={"intent": "discovery"})
         else:
             route = "discover"
@@ -159,7 +191,10 @@ def build_discover_graph(deps: DiscoverDeps):
             hint = engine.entity_kind_hint(state["question"], result, deps.catalog, state["user"].visible_ids)
             if hint:
                 result = result.model_copy(update={"asset_kind_hint": hint})
-        return {"intent": result, "route": route, "assumptions": assumptions}, error
+        out = {"intent": result, "route": route, "assumptions": assumptions, "data_query": data_query}
+        if interpretation is not None:
+            out["interpretation"] = interpretation
+        return out, error
 
     # --- D: recuperación con plan de consultas ---------------------------------------------
     def retrieve_node(state):
@@ -244,7 +279,9 @@ def build_discover_graph(deps: DiscoverDeps):
         )
         detail = f"caminos={len(discovery.join_paths)}" if discovery.join_paths else None
         out: dict = {"discovery": discovery}
-        if discovery.unresolved_parts:
+        # Con el AskFlow el planner ve todas las tablas de la base: que el buscador no ubique una parte de la pregunta
+        # (p. ej. una fecha) no significa que falte el dato.
+        if discovery.unresolved_parts and not state.get("data_query"):
             out["assumptions"] = [f"No encontré datos disponibles para «{p}»." for p in discovery.unresolved_parts]
         return out, None, detail
 
@@ -314,10 +351,29 @@ def build_discover_graph(deps: DiscoverDeps):
             error, detail,
         )
 
+    # --- AskFlow: el dato pedido, con los permisos del usuario -------------------------------
+    def ask_node(state):
+        # Aunque ningún activo llegue al umbral de recomendación, los mejor puntuados dicen en qué base buscar.
+        hints = [d.asset_key for d in state.get("ranked", [])[:ASK_HINTS]]
+        if not state["discovery"].candidates and not hints:
+            return {"_model_used": False}, None, "sin_candidatos"
+        try:
+            outcome = deps.ask.run(state["question"], state["discovery"], state["user"], state["executor"], hints,
+                                   state.get("interpretation"))
+        except Exception as exc:  # el LLM o la conexión fallaron: se responde como descubrimiento
+            outcome = AskOutcome(False, notes=["No pude calcular el dato ahora; te indico dónde está la información."],
+                                 errors=[f"fallo:{type(exc).__name__}"])
+        detail = f"intentos={outcome.attempts}" + (f";filas={outcome.data.row_count}" if outcome.data else "")
+        error = None if outcome.ok else (",".join(outcome.errors) or None)
+        return {"ask": outcome, "assumptions": outcome.notes}, error, detail
+
     def respond_node(state):
         discovery = state["discovery"]
         error = None
         text = None
+        asked = state.get("ask")
+        if asked is not None and asked.ok:
+            return {"answer_text": asked.text, "_model_used": False}, None
         if discovery.candidates:
             try:
                 text = deps.narrator.narrate(state["intent"].rewritten_question, discovery)
@@ -354,10 +410,17 @@ def build_discover_graph(deps: DiscoverDeps):
             env.confidence = disc.candidates[0].confidence if disc.candidates else 0.0
             env.databases = engine.databases_of(disc)
             env.tables_used = engine.tables_of(disc)
+            asked = state.get("ask")
+            if asked is not None and asked.ok:
+                env.flow, env.data = "ask", asked.data
+                env.databases, env.tables_used = [asked.data.database], list(asked.data.tables)
+                env.confidence = None  # la del descubrimiento no aplica a una cifra calculada
         env.timings_ms = {"total": int((time.perf_counter() - state["started"]) * 1000), "db": 0}
         record = TraceRecord(
             trace_id=state["trace_id"], user_id=state["user"].user_id, client=state.get("client", "api"),
-            question=state["question"], envelope=env, intent=intent.intent if intent else None,
+            question=state["question"], intent=intent.intent if intent else None,
+            # La auditoría guarda la consulta y el número de filas, nunca los valores (F11, F17).
+            envelope=env.model_copy(update={"data": env.data.redacted()}) if env.data else env,
             steps=list(state.get("steps", [])),
         )
         try:
@@ -379,6 +442,7 @@ def build_discover_graph(deps: DiscoverDeps):
     g.add_node("rerank", _timed("rerank", "planner", deps, rerank_node))
     g.add_node("expand", _timed("expand", None, deps, expand_node))
     g.add_node("review", _timed("review", "judge", deps, review_node, "review_attempt"))
+    g.add_node("ask", _timed("ask", "coder", deps, ask_node))
     g.add_node("respond", _timed("respond", "fast", deps, respond_node))
     g.add_node("finalize", finalize_node)  # escribe la auditoría con los pasos anteriores; no se audita a sí mismo
     g.add_edge(START, "intent")
@@ -389,7 +453,11 @@ def build_discover_graph(deps: DiscoverDeps):
     g.add_conditional_edges("grade", lambda s: s["retrieval_route"], {"retry": "retrieve", "continue": "rerank"})
     g.add_edge("rerank", "expand")
     g.add_edge("expand", "review")
-    g.add_conditional_edges("review", lambda s: s["review_route"], {"fix": "expand", "accept": "respond"})
+    g.add_conditional_edges(
+        "review", lambda s: "ask" if s["review_route"] == "accept" and s.get("data_query") else s["review_route"],
+        {"fix": "expand", "accept": "respond", "ask": "ask"},
+    )
+    g.add_edge("ask", "respond")
     g.add_edge("respond", "finalize")
     g.add_edge("finalize", END)
     return g.compile()  # sin checkpointer (F17)
@@ -409,10 +477,13 @@ class DiscoverService:
     def rebuild(self) -> None:
         self.graph = build_discover_graph(self.deps)
 
-    def _initial(self, question: str, user: UserContext, history: list[str] | None, client: str) -> DiscoverState:
+    def _initial(self, question: str, user: UserContext, history: list[str] | None, client: str,
+                 executor: QueryExecutor | None = None) -> DiscoverState:
         if user.visible_ids is None:
             raise ValueError("El DiscoverFlow requiere la visibilidad del usuario (F14)")
+        extra: dict = {"executor": executor} if executor is not None else {}
         return {
+            **extra,
             "trace_id": str(uuid.uuid4()),
             "question": question,
             "history": history or [],
@@ -423,15 +494,18 @@ class DiscoverService:
             "steps": [],
         }
 
-    def run(self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api") -> AnswerEnvelope:
-        final = self.graph.invoke(self._initial(question, user, history, client))
+    def run(self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api",
+            executor: QueryExecutor | None = None) -> AnswerEnvelope:
+        final = self.graph.invoke(self._initial(question, user, history, client, executor))
         return final["envelope"]
 
     def stream(
-        self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api"
+        self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api",
+        executor: QueryExecutor | None = None,
     ) -> Iterator[tuple[str, dict]]:
         """Eventos por nodo (`step`) y, al final, la respuesta (`answer`)."""
-        for update in self.graph.stream(self._initial(question, user, history, client), stream_mode="updates"):
+        initial = self._initial(question, user, history, client, executor)
+        for update in self.graph.stream(initial, stream_mode="updates"):
             for node, payload in update.items():
                 if node == "finalize":
                     yield "answer", payload["envelope"].model_dump(by_alias=True)

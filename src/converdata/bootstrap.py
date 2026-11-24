@@ -101,6 +101,16 @@ def build_service_from_snapshot(
             llm_ports["reranker"] = LlmReranker(gateway.chat("planner"))
         if gateway.has_role("fast"):
             llm_ports["narrator"] = LlmNarrator(gateway.chat("fast"))
+        if settings.features.ask_flow and gateway.has_role("coder"):
+            from converdata.ask.engine import AskEngine
+            from converdata.ask.planner import LlmInterpreter, LlmSqlPlanner
+
+            # F6: el rol `coder` escribe el T-SQL; sin él, las preguntas de cifras se responden como descubrimiento.
+            # El intérprete (rol `interpret`, o `coder` si no está) entiende la pregunta sin listas de palabras clave.
+            interpret_role = "interpret" if gateway.has_role("interpret") else "coder"
+            llm_ports["ask"] = AskEngine(LlmSqlPlanner(gateway.chat("coder")), catalog,
+                                         max_rows=settings.features.ask_max_rows,
+                                         interpreter=LlmInterpreter(gateway.chat(interpret_role)))
         model_names = gateway.labels  # vista viva: proveedor:modelo que atendió cada rol (audit_step.model)
 
     store = InMemoryVectorStore()

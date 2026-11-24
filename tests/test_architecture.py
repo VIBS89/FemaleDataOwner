@@ -29,6 +29,8 @@ LAYERS = {
     "converdata.memory.base": "domain",
     "converdata.memory.text": "domain",
     "converdata.metadata.ports": "domain",
+    "converdata.ask": "domain",  # AskFlow: motor, validador y puertos (F6–F10)
+    "converdata.ask.planner": "infrastructure",  # el planner con LLM (langchain)
     "converdata.audit.sqlserver": "infrastructure",
     "converdata.audit.chain": "infrastructure",
     "converdata.flows": "application",

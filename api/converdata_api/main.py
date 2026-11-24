@@ -50,6 +50,7 @@ from converdata_api.runtime import AgentRuntime, ShownTrace
 from converdata_api.security import (InsecureConfiguration, LoginThrottle, SecurityMiddleware, inventory_violations,
                                      production_violations, valid_host, valid_identifier, valid_login)
 from converdata_api.settings import ApiSettings
+from converdata_api.executor import SessionQueryExecutor
 from converdata_api.vault import Credential, Session, SessionVault
 
 COOKIE = "cd_session"
@@ -618,6 +619,12 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
                 domain = domain_of(service, disc.candidates[0].asset_key)
         runtime.remember(envelope.trace_id, ShownTrace(session.user_id, question, keys, domain, asked_at))
 
+    def executor_for(session: Session):
+        """AskFlow (F8): la consulta corre con la credencial de la sesión. El modo demo no tiene servidores reales."""
+        if not hasattr(connector, "connect"):
+            return None
+        return SessionQueryExecutor(connector, runtime.inventory, vault, session)
+
     @app.post("/discover")
     def discover(body: DiscoverRequest, response: Response, session: Session = Depends(current_session),
                  service=Depends(require_service)):
@@ -625,7 +632,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         run_service, degraded = pick_service(session, service)
         asked_at = time.time()
         with tokens.as_user(session.user_id):
-            envelope = run_service.run(body.question, runtime.user_context(session), history=body.history, client="web")
+            envelope = run_service.run(body.question, runtime.user_context(session), history=body.history, client="web",
+                                       executor=executor_for(session))
         if degraded:
             envelope.assumptions.append(DEGRADED_NOTE)
         remember(envelope, body.question, session, service, asked_at)
@@ -642,7 +650,8 @@ def create_app(settings: ApiSettings | None = None, connector: Connector | None 
         asked_at = time.time()
 
         def events():
-            steps = run_service.stream(body.question, user, history=body.history, client="web")
+            steps = run_service.stream(body.question, user, history=body.history, client="web",
+                                       executor=executor_for(session))
             while True:
                 with tokens.as_user(session.user_id):  # cada paso corre en un hilo con su propio contexto
                     try:

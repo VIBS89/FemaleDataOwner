@@ -113,7 +113,10 @@ class Patterns(BaseModel):
 
 
 class Features(BaseModel):
-    ask_flow: bool = False  # fase 1a: las preguntas de datos se responden como descubrimiento (F3)
+    # false (fase 1a): las preguntas de datos se responden como descubrimiento (F3). true: el AskFlow calcula el dato
+    # con los permisos del usuario (F6–F10); requiere el rol `coder` en config/models.yaml.
+    ask_flow: bool = False
+    ask_max_rows: int = 1000  # filas que se devuelven como máximo (F7: se inyecta TOP max+1 para detectar truncado)
 
 
 class AuditSettings(BaseModel):

@@ -110,6 +110,27 @@ class Validation(BaseModel):
     attempts: int = 1
 
 
+class DataAnswer(BaseModel):
+    """Respuesta con datos del AskFlow (F6–F10): la cifra o la tabla, y la evidencia de dónde salió.
+
+    `rows` solo viaja en la respuesta al usuario que hizo la pregunta (con sus propios permisos): la auditoría guarda
+    la consulta y el número de filas, nunca los valores (`redacted`)."""
+
+    columns: list[str] = Field(default_factory=list)
+    rows: list[list] = Field(default_factory=list)
+    row_count: int = 0
+    truncated: bool = False
+    sql: str = ""  # la consulta ejecutada, ya validada (F7)
+    database: str = ""
+    server: str = ""  # alias mostrable, nunca el host
+    tables: list[str] = Field(default_factory=list)
+    explanation: str = ""  # cómo se calculó, en lenguaje sencillo
+    filters: list[str] = Field(default_factory=list)  # criterios aplicados, en lenguaje sencillo
+
+    def redacted(self) -> "DataAnswer":
+        return self.model_copy(update={"rows": []})
+
+
 class AnswerEnvelope(BaseModel):
     trace_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     flow: Literal["discover", "ask"] = "discover"
@@ -122,4 +143,5 @@ class AnswerEnvelope(BaseModel):
     validation: Validation | None = None
     confidence: float | None = None
     discovery: Discovery | None = None
+    data: DataAnswer | None = None  # AskFlow: el dato pedido y su evidencia
     timings_ms: dict[str, int] = Field(default_factory=dict)

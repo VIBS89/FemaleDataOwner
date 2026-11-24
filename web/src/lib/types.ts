@@ -64,6 +64,20 @@ export interface Discovery {
   suggested_questions: string[];
 }
 
+// AskFlow: el dato pedido y la evidencia de dónde salió (DataAnswer en models/discovery.py).
+export interface DataAnswer {
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  row_count: number;
+  truncated: boolean;
+  sql: string;
+  database: string;
+  server: string;
+  tables: string[];
+  explanation: string;
+  filters: string[];
+}
+
 export interface AnswerEnvelope {
   trace_id: string;
   flow: "discover" | "ask";
@@ -76,6 +90,7 @@ export interface AnswerEnvelope {
   validation: { checks: { name: string; status: string; detail: string }[]; attempts: number } | null;
   confidence: number | null;
   discovery: Discovery | null;
+  data?: DataAnswer | null;
   timings_ms: Record<string, number>;
 }
 

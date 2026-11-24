@@ -56,6 +56,7 @@ infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/ar
 | `builder/` | Dominio | Pasos del Builder: convertir metadatos, marcar datos personales por nombre, conservar lo humano, detectar entidades y linaje de vistas |
 | `memory/` | Dominio e infraestructura | Texto (tokens, literales) y el índice léxico BM25 en memoria. Aplica el filtro de permisos antes de ordenar |
 | `flows/` | Aplicación | Los dos grafos de LangGraph: `discover.py` (responder una pregunta) y `catalog_build.py` (construir el catálogo) |
+| `ask/` | Dominio e infraestructura | AskFlow (F6–F10): responde preguntas de cifras. `engine.py` arma el esquema, corrige hasta 3 veces y rellena la frase con el resultado (el LLM nunca lo ve); `validator.py` deja pasar solo un `SELECT` sobre tablas visibles e inyecta `TOP`; `planner.py` es el planner con LLM (rol `coder`). El ejecutor con la credencial de la sesión está en `api/converdata_api/executor.py` |
 | `application/` | Aplicación | Casos de uso compartidos: herramientas de descubrimiento (las usan el MCP y la compuerta; las rutas REST llaman al flujo directamente) y refresco del catálogo (el mismo para la CLI y la API) |
 | `storage/` | Infraestructura | Adaptadores de la BD `ConverData`: conexión, migraciones, catálogo, curación. Y los mismos puertos sobre archivos, solo para desarrollo |
 | `audit/` | Dominio e infraestructura | Registro de auditoría: en SQL Server (solo inserción) o en archivos con cadena de hashes |
