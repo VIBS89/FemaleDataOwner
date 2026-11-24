@@ -146,16 +146,17 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "app" {
-  count                             = local.deployed ? 1 : 0
-  name                              = local.name
-  cluster                           = aws_ecs_cluster.this.id
-  task_definition                   = aws_ecs_task_definition.app[0].arn
-  launch_type                       = var.fargate_spot ? null : "FARGATE"
-  platform_version                  = "LATEST"
-  desired_count                     = 1
-  enable_execute_command            = var.enable_ecs_exec
-  availability_zone_rebalancing     = "DISABLED"
-  health_check_grace_period_seconds = 120
+  count                         = local.deployed ? 1 : 0
+  name                          = local.name
+  cluster                       = aws_ecs_cluster.this.id
+  task_definition               = aws_ecs_task_definition.app[0].arn
+  launch_type                   = var.fargate_spot ? null : "FARGATE"
+  platform_version              = "LATEST"
+  desired_count                 = 1
+  enable_execute_command        = var.enable_ecs_exec
+  availability_zone_rebalancing = "DISABLED"
+  # Con SQL Server en la tarea, el arranque incluye levantar la BD y migrarla antes de que la API responda.
+  health_check_grace_period_seconds = var.sql_sidecar ? 300 : 120
 
   # Nunca dos tareas a la vez (dos SessionVault): cada despliegue para la tarea vieja y luego arranca la nueva.
   # Hay un corte de alrededor de un minuto y los usuarios vuelven a iniciar sesión.

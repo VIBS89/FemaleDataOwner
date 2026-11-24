@@ -74,7 +74,12 @@ cambia de motor porque la solución descubre metadatos de SQL Server: con otro m
 
 ### Antes de empezar
 
-- Docker Desktop en marcha, credenciales de AWS cargadas y, en el `.env` de la raíz, `NVIDIA_API_KEY` y `ANTHROPIC_API_KEY`.
+- En la máquina que despliega: Git Bash (en Windows), Terraform 1.10 o superior, AWS CLI v2, `unzip` y Docker
+  Desktop en marcha. Unos 10 GB libres para construir las imágenes.
+- Credenciales de la cuenta: `aws configure --profile <perfil>` (o `aws sso login`) y `export AWS_PROFILE=<perfil>`
+  en la misma consola. El script muestra la cuenta y la región antes de tocar nada.
+- Un `.env` en la raíz del repositorio (no se sube a git) con `NVIDIA_API_KEY=...` y `ANTHROPIC_API_KEY=...`. Sin
+  ellos `up` se detiene; si no se van a usar esos perfiles, quitarlos de `llm_api_key_envs` en `demo.tfvars`.
 - En la consola de Bedrock (us-east-1), **acceso a Claude Sonnet 5.5 y Claude Haiku 5.5** (Model access). Sin él, el
   perfil de Bedrock falla y el chat responde por su camino determinista; los otros perfiles siguen funcionando.
 
