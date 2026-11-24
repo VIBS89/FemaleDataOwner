@@ -35,7 +35,7 @@ class FakeExecutor:
     def server_label(self, server):
         return "SQL Producción Canales"
 
-    def run(self, server, database, sql, max_rows):
+    def run(self, server, database, sql, max_rows, probe=False):
         self.queries.append(sql)
         if "AS valor, COUNT(*) AS n" in sql:
             return QueryResult(["valor", "n"], [["COMPLETO", 10], ["PENDIENTE", 3]])
@@ -56,7 +56,7 @@ def plan(sql=COUNT_SQL, template="Actualmente se tienen {total_clientes} cliente
 
 def ask_service(service, planner):
     deps = service.deps
-    deps.settings = Settings(features=Features(ask_flow=True))
+    deps.settings = Settings(features=Features(ask_llm_sql=True))
     deps.ask = AskEngine(planner, deps.catalog, max_rows=100)
     service.rebuild()
     return service
@@ -122,7 +122,7 @@ def test_formato_de_cifras_en_espanol():
 def test_pregunta_de_cifras_devuelve_el_dato_y_su_evidencia(service, analyst):
     planner = FakePlanner(plan())
     executor = FakeExecutor()
-    env = ask_service(service, planner).run(Q, analyst, executor=executor)
+    env = ask_service(service, planner).run(Q, analyst, sql_executor=executor)
     assert env.flow == "ask" and env.status == "ok"
     assert env.answer_text == "Actualmente se tienen 1,790 clientes con el onboarding completo."
     assert env.data.rows == [[1790]] and env.data.tables == ["VBank_ING.dbo.Users"]
@@ -135,7 +135,7 @@ def test_pregunta_de_cifras_devuelve_el_dato_y_su_evidencia(service, analyst):
 
 
 def test_la_auditoria_no_guarda_los_valores(service, analyst):
-    env = ask_service(service, FakePlanner(plan())).run(Q, analyst, executor=FakeExecutor())
+    env = ask_service(service, FakePlanner(plan())).run(Q, analyst, sql_executor=FakeExecutor())
     record = service.deps.audit.records[-1]
     assert record.envelope.data.rows == [] and record.envelope.data.sql
     assert env.data.rows == [[1790]]
@@ -144,21 +144,21 @@ def test_la_auditoria_no_guarda_los_valores(service, analyst):
 def test_un_error_de_sql_server_vuelve_al_planner(service, analyst):
     planner = FakePlanner(plan(), plan())
     executor = FakeExecutor(fail_first=QueryRejected("Invalid column name 'Foo'."))
-    env = ask_service(service, planner).run(Q, analyst, executor=executor)
+    env = ask_service(service, planner).run(Q, analyst, sql_executor=executor)
     assert env.flow == "ask" and len(planner.calls) == 2
     assert "Invalid column name" in planner.calls[1][2][0]
 
 
 def test_sin_permiso_se_responde_como_descubrimiento(service, analyst):
     executor = FakeExecutor(fail_first=QueryRejected("No tienes permiso para leer esa información.", retry=False))
-    env = ask_service(service, FakePlanner(plan())).run(Q, analyst, executor=executor)
+    env = ask_service(service, FakePlanner(plan())).run(Q, analyst, sql_executor=executor)
     assert env.flow == "discover" and env.data is None
     assert "No tienes permiso para leer esa información." in env.assumptions
 
 
 def test_sin_ejecutor_sigue_siendo_descubrimiento(service, analyst):
     env = ask_service(service, FakePlanner(plan())).run(Q, analyst)
-    assert env.flow == "discover" and "no está habilitada" in env.assumptions[0]
+    assert env.flow == "discover" and env.data is None and "Todavía no calculo cifras" in env.assumptions[0]
 
 
 def test_un_listado_usa_la_frase_de_presentacion():
@@ -200,7 +200,7 @@ def test_el_interprete_reconoce_un_pedido_de_datos_sin_palabras_clave(service, a
     planner = FakePlanner(plan())
     svc = ask_service(service, planner)
     svc.deps.ask.interpreter = interp
-    env = svc.run("dame los clientes que ya terminaron el onboarding", analyst, executor=FakeExecutor(),
+    env = svc.run("dame los clientes que ya terminaron el onboarding", analyst, sql_executor=FakeExecutor(),
                   history=["¿dónde está el estado del onboarding?"])
     assert env.flow == "ask" and env.data.tables == ["VBank_ING.dbo.Users"]
     question, history, overview, _ = interp.calls[0]
@@ -212,6 +212,77 @@ def test_el_interprete_reconoce_un_pedido_de_datos_sin_palabras_clave(service, a
 def test_si_el_interprete_falla_se_usan_las_reglas(service, analyst):
     svc = ask_service(service, FakePlanner(plan()))
     svc.deps.ask.interpreter = FakeInterpreter(error=TimeoutError())
-    env = svc.run(Q, analyst, executor=FakeExecutor())
+    env = svc.run(Q, analyst, sql_executor=FakeExecutor())
     assert env.flow == "ask"
     assert any(s.error and "interprete:fallback" in s.error for s in service.deps.audit.records[-1].steps)
+
+
+# --- convivencia con las cifras de plantilla (decisión 17): plantillas primero, fase 1b de respaldo -----------
+class SchemaPlanner:
+    """Planner doble que cuenta sobre la primera tabla del esquema que recibe (sirve con cualquier catálogo)."""
+
+    def __init__(self):
+        self.calls = []
+
+    def plan(self, question, schema, feedback):
+        import re as _re
+
+        self.calls.append(question)
+        db, sch, table = _re.search(r"^\[([^\]]+)\]\.\[([^\]]+)\]\.\[([^\]]+)\]", schema, _re.M).groups()
+        return SqlPlan(database=db, sql=f"SELECT COUNT(*) AS total FROM [{db}].[{sch}].[{table}]",
+                       answer_template="Se registraron {total} clientes.", explanation="Conté los registros.")
+
+
+def coexist_service(planner):
+    from converdata.bootstrap import build_service
+    from pathlib import Path
+
+    svc = build_service(Path(__file__).parent / "fixtures" / "bancos")
+    svc.deps.settings = Settings(features=Features(ask_flow=True, ask_llm_sql=True))
+    svc.deps.ask = AskEngine(planner, svc.deps.catalog, max_rows=100)
+    svc.rebuild()
+    return svc
+
+
+def test_la_plantilla_responde_primero_y_no_llama_al_llm():
+    from converdata.bootstrap import user_with_databases
+    from test_cifras_agregadas import Ejecutor
+
+    planner = SchemaPlanner()
+    svc = coexist_service(planner)
+    user = user_with_databases(svc, "dev", None)
+    env = svc.run("cuantos clientes tienen prestamos?", user, executor=Ejecutor(), sql_executor=FakeExecutor())
+    assert env.flow == "ask" and env.figure is not None and env.data is None
+    assert planner.calls == []
+
+
+def test_si_la_plantilla_no_puede_responde_la_fase_1b():
+    """Un periodo ("el mes pasado") queda fuera de la plantilla: el SQL de un LLM lo responde y el aviso de la
+    plantilla ya no se muestra."""
+    from converdata.bootstrap import user_with_databases
+    from test_cifras_agregadas import Ejecutor
+
+    planner = SchemaPlanner()
+    svc = coexist_service(planner)
+    user = user_with_databases(svc, "dev", None)
+    plantilla = Ejecutor()
+    env = svc.run("cuantos clientes se registraron el mes pasado", user, executor=plantilla,
+                  sql_executor=FakeExecutor(QueryResult(["total"], [[42]])))
+    assert plantilla.calls == [] and env.figure is None
+    assert env.flow == "ask" and env.answer_text == "Se registraron 42 clientes."
+    assert not any(a.startswith("No calculé la cifra") for a in env.assumptions)
+    steps = [s.step for s in svc.deps.audit.records[-1].steps]
+    assert steps.index("compute") < steps.index("ask")
+
+
+def test_sin_fase_1b_la_plantilla_sigue_diciendo_por_que_no_calcula():
+    from converdata.bootstrap import user_with_databases
+    from test_cifras_agregadas import Ejecutor
+
+    svc = coexist_service(SchemaPlanner())
+    svc.deps.settings.features.ask_llm_sql = False
+    user = user_with_databases(svc, "dev", None)
+    env = svc.run("cuantos clientes se registraron el mes pasado", user, executor=Ejecutor(),
+                  sql_executor=FakeExecutor())
+    assert env.flow == "discover" and env.data is None
+    assert any(a.startswith("No calculé la cifra") for a in env.assumptions)

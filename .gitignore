@@ -10,5 +10,12 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 config/models.yaml
+config/models.yaml.active
 .env
 .claude/worktrees/
+
+# Terraform (deploy/aws): el estado vive en S3; los .terraform.lock.hcl sí se versionan
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan

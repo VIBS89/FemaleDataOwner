@@ -109,7 +109,7 @@ def test_pregunta_de_datos_sin_askflow_indica_donde_estan(service, analyst):
     """F3: con `features.ask_flow: false` una pregunta de cifras se responde como descubrimiento."""
     env = service.run("¿cuántos clientes se registraron por onboarding el mes pasado?", analyst)
     assert env.flow == "discover" and env.status == "ok"
-    assert env.assumptions and "no está habilitada" in env.assumptions[0]
+    assert env.assumptions and "Todavía no calculo cifras" in env.assumptions[0]
     assert env.discovery.candidates[0].asset_key == "VBank_ING.dbo.Users"
 
 

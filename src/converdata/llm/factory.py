@@ -74,8 +74,23 @@ class CircuitConfig(BaseModel):
     open_s: float = 300.0
 
 
+class ProfileConfig(BaseModel):
+    """Un juego completo de roles con nombre ("NVIDIA", "Claude") que un administrador puede elegir en pantalla."""
+
+    label: str
+    description: str | None = None
+    roles: dict[str, RoleConfig] = Field(default_factory=dict)
+
+
+NO_MODEL = "none"  # elección "sin modelo": todo el flujo corre en modo determinista
+
+
 class ModelsConfig(BaseModel):
     environment: Environment | None = None  # sin definir = no local (Ollama queda bloqueado)
+    # Perfiles elegibles desde Administración → Modelos de IA. El activo sustituye a `roles`. Sin perfiles, mandan
+    # los `roles` del archivo, como siempre.
+    profiles: dict[str, ProfileConfig] = Field(default_factory=dict)
+    active_profile: str | None = None
     data_mode: DataClass = "test"  # qué datos maneja este despliegue; "real" exige proveedores con allowed_data: real
     providers: dict[Provider, ProviderConfig] = Field(default_factory=dict)
     roles: dict[str, RoleConfig] = Field(default_factory=dict)
@@ -97,12 +112,53 @@ class ModelsConfig(BaseModel):
         return self.providers.get(name) or ProviderConfig()
 
 
-def load_models(path: str | Path) -> ModelsConfig:
+def selection_path(path: str | Path) -> Path:
+    """Dónde se guarda el perfil elegido en pantalla: junto al archivo de modelos, que no se reescribe (conserva sus
+    comentarios y lo que el instalador dejó). Solo guarda el nombre de un perfil; nunca claves."""
+    return Path(str(path) + ".active")
+
+
+def read_selection(path: str | Path) -> str | None:
+    try:
+        return selection_path(path).read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def write_selection(path: str | Path, profile: str) -> None:
+    selection_path(path).write_text(profile + "\n", encoding="utf-8")
+
+
+def apply_profile(config: ModelsConfig, name: str | None) -> ModelsConfig:
+    """La configuración con los roles del perfil `name`. `NO_MODEL` deja el flujo sin roles (determinista). Elegir un
+    perfil activa los proveedores que usa: quien lo definió en el archivo ya decidió que se puede usar. Las guardas de
+    residencia (`data_mode` frente a `allowed_data`) las sigue aplicando el gateway al validar."""
+    if name is None or not config.profiles:
+        return config
+    if name == NO_MODEL:
+        return config.model_copy(update={"roles": {}, "fallback": None, "active_profile": NO_MODEL})
+    if name not in config.profiles:
+        raise ValueError(f"Perfil de modelos desconocido: {name!r}")
+    roles = config.profiles[name].roles
+    providers = dict(config.providers)
+    for role in roles.values():
+        providers[role.provider] = providers.get(role.provider, ProviderConfig()).model_copy(update={"enabled": True})
+    return config.model_copy(update={"roles": dict(roles), "providers": providers, "active_profile": name})
+
+
+def load_models(path: str | Path, apply_selection: bool = True) -> ModelsConfig:
+    """`apply_selection=False` devuelve el archivo tal cual, sin aplicar el perfil activo (para listar los perfiles)."""
     with Path(path).open(encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
     if os.environ.get(ENV_VAR):
         data["environment"] = os.environ[ENV_VAR]
-    return ModelsConfig.model_validate(data)
+    config = ModelsConfig.model_validate(data)
+    if not apply_selection or not config.profiles:
+        return config
+    chosen = read_selection(path) or config.active_profile
+    if chosen not in config.profiles and chosen != NO_MODEL:
+        chosen = config.active_profile if config.active_profile in config.profiles else None
+    return apply_profile(config, chosen)
 
 
 class MissingCredential(RuntimeError):

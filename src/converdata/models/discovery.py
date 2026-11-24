@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from converdata.models.catalog import DescriptionSource
+from converdata.models.figures import Figure
 from converdata.models.intent import Clarification
 
 
@@ -143,5 +144,6 @@ class AnswerEnvelope(BaseModel):
     validation: Validation | None = None
     confidence: float | None = None
     discovery: Discovery | None = None
-    data: DataAnswer | None = None  # AskFlow: el dato pedido y su evidencia
+    figure: Figure | None = None  # cifra agregada (`features.ask_flow`); nunca filas de datos
+    data: DataAnswer | None = None  # fase 1b (`features.ask_llm_sql`): el dato con SQL de un LLM y su evidencia
     timings_ms: dict[str, int] = Field(default_factory=dict)

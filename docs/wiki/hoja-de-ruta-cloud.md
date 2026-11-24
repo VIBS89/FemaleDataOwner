@@ -2,7 +2,7 @@
 
 Actualizado el 2026-11-17.
 
-Hoy no hay nada desplegado en AWS ni infraestructura como código en el repo. Esta ruta es posterior al piloto on-premise y solo arranca si el informe de la semana 8 recomienda AWS (HU-41; PRD §10, fase 2). El destino es el despliegue mínimo de CN-01: las mismas dos imágenes que ya construye `docker compose` en una tarea de ECS Fargate detrás de un ALB interno, el Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y una VPN al SQL Server del banco. El banco conserva todo lo persistente: catálogo, conocimiento, curación y auditoría siguen en la BD `ConverData` on-premise. AWS procesa y muestra.
+Hoy no hay nada desplegado en AWS. La infraestructura como código existe desde el 2026-11-22 en `deploy/aws/` (Terraform), sin aplicar en ninguna cuenta. Esta ruta es posterior al piloto on-premise y solo arranca si el informe de la semana 8 recomienda AWS (HU-41; PRD §10, fase 2). El destino es el despliegue mínimo de CN-01: las mismas dos imágenes que ya construye `docker compose` en una tarea de ECS Fargate detrás de un ALB interno, el Builder lanzado por EventBridge Scheduler, Bedrock por VPC endpoint y una VPN al SQL Server del banco. El banco conserva todo lo persistente: catálogo, conocimiento, curación y auditoría siguen en la BD `ConverData` on-premise. AWS procesa y muestra.
 
 Diagrama de referencia: [arquitectura cloud](../architecture/cloud-native-architecture.html). Camino previo: [hoja de ruta on-premise](hoja-de-ruta-on-premise.md).
 
@@ -19,8 +19,8 @@ Esta hoja no fija fechas ni plazos: las specs CN no los dan. Solo hay orden y de
 | Recarga del catálogo cuando el Builder corre en otra tarea | Hecho: la API comprueba la versión como mucho cada 15 s | CN-01 §Dependencias, punto 3 |
 | Builder sin disco persistente | `catalog build --db` toma el inventario de la BD y trabaja en un directorio temporal; no probado en Fargate | CN-02 |
 | Gateway de LLM con Bedrock | Sin probar de punta a punta (HU-35); `ChatBedrockConverse` no recibe claves, así que usa la cadena de credenciales por defecto | `src/converdata/llm/factory.py` |
-| Infraestructura como código | **No existe**: sin Terraform, CDK ni plantillas (comprobado con `git ls-files`) | — |
-| Carpeta `deploy/` | No existe (solo está prevista `deploy/windows/` para on-premise) | — |
+| Infraestructura como código | Terraform, una pila por entorno (`demo`, `qa`, `prod`) y el script `despliegue.sh`. Validado con `terraform validate` y planes de prueba; **sin aplicar en ninguna cuenta** | `deploy/aws/` ([guía](../../deploy/aws/README.md)) |
+| Carpeta `deploy/` | Existe `deploy/aws/`; `deploy/windows/` para on-premise sigue prevista | `deploy/aws/` |
 
 ## 2. Qué se reutiliza y qué es trabajo nuevo
 
@@ -54,7 +54,7 @@ Las fases 1–5 se pueden solapar dentro de lo que dicen sus dependencias; las 6
 | Decisión de Seguridad: ¿la VPN puede llevar también tráfico de usuarios hacia el ALB? | CN-01 §Por confirmar |
 | Decisión de Seguridad: Guardrails de Bedrock | PRD §13, pregunta 6 |
 | Decisión: con qué cuenta entra la tarea a la BD `ConverData` y con qué identidad entra el Builder a los SQL Server (§5) | CN-01 punto 3, CN-03 |
-| Decisión: Terraform o CDK, un stack por entorno | CN-01 §IaC |
+| ~~Decisión: Terraform o CDK, un stack por entorno~~ Terraform (`deploy/aws/`, 2026-11-22) | CN-01 §IaC |
 | Decisión: tamaño de la tarea (referencia on-premise: 4 vCPU y 16 GB) | CN-01 §RNF |
 
 **Terminado cuando.** Las decisiones están registradas, la VPN sube y desde una subred privada de prueba se alcanza el 1433 del SQL Server de qa con TLS validado.

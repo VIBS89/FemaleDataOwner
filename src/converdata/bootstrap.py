@@ -100,13 +100,21 @@ def build_service_from_snapshot(
             llm_ports["intent_classifier"] = LlmIntentClassifier(gateway.chat("planner"))
             llm_ports["reranker"] = LlmReranker(gateway.chat("planner"))
         if gateway.has_role("fast"):
+            from converdata.llm.nodes import LlmGuide, LlmQueryExpander
+
+            # El modelo ayuda donde el camino determinista se queda corto: redacta la respuesta para una persona de
+            # negocio, reformula la búsqueda cuando cubre poco la pregunta y orienta cuando no se encontró nada.
             llm_ports["narrator"] = LlmNarrator(gateway.chat("fast"))
-        if settings.features.ask_flow and gateway.has_role("coder"):
+            llm_ports["expander"] = LlmQueryExpander(gateway.chat("fast"))
+            llm_ports["guide"] = LlmGuide(gateway.chat("fast"))
+        if gateway.has_role("coder"):
             from converdata.ask.engine import AskEngine
             from converdata.ask.planner import LlmInterpreter, LlmSqlPlanner
 
-            # F6: el rol `coder` escribe el T-SQL; sin él, las preguntas de cifras se responden como descubrimiento.
-            # El intérprete (rol `interpret`, o `coder` si no está) entiende la pregunta sin listas de palabras clave.
+            # Fase 1b (`features.ask_llm_sql`, apagado por defecto): el rol `coder` escribe el T-SQL cuando las
+            # plantillas de cifras (`features.ask_flow`, decisión 17) no pueden responder. El intérprete (rol
+            # `interpret`, o `coder`) entiende la pregunta sin listas de palabras clave. Se construye siempre que
+            # haya rol: la API decide por pregunta si lo usa, según la bandera.
             interpret_role = "interpret" if gateway.has_role("interpret") else "coder"
             llm_ports["ask"] = AskEngine(LlmSqlPlanner(gateway.chat("coder")), catalog,
                                          max_rows=settings.features.ask_max_rows,

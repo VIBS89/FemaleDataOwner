@@ -64,7 +64,27 @@ export interface Discovery {
   suggested_questions: string[];
 }
 
-// AskFlow: el dato pedido y la evidencia de dónde salió (DataAnswer en models/discovery.py).
+export interface FigureGroup {
+  label: string;
+  value: number;
+}
+
+// Cifra agregada calculada con los permisos del usuario (src/converdata/models/figures.py).
+export interface Figure {
+  asset_key: string;
+  description: string;
+  environment?: string; // ambiente de la copia sobre la que se calculó
+  server_alias?: string;
+  rows?: number | null; // registros sobre los que se calculó el total
+  operation: "COUNT" | "COUNT_DISTINCT" | "SUM" | "AVG";
+  value: number | null;
+  group_by: string | null;
+  groups: FigureGroup[];
+  notes: string[];
+  sql: string[];
+}
+
+// Fase 1b (`ask_llm_sql`): el dato con SQL de un LLM y la evidencia de dónde salió (DataAnswer).
 export interface DataAnswer {
   columns: string[];
   rows: (string | number | boolean | null)[][];
@@ -90,7 +110,8 @@ export interface AnswerEnvelope {
   validation: { checks: { name: string; status: string; detail: string }[]; attempts: number } | null;
   confidence: number | null;
   discovery: Discovery | null;
-  data?: DataAnswer | null;
+  figure?: Figure | null; // ausente en respuestas antiguas del historial
+  data?: DataAnswer | null; // fase 1b
   timings_ms: Record<string, number>;
 }
 
@@ -268,7 +289,13 @@ export interface MyRequest {
   status: RequestStatus;
   question: string;
   domain: string;
-  answer: { kind: "asset" | "no_source"; at: string; note: string | null; asset_key: string | null; needs_access: boolean } | null;
+  answer: {
+    kind: "asset" | "no_source";
+    at: string;
+    note: string | null;
+    asset_key: string | null;
+    needs_access: boolean;
+  } | null;
 }
 
 export interface CurationRequest {
@@ -326,6 +353,30 @@ export interface ManagedRule {
 export interface Steward {
   login: string;
   domains: string[]; // ["*"] = todos los dominios
+}
+
+export interface LlmRole {
+  provider: string;
+  model: string;
+}
+
+export interface LlmProfile {
+  id: string;
+  label: string;
+  description: string | null;
+  roles: Record<string, LlmRole>;
+  usable: boolean;
+  reason: string | null;
+}
+
+export interface LlmSettings {
+  configured: boolean;
+  selectable: boolean;
+  none_id?: string;
+  data_mode: "test" | "real" | null;
+  active: string | null; // id del perfil activo, o "none" si el asistente responde sin modelo
+  roles?: Record<string, LlmRole>;
+  profiles: LlmProfile[];
 }
 
 export interface DescriptionVersion {

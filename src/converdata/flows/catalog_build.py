@@ -106,13 +106,14 @@ def build_catalog_graph(
                             report.skipped_unsafe += 1
                             continue
                         obj = cb.to_catalog_object(raw, server)
-                        merged, needs = cb.merge_existing(obj, existing.get(obj.id))
+                        known = existing.get(obj.id)
+                        merged, needs = cb.merge_existing(obj, known)
                         raws[merged.id] = raw
                         objects.append(merged)
                         if needs and merged.kind in ("table", "view"):
                             pending.append(merged.id)
-                        elif not needs:
-                            report.reused += 1
+                        if known is not None and known.schema_hash == obj.schema_hash:
+                            report.reused += 1  # misma estructura: se conserva lo anterior (aunque falte describirlo)
                     report.databases.append(f"{server.id}/{db}")
                 report.servers_ok.append(server.id)
             except Exception as exc:  # F1-CA5: se sigue con los demás servidores
@@ -137,8 +138,9 @@ def build_catalog_graph(
             return {}
         by_id = {o.id: o for o in state["objects"]}
         pending = [by_id[i] for i in state["pending_enrich"]]
-        for start in range(0, len(pending), ENRICH_BATCH):
-            batch = pending[start:start + ENRICH_BATCH]
+
+        def describe(batch) -> list:
+            """Pide descripciones para un lote y las aplica. Devuelve los objetos que el modelo no describió."""
             payload = [
                 {
                     "table": f"{o.database}.{o.schema_}.{o.name}",
@@ -153,11 +155,13 @@ def build_catalog_graph(
                 result = enricher.enrich(payload)
             except Exception as exc:
                 report.enrich_errors.append(f"{type(exc).__name__}: {str(exc)[:120]}")
-                continue
+                return list(batch)
             by_table = {o_.table.split(".")[-1].lower(): o_ for o_ in result.tables}
+            missing = []
             for obj in batch:
                 proposal = by_table.get(obj.name.lower())
                 if proposal is None:
+                    missing.append(obj)
                     continue
                 if obj.description_source == "generated" and not obj.description:
                     obj.description = proposal.description.strip()[:500]
@@ -169,6 +173,13 @@ def build_catalog_graph(
                         col.description = p.description.strip()[:300]
                         col.synonyms = list(dict.fromkeys([*col.synonyms, *p.synonyms]))[:8]
                 report.enriched += 1
+            return missing
+
+        for start in range(0, len(pending), ENRICH_BATCH):
+            # Un modelo puede devolver menos tablas de las pedidas (salida cortada por longitud): las que falten se
+            # piden de nuevo una por una, una sola vez. Si siguen sin descripción, quedan para el próximo refresco.
+            for obj in describe(pending[start:start + ENRICH_BATCH]):
+                describe([obj])
         return {"objects": state["objects"]}
 
     def relate(state: BuildState):

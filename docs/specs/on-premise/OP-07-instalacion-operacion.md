@@ -1,6 +1,6 @@
 # OP-07 — Instalación, entornos y operación · on-premise
 
-> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Actualizado el 2026-11-17: dependencias fijadas, imágenes por digest y trabajos de la CI.
+> Revisado el 2026-11-16 (PRD §13, decisiones 9–16). Actualizado el 2026-11-17: dependencias fijadas, imágenes por digest y trabajos de la CI. Actualizado el 2026-11-23: script de tareas programadas.
 >
 > Completa [OP-01](OP-01-despliegue-local.md) con la instalación, los entornos y los requisitos no funcionales del despliegue
 > on-premise. Specs relacionadas: [OP-04](OP-04-interfaces.md) IIS · [OP-05](OP-05-auditoria-observabilidad.md) alertas · [OP-06](OP-06-residencia-datos.md) residencia de datos · [calidad bancaria §4](../../calidad-bancaria.md) configuración obligatoria en qa y prod.
@@ -11,7 +11,11 @@
 Que cualquier administrador de Plataformas pueda montar, actualizar, respaldar y recuperar un entorno de ConverData igual al del piloto
 **solo con los scripts del repo y esta spec**, sin pasos manuales no documentados y sin secretos en archivos.
 
-**Estado.** Los scripts de `deploy/windows/` **no existen todavía** (HU-37): esta spec es su especificación. Lo construido para ejecutar
+**Estado.** De los scripts de `deploy/windows/` existe uno, el de las tareas programadas
+([`registrar-tareas.ps1`](../../../deploy/windows/registrar-tareas.ps1), escrito el 2026-11-23; ver [su README](../../../deploy/windows/README.md)): hace lo
+del paso 6 de la tabla de abajo, **verificado solo con análisis de sintaxis y con `-WhatIf` en un equipo de desarrollo; no se ha registrado
+ni ejecutado en un Windows Server** (HU-18, HU-24). Faltan los demás (HU-37): IIS con HttpPlatformHandler, `web.config`, certificado,
+firewall, secretos, endurecimiento, verificación y el respaldo con su restauración (HU-39); para ellos esta spec es la especificación. Lo construido para ejecutar
 la aplicación es `docker-compose.yml` (web y API, la API sin publicar), que se usa en desarrollo y demostraciones, y la CI
 (`.github/workflows/calidad.yml`). La BD `ConverData` se crea y actualiza con `converdata db migrate` (§Migraciones) y la API la usa
 cuando `CONVERDATA_DB` está definida (OP-02).
@@ -107,7 +111,7 @@ huellas de certificado y nombres de gMSA). Pendientes de escribir (HU-37).
 | 3 | `03-bd.ps1` | Con la cuenta del DBA: crea la BD `ConverData` si no existe, ejecuta `converdata db migrate` (que aplica los scripts de `db/converdata/` y registra versión y SHA-256 en `dbo.schema_version`, ver §Migraciones) y agrega cada gMSA a su rol: la de la API a `converdata_app`, la del Builder a `converdata_builder` y la de mantenimiento a `converdata_maintenance` |
 | 4 | `04-aplicacion.ps1` | Despliega la versión en `%ProgramFiles%\ConverData\releases\<versión>` (API con `pip install --require-hashes --only-binary :all: -r requirements/build.lock -r requirements/runtime.lock` y el paquete con `--no-deps --no-build-isolation --no-index`, en un entorno virtual por versión; el repo no tiene `uv.lock`, así que `uv sync --frozen` no aplica; web con `npm ci` y `npm run build`, o el paquete ya compilado) y apunta el enlace `current` a ella |
 | 5 | `05-iis.ps1` | Sitio HTTPS, grupos de aplicaciones (§Decisión), `web.config` de la web (`/`) y de la API (`/mcp`) con sus variables de entorno (`CONVERDATA_ENV` y las de calidad bancaria §4; `API_URL` y `TRUST_FORWARDED_FOR=1` en la web; `CONVERDATA_TRUST_PROXY=1` y `CONVERDATA_CORS_ORIGINS` con el origen público del sitio en la API), enlace del certificado, HSTS, Request Filtering, logs W3C sin cuerpos |
-| 6 | `06-tareas.ps1` | Tareas del Programador de tareas de Windows. Con la gMSA del Builder: build nocturno (`converdata catalog build --db`) seguido de la evaluación de regresión (`converdata eval gate --db --root <casos>`, que sale con código distinto de 0 si algo baja de la línea base). Con la gMSA de mantenimiento: purga de la auditoría (`converdata audit purge`, 180 días). La integridad de la auditoría la comprueba la API al arrancar y `GET /admin/audit/verify` |
+| 6 | `06-tareas.ps1` (hoy `registrar-tareas.ps1`: registra el refresco nocturno, la purga semanal y, con `-GateRoot`, la regresión semanal, todos con **una sola** cuenta de servicio; separar la gMSA del Builder de la de mantenimiento, como dice la fila, sigue pendiente) | Tareas del Programador de tareas de Windows. Con la gMSA del Builder: build nocturno (`converdata catalog build --db`) seguido de la evaluación de regresión (`converdata eval gate --db --root <casos>`, que sale con código distinto de 0 si algo baja de la línea base). Con la gMSA de mantenimiento: purga de la auditoría (`converdata audit purge`, 180 días). La integridad de la auditoría la comprueba la API al arrancar y `GET /admin/audit/verify` |
 | 7 | `07-firewall.ps1` | Reglas de entrada y salida de OP-04 §IIS |
 | 8 | `08-secretos.ps1` | Script interactivo que carga una vez los secretos que no son gMSA y los cifra con DPAPI (ver abajo) |
 | 9 | `09-endurecimiento.ps1` | Controles de memoria de OP-06: sin volcados de los procesos de ConverData en WER, `SeDebugPrivilege` solo para administradores |

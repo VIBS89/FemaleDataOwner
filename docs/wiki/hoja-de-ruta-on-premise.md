@@ -1,6 +1,6 @@
 # Hoja de ruta on-premise
 
-Actualizado el 2026-11-17.
+Actualizado el 2026-11-23 (chat de negocio, cifras agregadas y tareas programadas de Windows); el resto, el 2026-11-17.
 
 ConverData ya funciona de punta a punta en desarrollo: agente, API, web, MCP, BD `ConverData` en SQL Server y compuerta de calidad. Lo que falta para el piloto no es la lógica del descubrimiento. Falta medirla con un LLM real y con preguntas reales, instalarla en un Windows Server del banco, cargar el conocimiento del dominio piloto y firmar la línea base. El destino es el piloto de 8 semanas con 10–15 usuarios en el dominio clientes / onboarding digital, evaluado contra los criterios D1–D7 de OP-01. Después del piloto vienen los roles desde Active Directory y la fase 1b (consulta de datos).
 
@@ -20,15 +20,16 @@ Verificado al 2026-11-17 (fuente: [plan de desarrollo](../PLAN-desarrollo.md) §
 | Auditoría fail-closed, catálogo, curación e inventario en la BD (bloques A, B, C1, C2) | Hecho; con `CONVERDATA_DB` la API no guarda estado en disco | `storage/`, `audit/` |
 | Compuerta `converdata eval gate` (7 suites) y CI (`backend`, `web`, `cadena-de-suministro`) | Hecho; aprobada en los dos catálogos de prueba | `evaluation/gate.py`, `.github/workflows/calidad.yml` |
 | Cadena de suministro: bloqueos con hash, imágenes base por digest, `pip-audit`, `npm audit`, SBOM | Hecho; la imagen no se ha construido con los bloqueos | `requirements/`, `api/Dockerfile`, `web/Dockerfile` |
-| Calidad medida | Hit@1 y Hit@3 98,0 % (58 casos, BancosSQL) y 96,2 % (31 casos, VBank); 0 fugas | [plan §2](../PLAN-desarrollo.md#2-resultados-medidos) |
+| Chat de negocio y cifras agregadas (2026-11-23) | Chat hecho (asistente, seguimientos, aclaración por áreas, LLM `fast` en tres pasos, enriquecimiento con IA por defecto). Cifras: primer corte apagado por defecto (PRD §13, decisión 17); su revisión de seguridad independiente terminó el 2026-11-23 y sus bloqueantes están corregidos (quedan DT-78 a DT-80) | `discovery/assistant.py`, `discovery/figures.py`, `llm/nodes.py` |
+| Calidad medida | Hit@1 y Hit@3 98,0 % (58 casos, BancosSQL) y 96,2 % (31 casos, VBank); 0 fugas. Set de chat de negocio (67 casos, 2026-11-23): Hit@1 97,8 % y Hit@3 100 %, con un fallo abierto (L09) | [plan §2](../PLAN-desarrollo.md#2-resultados-medidos) |
 
 Lo que no existe, comprobado en el repo:
-- No hay carpeta `deploy/` ni scripts PowerShell: hoy solo hay `docker-compose.yml` (web y API) y los dos Dockerfile.
+- No hay instalación para Windows Server: hoy solo hay `docker-compose.yml` (web y API) y los dos Dockerfile. De `deploy/windows/` existe solo `registrar-tareas.ps1` (tareas programadas); faltan IIS, `web.config`, certificado, firewall y respaldo.
 - No hay comando `converdata metrics report`: el CLI tiene `discover`, `llm smoke`, `eval`, `audit`, `db migrate`, `catalog` y `mcp serve`.
-- No hay AskFlow (consulta de datos) ni lectura de grupos de AD.
-- Ninguna tarea está programada: ni el refresco, ni la purga, ni la evaluación.
+- No hay AskFlow completo (SQL generado, filtros, cruces, capa semántica ni `/ask`) ni lectura de grupos de AD. Existe un primer corte apagado por defecto: cifras agregadas (`COUNT`, `COUNT DISTINCT`, `SUM`, `AVG`) sobre una tabla (o con una unión a una tabla relacionada para desglosar), con plantilla de SQL fija (`src/converdata/discovery/figures.py`; PRD §13, decisión 17). La revisión de seguridad independiente ya terminó y sus bloqueantes están corregidos; antes de activarlo en el piloto hay que resolver DT-78 a DT-80, aceptarlo con Seguridad de la Información y revisar D1–D7 de OP-01.
+- Ninguna tarea está programada en un servidor: el script `deploy/windows/registrar-tareas.ps1` (refresco nocturno, purga semanal y, opcional, regresión semanal) está escrito y solo se verificó con análisis de sintaxis y `-WhatIf` en un equipo de desarrollo; no se ha registrado ni ejecutado en un Windows Server.
 
-Límites de lo medido: los 89 casos de descubrimiento y las 25 preguntas de reporte los escribió el equipo, y todo se midió sin LLM. Los porcentajes no predicen el uso real.
+Límites de lo medido: los 89 casos de descubrimiento, las 25 preguntas de reporte y los 67 casos de chat los escribió el equipo, y todo se midió sin LLM. Los porcentajes no predicen el uso real.
 
 ## 2. Fases
 
@@ -50,7 +51,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 **Riesgos.** La línea base (HU-40) necesita el mismo vocabulario de métricas: conviene fijarlo con la Gerencia de Datos antes de firmarla.
 
 ### Fase E · Fuentes de conocimiento (bloque E)
-**Objetivo.** Que el conocimiento del dominio piloto esté ingerido con datos personales redactados antes de que los usuarios lo prueben. Es lo que más mueve las preguntas de reporte: 16 % de Hit@1 solo con catálogo y 60 % con un glosario de prueba, sin LLM (medición del equipo, [plan §2](../PLAN-desarrollo.md#2-resultados-medidos)).
+**Objetivo.** Que el conocimiento del dominio piloto esté ingerido con datos personales redactados antes de que los usuarios lo prueben. Es lo que más mueve las preguntas de reporte: 28 % de Hit@1 solo con catálogo y 64 % con un glosario de prueba, sin LLM (16 % y 60 % el 2026-11-17; medición del equipo, [plan §2](../PLAN-desarrollo.md#2-resultados-medidos)).
 
 | Entregable | HU / spec |
 |---|---|
@@ -70,7 +71,7 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 | Entregable | HU / spec |
 |---|---|
 | Scripts `deploy/windows/01…10` y `entorno.<env>.psd1` sin secretos: IIS con HttpPlatformHandler para la web (`/`) y la API (`/mcp`), cuentas gMSA, BD, aplicación, tareas, firewall, secretos con DPAPI, endurecimiento y verificación | HU-37, OP-07 |
-| Tareas programadas: build nocturno (`catalog build --db` con `CONVERDATA_BUILDER_HOSTS`), evaluación de regresión, purga de 180 días con la cuenta de mantenimiento; aviso por webhook de Teams | HU-18, HU-24 |
+| Tareas programadas: build nocturno (`catalog build --db` con `CONVERDATA_BUILDER_HOSTS`), evaluación de regresión, purga de 180 días con la cuenta de mantenimiento; aviso por webhook de Teams. **Script escrito** (`deploy/windows/registrar-tareas.ps1`, con `-WhatIf` y `-Remove`; sin el aviso por Teams) y **sin probar en un servidor**: falta registrarlo con la gMSA, comprobar que cada tarea corre sin sesión iniciada y decidir si la purga usa la cuenta de mantenimiento (el script ejecuta las tres con la misma cuenta) | HU-18, HU-24 |
 | Respaldo cifrado y prueba de restauración en otra instancia | HU-39 |
 | Login de metadatos con DPAPI y Bedrock con IAM Roles Anywhere, sin claves de larga duración | HU-38 |
 | SQL Server en la CI y DDL probado en la versión de la instancia del piloto | Deudas |
@@ -131,11 +132,13 @@ El orden sigue lo que desbloquea cada cosa. Los carriles del [reparto](../backlo
 ### Fase 1b · Consulta de datos (después del piloto, si 1a cumple)
 **Objetivo.** Responder preguntas de cifras: AskFlow, métricas certificadas y análisis (RF-40 a RF-42).
 
+**Ya adelantado (2026-11-23).** Un subconjunto acotado de F3, F6 y F8: cifras agregadas sobre una tabla con plantilla fija y la credencial del usuario, apagadas por defecto. Sigue aquí todo lo que ese corte no hace: SQL generado por un LLM, filtros de fecha y de valor, condiciones que combinan tablas, cruces entre bases o sistemas, uniones de más de un salto, capa semántica, `/ask` y `sqlglot` (PRD §13, decisión 17).
+
 **Alcance (OP-01).** F3 a F10 completos (intención, enlace a esquema, valores en vivo, planner, validator, executor, verifier con juez y analyst), F20 con biblioteca de análisis determinista sin código libre, F21 capa semántica (esquema `semantic` de la BD, una migración nueva) y `/ask` en la API, la web y `/mcp`. Consulta sobre 1 o 2 BDs del dominio, en réplica o copia de solo lectura.
 
 **Terminado cuando.** Los 7 criterios de OP-01 §fase 1b: precisión de ejecución ≥ 80 % en 30–50 preguntas con SQL de referencia, calibración (≥ 70 % de las incorrectas con confianza < 0,6), 0 ejecuciones indebidas, permisos por usuario con error 229 manejado, latencia p50/p95 < 15 s / < 40 s en el MVP, coste Bedrock por pregunta medido y ≥ 70 % de 👍.
 
-**Riesgos.** La infraestructura que citan las specs de 1b (juez, sandbox) se revisa contra PRD §13 antes de implementarla: las decisiones 9–16 retiraron piezas que esas specs todavía nombran. Ejecutar SQL sobre datos de clientes cambia el perfil de residencia: el diseño de hoy lee solo metadatos.
+**Riesgos.** La infraestructura que citan las specs de 1b (juez, sandbox) se revisa contra PRD §13 antes de implementarla: las decisiones 9–16 retiraron piezas que esas specs todavía nombran. Ejecutar SQL sobre datos de clientes cambia el perfil de residencia: el diseño de 1a lee solo metadatos, y el primer corte de cifras ya lee agregados con el login del usuario cuando se activa (sin persistir valores).
 
 ## 3. Requisitos de infraestructura
 

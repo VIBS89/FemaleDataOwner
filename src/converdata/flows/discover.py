@@ -5,9 +5,6 @@
                     │       └── reintento ┘ (C, máx. 1)  └── corrección ┘ (B, máx. 1)
                     └─► finalize   (aclaración o fuera de alcance)
 
-Con `features.ask_flow` y un ejecutor con la conexión del usuario, una pregunta de cifras pasa además por `ask`
-(entre `review` y `respond`): calcula el dato con los permisos del usuario y la respuesta lo dice directamente (F6–F10).
-
 Patrones de agentes (activables en `Settings.patterns`, medidos con `converdata eval discovery`):
 - **D, expansión de la consulta** (`retrieve`): pregunta original + variante con términos técnicos; cobertura por conceptos.
 - **C, RAG correctivo** (`grade`): si la recuperación cubre poco la pregunta, se reformula una vez (LLM `fast` o léxico).
@@ -36,18 +33,27 @@ from converdata.ask.ports import QueryExecutor, QuestionInterpretation
 from converdata.audit.recorder import AuditSink, InMemoryAuditSink, StepRecord, TraceRecord
 from converdata.catalog.store import Catalog, KnowledgeBase
 from converdata.config import OwnersDirectory, Settings
-from converdata.discovery import engine
-from converdata.discovery.deterministic import RuleBasedIntentClassifier, ScoreReranker, TemplateNarrator
-from converdata.discovery.expansion import QueryPlan, lexicon_variant, plan_query
-from converdata.discovery.ports import IntentClassifier, Narrator, QueryExpander, Reranker, Reviewer
+from converdata.discovery import assistant, engine, figures
+from converdata.discovery.deterministic import (
+    RuleBasedIntentClassifier,
+    ScoreReranker,
+    TemplateNarrator,
+    contextualize,
+    is_join_question,
+    is_write_request,
+)
+from converdata.discovery.expansion import ANALYSIS_TERMS, QueryPlan, concepts_of, lexicon_variant, plan_query
+from converdata.discovery.ports import Guide, IntentClassifier, Narrator, QueryExpander, Reranker, Reviewer
+from converdata.models.intent import Clarification
 from converdata.memory.base import VectorStore
+from converdata.memory.text import strip_literals
 from converdata.models.discovery import AnswerEnvelope, Check, Discovery, Validation
 from converdata.models.identity import UserContext
 from converdata.models.intent import IntentResult
 
 MAX_RETRIEVAL_ATTEMPTS = 2  # C: búsqueda original + una reformulación
 MAX_REVIEW_ATTEMPTS = 2  # B: revisión + una corrección
-ASK_HINTS = 10  # AskFlow: activos mejor puntuados que orientan la base cuando no hay candidato recomendado
+ASK_HINTS = 10  # fase 1b: activos mejor puntuados que orientan la base cuando no hay candidato recomendado
 
 STEP_LABELS = {
     "intent": "Interpretando la pregunta",
@@ -57,9 +63,14 @@ STEP_LABELS = {
     "expand": "Agregando ubicaciones, reglas, relaciones y responsables",
     "review": "Revisando el resultado",
     "ask": "Calculando el dato con tus permisos",
+    "compute": "Calculando la cifra con tus permisos",
     "respond": "Redactando la respuesta",
     "finalize": "Registrando la auditoría",
 }
+
+NO_FIGURES_NOTE = "Todavía no calculo cifras: te indico qué información usar y cómo se cruza para obtenerla."
+FIGURE_FAILED_NOTE = ("No pude calcular la cifra (puede que tu usuario no tenga permiso de lectura sobre esa información "
+                      "o que la consulta tardara demasiado). Te indico qué información usar.")
 
 log = logging.getLogger(__name__)
 
@@ -76,8 +87,10 @@ class DiscoverDeps:
     narrator: Narrator = field(default_factory=TemplateNarrator)
     expander: QueryExpander | None = None  # C/D con LLM (rol `fast`); None → solo léxico
     reviewer: Reviewer | None = None  # B con juez LLM (rol `judge`); None → solo chequeos deterministas
+    guide: Guide | None = None  # sin resultados: el LLM (rol `fast`) reconoce el tema o propone una aclaración de negocio
     graph: object | None = None  # EstateGraph (F19); lo construye `DiscoverService` si falta
-    ask: AskEngine | None = None  # AskFlow (F6–F10); None → las preguntas de cifras se responden como descubrimiento
+    # Fase 1b (`features.ask_llm_sql`): SQL de un LLM cuando la plantilla de cifras no puede responder.
+    ask: AskEngine | None = None
     audit: AuditSink = field(default_factory=InMemoryAuditSink)
     model_names: Mapping[str, str] = field(default_factory=dict)  # rol → proveedor:modelo (`audit_step.model`)
 
@@ -85,6 +98,16 @@ class DiscoverDeps:
 class DiscoverState(TypedDict, total=False):
     trace_id: str
     question: str
+    search_question: str  # la pregunta sin saludo y, si es un seguimiento, con la anterior delante
+    figures: bool  # pide una cifra: los términos de cálculo y de periodo no nombran un dato
+    assistant_topic: str  # pregunta sobre el propio asistente (`discovery.assistant`)
+    clarification: Clarification
+    executor: Any  # `figures.FigureExecutor` de la sesión; sin él no se calculan cifras
+    figure: Any  # `models.figures.Figure` calculada
+    figure_note: str  # por qué la plantilla no calculó; se muestra solo si la fase 1b tampoco responde
+    sql_executor: QueryExecutor  # fase 1b: SQL validado con la sesión del usuario (`runtime.ask_executor`)
+    interpretation: QuestionInterpretation  # fase 1b: lo que entendió el LLM de la pregunta
+    ask: AskOutcome  # fase 1b: el dato calculado con SQL de un LLM
     history: list[str]
     client: str
     user: UserContext
@@ -102,12 +125,9 @@ class DiscoverState(TypedDict, total=False):
     review_attempt: int
     review_route: str
     validation: Validation
-    executor: QueryExecutor  # conexión del usuario (F8); solo la da la API
-    data_query: bool
-    interpretation: QuestionInterpretation  # lo que entendió el LLM de la pregunta (AskFlow)
-    ask: AskOutcome
     answer_text: str
     envelope: AnswerEnvelope
+    db_ms: int
     steps: Annotated[list[StepRecord], operator.add]
 
 
@@ -147,65 +167,89 @@ def build_discover_graph(deps: DiscoverDeps):
     def patterns():
         return deps.settings.patterns
 
+    def llm_sql_available(state) -> bool:
+        return bool(deps.settings.features.ask_llm_sql and deps.ask is not None and state.get("sql_executor"))
+
+    def wants_llm_sql(state) -> bool:
+        return bool(state.get("figures") and llm_sql_available(state)
+                    and (state["discovery"].candidates or state.get("ranked")))
+
     def intent_node(state):
         error = None
-        data_query = False
-        try:
-            result = deps.intent_classifier.classify(state["question"], state.get("history", []))
-        except Exception as exc:  # throttling, timeout o salida no parseable → reglas
-            error = f"fallback:{type(exc).__name__}"
-            result = fallback_intent.classify(state["question"], state.get("history", []))
-        assumptions: list[str] = []
-        can_ask = deps.settings.features.ask_flow and deps.ask is not None and state.get("executor") is not None
-        interpretation = None
-        if can_ask and deps.ask.interpreter is not None:
-            # El LLM decide si la pregunta pide un dato y la reescribe; las reglas quedan solo como respaldo.
+        history = state.get("history", [])
+        # Una pregunta sobre el propio asistente ("¿cómo te enteras de tablas nuevas?") no se busca en el catálogo.
+        topic = assistant.topic_of(state["question"])
+        if topic:
+            result = IntentResult(intent="assistant", rewritten_question=state["question"].strip(), confidence=1.0)
+            return {"intent": result, "route": "assistant", "assistant_topic": topic, "assumptions": [],
+                    "search_question": state["question"], "_model_used": False}, None
+        # El saludo no es parte de lo que se busca, y un seguimiento se entiende con la pregunta anterior.
+        current = assistant.strip_greeting(state["question"])
+        search = contextualize(current, history)
+        detail = f"seguimiento:{len(history)}" if search != current else None
+        if is_write_request(current):
+            # Una orden de modificar datos se rechaza por lo que dice la pregunta actual: el historial lo envía el
+            # cliente y no puede ni disimularla ni provocar el rechazo de una pregunta legítima.
+            result = IntentResult(intent="out_of_scope", rewritten_question=current, confidence=0.95)
+        else:
             try:
-                interpretation = deps.ask.interpret(state["question"], state.get("history", []), state["user"])
+                result = deps.intent_classifier.classify(search, history)
+            except Exception as exc:  # throttling, timeout o salida no parseable → reglas
+                error = f"fallback:{type(exc).__name__}"
+                result = fallback_intent.classify(search, history)
+            if result.intent == "out_of_scope" and search != current:
+                result = fallback_intent.classify(current, [])
+                search = current
+        assumptions: list[str] = []
+        figures = result.intent in ("data_query", "procedure")
+        interpretation = None
+        if llm_sql_available(state) and result.intent != "out_of_scope":
+            # Fase 1b: el LLM reconoce un pedido de datos sin listas de palabras clave ("dame los 10…") y reescribe la
+            # pregunta. Solo suma: el rechazo de escrituras y el resto de la intención siguen siendo de las reglas.
+            try:
+                interpretation = deps.ask.interpret(search, history, state["user"])
             except Exception as exc:
                 error = ((error + ";") if error else "") + f"interprete:fallback:{type(exc).__name__}"
-        if interpretation is not None:
-            kind = {"dato": "data_query", "fuera_de_alcance": "out_of_scope"}.get(interpretation.kind)
-            if kind:
-                result = result.model_copy(update={"intent": kind, "confidence": max(result.confidence, 0.8)})
-            elif result.intent in ("data_query", "procedure"):
-                result = result.model_copy(update={"intent": "discovery"})
-            if interpretation.refined_question.strip():
-                result = result.model_copy(update={"rewritten_question": interpretation.refined_question.strip()})
+            if interpretation is not None and interpretation.kind == "dato":
+                figures = True
+                result = result.model_copy(update={"intent": "data_query", "confidence": max(result.confidence, 0.8)})
         if result.intent == "out_of_scope":
             route = "out_of_scope"
         elif result.intent == "ambiguous" or result.confidence < 0.6:
             route = "clarify"
-        elif result.intent in ("data_query", "procedure"):
+        elif figures:
+            # F3: una pregunta de cifras primero se descubre (qué información la responde). Con `features.ask_flow` y un
+            # ejecutor de la sesión, el nodo `compute` calcula después el agregado; sin ellos se indica dónde está.
             route = "discover"
-            if can_ask:
-                data_query = True  # AskFlow: primero se descubre dónde vive el dato y luego `ask` lo calcula
-            else:
-                # F3: sin AskFlow → se responde como descubrimiento indicando dónde están los datos.
-                assumptions.append("La consulta de datos no está habilitada en esta fase; te indico dónde están los datos.")
+            if not (deps.settings.features.ask_flow and state.get("executor")) and not llm_sql_available(state):
+                assumptions.append(NO_FIGURES_NOTE)
             result = result.model_copy(update={"intent": "discovery"})
         else:
             route = "discover"
         if route == "discover" and result.asset_kind_hint is None:
             # Lo que la pregunta no dice lo aclara el catálogo: un plural que nombra una tabla visible pide esa tabla.
-            hint = engine.entity_kind_hint(state["question"], result, deps.catalog, state["user"].visible_ids)
+            hint = engine.entity_kind_hint(search, result, deps.catalog, state["user"].visible_ids)
             if hint:
                 result = result.model_copy(update={"asset_kind_hint": hint})
-        out = {"intent": result, "route": route, "assumptions": assumptions, "data_query": data_query}
+        out = {"intent": result, "route": route, "assumptions": assumptions, "search_question": search,
+               "figures": figures}
         if interpretation is not None:
             out["interpretation"] = interpretation
-        return out, error
+        return out, error, detail
 
     # --- D: recuperación con plan de consultas ---------------------------------------------
     def retrieve_node(state):
         intent = state["intent"]
+        search = state.get("search_question") or state["question"]
         plan = state.get("plan") or plan_query(
-            intent.rewritten_question or state["question"], intent.business_context,
+            intent.rewritten_question or search, intent.business_context,
             patterns().query_expansion, ds().variant_weight,
             known=deps.catalog.names_with_digits(state["user"].visible_ids),
+            ignore=(ANALYSIS_TERMS - engine.kept_analysis_terms(search, deps.catalog, state["user"].visible_ids))
+            if state.get("figures") else frozenset(),
         )
         retrieval = engine.retrieve(
-            state["question"], intent, state["user"], deps.store, deps.catalog, deps.knowledge, ds(), plan,
+            search, intent, state["user"], deps.store, deps.catalog, deps.knowledge, ds(), plan,
             graph=deps.graph if patterns().graph else None,
         )
         detail = f"consultas={len(plan.queries)}"
@@ -224,24 +268,37 @@ def build_discover_graph(deps: DiscoverDeps):
             return {"retrieval_route": "continue", "_model_used": False}, None, f"calidad={quality:.2f}"
         plan: QueryPlan = state["plan"]
         variants, error, used_llm = [], None, False
-        if deps.expander is not None:
+        # En una pregunta de cifras el modelo no hace falta: la reformulación no cambia qué se calcula y solo añade espera.
+        if deps.expander is not None and not state.get("figures"):
             try:
                 weak = [sorted(c)[0] for c in plan.concepts]
-                variants = deps.expander.expand(state["intent"].rewritten_question, weak)
+                known = deps.catalog.names_with_digits(state["user"].visible_ids)
+                variants = deps.expander.expand(strip_literals(state["intent"].rewritten_question, known), weak)
                 used_llm = True
             except Exception as exc:
                 error = f"fallback:{type(exc).__name__}"
         if not variants:
-            lex = lexicon_variant(state["question"])
+            lex = lexicon_variant(state.get("search_question") or state["question"])
             variants = [lex] if lex else []
-        new = plan.add_variants([v for v in variants if isinstance(v, str)][:3], ds().variant_weight)
+        variants = [v.strip() for v in variants if isinstance(v, str) and v.strip()
+                    and not engine.unsafe_generated_text(v)][:3]
+        new = plan.add_variants(variants, ds().variant_weight)
         if not new:
             return {"retrieval_route": "continue", "_model_used": used_llm}, error, f"calidad={quality:.2f};sin_reformulacion"
-        return (
-            {"plan": plan, "retrieval_route": "retry", "_model_used": used_llm},
-            error,
-            f"calidad={quality:.2f}→reintento({len(new)} variantes)",
-        )
+        out: dict = {"plan": plan, "retrieval_route": "retry", "_model_used": used_llm}
+        search = state.get("search_question") or state["question"]
+        if used_llm and not plan.secondary_parts and not state.get("figures") and not is_join_question(search):
+            # Una pregunta compuesta o de cruce ("el saldo de la cuenta y el nombre de la agencia") ya dice qué datos
+            # quiere y cómo se reparten: ahí la reformulación solo suma búsquedas. La pregunta habla de un reporte o de un indicador ("cartera en mora mayor a 90 días que pide la
+            # Superintendencia") y casi nada de eso nombra un dato. La primera reformulación del modelo dice qué dato
+            # se necesita ("días de mora y saldo del préstamo"): con ella se mide si un activo responde. El modelo
+            # solo redacta la búsqueda; qué activos existen y cuáles ve el usuario lo sigue decidiendo el catálogo.
+            known = deps.catalog.names_with_digits(state["user"].visible_ids)
+            restated = concepts_of(new[0], patterns().query_expansion, known)
+            if restated:
+                plan.concepts, plan.primary_concepts = restated, None
+                out["assumptions"] = [f"Entendí que necesitas: «{new[0][:120]}». Si no es eso, dímelo con otras palabras."]
+        return out, error, f"calidad={quality:.2f}→reintento({len(new)} variantes)"
 
     # --- E: cascada en el reranking ---------------------------------------------------------
     def rerank_node(state):
@@ -279,9 +336,9 @@ def build_discover_graph(deps: DiscoverDeps):
         )
         detail = f"caminos={len(discovery.join_paths)}" if discovery.join_paths else None
         out: dict = {"discovery": discovery}
-        # Con el AskFlow el planner ve todas las tablas de la base: que el buscador no ubique una parte de la pregunta
+        # Con la fase 1b el planner ve todas las tablas de la base: que el buscador no ubique una parte de la pregunta
         # (p. ej. una fecha) no significa que falte el dato.
-        if discovery.unresolved_parts and not state.get("data_query"):
+        if discovery.unresolved_parts and not (state.get("figures") and llm_sql_available(state)):
             out["assumptions"] = [f"No encontré datos disponibles para «{p}»." for p in discovery.unresolved_parts]
         return out, None, detail
 
@@ -351,41 +408,94 @@ def build_discover_graph(deps: DiscoverDeps):
             error, detail,
         )
 
-    # --- AskFlow: el dato pedido, con los permisos del usuario -------------------------------
+    # --- cifras agregadas (primer corte del AskFlow) -------------------------------------------
+    def compute_node(state):
+        search = state.get("search_question") or state["question"]
+        plan = figures.plan_figure(search, state["discovery"], deps.catalog, state["user"].visible_ids,
+                                   state["intent"].environment_hint)
+        if isinstance(plan, str):  # el motivo por el que no se calcula, ya redactado para el usuario
+            note = f"{plan} Te indico qué información usar."
+            if llm_sql_available(state):  # la fase 1b lo intenta; el motivo solo se muestra si tampoco responde
+                return {"figure_note": note, "_model_used": False}, None, "sin_plan:fase_1b"
+            return {"assumptions": [note], "_model_used": False}, None, "sin_plan"
+        t0 = time.perf_counter()
+        try:
+            figure = figures.run_plan(plan, state["executor"], ds().figures_min_rows)
+        except Exception as exc:  # sin permiso sobre la tabla, tiempo agotado o servidor caído: se responde sin cifra
+            return ({"assumptions": [FIGURE_FAILED_NOTE], "_model_used": False},
+                    f"cifra:{type(exc).__name__}", plan.operation)
+        ms = int((time.perf_counter() - t0) * 1000)
+        return ({"figure": figure, "db_ms": ms, "_model_used": False}, None,
+                f"{plan.operation};grupos={len(figure.groups)};ms={ms}")
+
+    # --- fase 1b: SQL de un LLM cuando la plantilla no basta ----------------------------------
     def ask_node(state):
         # Aunque ningún activo llegue al umbral de recomendación, los mejor puntuados dicen en qué base buscar.
         hints = [d.asset_key for d in state.get("ranked", [])[:ASK_HINTS]]
-        if not state["discovery"].candidates and not hints:
-            return {"_model_used": False}, None, "sin_candidatos"
+        search = state.get("search_question") or state["question"]
         try:
-            outcome = deps.ask.run(state["question"], state["discovery"], state["user"], state["executor"], hints,
+            outcome = deps.ask.run(search, state["discovery"], state["user"], state["sql_executor"], hints,
                                    state.get("interpretation"))
         except Exception as exc:  # el LLM o la conexión fallaron: se responde como descubrimiento
-            outcome = AskOutcome(False, notes=["No pude calcular el dato ahora; te indico dónde está la información."],
-                                 errors=[f"fallo:{type(exc).__name__}"])
+            outcome = AskOutcome(False, notes=[FIGURE_FAILED_NOTE], errors=[f"fallo:{type(exc).__name__}"])
+        notes = list(outcome.notes)
+        if not outcome.ok and state.get("figure_note"):
+            notes.insert(0, state["figure_note"])
         detail = f"intentos={outcome.attempts}" + (f";filas={outcome.data.row_count}" if outcome.data else "")
         error = None if outcome.ok else (",".join(outcome.errors) or None)
-        return {"ask": outcome, "assumptions": outcome.notes}, error, detail
+        return {"ask": outcome, "assumptions": notes}, error, detail
 
     def respond_node(state):
+        if state.get("figure") is not None:  # el número nunca lo redacta un modelo
+            return {"answer_text": figures.answer_text(state["figure"]), "_model_used": False}, None
+        asked = state.get("ask")
+        if asked is not None and asked.ok:  # fase 1b: la frase se rellenó con el resultado, sin pasar por un modelo
+            return {"answer_text": asked.text, "_model_used": False}, None
         discovery = state["discovery"]
+        search = state.get("search_question") or state["question"]
         error = None
         text = None
-        asked = state.get("ask")
-        if asked is not None and asked.ok:
-            return {"answer_text": asked.text, "_model_used": False}, None
+        out: dict = {}
+        used_llm = False
         if discovery.candidates:
+            used_llm = not isinstance(deps.narrator, TemplateNarrator)
             try:
-                text = deps.narrator.narrate(state["intent"].rewritten_question, discovery)
+                # Al narrador le basta la pregunta actual: la anterior solo hizo falta para buscar.
+                asked = state["question"] if search != state["question"] else state["intent"].rewritten_question
+                text = deps.narrator.narrate(asked, discovery)
             except Exception as exc:
                 error = f"fallback:{type(exc).__name__}"
             if text is not None and not engine.narrative_mentions_ok(text, discovery, deps.catalog):
                 error, text = "narrativa_rechazada:objeto_fuera_de_respuesta", None
             elif text is not None and engine.unsafe_generated_text(text):
                 error, text = "narrativa_rechazada:contenido_no_permitido", None
+            options = engine.area_options(search, discovery, ds())
+            if options:  # el mismo dato existe en varias áreas: se responde y además se ofrece precisar
+                out["clarification"] = Clarification(question="¿De cuál de estas áreas lo necesitas?", options=options)
+        elif deps.guide is not None:
+            # La búsqueda no encontró nada: el modelo dice si era una pregunta sobre el asistente o propone cómo
+            # precisarla en lenguaje de negocio. Solo elige entre temas fijos y redacta opciones; no nombra objetos.
+            used_llm = True
+            try:
+                known = deps.catalog.names_with_digits(state["user"].visible_ids)
+                # Al modelo no le llegan los literales (un documento, una cuenta) que alguien haya escrito (F17).
+                advice = deps.guide.advise(strip_literals(state["question"], known),
+                                           [strip_literals(h, known) for h in state.get("history", [])])
+                if advice.kind == "assistant" and advice.topic in assistant.TOPICS:
+                    out["assistant_topic"] = advice.topic
+                    out["intent"] = state["intent"].model_copy(update={"intent": "assistant"})
+                elif advice.kind == "clarify" and advice.question and advice.options:
+                    safe = [o.strip() for o in advice.options if o and o.strip()
+                            and not engine.unsafe_generated_text(o) and not engine.looks_technical(o)]
+                    if safe and not engine.unsafe_generated_text(advice.question) \
+                            and not engine.looks_technical(advice.question):
+                        out["clarification"] = Clarification(question=advice.question.strip()[:240],
+                                                             options=[o[:160] for o in safe[:4]])
+            except Exception as exc:
+                error = f"fallback:{type(exc).__name__}"
         if text is None:
-            text = fallback_narrator.narrate(state["question"], discovery)
-        return {"answer_text": text}, error
+            text = fallback_narrator.narrate(search, discovery)
+        return {"answer_text": text, "_model_used": used_llm, **out}, error
 
     def finalize_node(state):
         intent = state.get("intent")
@@ -399,14 +509,29 @@ def build_discover_graph(deps: DiscoverDeps):
         elif route == "out_of_scope":
             env.status = "rejected"
             env.answer_text = (
-                "Solo puedo ayudarte a descubrir dónde están los datos y qué significan; "
-                "no modifico información ni respondo temas fuera de ese alcance."
+                "Eso no puedo hacerlo: solo ayudo a encontrar dónde está la información del banco y qué significa. "
+                "No modifico datos ni respondo temas fuera de ese alcance."
             )
+        elif route == "assistant" or state.get("assistant_topic"):
+            env.answer_text = assistant.answer(state["assistant_topic"], deps.catalog, state["user"].visible_ids,
+                                               ask_flow=deps.settings.features.ask_flow)
+            env.assumptions = []
+        elif state.get("clarification") and not state["discovery"].candidates:
+            # No se encontró nada: se dice, y además se ofrece precisar la pregunta. El dato puede no existir en el
+            # banco, así que la aclaración acompaña a la respuesta en vez de sustituirla.
+            env.discovery = state["discovery"]
+            env.clarification = state["clarification"]
+            env.answer_text = f"{state['answer_text']} {env.clarification.question}"
+            env.confidence = 0.0
         else:
             disc = state["discovery"]
             env.discovery = disc
             env.validation = state.get("validation")
+            env.clarification = state.get("clarification")
             env.answer_text = state["answer_text"]
+            if state.get("figure") is not None:
+                env.flow = "ask"
+                env.figure = state["figure"]
             env.confidence = disc.candidates[0].confidence if disc.candidates else 0.0
             env.databases = engine.databases_of(disc)
             env.tables_used = engine.tables_of(disc)
@@ -414,8 +539,8 @@ def build_discover_graph(deps: DiscoverDeps):
             if asked is not None and asked.ok:
                 env.flow, env.data = "ask", asked.data
                 env.databases, env.tables_used = [asked.data.database], list(asked.data.tables)
-                env.confidence = None  # la del descubrimiento no aplica a una cifra calculada
-        env.timings_ms = {"total": int((time.perf_counter() - state["started"]) * 1000), "db": 0}
+                env.confidence = None  # la del descubrimiento no aplica a un dato calculado
+        env.timings_ms = {"total": int((time.perf_counter() - state["started"]) * 1000), "db": state.get("db_ms", 0)}
         record = TraceRecord(
             trace_id=state["trace_id"], user_id=state["user"].user_id, client=state.get("client", "api"),
             question=state["question"], intent=intent.intent if intent else None,
@@ -442,21 +567,35 @@ def build_discover_graph(deps: DiscoverDeps):
     g.add_node("rerank", _timed("rerank", "planner", deps, rerank_node))
     g.add_node("expand", _timed("expand", None, deps, expand_node))
     g.add_node("review", _timed("review", "judge", deps, review_node, "review_attempt"))
+    g.add_node("compute", _timed("compute", None, deps, compute_node))
     g.add_node("ask", _timed("ask", "coder", deps, ask_node))
     g.add_node("respond", _timed("respond", "fast", deps, respond_node))
     g.add_node("finalize", finalize_node)  # escribe la auditoría con los pasos anteriores; no se audita a sí mismo
     g.add_edge(START, "intent")
     g.add_conditional_edges(
-        "intent", lambda s: s["route"], {"discover": "retrieve", "clarify": "finalize", "out_of_scope": "finalize"}
+        "intent", lambda s: s["route"],
+        {"discover": "retrieve", "clarify": "finalize", "out_of_scope": "finalize", "assistant": "finalize"}
     )
     g.add_edge("retrieve", "grade")
     g.add_conditional_edges("grade", lambda s: s["retrieval_route"], {"retry": "retrieve", "continue": "rerank"})
     g.add_edge("rerank", "expand")
     g.add_edge("expand", "review")
-    g.add_conditional_edges(
-        "review", lambda s: "ask" if s["review_route"] == "accept" and s.get("data_query") else s["review_route"],
-        {"fix": "expand", "accept": "respond", "ask": "ask"},
-    )
+    def after_review(state):
+        if state["review_route"] == "fix":
+            return "fix"
+        wants_figure = (state.get("figures") and deps.settings.features.ask_flow and state.get("executor")
+                        and state["discovery"].candidates)
+        if wants_figure:
+            return "compute"
+        return "ask" if wants_llm_sql(state) else "accept"
+
+    def after_compute(state):
+        # Plantillas primero (decisión 17); solo si no calcularon, la fase 1b con SQL de un LLM.
+        return "ask" if state.get("figure") is None and wants_llm_sql(state) else "respond"
+
+    g.add_conditional_edges("review", after_review,
+                            {"fix": "expand", "accept": "respond", "compute": "compute", "ask": "ask"})
+    g.add_conditional_edges("compute", after_compute, {"ask": "ask", "respond": "respond"})
     g.add_edge("ask", "respond")
     g.add_edge("respond", "finalize")
     g.add_edge("finalize", END)
@@ -478,16 +617,16 @@ class DiscoverService:
         self.graph = build_discover_graph(self.deps)
 
     def _initial(self, question: str, user: UserContext, history: list[str] | None, client: str,
-                 executor: QueryExecutor | None = None) -> DiscoverState:
+                 executor=None, sql_executor: QueryExecutor | None = None) -> DiscoverState:
         if user.visible_ids is None:
             raise ValueError("El DiscoverFlow requiere la visibilidad del usuario (F14)")
-        extra: dict = {"executor": executor} if executor is not None else {}
         return {
-            **extra,
             "trace_id": str(uuid.uuid4()),
             "question": question,
             "history": history or [],
             "client": client,
+            "executor": executor,
+            "sql_executor": sql_executor,
             "user": user,
             "started": time.perf_counter(),
             "assumptions": [],
@@ -495,17 +634,20 @@ class DiscoverService:
         }
 
     def run(self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api",
-            executor: QueryExecutor | None = None) -> AnswerEnvelope:
-        final = self.graph.invoke(self._initial(question, user, history, client, executor))
+            executor=None, sql_executor: QueryExecutor | None = None) -> AnswerEnvelope:
+        """`executor`: cómo ejecutar un agregado con la sesión de quien pregunta (`figures.FigureExecutor`). Solo se
+        usa con `features.ask_flow`; sin él, una pregunta de cifras se responde indicando dónde está la información.
+        `sql_executor`: fase 1b (`features.ask_llm_sql`), ejecuta el SQL de un LLM ya validado con la sesión."""
+        final = self.graph.invoke(self._initial(question, user, history, client, executor, sql_executor))
         return final["envelope"]
 
     def stream(
-        self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api",
-        executor: QueryExecutor | None = None,
+        self, question: str, user: UserContext, history: list[str] | None = None, client: str = "api", executor=None,
+        sql_executor: QueryExecutor | None = None,
     ) -> Iterator[tuple[str, dict]]:
         """Eventos por nodo (`step`) y, al final, la respuesta (`answer`)."""
-        initial = self._initial(question, user, history, client, executor)
-        for update in self.graph.stream(initial, stream_mode="updates"):
+        for update in self.graph.stream(self._initial(question, user, history, client, executor, sql_executor),
+                                        stream_mode="updates"):
             for node, payload in update.items():
                 if node == "finalize":
                     yield "answer", payload["envelope"].model_dump(by_alias=True)

@@ -51,7 +51,7 @@ Diagramas: [flujo de descubrimiento](../../architecture/flujo-descubrimiento.htm
 | Rol | Lo usa | Si falta en `models.yaml` |
 |---|---|---|
 | `planner` | `intent` y `rerank` del DiscoverFlow; `LlmEnricher` del build | Reglas y relevancia por cobertura |
-| `fast` | `respond` (narrativa) | `TemplateNarrator` |
+| `fast` | `respond` (narrativa para una persona de negocio), `grade` (`LlmQueryExpander`, reformula si la búsqueda cubre poco) y la guía sin candidatos (`LlmGuide`); el enriquecimiento del build si falta `planner` | `TemplateNarrator`; sin reformulación; sin guía |
 | `judge` | Nadie: el nodo `review` lo anota como rol, pero no hay implementación conectada | Chequeos deterministas |
 | `embed` | Retirado: se ignora con un aviso; en qa/prod la API no arranca si aparece | — |
 
@@ -143,15 +143,21 @@ En la API: `CONVERDATA_MODELS` (ruta del archivo; si no existe, modo determinist
 - `api/tests/test_api.py`: tope diario, uso atribuido al usuario, modo determinista con el tope agotado.
 
 ## Modelos por proveedor
-- **NVIDIA NIM (API alojada)**, medido el 2026-11-22 con las tres llamadas del flujo a través del gateway:
+- **NVIDIA NIM (API alojada)**, comparados el 2026-11-23 los 13 modelos generativos con las llamadas reales del chat, a través del gateway
+  (sustituye a la medición del 2026-11-22, que daba por correctos a `minimax-m3.1-flash` y otros con otra carga):
 
-  | Modelo | Resultado |
-  |---|---|
-  | `nvidia/nemotron-3.5-bolt-e4b` | Correcto; 2–5 s por llamada. Es el del ejemplo |
-  | `nvidia/nemotron-3-ultra-550b-a55b` | Correcto; 3–12 s por llamada |
-  | `minimaxai/minimax-m3.1-flash` | Correcto; 5–12 s por llamada |
-  | `mistralai/mistral-large-4-1t-a52b`, `moonshotai/kimi-k3.1-pro`, `nvidia/nemotron-3.5-lightning-30b-a3b`, `meta/muse-glimmer-30b` | No sirven: rechazan `guided_json` (400), que es como NIM pide la salida estructurada |
-  | `google/gemma-4-31b-it`, `z-ai/glm-5.3-flash` | No sirven: agotan el tiempo |
+  | Modelo | Resultado | Hit@1 en reportes |
+  |---|---|---|
+  | `nvidia/nemotron-3.5-bolt-e4b` | **Elegido para `fast` y `enrich`** (el del ejemplo): 6 de 6 correctas, 1,2 s de media | 52 % (p50 de 2 s) |
+  | `nvidia/nemotron-3-ultra-550b-a55b` | 5 de 6, 5–8 s por llamada; reformula con más detalle, pero bajo carga agota el tiempo y el circuito del gateway lo desconecta | 36 % |
+  | `nvidia/nemotron-3.5-super-vl-120b-a12b` | Solo funciona pidiendo JSON en el mensaje (rechaza `guided_json`); 5 s y con timeouts | — |
+  | `nemotron-3.5-lightning-30b-a3b`, `nemotron-3-nano-omni-30b-a3b-reasoning` | No sirven hoy: rechazan `guided_json` y no devuelven JSON por mensaje | — |
+  | `mistral-large-4`, `kimi-k3.1-pro`, `muse-glimmer-30b`, `step-5-preview`, `gemma-4-31b-it`, `glm-5.3-flash`, `minimax-m3.1-flash` | No sirven hoy: agotan el tiempo | — |
+  | `gemma-3-12b-it` | No sirve: 404 | — |
+
+  Referencia con Claude Sonnet 5.5: 68 % de Hit@1 en reportes. Todas las llamadas pasan por el gateway y no hay uso directo de un
+  proveedor fuera de `src/converdata/llm/`: el chat, la reformulación y el refresco del catálogo usan el perfil que elige el
+  administrador en pantalla.
 
   Que un modelo devuelva salida válida no basta. En la evaluación de descubrimiento (58 casos, BancosSQL), usar estos modelos
   para intención y orden **baja el acierto**: Hit@1 62,7 % con `nemotron-3.5-bolt-e4b` (p50 6,2 s) y 64,7 % con

@@ -20,6 +20,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from converdata.bootstrap import user_with_databases
+from converdata.discovery import assistant
 from converdata.discovery.engine import narrative_mentions_ok
 from converdata.flows.discover import DiscoverService
 
@@ -34,6 +35,14 @@ class EvalCase(BaseModel):
     groups: list[str] = Field(default_factory=list)
     expect_gap: bool = False
     forbidden: list[str] = Field(default_factory=list)
+    history: list[str] = Field(default_factory=list)  # preguntas anteriores de la conversación (seguimientos)
+    # Casos de chat que no se responden con un activo: pregunta sobre el asistente (tema esperado) o petición rechazada.
+    expect_assistant: str | None = None
+    expect_rejected: bool = False
+
+    @property
+    def behavioural(self) -> bool:
+        return self.expect_assistant is not None or self.expect_rejected
 
 
 def load_cases(path: str | Path) -> list[EvalCase]:
@@ -57,9 +66,12 @@ class CaseResult:
     steps: list[str] = field(default_factory=list)
     related_ok: bool | None = None  # C: las tablas esperadas aparecen en relaciones o caminos de unión
     duplicates: list[str] = field(default_factory=list)  # D: copias de la misma entidad mostradas por separado
+    behaviour_ok: bool | None = None  # casos de chat sin activo esperado: respondió el tema o rechazó la petición
 
     @property
     def ok(self) -> bool:
+        if self.behaviour_ok is not None:
+            return self.behaviour_ok and not self.leaks
         if self.case.expect_gap:
             return bool(self.gap_ok) and not self.leaks
         return self.hit1 and not self.leaks and not self.invented and self.related_ok is not False
@@ -70,13 +82,13 @@ class EvalReport:
     results: list[CaseResult]
 
     def _answerable(self):
-        return [r for r in self.results if not r.case.expect_gap]
+        return [r for r in self.results if not r.case.expect_gap and not r.case.behavioural]
 
     def by_type(self) -> dict[str, dict[str, float]]:
         out = {}
         for t in sorted({r.case.type for r in self.results}):
             rs = [r for r in self.results if r.case.type == t]
-            ans = [r for r in rs if not r.case.expect_gap]
+            ans = [r for r in rs if not r.case.expect_gap and not r.case.behavioural]
             row = {"n": len(rs), "ok": _pct(sum(r.ok for r in rs), len(rs))}
             if ans:
                 row["hit@1"] = _pct(sum(r.hit1 for r in ans), len(ans))
@@ -141,7 +153,7 @@ def evaluate(service: DiscoverService, cases: list[EvalCase]) -> EvalReport:
     results = []
     for case in cases:
         user = user_with_databases(service, f"eval:{case.id}", case.databases, case.groups)
-        env = service.run(case.question, user, client="api")
+        env = service.run(case.question, user, history=case.history, client="api")
         disc = env.discovery
         ranked = []
         if disc:
@@ -165,6 +177,13 @@ def evaluate(service: DiscoverService, cases: list[EvalCase]) -> EvalReport:
                     shown.update(path.tables)
             related_ok = set(case.expected_related) <= shown
         duplicates = _entity_duplicates(ranked, service)
+        behaviour_ok = None
+        if case.expect_rejected:
+            behaviour_ok = env.status == "rejected" and disc is None
+        elif case.expect_assistant is not None:
+            expected_text = assistant.answer(case.expect_assistant, service.deps.catalog, user.visible_ids,
+                                             ask_flow=service.deps.settings.features.ask_flow)
+            behaviour_ok = env.status == "ok" and disc is None and env.answer_text == expected_text
         results.append(
             CaseResult(
                 case=case,
@@ -180,6 +199,7 @@ def evaluate(service: DiscoverService, cases: list[EvalCase]) -> EvalReport:
                 steps=[f"{s.step}:{s.detail or s.error or 'ok'}" for s in record.steps] if record else [],
                 related_ok=related_ok,
                 duplicates=duplicates,
+                behaviour_ok=behaviour_ok,
             )
         )
     return EvalReport(results)

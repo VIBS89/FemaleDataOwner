@@ -44,6 +44,20 @@ class DiscoveryVerdict(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
 
 
+class Advice(BaseModel):
+    """Qué hacer cuando la búsqueda no encontró nada (rol `fast`). No nombra objetos del catálogo."""
+
+    kind: str = Field(description="assistant | clarify | none")
+    topic: str | None = Field(None, description="Tema de `discovery.assistant.TOPICS` si kind = assistant")
+    question: str | None = Field(None, description="Pregunta de aclaración en lenguaje de negocio si kind = clarify")
+    options: list[str] = Field(default_factory=list, max_length=4,
+                               description="Hasta 4 reformulaciones completas de la pregunta, en lenguaje de negocio")
+
+
+class Guide(Protocol):
+    def advise(self, question: str, history: list[str]) -> Advice: ...
+
+
 class QueryExpander(Protocol):
     def expand(self, question: str, weak_terms: list[str]) -> list[str]: ...
 

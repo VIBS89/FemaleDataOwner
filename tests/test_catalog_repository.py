@@ -343,6 +343,15 @@ def test_el_inventario_con_hosts_vive_aparte_del_catalogo(repo, vbank):
     repo.save_inventory([], by="admin")
 
 
+def test_el_inventario_conserva_figures_de_cada_servidor(repo, vbank):
+    """`figures` (None / True / False) se guarda y se lee tal cual: de él depende el cálculo de cifras en producción."""
+    valores = [None, True, False]
+    servers = [s.model_copy(update={"figures": valores[i % 3]}) for i, s in enumerate(vbank.inventory.servers)]
+    repo.save_inventory(servers, by="admin")
+    assert [(s.id, s.figures) for s in repo.inventory()] == [(s.id, s.figures) for s in servers]
+    repo.save_inventory([], by="admin")
+
+
 def test_la_exportacion_para_git_no_lleva_preguntas(repo, vbank, tmp_path):
     loaded, _ = repo.load()
     assert loaded.knowledge.golden

@@ -5,6 +5,15 @@ import pytest
 from converdata.bootstrap import build_service, user_with_databases
 from situaciones import MARCAS, motivo_de_omision
 
+try:
+    import pyodbc
+
+    # Las pruebas contra SQL Server borran sus BDs con ROLLBACK IMMEDIATE: el pool de ODBC devolvería después
+    # conexiones con la sesión matada ("session is in the kill state", 596). Debe fijarse antes de la primera conexión.
+    pyodbc.pooling = False
+except ImportError:  # sin el extra sqlserver no hay pruebas contra SQL Server
+    pass
+
 FIXTURE = Path(__file__).parent / "fixtures" / "vbank"
 ONBOARDING_Q = "Necesito encontrar el identificador único del cliente utilizado en procesos de onboarding digital."
 

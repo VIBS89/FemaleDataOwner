@@ -10,13 +10,14 @@ manda el código: corrige el manual en el mismo cambio.
 ## 1. Qué hace la solución
 ConverData responde en lenguaje natural dónde vive un dato, qué significa, con qué se relaciona y cuánta confianza
 merece la respuesta. Lee solo metadatos de SQL Server (tablas, columnas, llaves, descripciones) y el conocimiento que
-el banco le carga o le enseña. Nunca lee valores de datos de clientes.
+el banco le carga o le enseña. No lee valores de datos de clientes. Una excepción, apagada por defecto: con las cifras agregadas activas
+(`features.ask_flow`), un total (cuántos, suma, promedio) se calcula con el login de la persona y se muestra sin guardarlo.
 
 Cuatro reglas sostienen el diseño. Un cambio que rompa una de ellas no se acepta:
 
 1. **Permisos heredados.** Cada persona entra con su propio login de SQL Server y descubre solo lo que ese login puede leer. Lo que no ve responde igual que lo que no existe.
 2. **Auditoría antes de responder.** Si una pregunta o un cambio no se puede registrar, no se entrega ni se aplica.
-3. **Sin valores de datos.** El catálogo guarda estructura y descripciones. Los literales de una pregunta (un documento, una cuenta) solo quedan en la auditoría y en las dudas escaladas.
+3. **Sin valores de datos.** El catálogo guarda estructura y descripciones. Los literales de una pregunta (un documento, una cuenta) solo quedan en la auditoría y en las dudas escaladas. Las cifras agregadas, apagadas por defecto, solo calculan totales de plantilla fija, nunca filas ni columnas con datos personales, no muestran totales ni grupos de menos de 10 registros, y el número no pasa por el modelo ni se guarda.
 4. **Medir antes de aceptar.** Un cambio en la lógica de descubrimiento entra solo si la compuerta de calidad no baja.
 
 ## 2. Componentes
@@ -29,7 +30,7 @@ Cuatro reglas sostienen el diseño. Un cambio que rompa una de ellas no se acept
 | **ConverData-API** | Un solo proceso: rutas REST, servidor MCP en `/mcp` y el flujo de descubrimiento. Guarda el login de cada sesión cifrado en memoria y nada en disco | `api/converdata_api/` (FastAPI) |
 | **BD ConverData** | Todo el estado: catálogo con historial, conocimiento, curación, inventario de servidores y auditoría | `db/converdata/*.sql` (SQL Server 2016 o posterior) |
 | **Builder** | Comando que lee los metadatos de los servidores, arma el catálogo y lo publica en la BD. Corre y termina; lo lanza una tarea programada o un administrador | `converdata catalog build --db` |
-| **Proveedor de LLM** | Un modelo para dos pasos: entender la pregunta y ordenar los candidatos. Sin él, el flujo funciona en modo determinista | `config/models.yaml` (Bedrock en el piloto) |
+| **Proveedor de LLM** | Un modelo para redactar la respuesta para una persona de negocio, reformular la búsqueda cuando cubre poco y orientar cuando no hay resultados (rol `fast`); entender la pregunta y ordenar los candidatos (rol `planner`) está desaconsejado por la medición. También describe las tablas nuevas al construir el catálogo. Sin él, el flujo funciona en modo determinista | `config/models.yaml` (Bedrock en el piloto) |
 | **SQL Server de datos** | Las BDs de negocio. Son la fuente de verdad de los permisos; ConverData solo les pregunta qué puede ver cada login y cuál es su estructura | Fuera del repositorio |
 
 La arquitectura completa, del contexto a los componentes (modelo C4), está en `docs/architecture/README.md`, con sus
@@ -56,7 +57,7 @@ infraestructura. Lo comprueba `tests/test_architecture.py` y lo explica `docs/ar
 | `builder/` | Dominio | Pasos del Builder: convertir metadatos, marcar datos personales por nombre, conservar lo humano, detectar entidades y linaje de vistas |
 | `memory/` | Dominio e infraestructura | Texto (tokens, literales) y el índice léxico BM25 en memoria. Aplica el filtro de permisos antes de ordenar |
 | `flows/` | Aplicación | Los dos grafos de LangGraph: `discover.py` (responder una pregunta) y `catalog_build.py` (construir el catálogo) |
-| `ask/` | Dominio e infraestructura | AskFlow (F6–F10): responde preguntas de cifras. `engine.py` arma el esquema, corrige hasta 3 veces y rellena la frase con el resultado (el LLM nunca lo ve); `validator.py` deja pasar solo un `SELECT` sobre tablas visibles e inyecta `TOP`; `planner.py` es el planner con LLM (rol `coder`). El ejecutor con la credencial de la sesión está en `api/converdata_api/executor.py` |
+| `ask/` | Dominio e infraestructura | Fase 1b del AskFlow (`features.ask_llm_sql`, apagada por defecto): responde lo que las cifras de plantilla (`discovery/figures.py`, decisión 17) no pueden, con SQL de un LLM. Corre después de `compute` y solo si no hubo cifra. `engine.py` arma el esquema, corrige hasta 3 veces y rellena la frase con el resultado (el LLM nunca lo ve); `validator.py` deja pasar solo un `SELECT` sobre tablas visibles e inyecta `TOP`; `planner.py` es el planner con LLM (rol `coder`). El ejecutor (`api/converdata_api/executor.py`) pasa por los mismos controles que las cifras (`runtime._run_ask`): servidor autorizado, tope diario, concurrencia y auditoría previa |
 | `application/` | Aplicación | Casos de uso compartidos: herramientas de descubrimiento (las usan el MCP y la compuerta; las rutas REST llaman al flujo directamente) y refresco del catálogo (el mismo para la CLI y la API) |
 | `storage/` | Infraestructura | Adaptadores de la BD `ConverData`: conexión, migraciones, catálogo, curación. Y los mismos puertos sobre archivos, solo para desarrollo |
 | `audit/` | Dominio e infraestructura | Registro de auditoría: en SQL Server (solo inserción) o en archivos con cadena de hashes |
@@ -102,7 +103,7 @@ se edita. Detalle en `docs/specs/on-premise/OP-02-catalogo-memoria.md`.
 | Pieza | Para qué sirve |
 |---|---|
 | `tests/`, `api/tests/` | Pruebas. Las marcadas `sqlserver` crean y eliminan su propia BD y necesitan `CONVERDATA_TEST_DB` |
-| `tests/fixtures/*/eval/` | Sets de evaluación y sus líneas base. `reportes.yaml` mide el aporte del conocimiento |
+| `tests/fixtures/*/eval/` | Sets de evaluación y sus líneas base. `reportes.yaml` mide el aporte del conocimiento y `chat.yaml` el chat de negocio (se corre aparte de la compuerta con `--cases`) |
 | `requirements/*.lock` | Dependencias de Python con versión y hash. `requirements/README.md` dice cómo regenerarlas |
 | `.github/workflows/calidad.yml` | CI: pruebas y compuerta, web, y análisis de dependencias con SBOM |
 | `.claude/agents/` | Revisores automáticos: seguridad de datos, arquitectura y specs, contrato web-API, evaluador del descubrimiento |
@@ -111,12 +112,13 @@ se edita. Detalle en `docs/specs/on-premise/OP-02-catalogo-memoria.md`.
 ## 3. Cómo viaja una pregunta
 1. La web envía la pregunta a `/discover`. La identidad sale del token de sesión, nunca de un parámetro.
 2. La API comprueba el ritmo y el tope de tokens del usuario, y lee de SQL Server qué objetos ve su login (se recuerda 15 minutos).
-3. **intent**: qué se pide y de qué tipo (columna, tabla, regla). Con LLM o por reglas.
-4. **retrieve**: búsqueda léxica en el catálogo y el conocimiento, solo entre lo visible. **grade** reformula una vez si lo encontrado es pobre.
+3. **intent**: qué se pide y de qué tipo (columna, tabla, regla). Por reglas, o con LLM si se declara el rol `planner`. Aquí también se contestan sin buscar las preguntas sobre el propio asistente y la cortesía (textos fijos), se completan los seguimientos con el historial y se rechazan las órdenes de modificar datos (solo mirando la pregunta actual).
+4. **retrieve**: búsqueda léxica en el catálogo y el conocimiento, solo entre lo visible. **grade** reformula una vez si lo encontrado es pobre, con el LLM (rol `fast`) cuando lo hay.
 5. **rerank**: ordena los candidatos. El LLM solo interviene si el resultado determinista no es claro.
 6. **expand**: añade ubicaciones por ambiente, reglas, responsables, linaje y caminos de unión. **review** corrige una vez si el principal no cumple lo pedido.
-7. **respond**: redacta la respuesta. Si el texto del modelo nombra algo que no está entre los candidatos, se sustituye por el texto determinista.
-8. **finalize**: escribe la auditoría. Solo entonces se entrega la respuesta.
+7. **compute** (solo con las cifras activas y una pregunta de totales): arma una consulta de plantilla fija con nombres del catálogo (desglose por una categoría de la tabla o de una tabla relacionada, con una sola unión) y la ejecuta con el login de la persona, tras auditarla. Si no puede calcular, lo dice.
+8. **respond**: redacta la respuesta. Si el texto del modelo nombra algo que no está entre los candidatos, se sustituye por el texto determinista. El número de una cifra nunca lo redacta el modelo. Si no hubo candidatos, el LLM puede reconocer una pregunta sobre el asistente o proponer una aclaración en lenguaje de negocio.
+9. **finalize**: escribe la auditoría. Solo entonces se entrega la respuesta.
 
 Una edición de curación sigue el mismo patrón: comprobar el rol y el dominio, auditar, escribir las filas en la BD,
 recargar el índice y responder. Un refresco del catálogo parte de lo publicado, lee los servidores y publica solo lo que
@@ -160,7 +162,7 @@ gravedad, esfuerzo y cómo se cierran. Estas son las 8 de gravedad alta:
 | DT-05 | El detector de datos personales reconoce seis formatos y no nombres ni direcciones | De él depende lo que escribe un responsable; la plantilla de las confirmaciones tampoco reconoce nombres |
 | DT-29 | Los sets de evaluación los escribió el equipo | Los porcentajes no predicen el uso real |
 | DT-30 | Nada se ha medido con el modelo real | Bedrock sin probar de punta a punta; las suites de inyección y guardas solo corrieron sin modelo |
-| DT-33 | La purga de 180 días existe pero no está programada | Retención |
+| DT-33 | La purga de 180 días existe y `deploy/windows/registrar-tareas.ps1` la programa, pero el script no se ha probado en un servidor | Retención |
 | DT-39 | Las pruebas de SQL Server (83 de 458) no corren en la CI | Una regresión en el esquema o en los adaptadores no se ve en un PR |
 | DT-44 | No hay instalación para Windows Server | Sin IIS, tareas programadas ni respaldo no hay piloto |
 | DT-45 | La CI no construye ni analiza la imagen | Cadena de suministro |
@@ -178,8 +180,9 @@ Las brechas frente al PRD y las specs están en `docs/wiki/brechas-funcionales.m
 - Si se usa Guardrails de Bedrock y quién revisa la batería de inyección de prompt.
 
 ### 5.4 Límites de lo medido
-- Los sets de evaluación los escribió el equipo: 89 preguntas de descubrimiento y 25 de reporte. Los porcentajes no predicen el uso real.
-- Todo se midió sin LLM. Falta repetirlo con Bedrock.
+- Los sets de evaluación los escribió el equipo: 89 preguntas de descubrimiento, 25 de reporte y 67 de chat. Los porcentajes no predicen el uso real.
+- Todo se midió sin LLM. Falta repetirlo con Bedrock, incluidos los pasos nuevos del modelo (reformular, orientar y enriquecer el catálogo).
+- Las cifras agregadas se verificaron contra un SQL Server local con datos ficticios. Su revisión de seguridad independiente terminó el 2026-11-23 sin encontrar inyección SQL ni fugas de permisos; sus dos bloqueantes se corrigieron (los totales y grupos de menos de 10 registros no se muestran y cada consulta se audita antes de ejecutarse), quedan abiertas DT-78 a DT-80 y no se han medido con usuarios reales.
 - La prueba de literales marcados no cubre el cliente MCP, la respuesta por streaming ni el Visor de eventos de Windows.
 
 ## 6. Dónde está cada cosa

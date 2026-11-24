@@ -19,6 +19,7 @@ from __future__ import annotations
 import datetime as dt
 import decimal
 import re
+import time
 from dataclasses import dataclass, field
 
 from converdata.ask.ports import (QueryExecutor, QueryRejected, QueryResult, QuestionInterpretation,
@@ -41,6 +42,7 @@ PERSONAL = re.compile(
     re.I,
 )
 MAX_DATE_COLUMNS = 4
+PROBE_TTL_S = 1800  # 30 min
 MAX_OVERVIEW_TABLES = 300  # el intérprete ve el catálogo visible resumido (solo nombres y descripciones)
 MAX_OVERVIEW_COLUMNS = 25
 DATE_TYPE = re.compile(r"^(date|datetime|datetime2|smalldatetime|datetimeoffset)\b", re.I)
@@ -75,6 +77,18 @@ class AskEngine:
                  interpreter: QuestionInterpreter | None = None):
         self.planner, self.catalog, self.max_rows = planner, catalog, max_rows
         self.interpreter = interpreter
+        # Valores de categorías y rangos de fechas: cambian poco y cada sondeo es una consulta al servidor.
+        self._probes: dict[tuple[str, str, str], tuple[float, QueryResult]] = {}
+
+    def _probe(self, executor: QueryExecutor, obj: CatalogObject, sql: str, max_rows: int) -> QueryResult:
+        """Sondeo para el planner (se audita, no cuenta para el tope diario), con caché de `PROBE_TTL_S`."""
+        key = (obj.server, obj.database, sql)
+        hit = self._probes.get(key)
+        if hit and time.monotonic() - hit[0] < PROBE_TTL_S:
+            return hit[1]
+        result = executor.run(obj.server, obj.database, sql, max_rows, probe=True)
+        self._probes[key] = (time.monotonic(), result)
+        return result
 
     # --- interpretación con LLM (sin listas de palabras clave) ------------------------------
     def overview(self, user: UserContext) -> str:
@@ -140,7 +154,7 @@ class AskEngine:
                        f"FROM {_q(obj.database)}.{_q(obj.schema_)}.{_q(obj.name)} "
                        f"WHERE {_q(col.name)} IS NOT NULL GROUP BY {_q(col.name)} ORDER BY COUNT(*) DESC")
                 try:
-                    result = executor.run(obj.server, obj.database, sql, MAX_CATEGORY_VALUES + 1)
+                    result = self._probe(executor, obj, sql, MAX_CATEGORY_VALUES + 1)
                 except QueryRejected:
                     continue
                 if 0 < len(result.rows) <= MAX_CATEGORY_VALUES:
@@ -158,7 +172,7 @@ class AskEngine:
             select = ", ".join(f"MIN({_q(c.name)}), MAX({_q(c.name)})" for c in dates)
             sql = f"SELECT {select} FROM {_q(obj.database)}.{_q(obj.schema_)}.{_q(obj.name)}"
             try:
-                row = executor.run(obj.server, obj.database, sql, 1).rows[0]
+                row = self._probe(executor, obj, sql, 1).rows[0]
             except (QueryRejected, IndexError):
                 continue
             if len(row) != 2 * len(dates):

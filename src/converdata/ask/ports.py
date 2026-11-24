@@ -59,7 +59,9 @@ class QueryRejected(RuntimeError):
 
 
 class QueryExecutor(Protocol):
-    def run(self, server: str, database: str, sql: str, max_rows: int) -> QueryResult: ...
+    def run(self, server: str, database: str, sql: str, max_rows: int, probe: bool = False) -> QueryResult:
+        """`probe`: consulta auxiliar del planner (valores de categorías, rangos de fechas)."""
+        ...
 
     def server_label(self, server: str) -> str: ...
 

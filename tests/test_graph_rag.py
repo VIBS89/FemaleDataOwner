@@ -179,7 +179,8 @@ def test_las_fuentes_de_conocimiento_mueven_las_preguntas_de_reporte():
     assert len(cases) == 25
     alone = evaluate(build_service(BANCOS), cases).metrics
     informed = evaluate(build_service_with_knowledge(BANCOS, BANCOS / "eval" / "conocimiento"), cases).metrics
-    assert alone["hit@1"] <= 20.0 and informed["hit@1"] >= 55.0  # medido el 2026-11-17: 16 % → 60 %
+    # Medido el 2026-11-23: 28 % → 64 % (el 2026-11-17 era 16 % → 60 %; subió al entender mejor la redacción de chat).
+    assert alone["hit@1"] <= 35.0 and informed["hit@1"] >= 60.0 and informed["hit@1"] - alone["hit@1"] >= 30.0
     assert informed["leaks"] == 0 and informed["invented"] == 0
     # El catálogo de la línea base sigue crudo: el glosario solo entra cuando se pide.
     assert build_service(BANCOS).deps.knowledge.items == []
@@ -193,7 +194,7 @@ def test_la_cli_mide_con_y_sin_conocimiento(capsys):
     alone = capsys.readouterr().out
     assert cli.main([*base, "--knowledge", str(BANCOS / "eval" / "conocimiento")]) == 0
     informed = capsys.readouterr().out
-    assert "Casos: 25 · Hit@1 16.0 %" in alone and "Casos: 25 · Hit@1 60.0 %" in informed
+    assert "Casos: 25 · Hit@1 28.0 %" in alone and "Casos: 25 · Hit@1 64.0 %" in informed
     with pytest.raises(SystemExit, match="--knowledge"):
         cli.main([*base, "--knowledge", str(BANCOS / "eval" / "conocimiento"), "--db"])
 

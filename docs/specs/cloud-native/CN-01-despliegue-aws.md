@@ -73,9 +73,12 @@ Con `qa` o `prod` la API no arranca si falta algo de `docs/calidad-bancaria.md` 
 4. Probar el gateway de LLM con Bedrock (HU-35).
 
 ## IaC
-**Nada de esto está desplegado ni existe IaC en el repo.** Lo mínimo, con CDK o Terraform (por confirmar), un stack por entorno:
-VPC y endpoints, VPN, ALB + ACM, repositorio ECR, definición de tarea y servicio ECS (1 tarea), definición de tarea del Builder +
-EventBridge Scheduler, secretos, grupos de logs y alarmas, roles IAM (`bedrock:InvokeModel` sobre el modelo elegido y lectura de sus secretos).
+**Nada está desplegado todavía.** El IaC existe desde el 2026-11-22 en `deploy/aws/` (Terraform, una pila por entorno; guía y
+comandos en [`deploy/aws/README.md`](../../../deploy/aws/README.md)): VPC y endpoints, VPN, ALB + ACM, repositorios ECR, definición
+de tarea y servicio ECS (1 tarea), definición de tarea del Builder + EventBridge Scheduler, secretos, grupos de logs y alarmas, roles
+IAM (`bedrock:InvokeModel` sobre el modelo elegido y lectura de sus secretos). Solo está comprobado con `terraform validate` y planes
+de prueba con el proveedor simulado; no se ha aplicado en ninguna cuenta. Además de qa y prod define un entorno `demo` (servidores
+simulados, ALB público restringido por IP) para probar el despliegue sin la VPN del banco.
 
 ## Por confirmar con Seguridad de la Información
 - **Guardrails** de Bedrock en la fase 1a: decisión pendiente, no es requisito (decisión 13).

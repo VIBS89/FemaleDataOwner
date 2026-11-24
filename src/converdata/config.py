@@ -19,6 +19,9 @@ class ServerConfig(BaseModel):
     is_reference: bool = False
     databases: list[str] = Field(default_factory=list)  # ["*"] = todas las BDs de usuario accesibles al login de metadatos
     read_replica: str | None = None
+    # Cifras agregadas (`features.ask_flow`): si este servidor admite consultas de totales sobre sus datos. Sin
+    # declarar, solo los servidores que no son de producción; uno de producción exige `figures: true` explícito.
+    figures: bool | None = None
     # Login de metadatos (F18): autenticación Windows (gMSA on-premise, usuario local en desarrollo) o login SQL
     # cuyas credenciales se leen de variables de entorno (en el servidor, desde DPAPI).
     auth: Literal["windows", "sql"] = "windows"
@@ -100,6 +103,9 @@ class DiscoverySettings(BaseModel):
     cascade_margin: float = 0.10
     review_judge_band: tuple[float, float] = (0.5, 0.75)  # B: el juez LLM opina en esta franja o si hay chequeos fallidos
     ambiguous_margin: float = 0.05
+    # Cifras agregadas: un total o un grupo sobre menos registros que este umbral no se muestra (podría ser el dato
+    # de un cliente). El banco puede subirlo; nunca baja de 5.
+    figures_min_rows: int = Field(default=10, ge=5)
 
 
 class Patterns(BaseModel):
@@ -113,9 +119,12 @@ class Patterns(BaseModel):
 
 
 class Features(BaseModel):
-    # false (fase 1a): las preguntas de datos se responden como descubrimiento (F3). true: el AskFlow calcula el dato
-    # con los permisos del usuario (F6–F10); requiere el rol `coder` en config/models.yaml.
+    # Cifras agregadas con plantilla fija (primer corte del AskFlow, PRD §13 decisión 17). false: las preguntas de
+    # datos se responden como descubrimiento (F3).
     ask_flow: bool = False
+    # Fase 1b, apagada por defecto: cuando la plantilla no puede responder (fechas, varias uniones, listados), un LLM
+    # (rol `coder`) escribe el T-SQL, que pasa el validador (F7) y corre con los permisos del usuario (F6–F10).
+    ask_llm_sql: bool = False
     ask_max_rows: int = 1000  # filas que se devuelven como máximo (F7: se inyecta TOP max+1 para detectar truncado)
 
 

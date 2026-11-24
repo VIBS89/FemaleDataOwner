@@ -120,6 +120,12 @@ def main() -> int:
     for case in cases:
         env = post(args.api, "/discover", {"question": case["pregunta"], "history": case.get("historial", [])}, token)
         data = env.get("data") or {}
+        figure = env.get("figure")
+        engine = "plantilla" if figure else ("LLM" if data else "-")
+        if figure:  # cifra de plantilla (decisión 17): un total o un desglose por categoría
+            groups = figure.get("groups") or []
+            data = {"rows": [[g["label"], g["value"]] for g in groups] if groups else [[figure.get("value")]],
+                    "sql": " ; ".join(figure.get("sql") or [])}
         if case.get("flujo") == "discover":
             top = ((env.get("discovery") or {}).get("candidates") or [{}])[0].get("asset_key")
             ok = env["flow"] == "discover" and top == case["candidato"]
@@ -134,7 +140,7 @@ def main() -> int:
                     break
         passed += ok
         mark = "OK " if ok else "FALLA"
-        print(f"[{mark}] {case['categoria']:32s} {case['pregunta']}")
+        print(f"[{mark}] {engine:9s} {case['categoria']:32s} {case['pregunta']}")
         print(f"        → {env['answer_text']}")
         if not ok:
             print(f"        ✗ {why}")

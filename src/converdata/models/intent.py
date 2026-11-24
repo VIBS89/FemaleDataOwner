@@ -6,7 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Intent = Literal["discovery", "exploration", "data_query", "procedure", "out_of_scope", "ambiguous"]
+# `assistant`: pregunta sobre el propio asistente o cortesía; la pone el flujo, no el clasificador.
+Intent = Literal["discovery", "exploration", "data_query", "procedure", "out_of_scope", "ambiguous", "assistant"]
 
 
 class Clarification(BaseModel):

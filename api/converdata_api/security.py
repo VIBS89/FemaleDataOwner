@@ -225,6 +225,9 @@ def production_violations(settings: ApiSettings) -> list[str]:
     if not settings.admins_only or not settings.admins:
         problems.append("CONVERDATA_ADMINS_ONLY=1 y CONVERDATA_ADMINS son obligatorios: el rol data_admin se asigna por "
                         "lista explícita, no por ser sysadmin de algún servidor")
+    if settings.ask_flow and settings.figures_daily_limit <= 0:
+        problems.append("Con CONVERDATA_ASK_FLOW=1, CONVERDATA_FIGURES_DAILY_LIMIT debe ser mayor que 0: las cifras "
+                        "consultan los servidores del banco y necesitan un tope por usuario")
     catalog_settings = _yaml(settings.data_root / "config" / "settings.yaml") or {}
     if (catalog_settings.get("audit") or {}).get("fail_open"):
         problems.append("config/settings.yaml tiene audit.fail_open: la auditoría debe ser fail-closed (F11)")

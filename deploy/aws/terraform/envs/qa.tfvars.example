@@ -1,0 +1,55 @@
+# Entorno qa según CN-01. Copiar a qa.tfvars (y a prod.tfvars para producción) y rellenar con los datos del banco.
+# Todo lo marcado con <...> lo entregan Redes, Seguridad o el DBA. Ningún valor de este archivo es secreto.
+environment    = "qa"
+converdata_env = "qa"
+region         = "us-east-1"
+
+# --- Red ---
+vpc_cidr          = "10.80.0.0/24"       # no debe solaparse con las redes del banco
+alb_internal      = true
+alb_ingress_cidrs = ["<red corporativa de usuarios>/16"]
+sql_server_cidrs  = ["<red de los SQL Server>/24"]
+
+vpn = {
+  customer_gateway_ip = "<IP pública del equipo VPN del banco>"
+  bgp_asn             = 65000
+  static_routes       = ["<red corporativa>/16"] # vacío = BGP
+}
+
+onprem_dns = {
+  domains    = ["banco.local"]
+  target_ips = ["<DNS 1>", "<DNS 2>"]
+}
+
+# --- Entrada ---
+domain_name     = "converdata-qa.banco.local"
+certificate_arn = "arn:aws:acm:us-east-1:<cuenta>:certificate/<id>" # importado de la PKI del banco
+
+# --- Aplicación ---
+admins            = ["<login del administrador de datos>"]
+db_secret_enabled = true
+task_cpu          = 2048
+task_memory       = 8192
+extra_api_env = {
+  CONVERDATA_TOKEN_LIMIT = "200000"
+}
+
+# --- LLM ---
+models_yaml_file = "config/models.qa.yaml" # copia de config/models.bedrock.example.yaml
+bedrock_resource_arns = [
+  "arn:aws:bedrock:us-east-1:<cuenta>:inference-profile/<perfil>",
+  "arn:aws:bedrock:*::foundation-model/<modelo>",
+]
+bedrock_model_id = "<perfil o modelo, como sale en las métricas de CloudWatch>"
+
+# --- Builder nocturno ---
+builder = {
+  enabled  = true
+  schedule = "cron(0 2 * * ? *)"
+  timezone = "America/El_Salvador"
+  hosts    = [".banco.local"]
+}
+
+# --- Observabilidad ---
+log_retention_days = 90
+alarm_email        = "<correo de operaciones>"

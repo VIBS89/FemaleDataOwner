@@ -256,3 +256,14 @@ def test_quitar_literales_no_se_cuelga_con_una_palabra_enorme():
     assert strip_literals("x" * 20000 + " @ banco.com") == ""
     assert strip_literals("x" * 20000) == "x" * 20000
     assert time.perf_counter() - start < 0.5
+
+
+def test_figures_del_servidor_se_conserva_al_guardar_y_leer_el_inventario(tmp_path):
+    """`ServerConfig.figures` (None / True / False) sobrevive al ciclo del inventario en archivos."""
+    from converdata.config import ServerConfig
+
+    servers = [ServerConfig(id=f"S{i}", alias=f"s{i}", environment="produccion", figures=f)
+               for i, f in enumerate([None, True, False])]
+    store = FileInventoryStore(tmp_path / "inventory.yaml")
+    store.save_inventory(servers, by="admin")
+    assert [s.figures for s in store.inventory()] == [None, True, False]
