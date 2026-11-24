@@ -17,17 +17,20 @@ done
 for value in "$MSSQL_SA_PASSWORD" "$DDA_ADMIN_PASSWORD" "$DDA_ANALISTA_PASSWORD" "$DDA_APP_PASSWORD"; do
   [[ "$value" =~ ^[A-Za-z0-9]{16,}$ ]] || { echo "Contraseña con formato inesperado" >&2; exit 1; }
 done
+# Login de demostración con contraseña fija (sql_demo_login): solo con datos de prueba y el ALB limitado por IP. Va en
+# el mismo lote, antes de cambiar la contraseña de sa: después, la del arranque ya no sirve.
+DEMO_SQL=""
+if [ "${DDA_DEMO_LOGIN:-0}" = "1" ]; then
+  DEMO_SQL="ALTER LOGIN demo WITH PASSWORD = N'demo'; ALTER LOGIN demo ENABLE;"
+fi
 SQLCMDPASSWORD="$SEED_SA_PASSWORD" "${SQLCMD[@]}" -i /dev/stdin >/dev/null <<SQL
 ALTER LOGIN dda_admin WITH PASSWORD = N'$DDA_ADMIN_PASSWORD'; ALTER LOGIN dda_admin ENABLE;
 ALTER LOGIN analista WITH PASSWORD = N'$DDA_ANALISTA_PASSWORD'; ALTER LOGIN analista ENABLE;
 ALTER LOGIN dda_app WITH PASSWORD = N'$DDA_APP_PASSWORD'; ALTER LOGIN dda_app ENABLE;
+$DEMO_SQL
 ALTER LOGIN sa WITH PASSWORD = N'$MSSQL_SA_PASSWORD';
 SQL
-# Login de demostración con contraseña fija (sql_demo_login): solo con datos de prueba y el ALB limitado por IP.
-if [ "${DDA_DEMO_LOGIN:-0}" = "1" ]; then
-  SQLCMDPASSWORD="$SEED_SA_PASSWORD" "${SQLCMD[@]}" -Q "ALTER LOGIN demo WITH PASSWORD = N'demo'; ALTER LOGIN demo ENABLE;" >/dev/null
-  echo ">> Login demo habilitado"
-fi
+[ -z "$DEMO_SQL" ] || echo ">> Login demo habilitado"
 echo ">> SQL Server listo (logins dda_admin, analista, dda_app)"
 unset SEED_SA_PASSWORD
 wait "$pid"
