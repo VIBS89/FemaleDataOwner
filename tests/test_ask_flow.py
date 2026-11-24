@@ -217,7 +217,8 @@ def test_si_el_interprete_falla_se_usan_las_reglas(service, analyst):
     assert any(s.error and "interprete:fallback" in s.error for s in service.deps.audit.records[-1].steps)
 
 
-# --- convivencia con las cifras de plantilla (decisión 17): plantillas primero, fase 1b de respaldo -----------
+# --- convivencia con las cifras de plantilla (decisión 17): con la fase 1b activa responde el LLM y la plantilla
+#     queda de respaldo; sin ella, todo sigue como en main ----------------------------------------------------------
 class SchemaPlanner:
     """Planner doble que cuenta sobre la primera tabla del esquema que recibe (sirve con cualquier catálogo)."""
 
@@ -244,21 +245,39 @@ def coexist_service(planner):
     return svc
 
 
-def test_la_plantilla_responde_primero_y_no_llama_al_llm():
+def test_con_la_fase_1b_activa_responde_primero_el_llm():
     from converdata.bootstrap import user_with_databases
     from test_cifras_agregadas import Ejecutor
 
-    planner = SchemaPlanner()
+    planner, plantilla = SchemaPlanner(), Ejecutor()
     svc = coexist_service(planner)
+    user = user_with_databases(svc, "dev", None)
+    env = svc.run("cuantos clientes tienen prestamos?", user, executor=plantilla,
+                  sql_executor=FakeExecutor(QueryResult(["total"], [[42]])))
+    assert env.flow == "ask" and env.data is not None and env.figure is None
+    assert planner.calls and plantilla.calls == []
+
+
+class FailingPlanner:
+    def plan(self, question, schema, feedback):
+        raise TimeoutError("sin modelo")
+
+
+def test_si_la_fase_1b_falla_responde_la_plantilla_sin_avisos_del_llm():
+    from converdata.bootstrap import user_with_databases
+    from test_cifras_agregadas import Ejecutor
+
+    svc = coexist_service(FailingPlanner())
     user = user_with_databases(svc, "dev", None)
     env = svc.run("cuantos clientes tienen prestamos?", user, executor=Ejecutor(), sql_executor=FakeExecutor())
     assert env.flow == "ask" and env.figure is not None and env.data is None
-    assert planner.calls == []
+    assert env.assumptions == []
+    steps = [s.step for s in svc.deps.audit.records[-1].steps]
+    assert steps.index("ask") < steps.index("compute")
 
 
-def test_si_la_plantilla_no_puede_responde_la_fase_1b():
-    """Un periodo ("el mes pasado") queda fuera de la plantilla: el SQL de un LLM lo responde y el aviso de la
-    plantilla ya no se muestra."""
+def test_un_periodo_lo_responde_la_fase_1b():
+    """Un periodo ("el mes pasado") queda fuera de la plantilla: el SQL de un LLM lo responde."""
     from converdata.bootstrap import user_with_databases
     from test_cifras_agregadas import Ejecutor
 
@@ -271,8 +290,6 @@ def test_si_la_plantilla_no_puede_responde_la_fase_1b():
     assert plantilla.calls == [] and env.figure is None
     assert env.flow == "ask" and env.answer_text == "Se registraron 42 clientes."
     assert not any(a.startswith("No calculé la cifra") for a in env.assumptions)
-    steps = [s.step for s in svc.deps.audit.records[-1].steps]
-    assert steps.index("compute") < steps.index("ask")
 
 
 def test_sin_fase_1b_la_plantilla_sigue_diciendo_por_que_no_calcula():

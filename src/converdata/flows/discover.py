@@ -104,7 +104,6 @@ class DiscoverState(TypedDict, total=False):
     clarification: Clarification
     executor: Any  # `figures.FigureExecutor` de la sesión; sin él no se calculan cifras
     figure: Any  # `models.figures.Figure` calculada
-    figure_note: str  # por qué la plantilla no calculó; se muestra solo si la fase 1b tampoco responde
     sql_executor: QueryExecutor  # fase 1b: SQL validado con la sesión del usuario (`runtime.ask_executor`)
     interpretation: QuestionInterpretation  # fase 1b: lo que entendió el LLM de la pregunta
     ask: AskOutcome  # fase 1b: el dato calculado con SQL de un LLM
@@ -169,6 +168,10 @@ def build_discover_graph(deps: DiscoverDeps):
 
     def llm_sql_available(state) -> bool:
         return bool(deps.settings.features.ask_llm_sql and deps.ask is not None and state.get("sql_executor"))
+
+    def wants_figure(state) -> bool:
+        return bool(state.get("figures") and deps.settings.features.ask_flow and state.get("executor")
+                    and state["discovery"].candidates)
 
     def wants_llm_sql(state) -> bool:
         return bool(state.get("figures") and llm_sql_available(state)
@@ -414,10 +417,7 @@ def build_discover_graph(deps: DiscoverDeps):
         plan = figures.plan_figure(search, state["discovery"], deps.catalog, state["user"].visible_ids,
                                    state["intent"].environment_hint)
         if isinstance(plan, str):  # el motivo por el que no se calcula, ya redactado para el usuario
-            note = f"{plan} Te indico qué información usar."
-            if llm_sql_available(state):  # la fase 1b lo intenta; el motivo solo se muestra si tampoco responde
-                return {"figure_note": note, "_model_used": False}, None, "sin_plan:fase_1b"
-            return {"assumptions": [note], "_model_used": False}, None, "sin_plan"
+            return {"assumptions": [f"{plan} Te indico qué información usar."], "_model_used": False}, None, "sin_plan"
         t0 = time.perf_counter()
         try:
             figure = figures.run_plan(plan, state["executor"], ds().figures_min_rows)
@@ -438,11 +438,10 @@ def build_discover_graph(deps: DiscoverDeps):
                                    state.get("interpretation"))
         except Exception as exc:  # el LLM o la conexión fallaron: se responde como descubrimiento
             outcome = AskOutcome(False, notes=[FIGURE_FAILED_NOTE], errors=[f"fallo:{type(exc).__name__}"])
-        notes = list(outcome.notes)
-        if not outcome.ok and state.get("figure_note"):
-            notes.insert(0, state["figure_note"])
         detail = f"intentos={outcome.attempts}" + (f";filas={outcome.data.row_count}" if outcome.data else "")
         error = None if outcome.ok else (",".join(outcome.errors) or None)
+        # Si la plantilla va a intentarlo después, sus avisos sustituyen a los de este intento.
+        notes = [] if not outcome.ok and wants_figure(state) else list(outcome.notes)
         return {"ask": outcome, "assumptions": notes}, error, detail
 
     def respond_node(state):
@@ -581,22 +580,22 @@ def build_discover_graph(deps: DiscoverDeps):
     g.add_edge("rerank", "expand")
     g.add_edge("expand", "review")
     def after_review(state):
+        # Con la fase 1b activa responde primero el SQL de un LLM (entiende filtros, periodos y varias uniones); las
+        # cifras de plantilla (decisión 17) quedan de respaldo. Sin la fase 1b, el orden de main no cambia.
         if state["review_route"] == "fix":
             return "fix"
-        wants_figure = (state.get("figures") and deps.settings.features.ask_flow and state.get("executor")
-                        and state["discovery"].candidates)
-        if wants_figure:
-            return "compute"
-        return "ask" if wants_llm_sql(state) else "accept"
+        if wants_llm_sql(state):
+            return "ask"
+        return "compute" if wants_figure(state) else "accept"
 
-    def after_compute(state):
-        # Plantillas primero (decisión 17); solo si no calcularon, la fase 1b con SQL de un LLM.
-        return "ask" if state.get("figure") is None and wants_llm_sql(state) else "respond"
+    def after_ask(state):
+        asked = state.get("ask")
+        return "compute" if (asked is None or not asked.ok) and wants_figure(state) else "respond"
 
     g.add_conditional_edges("review", after_review,
                             {"fix": "expand", "accept": "respond", "compute": "compute", "ask": "ask"})
-    g.add_conditional_edges("compute", after_compute, {"ask": "ask", "respond": "respond"})
-    g.add_edge("ask", "respond")
+    g.add_conditional_edges("ask", after_ask, {"compute": "compute", "respond": "respond"})
+    g.add_edge("compute", "respond")
     g.add_edge("respond", "finalize")
     g.add_edge("finalize", END)
     return g.compile()  # sin checkpointer (F17)
