@@ -6,6 +6,7 @@ Pitch de Discovery Data Agent para el hackathon AWS Builders League · Women Age
 | Archivo | Qué es |
 |---|---|
 | [presentacion.html](presentacion.html) | La presentación lista para abrir en el navegador. Se genera; no se edita a mano |
+| [../wiki/hackathon-pitch.md](../wiki/hackathon-pitch.md) | La misma presentación como página de la wiki (texto y notas). También se genera |
 | `project/deck.json` | Título, orden de las diapositivas, secciones y tipografías |
 | `project/deck.css` | Colores (rojo de marca `#D9272E`), tipografías (Nunito, Nunito Sans) y estilos compartidos |
 | `project/slides/<id>.html` | Una diapositiva por archivo: un `<section>` de 1920×1080 con sus notas en `<aside>` |

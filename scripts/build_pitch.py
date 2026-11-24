@@ -1,22 +1,32 @@
-"""Arma docs/pitch/presentacion.html a partir de las fuentes de la presentación en docs/pitch/project/.
+"""Arma la presentación del hackathon a partir de sus fuentes en docs/pitch/project/:
+
+- docs/pitch/presentacion.html: se abre en cualquier navegador, sin servidor: flechas para avanzar, N para las notas,
+  F para pantalla completa e Imprimir para guardarlo en PDF.
+- docs/wiki/hackathon-pitch.md: la misma presentación como página de la wiki, con el texto de cada diapositiva y sus
+  notas del orador; la aplicación la muestra en Administración → Documentación. Omite lo marcado con la clase
+  `equipo` (nombres de personas, que la wiki no lleva).
 
 Uso: .venv/Scripts/python scripts/build_pitch.py
 
 Las fuentes son las del artifact de Slides en claude.ai: `deck.json` (orden y tipografías), `deck.css` (estilos
-compartidos) y una `slides/<id>.html` por diapositiva. El HTML resultante se abre en cualquier navegador, sin
-servidor: flechas para avanzar, N para las notas, F para pantalla completa e Imprimir para guardarlo en PDF.
+compartidos) y una `slides/<id>.html` por diapositiva.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1] / "docs" / "pitch"
+REPO = Path(__file__).resolve().parents[1]
+ROOT = REPO / "docs" / "pitch"
 SRC = ROOT / "project"
 OUT = ROOT / "presentacion.html"
+WIKI_OUT = REPO / "docs" / "wiki" / "hackathon-pitch.md"
+BLOCKS = {"h1", "h2", "h3", "p", "li", "td", "th"}
 
 VIEWER_CSS = """
 html, body { margin: 0; height: 100%; background: #0E0F13; overflow: hidden; }
@@ -66,6 +76,98 @@ addEventListener('resize', fit); fit(); show(i);
 """
 
 
+class SlideText(HTMLParser):
+    """Texto de una diapositiva: cada bloque (título, párrafo, celda) con su etiqueta y clases, y las notas."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.blocks: list[tuple[str, set[str], str]] = []
+        self.notes = ""
+        self._open: list[tuple[str, set[str]]] = []  # bloque abierto: etiqueta y clases
+        self._buffer: list[str] = []
+        self._in_notes = False
+        self._skip = 0  # profundidad dentro de un elemento `equipo`
+
+    def handle_starttag(self, tag, attrs):
+        classes = set((dict(attrs).get("class") or "").split())
+        if self._skip or "equipo" in classes:
+            self._skip += 1
+            return
+        if tag == "aside":
+            self._in_notes = True
+        elif tag in BLOCKS and not self._open:
+            self._open.append((tag, classes))
+            self._buffer = []
+        elif tag == "br":
+            self._buffer.append(" ")
+
+    def handle_endtag(self, tag):
+        if self._skip:
+            self._skip -= 1
+            return
+        if tag == "aside":
+            self._in_notes = False
+        elif self._open and tag == self._open[-1][0]:
+            name, classes = self._open.pop()
+            text = re.sub(r"\s+", " ", "".join(self._buffer)).strip()
+            if text:
+                self.blocks.append((name, classes, text))
+
+    def handle_data(self, data):
+        if self._skip:
+            return
+        if self._in_notes:
+            self.notes += data
+        elif self._open:
+            self._buffer.append(data)
+
+
+def heading_slug(text: str) -> str:
+    """El ancla que la web da a un título (`web/src/components/markdown.tsx`): minúsculas, sin acentos, guiones."""
+    text = unicodedata.normalize("NFD", text.lower())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", text))
+
+
+def wiki_page(deck: dict, slides: list[tuple[str, str]]) -> str:
+    lines = [
+        "# Hackathon pitch",
+        "",
+        "Presentación de Discovery Data Agent para el hackathon AWS Builders League · Women Agentic 2026 (formato Shark",
+        "Tank: 5 minutos de pitch y 2 de preguntas). Las diapositivas principales van primero y los anexos, para la ronda",
+        "de preguntas, al final. Cada una lleva sus notas del orador: tiempo, quién habla y qué decir.",
+        "",
+        "Esta página se genera con `scripts/build_pitch.py` desde [docs/pitch](../pitch/README.md); no se edita a mano.",
+        "La presentación para proyectar es `docs/pitch/presentacion.html`. Los marcadores `[N]`, `[x h]` y `[__]` se",
+        "completan con datos reales del equipo antes del pitch.",
+        "",
+        "| # | Diapositiva |",
+        "|---|---|",
+    ]
+    parsed = []
+    for slide_id, html in slides:
+        parser = SlideText()
+        parser.feed(html)
+        title = next((t for tag, _, t in parser.blocks if tag in ("h1", "h2")), slide_id)
+        parsed.append((slide_id, title, parser))
+    for n, (slide_id, title, _) in enumerate(parsed, 1):
+        lines.append(f"| {n} | [{title}](#{heading_slug(f'{n}. {title}')}) |")
+    for n, (slide_id, title, parser) in enumerate(parsed, 1):
+        eyebrow = next((t for _, classes, t in parser.blocks if "eyebrow" in classes), "")
+        lines += ["", f"## {n}. {title}", ""]
+        if eyebrow:
+            lines += [f"*{eyebrow}*", ""]
+        for tag, classes, text in parser.blocks:
+            if text in (title, eyebrow):
+                continue
+            lines.append(f"- **{text}**" if tag == "h3" or "dt" in classes or "k" in classes else f"- {text}")
+        notes = parser.notes.strip()
+        if notes:
+            lines += ["", "**Notas del orador**", ""]
+            lines += ["> " + line if line.strip() else ">" for line in notes.splitlines()]
+    return "\n".join(lines) + "\n"
+
+
 def build() -> Path:
     deck = json.loads((SRC / "deck.json").read_text(encoding="utf-8"))
     css = (SRC / "deck.css").read_text(encoding="utf-8")
@@ -75,6 +177,7 @@ def build() -> Path:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", slide_id):
             raise SystemExit(f"Id de diapositiva no válido en deck.json: {slide_id!r}")
         sections.append((SRC / "slides" / f"{slide_id}.html").read_text(encoding="utf-8").strip())
+    WIKI_OUT.write_text(wiki_page(deck, list(zip(deck["order"], sections))), encoding="utf-8")
     links = "\n".join(f'<link rel="stylesheet" href="{escape(href)}">' for href in fonts)
     html = f"""<!doctype html>
 <html lang="es">

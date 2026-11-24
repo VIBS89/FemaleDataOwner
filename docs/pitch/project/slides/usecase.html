@@ -1,0 +1,29 @@
+<section id="usecase">
+<div class="head">
+<p class="eyebrow">Annex · Use case</p>
+<h2>One question replaces a chain of messages to experts</h2>
+</div>
+<div class="row grow" style="gap:48px; align-items:flex-start">
+<div class="col" style="width:640px; gap:24px">
+<div class="card soft in" style="--i:0">
+<p class="small" style="color:#A50F13; font-weight:700">A BI analyst, building a report, asks in Spanish:</p>
+<p style="font-size:34px; font-weight:700">“Where is the unique client identifier for digital onboarding?”</p>
+</div>
+<div class="card in" style="--i:1">
+<p class="small" style="font-weight:700">Without the agent</p>
+<p style="font-size:28px">She messages two or three experts, waits, and may end up on the wrong source.</p>
+</div>
+</div>
+<div class="grid2 grow" style="align-content:start">
+<div class="card in" style="--i:2"><p class="nn">1 · Finds</p><h3>Right field, with context</h3><p class="small">Returns ClientCode with its business rule (BR-ONB-004) and related tables, ranked by confidence.</p></div>
+<div class="card in" style="--i:3"><p class="nn">2 · Respects permissions</p><h3>Nobody sees more than allowed</h3><p class="small">HR objects never appear: the agent inherits the person’s SQL Server permissions.</p></div>
+<div class="card in" style="--i:4"><p class="nn">3 · Does not invent</p><h3>Low confidence, so it escalates</h3><p class="small">Asked for the credit risk score, confidence is 44 %. It says so and routes the question to the data owner.</p></div>
+<div class="card in" style="--i:5"><p class="nn">4 · Learns</p><h3>The expert answers once</h3><p class="small">The same question now returns 93 %, for this analyst and for the next one.</p></div>
+</div>
+</div>
+<div class="card soft in" style="--i:6; flex-direction:row; align-items:center; gap:40px">
+<p class="k" style="font-size:56px">1 question</p>
+<p style="font-size:30px">gives a sourced answer with a confidence level, and what the owner confirms stays available to everyone.</p>
+</div>
+<aside>Annex for Q&amp;A. Use case in English: a BI analyst asks in Spanish where the digital onboarding client identifier lives. The agent finds ClientCode with its business rule and relations, respects inherited SQL Server permissions, declines to invent an answer when confidence is low (credit risk score, 44 %) and escalates to the owner, and learns from the owner’s answer (same question, 93 %). The four steps mirror the live demo, so it also works as the plan B narration.</aside>
+</section>
