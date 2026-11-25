@@ -53,6 +53,12 @@ locals {
       # El ALB añade la dirección del cliente al final de X-Forwarded-For: de ahí sale el origen para el bloqueo de login.
       DISCOVERY_DATA_AGENT_TRUST_PROXY = "1"
     },
+    var.sql_demo_login ? {
+      # Con catalog_seed, el servidor toma el id del catálogo publicado para que los permisos casen con sus activos.
+      DISCOVERY_DATA_AGENT_PRELOAD_SERVER = "localhost,1433|SQL Server demo|desarrollo${var.catalog_seed == null ? "" : "|${var.catalog_seed.server_id}"}"
+      # Al arrancar sin catálogo, la API descubre los esquemas de las bases de prueba con dda_admin.
+      DISCOVERY_DATA_AGENT_PRELOAD_BUILD_LOGIN = "dda_admin"
+    } : {},
     local.models_yaml == null ? {} : {
       DISCOVERY_DATA_AGENT_MODELS      = "/tmp/models.yaml"
       DISCOVERY_DATA_AGENT_MODELS_YAML = local.models_yaml
@@ -64,6 +70,7 @@ locals {
     [for s in aws_secretsmanager_secret.setup_token : { name = "DISCOVERY_DATA_AGENT_SETUP_TOKEN", valueFrom = s.arn }],
     [for s in aws_secretsmanager_secret.db : { name = "DISCOVERY_DATA_AGENT_DB", valueFrom = s.arn }],
     [for k, e in local.llm_secrets : { name = e, valueFrom = aws_secretsmanager_secret.llm[k].arn }],
+    var.sql_demo_login ? [{ name = "DISCOVERY_DATA_AGENT_PRELOAD_BUILD_PASSWORD", valueFrom = "${aws_secretsmanager_secret.sql[0].arn}:admin::" }] : [],
   )
 
   data_mount = [{ sourceVolume = "data", containerPath = "/app/data", readOnly = false }]
@@ -79,7 +86,7 @@ locals {
       # Sin models.yaml vale el CMD de la imagen; con él, el arranque lo escribe antes de lanzar el mismo uvicorn.
       command = (local.models_yaml == null && !var.sql_sidecar
         ? split(" ", trimprefix(local.uvicorn, "exec "))
-        : ["sh", "-c", join(" && ", compact([local.models_yaml == null ? "" : local.write_models, "${local.migrate}${local.uvicorn}"]))]
+        : ["sh", "-c", join(" && ", compact([local.models_yaml == null ? "" : local.write_models, "${local.migrate}${local.publish}${local.uvicorn}"]))]
       )
       portMappings     = [{ containerPort = 8000, protocol = "tcp" }]
       environment      = [for k, v in local.api_env : { name = k, value = v }]

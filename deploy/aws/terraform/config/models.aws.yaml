@@ -1,6 +1,7 @@
-# Gateway de LLM del entorno de AWS con datos de prueba (BancosSQL, 100 % ficticios). Tres perfiles elegibles en
-# pantalla (Administración → Modelos de IA): Claude Sonnet en Bedrock (por defecto: sin claves, con el rol de la tarea),
-# NVIDIA NIM y Claude por la API de Anthropic. Las claves de NIM y Anthropic llegan a la tarea desde Secrets Manager
+# Gateway de LLM del entorno de AWS con datos de prueba (BancosSQL, 100 % ficticios). Perfiles elegibles en pantalla
+# (Administración → Modelos de IA): NVIDIA NIM como en local (por defecto), Nova Pro, Claude Sonnet y Claude Haiku en
+# Bedrock (con el rol de la tarea), NVIDIA NIM con ultra y Claude por la API de Anthropic.
+# Las claves de NIM y Anthropic llegan a la tarea desde Secrets Manager
 # (NVIDIA_API_KEY, ANTHROPIC_API_KEY); nunca van en este archivo ni en pantalla.
 #
 # NIM y la API de Anthropic son terceros (`allowed_data: test`): con datos reales este archivo no sirve.
@@ -25,41 +26,69 @@ providers:
     allowed_data: test
     timeout_s: 60
 
-# Sin perfil elegido rigen estos roles (los mismos del perfil `bedrock`).
+# Sin perfil elegido rigen estos roles: los mismos del perfil `nvidia-local`, que es la configuración con la que se
+# miden los resultados en local (config/models.yaml): Nemotron bolt en NIM para redactar, reformular y describir, y
+# Claude Sonnet por la API de Anthropic para escribir el SQL de las cifras. Con el catálogo publicado al arrancar
+# (catalog_seed) el entorno de AWS responde igual que local.
+#
+# Nova Pro en Bedrock queda como perfil elegible: la cuenta no tiene cuota de Claude en Bedrock (Service Quotas), y
+# Nova, medido el 2026-11-24 con BancosSQL, da set base 98,0 %, chat 97,8 % Hit@1 (100 % Hit@3) pero reportes 28 %.
 roles:
-  fast:   {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 4000}
-  enrich: {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 16000}
+  fast:   {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
+  enrich: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
+  coder:  {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 8000}
 
-fallback: null
+# Respaldo ante throttling, indisponibilidad o timeout de NIM (nunca por errores de contenido), como en local.
+fallback:
+  provider: anthropic
+  models: {fast: claude-haiku-5-5}
 
 circuit: {errors: 3, window_s: 60, open_s: 300}
 
 # La elección se guarda en models.yaml.active, en el disco efímero de la tarea: tras un reinicio vuelve a este.
-active_profile: bedrock
+active_profile: nvidia-local
 profiles:
+  nvidia-local:
+    label: "NVIDIA NIM (como en local)"
+    description: "Nemotron bolt en la API alojada de NVIDIA y Claude Sonnet para el SQL: la configuración de local. Solo datos de prueba."
+    roles:
+      fast:   {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 400}
+      enrich: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
+      coder:  {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 8000}
+  bedrock-nova:
+    label: "Amazon Nova Pro en Bedrock"
+    description: "Amazon Nova Pro en Amazon Bedrock, dentro de la cuenta de AWS, por Converse con el rol de la tarea. Sin claves."
+    roles:
+      fast:   {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 1000}
+      enrich: {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 4000}
+      coder:  {provider: bedrock, model: us.amazon.nova-pro-v1:0, temperature: 0.0, max_tokens: 4000}
   bedrock:
     label: "Claude Sonnet en Bedrock"
-    description: "Claude Sonnet 5.5 en Amazon Bedrock, dentro de la cuenta de AWS. Sin claves."
+    description: "Claude Sonnet 5.5 en Amazon Bedrock, dentro de la cuenta de AWS. Sin claves. Necesita cuota de Claude en la cuenta."
     roles:
       # Sonnet 5.5: 2 / 10 USD por millón de tokens (precio de Anthropic; el de Bedrock puede variar). Sin
       # `temperature` (Claude la rechaza) y sin respaldo de servidor (Bedrock no lo tiene).
       fast:   {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 4000}
       enrich: {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 16000}
+      coder:  {provider: bedrock, model: anthropic.claude-sonnet-5-5, effort: low, max_tokens: 8000}
   bedrock-haiku:
     label: "Claude Haiku en Bedrock"
-    description: "Claude Haiku 5.5 en Amazon Bedrock: unas 20 veces más barato que Sonnet, menos capaz."
+    description: "Claude Haiku 5.5 en Amazon Bedrock: unas 20 veces más barato que Sonnet, menos capaz. Necesita cuota de Claude en la cuenta."
     roles:
       fast:   {provider: bedrock, model: anthropic.claude-haiku-5-5, effort: low, max_tokens: 4000}
       enrich: {provider: bedrock, model: anthropic.claude-haiku-5-5, effort: low, max_tokens: 16000}
+      coder:  {provider: bedrock, model: anthropic.claude-haiku-5-5, effort: low, max_tokens: 8000}
   nvidia:
     label: "NVIDIA NIM"
     description: "Nemotron en la API alojada de NVIDIA (medido el 2026-11-24). Solo datos de prueba."
     roles:
       fast:   {provider: nvidia_nim, model: nvidia/nemotron-3-ultra-550b-a55b, temperature: 0.0, max_tokens: 400}
       enrich: {provider: nvidia_nim, model: nvidia/nemotron-3.5-bolt-e4b, temperature: 0.0, max_tokens: 4000}
+      coder:  {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 8000}
   claude:
     label: "Claude (API de Anthropic)"
     description: "Claude Sonnet 5.5 por la API de Anthropic. Solo datos de prueba."
     roles:
       fast:   {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 4000}
       enrich: {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 16000}
+      coder:  {provider: anthropic, model: claude-sonnet-5-5, effort: low, max_tokens: 8000}

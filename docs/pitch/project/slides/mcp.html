@@ -1,0 +1,31 @@
+<section id="mcp" class="alt">
+<div class="head">
+<p class="eyebrow">Anexo · Herramientas y reglas</p>
+<h2>10 herramientas por MCP y 5 reglas que nunca rompe</h2>
+</div>
+<div class="row grow" style="gap:56px">
+<div class="col" style="width:760px; gap:20px">
+<div class="grid2" style="gap:14px">
+<p class="chip">discover</p>
+<p class="chip">search_catalog</p>
+<p class="chip">get_asset</p>
+<p class="chip">get_related</p>
+<p class="chip">find_alternatives</p>
+<p class="chip">list_business_rules</p>
+<p class="chip">get_lineage</p>
+<p class="chip">where_is</p>
+<p class="chip">find_join_path</p>
+<p class="chip">estate_overview</p>
+</div>
+<p class="small">Servidor MCP propio (SDK oficial, Apache-2.0): el chat web y cualquier otro agente, como Kiro o Claude Code, consultan el mismo catálogo con el login de la persona.</p>
+</div>
+<div class="col grow" style="gap:20px">
+<div class="rule in" style="--i:0"><p class="dt">Nadie ve más de lo que ya puede ver</p><p class="small">Usa el login SQL de cada persona: hereda sus permisos.</p></div>
+<div class="rule in" style="--i:1"><p class="dt">Los datos de clientes no salen del banco</p><p class="small">El catálogo guarda solo metadatos, nunca valores.</p></div>
+<div class="rule in" style="--i:2"><p class="dt">Nunca inventa objetos</p><p class="small">Todo lo que menciona existe en el catálogo.</p></div>
+<div class="rule in" style="--i:3"><p class="dt">Solo lectura</p><p class="small">No escribe ni modifica datos en ninguna base.</p></div>
+<div class="rule in" style="--i:4"><p class="dt">Todo queda auditado</p><p class="small">Si la auditoría falla, la respuesta no sale.</p></div>
+</div>
+</div>
+<aside>Anexo para preguntas. El agente expone diez herramientas por MCP, así otros agentes lo usan igual que el chat. Y sigue cinco reglas fijas, probadas en cada cambio por una compuerta de calidad: permisos heredados, residencia de datos, cero objetos inventados, solo lectura y auditoría fail-closed.</aside>
+</section>

@@ -63,6 +63,7 @@ respuesta. Lee solo metadatos de SQL Server, y cada persona descubre únicamente
 | [Reparto entre 5 desarrolladores](../backlog/reparto-5-devs.md) | Quién puede empezar qué |
 | [Calidad bancaria](../calidad-bancaria.md) | Controles de seguridad y compuerta de calidad |
 | [Manual de desarrollo](../manual-desarrollo.md) | Resumen de componentes y mejoras |
+| [Hackathon pitch](hackathon-pitch.md) | La presentación del hackathon con sus notas del orador; para proyectarla, [docs/pitch](../pitch/README.md) |
 | Specs [comunes](../specs/comun/), [on-premise](../specs/on-premise/) y [cloud](../specs/cloud-native/) | Cómo debe comportarse cada pieza |
 
 ## Cómo mantener esta wiki

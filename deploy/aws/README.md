@@ -61,13 +61,20 @@ Administración → Documentación). Todo corre en **una tarea de Fargate Spot**
 | Contenedor | Qué hace |
 |---|---|
 | `sqlserver` | SQL Server 2022 **Express** (licencia gratuita) con las cinco bases de `BancosSQL.zip` ya cargadas (datos 100 % ficticios) y la BD de trabajo `DiscoveryDataAgent`. Imagen de `deploy/aws/sqlserver/` |
-| `api` | Migra `DiscoveryDataAgent` al arrancar y sirve la API y el MCP |
+| `api` | Migra `DiscoveryDataAgent` al arrancar, publica el catálogo de `catalog_seed` y sirve la API y el MCP |
 | `web` | El sitio, detrás del ALB |
 
+**Mismos resultados que en local.** Con `catalog_seed` (activo en `envs/demo.tfvars`), la API publica al arrancar el
+catálogo de `tests/fixtures/bancos` con el glosario de `eval/conocimiento`, el mismo con el que se miden los
+resultados, y el SQL Server de la tarea entra al inventario con el id de ese catálogo (`LOCAL_SQLEXPRESS`), para que
+los permisos de cada login casen con sus activos. Sin `catalog_seed`, la API descubre los esquemas y los describe de
+cero con el modelo: el catálogo cambia en cada reinicio y no lleva conocimiento, así que responde distinto.
+
 El modelo se elige en pantalla (Administración → Modelos de IA), en `terraform/config/models.aws.yaml`. El perfil
-por defecto es **Claude Sonnet 5.5 en Bedrock**: lo llama el rol de la tarea por la Messages API (`bedrock-mantle`),
-sin claves. Las alternativas son Claude Haiku 5.5 en Bedrock (unas 20 veces más barato), NVIDIA NIM y Claude por la
-API de Anthropic. Las claves de estos dos últimos van a Secrets Manager.
+por defecto es el de local (`nvidia-local`): Nemotron bolt en NVIDIA NIM, Claude Sonnet 5.5 por la API de Anthropic
+para el SQL y Claude Haiku de respaldo; sus claves van a Secrets Manager. Las alternativas en Bedrock, con el rol de la
+tarea y sin claves, son Amazon Nova Pro, Claude Sonnet 5.5 y Claude Haiku 5.5; los de Claude necesitan cuota de Claude
+en la cuenta (hoy es 0 y la Messages API de `bedrock-mantle` responde 404).
 
 **Por qué no RDS:** un RDS SQL Server Express (`db.t3.micro`) costaría lo mismo que el resto del demo junto y añadiría
 red y copias. Como contenedor, SQL Server solo suma 2 GB de memoria a la tarea, unos 0,25 USD al día en Spot. No se

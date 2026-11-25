@@ -249,6 +249,36 @@ variable "sql_sidecar" {
   default     = false
 }
 
+variable "sql_demo_login" {
+  description = "Con sql_sidecar: habilita el login `demo` (contraseña `demo`, permisos de dda_admin) y registra el SQL Server de la tarea al arrancar, sin código de instalación. Solo para mostrar la solución con datos de prueba y el ALB limitado por IP."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.sql_demo_login || var.sql_sidecar
+    error_message = "sql_demo_login necesita sql_sidecar = true."
+  }
+}
+
+variable "catalog_seed" {
+  description = <<-EOT
+    Con sql_demo_login: catálogo que la API publica en la BD al arrancar, en lugar de descubrirlo y describirlo con el
+    modelo. Así el entorno de pruebas busca sobre el mismo catálogo y conocimiento con el que se miden los resultados.
+    root: directorio de la imagen con config/, catalog/ y knowledge/. knowledge: fuentes de conocimiento extra
+    (items/, rules/…) que se suman a las de root. server_id: id del servidor en ese catálogo, que recibe el SQL Server
+    de la tarea para que los permisos de cada login casen con los activos.
+  EOT
+  type = object({
+    root      = string
+    knowledge = optional(string)
+    server_id = string
+  })
+  default = null
+  validation {
+    condition     = var.catalog_seed == null || var.sql_demo_login
+    error_message = "catalog_seed necesita sql_demo_login = true (el SQL Server de la tarea registrado al arrancar)."
+  }
+}
+
 variable "sql_memory_mb" {
   description = "Memoria máxima de SQL Server dentro de la tarea (MSSQL_MEMORY_LIMIT_MB). SQL Server pide al menos 2000."
   type        = number
