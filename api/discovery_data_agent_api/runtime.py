@@ -88,16 +88,18 @@ PRELOAD_ENVIRONMENTS = ("produccion", "qa", "desarrollo", "dr")
 
 
 def preloaded_server(spec: str) -> ServerConfig:
-    """`host|alias|ambiente` de DISCOVERY_DATA_AGENT_PRELOAD_SERVER → el servidor que registraría el primer login.
+    """`host|alias|ambiente[|id]` de DISCOVERY_DATA_AGENT_PRELOAD_SERVER → el servidor que registraría el primer login.
 
     Solo para entornos de prueba con SQL Server en la propia tarea, cuyo certificado es autofirmado: por eso se confía
-    en él, y por eso `production_violations` no acepta la variable en qa ni en prod."""
+    en él, y por eso `production_violations` no acepta la variable en qa ni en prod. El `id` opcional fija el
+    identificador del servidor para que coincida con el de un catálogo publicado al arrancar (sin él, sale del host)."""
     parts = [p.strip() for p in spec.split("|")]
-    if len(parts) != 3 or not all(parts) or parts[2] not in PRELOAD_ENVIRONMENTS:
-        raise ValueError("DISCOVERY_DATA_AGENT_PRELOAD_SERVER debe ser 'host|alias|ambiente' "
+    if len(parts) not in (3, 4) or not all(parts) or parts[2] not in PRELOAD_ENVIRONMENTS:
+        raise ValueError("DISCOVERY_DATA_AGENT_PRELOAD_SERVER debe ser 'host|alias|ambiente[|id]' "
                          f"(ambiente: {', '.join(PRELOAD_ENVIRONMENTS)})")
-    host, alias, environment = parts
-    return server_from_host(host, alias, environment, True, Inventory(servers=[]))
+    host, alias, environment = parts[:3]
+    server = server_from_host(host, alias, environment, True, Inventory(servers=[]))
+    return server.model_copy(update={"id": parts[3]}) if len(parts) == 4 else server
 
 
 class AgentRuntime:

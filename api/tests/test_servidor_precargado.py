@@ -77,6 +77,32 @@ def test_sin_login_de_construccion_no_se_descubre_nada_al_arrancar(tmp_path):
     assert status["has_catalog"] is False
 
 
+def test_el_id_del_servidor_precargado_se_puede_fijar_para_casar_con_un_catalogo_publicado():
+    from discovery_data_agent_api.runtime import preloaded_server
+
+    assert preloaded_server("localhost,1433|SQL Server demo|desarrollo").id == "LOCALHOST_1433"
+    server = preloaded_server("localhost,1433|SQL Server demo|desarrollo|LOCAL_SQLEXPRESS")
+    assert (server.id, server.host, server.alias) == ("LOCAL_SQLEXPRESS", "localhost,1433", "SQL Server demo")
+
+
+def _tablas_vistas(tmp_path, preload_server: str) -> list[str]:
+    import shutil
+
+    shutil.copytree(FIXTURE, tmp_path / "catalog")
+    client = TestClient(create_app(_settings(tmp_path, preload_server=preload_server), DemoConnector(FIXTURE)))
+    client.post("/auth/login", json={"login": "demo", "password": "demo"})
+    r = client.post("/discover", json={"question": "¿Dónde está el DUI del cliente?"})
+    assert r.status_code == 200, r.text
+    return r.json()["tables_used"]
+
+
+def test_con_un_catalogo_publicado_el_id_fijado_hace_visibles_sus_activos(tmp_path):
+    # El catálogo de los fixtures es del servidor LOCAL_SQLEXPRESS: con el id que sale del host no se ve nada.
+    assert _tablas_vistas(tmp_path / "sin_id", "localhost,1433|SQL Server demo|desarrollo") == []
+    assert "BancaPrestamos.dbo.Clientes" in _tablas_vistas(
+        tmp_path / "con_id", "localhost,1433|SQL Server demo|desarrollo|LOCAL_SQLEXPRESS")
+
+
 def test_qa_y_prod_no_aceptan_un_servidor_precargado(tmp_path):
     problems = production_violations(_settings(tmp_path, preload_server="localhost,1433|SQL|desarrollo"))
     assert any("DISCOVERY_DATA_AGENT_PRELOAD_SERVER" in p for p in problems)

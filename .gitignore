@@ -19,3 +19,6 @@ config/models.yaml.active
 *.tfstate
 *.tfstate.*
 *.tfplan
+
+# Registros y capturas del MCP de Playwright
+.playwright-mcp/

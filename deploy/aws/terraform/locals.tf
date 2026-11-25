@@ -27,6 +27,15 @@ locals {
 
   # Con la BD en la tarea (sql_sidecar), la API la migra antes de arrancar: cada arranque parte de una BD vacía.
   migrate = var.sql_sidecar ? "discovery-data-agent db migrate && " : ""
+  # catalog_seed: copia el catálogo con su conocimiento extra y lo publica en la BD vacía. Si falla, la API arranca
+  # igual y descubre los esquemas con el modelo (DISCOVERY_DATA_AGENT_PRELOAD_BUILD_LOGIN).
+  seed = var.catalog_seed == null ? "" : join(" && ", compact([
+    "rm -rf /tmp/seed && mkdir -p /tmp/seed",
+    "cp -r ${var.catalog_seed.root}/config ${var.catalog_seed.root}/catalog ${var.catalog_seed.root}/knowledge /tmp/seed/",
+    var.catalog_seed.knowledge == null ? "" : "cp -r ${var.catalog_seed.knowledge}/. /tmp/seed/knowledge/",
+    "discovery-data-agent catalog publish --root /tmp/seed --by instalador",
+  ]))
+  publish = local.seed == "" ? "" : "{ ${local.seed} || echo 'catalog_seed: no se pudo publicar el catálogo' >&2; } && "
   uvicorn = "exec uvicorn discovery_data_agent_api.main:app --app-dir api --host 0.0.0.0 --port 8000 --workers 1"
   # El models.yaml no va en la imagen: llega como variable y el arranque lo escribe en /tmp.
   write_models = "printf '%s' \"$DISCOVERY_DATA_AGENT_MODELS_YAML\" > /tmp/models.yaml"
